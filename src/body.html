@@ -1,0 +1,77 @@
+<div id="game"></div>
+<div id="mask"></div><div id="warn"></div>
+<div id="hud" class="hide">
+  <div id="comp">
+    <div class="dep" id="hDepth">0.0<small>m</small></div>
+    <div class="row"><span>Tempo</span><b id="hTime">0:00</b></div>
+    <div class="row"><span>Fôlego</span><b id="hO2">100%</b></div>
+    <div class="bar" id="o2bar"><i id="o2fill"></i></div>
+    <div class="row"><span>BPM</span><b id="hBpm">68</b></div>
+    <div class="row"><span>Máx.</span><b id="hMax">0.0 m</b></div>
+  </div>
+  <div id="compass"><div class="arr" id="cArr">▲</div><span id="cTxt">—</span></div>
+  <div id="topr">
+    <div class="chip" id="money">Dinheiro<b id="hMoney">R$ 0</b></div>
+    <div class="chip">Fieira<b id="hStr">0 · 0,0 kg</b></div>
+    <div class="chip">Caixa<b id="hCool">0 · 0,0 kg</b></div>
+    <div class="chip" id="fuelChip">Combust.<b id="hFuel">100 L</b></div>
+  </div>
+  <div id="cross"></div><div id="aimLbl" class="hide"></div>
+  <div id="toast"></div>
+  <div id="bands"></div>
+  <div id="fight" class="hide"><div id="fTxt">Peixe brigando!</div><div class="bar"><i id="fFill"></i></div></div>
+  <div id="joy"><div id="knob"></div></div>
+  <div class="b" id="bMap">MAPA</div>
+  <div class="b" id="bView">VISTA</div>
+  <div id="btns">
+    <div class="b" id="bFire">ATIRAR</div>
+    <div class="b" id="bArm">ARMAR</div>
+    <div class="b" id="bPull">PUXAR<br>LINHA</div>
+    <div class="b" id="bUp">SUBIR</div>
+    <div class="b" id="bDive">MER&shy;GULHAR</div>
+    <div class="b hide" id="bCtx">SUBIR NO BARCO</div>
+    <div class="b" id="bAnchor">ANCORAR</div>
+    <div class="b" id="bJump">PULAR NA ÁGUA</div>
+    <div class="b" id="bMarina">MARINA</div>
+  </div>
+</div>
+<div id="black"></div>
+
+<div id="menu">
+  <div>
+    <img src="%%ICON180%%" alt="" style="width:clamp(56px,12vh,92px);height:auto;border-radius:22%;box-shadow:0 8px 30px rgba(0,0,0,.5);margin-bottom:10px">
+    <h1>DEEP <em>SPEAR</em><br><span style="font-size:.36em;letter-spacing:5px;color:#cfe">PESCA SUB · COSTA VERDE</span></h1>
+    <div class="tag">Apneia, arbalete e lajes da baía de Angra dos Reis</div>
+    <button class="btn play" id="playBtn">JOGAR</button>
+    <div class="tips">
+      Pilote a lancha até um ponto, <b>ancore</b> e pule na água. Olhe para o fundo e <b>mergulhe</b>.
+      Fique parado no fundo para fazer <b>espera</b>, que os peixes curiosos chegam perto. Respeite o seu fôlego e a medida mínima. O <b>mero é protegido</b>.<br>
+      <span style="opacity:.7">PC: WASD move · arraste o mouse para olhar · Espaço atira · R arma · F puxa · Shift sobe · Q mergulha · E interage · M mapa</span>
+    </div>
+    <div style="margin-top:14px;font-size:11px;opacity:.5">Protótipo v0.3</div>
+  </div>
+</div>
+
+<div id="mapPanel" class="panel hide">
+  <div class="card">
+    <h2>Carta náutica · Baía de Angra</h2>
+    <div class="sub">Toque num ponto para traçar a rota. A seta laranja no topo da tela aponta o destino.</div>
+    <div id="mapWrap">
+      <div id="mapBox"><canvas id="mapCv" width="360" height="360"></canvas><div id="meBoat"></div></div>
+      <div id="spotList" class="list"></div>
+    </div>
+    <div class="row2"><span></span><button class="btn alt" id="mapClose">FECHAR</button></div>
+  </div>
+</div>
+
+<div id="marinaPanel" class="panel hide">
+  <div class="card">
+    <h2>Marina Balneário</h2>
+    <div class="sub" id="mSub"></div>
+    <div class="tabs" id="mTabs"></div>
+    <div id="mBody"></div>
+    <div class="row2"><span></span><button class="btn alt" id="mClose">VOLTAR AO BARCO</button></div>
+  </div>
+</div>
+
+<div id="rot"><div><div style="font-size:42px">⟲</div>Gire o celular para jogar na horizontal.</div></div>
