@@ -2215,13 +2215,13 @@ function updateDiver(dt, t) {
 }
 // câmera de 3ª pessoa
 function thirdPersonCam(t) {
-  const cp = Math.cos(P.pitch), fwd = _a.set(-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp);
-  const tall = camera.aspect < 1, back = tall ? 4.0 : 3.1, up = (P.under ? 0.75 : 1.0) * (tall ? 1.25 : 1), sideK = 0.45, rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
+  const op = P.pitch * 0.55, cp = Math.cos(op), fwd = _a.set(-Math.sin(P.yaw) * cp, Math.sin(op), -Math.cos(P.yaw) * cp);
+  const tall = camera.aspect < 1, back = tall ? 6.0 : 5.2, up = (P.under ? 1.2 : 1.4) * (tall ? 1.2 : 1), sideK = 0.55, rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   const c = new V3(P.pos.x - fwd.x * back + rx * sideK, P.pos.y - fwd.y * back + up, P.pos.z - fwd.z * back + rz * sideK);
   const h = H(c.x, c.z); if (c.y < h + 0.35) c.y = h + 0.35;
   pushOutRocks(c, 0.3);
-  camera.position.lerp(c, 0.5);
-  camera.rotation.set(P.pitch - 0.16, P.yaw, 0, 'YXZ');
+  camera.position.lerp(c, 0.35);
+  camera.rotation.set(P.pitch - 0.2, P.yaw, 0, 'YXZ');
 }
 
 // ================= loja, equipamentos, naufrágio, parcel e campeonato =================
