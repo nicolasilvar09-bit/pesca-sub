@@ -285,13 +285,17 @@ function climbBoat() {
 }
 function blackout() {
   P.blackT = 3.2; document.getElementById('black').style.opacity = 1;
-  const lost = P.stringer.length; P.stringer = [];
+  // com dupla: ela desce, traz você e a fieira; sozinho: resgate de um barco que passava
+  const buddy = hasBuddy(), lost = buddy ? 0 : P.stringer.length;
+  if (buddy) { SV.cooler.push(...P.stringer); } P.stringer = [];
   if (GUN.fish) { GUN.fish.state = 'dead'; GUN.fish = null; } GUN.state = 'ready';
   setTimeout(() => {
     P.mode = 'boat'; P.o2 = 0.35; P.under = false; P.blackT = 0; AU.setEnv(false);
     document.getElementById('black').style.opacity = 0;
-    toast('APAGÃO! Você desmaiou em apneia e foi resgatado pela dupla.' + (lost ? ` Perdeu ${lost} peixe(s) da fieira.` : ''), 6, 'bad');
-    toast('Na vida real: nunca mergulhe sozinho e respeite o intervalo de superfície.', 6);
+    if (buddy) toast('APAGÃO! Sua dupla viu, desceu e te trouxe para a superfície. A fieira foi para a caixa térmica.', 6, 'bad');
+    else { SV.money -= 300; waitHours(3); toast('APAGÃO sozinho! Um barco que passava te resgatou: perdeu a fieira' + (lost ? ` (${lost} peixe(s))` : '') + ', pagou R$ 300 de atendimento e perdeu 3 horas.', 7, 'bad'); }
+    toast('Na vida real um apagão sem dupla costuma ser fatal: nunca mergulhe sozinho e respeite o intervalo de superfície.', 7);
+    save();
   }, 1800);
 }
 
@@ -313,7 +317,7 @@ function updateSwim(dt, t) {
     if (took('dive') || (IN.jy > 0.5 && P.pitch < -0.75)) {
       P.under = true; P.pos.y = surfY - 0.8; P.vel.set(fwd.x * 0.6, -1.4, fwd.z * 0.6); P.pitch = Math.min(P.pitch, -0.9);
       P.diveT = 0; P.maxD = 0; AU.splash(); spawnBubbles(_c.set(P.pos.x, P.pos.y + 0.3, P.pos.z), 20, 0.4);
-      P.startO2 = P.o2;
+      P.startO2 = P.o2; buddyDiveTip();
       if (P.o2 < 0.6) toast('Pouco fôlego! Respire mais na superfície antes de descer.', 3, 'bad');
       if (DAY.amb < 0.35 && !P.nightTip) { P.nightTip = true; toast('Na vida real, confira as regras locais: em muitos lugares a pesca sub noturna é proibida.', 5); }
     }
@@ -334,7 +338,7 @@ function updateSwim(dt, t) {
     // consumo de oxigênio
     P.o2 -= dt / maxBreath() * (0.7 + 0.65 * P.effort + depth / 45) * (P.stringer.length > 6 ? 1.1 : 1) * suitNow().o2 * maskNow().o2;
     if (P.pos.y > surfY - 0.45 && P.vel.y > -0.05) {
-      P.under = false; AU.breath(); P.surfT = 0;
+      P.under = false; AU.breath(); P.surfT = 0; P.lastDiveT = P.diveT;
       const d = P.maxD; if (d > 2) toast(`Mergulho: ${fmtKg(d)} m · ${Math.floor(P.diveT)} s`, 2.2);
       mission('depth', { d });
     }

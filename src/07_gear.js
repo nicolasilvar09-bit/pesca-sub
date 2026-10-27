@@ -533,6 +533,7 @@ function renderShop() {
     h += SUITS.map((s, i) => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.desc}</div></div>${(SV.suit || 0) === i ? '<span class="d">EM USO</span>' : (SV.suits || [0]).includes(i) ? `<button class="btn alt" data-suit="${i}">USAR</button>` : buyBtn(`data-bsuit="${i}"`, s.price)}</div>`).join('');
     h += MASKS.map((s, i) => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.desc}</div></div>${(SV.mask || 0) === i ? '<span class="d">EM USO</span>' : (SV.masks || [0]).includes(i) ? `<button class="btn alt" data-mask="${i}">USAR</button>` : buyBtn(`data-bmask="${i}"`, s.price)}</div>`).join('');
     h += `<div class="it"><div><div class="n">Lanterna de mergulho</div><div class="d">Acende sozinha abaixo de 7 m e na água turva. Ilumina toca e naufrágio.</div></div>${SV.light ? '<span class="d">TEM</span>' : buyBtn('id="buyLight"', LIGHT_PRICE)}</div>`;
+    h += `<div class="it"><div><div class="n">Dupla de mergulho · hoje</div><div class="d">Fica na superfície vigiando enquanto você desce (um sobe, o outro desce). Num apagão, ela te resgata e salva a fieira.</div></div>${hasBuddy() ? '<span class="d">CONTRATADA</span>' : buyBtn('id="buyBuddy"', BUDDY_PRICE)}</div>`;
     h += `<div class="it"><div><div class="n">Câmera submarina</div><div class="d">Botão FOTO embaixo d'água. Revistas pagam pelas fotos: peixe raro, mero e tartaruga valem mais. Perto, centralizado e com o peixe calmo dá nota maior.</div></div>${SV.cam ? '<span class="d">TEM</span>' : buyBtn('id="buyCam"', CAM_PRICE)}</div>`;
     h += FINS.map((f, i) => `<div class="it"><div><div class="n">${f.name}</div><div class="d">Velocidade de nado ×${f.k.toFixed(2)}</div></div>${i <= SV.fins ? `<span class="d">${i === SV.fins ? 'EM USO' : 'TEM'}</span>` : `<button class="btn" data-fin="${i}" ${SV.money < f.price || i !== SV.fins + 1 ? 'disabled' : ''}>${fmtR(f.price)}</button>`}</div>`).join('');
     h += `<div class="it"><div><div class="n">Treino de apneia · nível ${lvl}/5</div><div class="d">+10 s de fôlego por nível. Hoje: ${maxBreath()} s.</div></div>${lvl >= 5 ? '<span class="d">MÁXIMO</span>' : buyBtn('id="buyAp"', ap)}</div></div>`;
@@ -568,6 +569,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
+  const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
   const fl = $('fill'); if (fl) fl.onclick = () => { const L = Math.min(tankMax() - SV.fuel, SV.money / 6.5); SV.fuel += L; SV.money -= L * 6.5; AU.coin(); save(); renderShop(); };

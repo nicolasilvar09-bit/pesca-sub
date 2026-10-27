@@ -1726,13 +1726,17 @@ function climbBoat() {
 }
 function blackout() {
   P.blackT = 3.2; document.getElementById('black').style.opacity = 1;
-  const lost = P.stringer.length; P.stringer = [];
+  // com dupla: ela desce, traz você e a fieira; sozinho: resgate de um barco que passava
+  const buddy = hasBuddy(), lost = buddy ? 0 : P.stringer.length;
+  if (buddy) { SV.cooler.push(...P.stringer); } P.stringer = [];
   if (GUN.fish) { GUN.fish.state = 'dead'; GUN.fish = null; } GUN.state = 'ready';
   setTimeout(() => {
     P.mode = 'boat'; P.o2 = 0.35; P.under = false; P.blackT = 0; AU.setEnv(false);
     document.getElementById('black').style.opacity = 0;
-    toast('APAGÃO! Você desmaiou em apneia e foi resgatado pela dupla.' + (lost ? ` Perdeu ${lost} peixe(s) da fieira.` : ''), 6, 'bad');
-    toast('Na vida real: nunca mergulhe sozinho e respeite o intervalo de superfície.', 6);
+    if (buddy) toast('APAGÃO! Sua dupla viu, desceu e te trouxe para a superfície. A fieira foi para a caixa térmica.', 6, 'bad');
+    else { SV.money -= 300; waitHours(3); toast('APAGÃO sozinho! Um barco que passava te resgatou: perdeu a fieira' + (lost ? ` (${lost} peixe(s))` : '') + ', pagou R$ 300 de atendimento e perdeu 3 horas.', 7, 'bad'); }
+    toast('Na vida real um apagão sem dupla costuma ser fatal: nunca mergulhe sozinho e respeite o intervalo de superfície.', 7);
+    save();
   }, 1800);
 }
 
@@ -1754,7 +1758,7 @@ function updateSwim(dt, t) {
     if (took('dive') || (IN.jy > 0.5 && P.pitch < -0.75)) {
       P.under = true; P.pos.y = surfY - 0.8; P.vel.set(fwd.x * 0.6, -1.4, fwd.z * 0.6); P.pitch = Math.min(P.pitch, -0.9);
       P.diveT = 0; P.maxD = 0; AU.splash(); spawnBubbles(_c.set(P.pos.x, P.pos.y + 0.3, P.pos.z), 20, 0.4);
-      P.startO2 = P.o2;
+      P.startO2 = P.o2; buddyDiveTip();
       if (P.o2 < 0.6) toast('Pouco fôlego! Respire mais na superfície antes de descer.', 3, 'bad');
       if (DAY.amb < 0.35 && !P.nightTip) { P.nightTip = true; toast('Na vida real, confira as regras locais: em muitos lugares a pesca sub noturna é proibida.', 5); }
     }
@@ -1775,7 +1779,7 @@ function updateSwim(dt, t) {
     // consumo de oxigênio
     P.o2 -= dt / maxBreath() * (0.7 + 0.65 * P.effort + depth / 45) * (P.stringer.length > 6 ? 1.1 : 1) * suitNow().o2 * maskNow().o2;
     if (P.pos.y > surfY - 0.45 && P.vel.y > -0.05) {
-      P.under = false; AU.breath(); P.surfT = 0;
+      P.under = false; AU.breath(); P.surfT = 0; P.lastDiveT = P.diveT;
       const d = P.maxD; if (d > 2) toast(`Mergulho: ${fmtKg(d)} m · ${Math.floor(P.diveT)} s`, 2.2);
       mission('depth', { d });
     }
@@ -1982,7 +1986,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); updateHide(dt); updateMoreias(dt, T);
+  updateComp(dt, T); updateLight(); updateRare(dt); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T);
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -2799,6 +2803,7 @@ function renderShop() {
     h += SUITS.map((s, i) => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.desc}</div></div>${(SV.suit || 0) === i ? '<span class="d">EM USO</span>' : (SV.suits || [0]).includes(i) ? `<button class="btn alt" data-suit="${i}">USAR</button>` : buyBtn(`data-bsuit="${i}"`, s.price)}</div>`).join('');
     h += MASKS.map((s, i) => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.desc}</div></div>${(SV.mask || 0) === i ? '<span class="d">EM USO</span>' : (SV.masks || [0]).includes(i) ? `<button class="btn alt" data-mask="${i}">USAR</button>` : buyBtn(`data-bmask="${i}"`, s.price)}</div>`).join('');
     h += `<div class="it"><div><div class="n">Lanterna de mergulho</div><div class="d">Acende sozinha abaixo de 7 m e na água turva. Ilumina toca e naufrágio.</div></div>${SV.light ? '<span class="d">TEM</span>' : buyBtn('id="buyLight"', LIGHT_PRICE)}</div>`;
+    h += `<div class="it"><div><div class="n">Dupla de mergulho · hoje</div><div class="d">Fica na superfície vigiando enquanto você desce (um sobe, o outro desce). Num apagão, ela te resgata e salva a fieira.</div></div>${hasBuddy() ? '<span class="d">CONTRATADA</span>' : buyBtn('id="buyBuddy"', BUDDY_PRICE)}</div>`;
     h += `<div class="it"><div><div class="n">Câmera submarina</div><div class="d">Botão FOTO embaixo d'água. Revistas pagam pelas fotos: peixe raro, mero e tartaruga valem mais. Perto, centralizado e com o peixe calmo dá nota maior.</div></div>${SV.cam ? '<span class="d">TEM</span>' : buyBtn('id="buyCam"', CAM_PRICE)}</div>`;
     h += FINS.map((f, i) => `<div class="it"><div><div class="n">${f.name}</div><div class="d">Velocidade de nado ×${f.k.toFixed(2)}</div></div>${i <= SV.fins ? `<span class="d">${i === SV.fins ? 'EM USO' : 'TEM'}</span>` : `<button class="btn" data-fin="${i}" ${SV.money < f.price || i !== SV.fins + 1 ? 'disabled' : ''}>${fmtR(f.price)}</button>`}</div>`).join('');
     h += `<div class="it"><div><div class="n">Treino de apneia · nível ${lvl}/5</div><div class="d">+10 s de fôlego por nível. Hoje: ${maxBreath()} s.</div></div>${lvl >= 5 ? '<span class="d">MÁXIMO</span>' : buyBtn('id="buyAp"', ap)}</div></div>`;
@@ -2834,6 +2839,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
+  const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
   const fl = $('fill'); if (fl) fl.onclick = () => { const L = Math.min(tankMax() - SV.fuel, SV.money / 6.5); SV.fuel += L; SV.money -= L * 6.5; AU.coin(); save(); renderShop(); };
@@ -3377,6 +3383,47 @@ function updateSound(dt) {
   else SND.brT = 1.5;
   // gaivotas de dia, fora d'água
   if (!under && DAY.amb > 0.5 && (SND.gullT -= dt) <= 0) { SND.gullT = rand(20, 45); gull(); }
+}
+
+// ================= dupla de mergulho: um sobe, o outro desce =================
+const BUDDY_PRICE = 150;
+const BUDDY = { rig: null, pos: new V3(), yaw: 0, kick: 0, state: 'surf', t: 0, a: 0, tipDay: 0 };
+const hasBuddy = () => SV.buddyDay === (SV.day || 1);
+function hireBuddy() {
+  if (hasBuddy() || SV.money < BUDDY_PRICE) return;
+  SV.money -= BUDDY_PRICE; SV.buddyDay = SV.day || 1; AU.coin(); save();
+  toast('Dupla contratada para hoje: ela fica na superfície de olho em você.', 4, 'gold');
+}
+function updateBuddy(dt, t) {
+  const on = hasBuddy() && P.mode === 'swim' && !COMP.on;
+  if (!BUDDY.rig) {
+    if (!on) return;
+    const r = buildDiver(false); r.suitMat.map = null; r.suitMat.color.set(0x24364e); r.suitMat.needsUpdate = true; BUDDY.rig = r;
+    BUDDY.pos.set(P.pos.x + 3, 0, P.pos.z + 2);
+  }
+  BUDDY.rig.root.visible = on; if (!on) return;
+  // vigia na superfície a ~3,5 m; com o mergulhador descansando muito tempo, faz o seu mergulho
+  BUDDY.a += dt * 0.12; BUDDY.t -= dt;
+  const surf = waveH(BUDDY.pos.x, BUDDY.pos.z, t) - 0.15, tg = _t1.set(P.pos.x + Math.cos(BUDDY.a) * 3.5, surf, P.pos.z + Math.sin(BUDDY.a) * 3.5);
+  if (BUDDY.state === 'surf' && !P.under && P.surfT > 25 && BUDDY.t <= 0) { BUDDY.state = 'dive'; BUDDY.t = rand(18, 26); }
+  if (BUDDY.state === 'dive') {
+    tg.y = Math.max(H(BUDDY.pos.x, BUDDY.pos.z) + 1.5, -12);
+    if (P.under) { BUDDY.state = 'up'; toast('Dupla: espera eu subir! Um sobe, o outro desce.', 3); }
+    else if (BUDDY.t <= 0) BUDDY.state = 'up';
+  }
+  if (BUDDY.state === 'up' && BUDDY.pos.y > surf - 0.3) { BUDDY.state = 'surf'; BUDDY.t = 30; }
+  const d = _t2.subVectors(tg, BUDDY.pos), dist = d.length(), sp = BUDDY.state === 'surf' ? Math.min(1.4, dist * 0.6) : 0.9;
+  if (dist > 0.05) BUDDY.pos.addScaledVector(d, Math.min(1, sp * dt / dist));
+  if (BUDDY.state === 'surf') BUDDY.pos.y = surf;
+  const mv = clamp(sp / 1.4, 0, 1), under = BUDDY.state !== 'surf';
+  const ty = dist > 0.6 ? Math.atan2(-d.x, -d.z) : Math.atan2(-(P.pos.x - BUDDY.pos.x), -(P.pos.z - BUDDY.pos.z));
+  BUDDY.yaw += angDiff(BUDDY.yaw, ty) * clamp(dt * 2, 0, 1); BUDDY.kick += dt * (1.5 + mv * 4);
+  placeRig(BUDDY.rig, BUDDY.pos, BUDDY.yaw, BUDDY.state === 'dive' ? -0.9 : BUDDY.state === 'up' ? 1.0 : 0, under, mv, BUDDY.kick);
+}
+// dica de intervalo de superfície ao descer cedo demais
+function buddyDiveTip() {
+  if (P.lastDiveT > 15 && P.surfT < P.lastDiveT * 1.5) toast(`${hasBuddy() ? 'Dupla' : 'Cuidado'}: descansa mais! Fique na superfície pelo menos o dobro do tempo do mergulho (${Math.round(P.lastDiveT * 2)} s).`, 4, 'bad');
+  if (!hasBuddy() && BUDDY.tipDay !== SV.day) { BUDDY.tipDay = SV.day; toast(`Mergulhando sem dupla. Contrate uma na loja (${fmtR(BUDDY_PRICE)}/dia): ela te resgata num apagão.`, 4); }
 }
 
 init();

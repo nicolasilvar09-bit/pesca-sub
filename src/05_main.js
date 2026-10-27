@@ -168,7 +168,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); updateHide(dt); updateMoreias(dt, T);
+  updateComp(dt, T); updateLight(); updateRare(dt); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T);
   applyShake(dt);
 }
 function updateEnv(dt) {
