@@ -24,6 +24,8 @@ function renderOpt() {
     optRow('Música', seg('mus', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
     optRow('Vibração', seg('vib', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
     optRow('Vista ao nadar', seg('third', [[true, '3ª PESSOA'], [false, '1ª PESSOA']])) +
+    optRow('Backup do progresso', `<button class="btn gold" id="optExp">COPIAR CÓDIGO</button><button class="btn alt" id="optImp">COLAR CÓDIGO</button>`) +
+    `<div class="it" id="optBk" style="display:none;flex-direction:column;align-items:stretch;gap:6px"><div class="d" id="optBkTxt"></div><textarea id="optCode" rows="4" style="width:100%;box-sizing:border-box;font:12px monospace;background:#031018;color:#cfe;border:1px solid var(--line);border-radius:8px;padding:6px"></textarea><div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn gold hide" id="optLoad">CARREGAR ESTE PROGRESSO</button></div></div>` +
     optRow('Progresso', `<button class="btn alt" id="optReset">APAGAR SAVE</button>`) +
     `</div><div class="it" style="margin-top:8px"><div class="d">Qualidade baixa reduz a resolução e o alcance do detalhe do fundo e dos peixes. Use se o celular esquentar ou travar.</div></div>`;
   const B = $('optBody');
@@ -33,6 +35,30 @@ function renderOpt() {
     saveOpt(); applyOpt(); AU.click(); renderOpt();
   });
   B.querySelectorAll('[data-range]').forEach(r => r.oninput = () => { OPT[r.dataset.range] = +r.value; r.nextElementSibling.textContent = r.dataset.range === 'vol' ? Math.round(OPT.vol * 100) + '%' : OPT.sens.toFixed(1) + '×'; saveOpt(); applyOpt(); });
+  // backup: o save inteiro vira um código de texto (copiar e colar em outro app, navegador ou aparelho)
+  const bk = $('optBk'), code = $('optCode'), txt = $('optBkTxt'), load = $('optLoad');
+  $('optExp').onclick = async () => {
+    save(); const c = 'DS1:' + btoa(unescape(encodeURIComponent(JSON.stringify(SV))));
+    bk.style.display = 'flex'; load.classList.add('hide'); code.value = c; code.select();
+    let ok = false; try { await navigator.clipboard.writeText(c); ok = true; } catch (e) { try { ok = document.execCommand('copy'); } catch (e2) { } }
+    txt.textContent = ok ? 'Código copiado! Guarde nas Notas ou mande para você mesmo no WhatsApp. Para recuperar, toque em COLAR CÓDIGO.' : 'Selecione e copie o código abaixo (segure em cima → Selecionar tudo → Copiar) e guarde nas Notas.';
+    AU.click();
+  };
+  $('optImp').onclick = async () => {
+    bk.style.display = 'flex'; load.classList.remove('hide'); code.value = ''; txt.textContent = 'Cole aqui o código do backup e toque em CARREGAR.';
+    try { const c = await navigator.clipboard.readText(); if (c && c.startsWith('DS1:')) code.value = c; } catch (e) { }
+    code.focus();
+  };
+  load.onclick = () => {
+    const c = code.value.trim();
+    try {
+      if (!c.startsWith('DS1:')) throw 0;
+      const d = JSON.parse(decodeURIComponent(escape(atob(c.slice(4)))));
+      if (typeof d !== 'object' || d.money == null) throw 0;
+      if (!confirm(`Carregar este progresso (${fmtR(d.money)}, ${(d.guns || []).length} arbalete(s), ${(d.boats || [0]).length} lancha(s))? O progresso atual deste aparelho será substituído.`)) return;
+      localStorage.setItem(SAVE_KEY, JSON.stringify(d)); location.reload();
+    } catch (e) { txt.textContent = 'Código inválido. Confira se copiou ele inteiro, começando com DS1:'; AU.bad(); }
+  };
   $('optReset').onclick = () => { if (confirm('Apagar todo o progresso (dinheiro, equipamentos, recordes)? Não dá para desfazer.')) { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } location.reload(); } };
 }
 function openOpt() { renderOpt(); $('optPanel').classList.remove('hide'); paused = true; }
