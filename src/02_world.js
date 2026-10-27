@@ -87,6 +87,9 @@ function initRenderer() {
   sun = new THREE.DirectionalLight(0xfff1d8, 1.7); sun.position.copy(SUN_DIR).multiplyScalar(100); scene.add(sun);
 }
 
+// vaivém da ondulação de fundo (surge): mesma fórmula no shader e no JS, tudo balança junto
+const SURGE_GLSL = 'vec2 surge=vec2(sin(uTime*0.55),cos(uTime*0.44)*0.6);';
+const surgeAt = (t, out) => out.set(Math.sin(t * 0.55), 0, Math.cos(t * 0.44) * 0.6);
 // ===== shader subaquático compartilhado (absorção da luz + cáusticas) =====
 const UW_FRAG_HEAD = `uniform float uTime; varying vec3 vWP;
 float causF(vec2 uv){ vec2 p=mod(uv*6.28318,6.28318)-250.0; vec2 i=p; float c=1.0; float inten=0.005;
@@ -257,12 +260,24 @@ function insideRock(p) {
   for (const R of rocksNear(p.x, p.z)) { const dx = p.x - R.x, dy = (p.y - R.y) / R.sy, dz = p.z - R.z; if (dx * dx + dy * dy + dz * dz < (R.r * 0.84) ** 2) return true; }
   return false;
 }
+// raio da pedra na direção unitária v (o mesmo ruído que deforma a malha)
+const rockN = (v, o1, o2) => 1 + 0.3 * vnoise(v.x * 1.6 + o1, v.y * 1.6 + v.z * 1.2) + 0.14 * vnoise(v.z * 3.4 + o2, v.x * 3.1 - v.y * 2.3) + 0.07 * vnoise(v.x * 7 + v.z * 5, v.y * 7 + o1) + 0.035 * vnoise(v.x * 15 + o2, v.z * 15 - v.y * 11) + 0.08 * Math.max(0, vnoise(v.x * 2.2 - o1, v.z * 2.2) - 0.3);
+const ROCK_O = [];
+// ponto na superfície real da pedra R na direção local dir (y para cima); devolve a normal aproximada em nrm
+function rockSurf(R, dir, out, nrm, k = 0.97) {
+  const [o1, o2] = ROCK_O[R.gi], n = rockN(dir, o1, o2);
+  out.copy(dir).multiplyScalar(n * k); if (out.y < -0.35) out.y = -0.35 + (out.y + 0.35) * 0.3;
+  out.set(out.x * R.r, out.y * R.r * R.sy, out.z * R.r).applyQuaternion(R.q); out.x += R.x; out.y += R.y; out.z += R.z;
+  if (nrm) nrm.set(dir.x / R.r, dir.y / (R.r * R.sy), dir.z / R.r).applyQuaternion(R.q).normalize();
+  return out;
+}
 function rockGeo(seed) {
   const g = new THREE.IcosahedronGeometry(1, 4), p = g.attributes.position, r = mulberry(seed), o1 = r() * 100, o2 = r() * 100;
   const v = new V3(), col = new Float32Array(p.count * 3), c = new THREE.Color();
+  ROCK_O.push([o1, o2]);
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i);
-    const n = 1 + 0.3 * vnoise(v.x * 1.6 + o1, v.y * 1.6 + v.z * 1.2) + 0.14 * vnoise(v.z * 3.4 + o2, v.x * 3.1 - v.y * 2.3) + 0.07 * vnoise(v.x * 7 + v.z * 5, v.y * 7 + o1) + 0.035 * vnoise(v.x * 15 + o2, v.z * 15 - v.y * 11) + 0.08 * Math.max(0, vnoise(v.x * 2.2 - o1, v.z * 2.2) - 0.3);
+    const n = rockN(v, o1, o2);
     v.multiplyScalar(n); if (v.y < -0.35) v.y = -0.35 + (v.y + 0.35) * 0.3;
     p.setXYZ(i, v.x, v.y, v.z);
     const top = smooth(0.15, 0.7, v.y / n), k = 0.85 + 0.3 * vnoise(v.x * 5 + o2, v.z * 5);
@@ -273,6 +288,35 @@ function rockGeo(seed) {
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals(); smoothNormals(g);
   return g;
+}
+// instâncias agrupadas por ponto de pesca; cada grupo só é desenhado com a câmera por perto
+const CHUNKS = [], _cv = new V3();
+function chunked(geo, mat, items, place, far = 90) {
+  const by = new Map(); for (const it of items) { const k = it.spot || '-'; if (!by.has(k)) by.set(k, []); by.get(k).push(it); }
+  for (const list of by.values()) {
+    const im = new THREE.InstancedMesh(geo, mat, list.length), c = new V3(); let r = 0;
+    list.forEach(it => c.add(_cv.set(it[0], it[1], it[2]))); c.divideScalar(list.length);
+    list.forEach((it, i) => { place(it, i, im); r = Math.max(r, c.distanceTo(_cv.set(it[0], it[1], it[2]))); });
+    im.frustumCulled = false; CHUNKS.push({ im, c, r: r + far }); scene.add(im);
+  }
+}
+function updateChunks() { const p = camera.position; for (const k of CHUNKS) k.im.visible = p.distanceToSquared(k.c) < k.r * k.r; }
+// junta geometrias (sem índice) numa só
+function mergeGeos(list) {
+  const pa = [], na = [];
+  for (const g0 of list) { const g = g0.index ? g0.toNonIndexed() : g0; pa.push(...g.attributes.position.array); na.push(...g.attributes.normal.array); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pa, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(na, 3)); return g;
+}
+// ouriço-preto: carapaça achatada com espinhos longos irradiando (mais curtos embaixo)
+function urchinGeo() {
+  const parts = [new THREE.SphereGeometry(0.07, 7, 4).scale(1, 0.7, 1)], up = new V3(0, 1, 0), d = new V3(), r = mulberry(5);
+  for (let i = 0; i < 30; i++) {
+    const y = 1 - 2 * (i + 0.5) / 30, a = i * 2.39996, rr = Math.sqrt(1 - y * y); d.set(Math.cos(a) * rr, y, Math.sin(a) * rr);
+    if (d.y < -0.45) continue;
+    const L = (0.13 + r() * 0.07) * (d.y < 0 ? 0.55 : 1), c = new THREE.ConeGeometry(0.007, L, 3, 1, true); c.translate(0, L / 2 + 0.05, 0);
+    c.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d)); parts.push(c);
+  }
+  return mergeGeos(parts);
 }
 function smoothNormals(g) {
   const p = g.attributes.position, n = g.attributes.normal, map = new Map(), key = i => Math.round(p.getX(i) * 1e4) + ',' + Math.round(p.getY(i) * 1e4) + ',' + Math.round(p.getZ(i) * 1e4);
@@ -310,6 +354,9 @@ function fanTex() {
     g.strokeStyle = '#fff'; g.lineCap = 'round';
     const br = (x, y, a, l, w, d) => { if (d > 6 || l < 3) return; const x2 = x + Math.cos(a) * l, y2 = y + Math.sin(a) * l; g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke(); br(x2, y2, a - rand(0.2, 0.5), l * 0.78, w * 0.75, d + 1); br(x2, y2, a + rand(0.2, 0.5), l * 0.78, w * 0.75, d + 1); };
     br(64, 128, -Math.PI / 2, 26, 4, 0); br(64, 128, -Math.PI / 2 - 0.5, 20, 3, 1); br(64, 128, -Math.PI / 2 + 0.5, 20, 3, 1);
+    // rede fina entre os ramos (gorgônia-leque)
+    g.lineWidth = 0.8; g.globalAlpha = 0.85;
+    for (let i = 0; i < 260; i++) { const a = rand(-2.6, -0.55), d = rand(14, 62), x = 64 + Math.cos(a) * d, y = 128 + Math.sin(a) * d, b = a + rand(-1, 1); g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(b) * 7, y + Math.sin(b) * 7); g.stroke(); }
   });
 }
 function algaeTex() {
@@ -399,7 +446,7 @@ function buildRocksAndDecor() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3();
   groups.forEach((list, gi) => {
     const im = new THREE.InstancedMesh(geos[gi], mat, list.length);
-    list.forEach((R, k) => { e.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15)); q.setFromEuler(e); s.set(R.r, R.r * R.sy, R.r); pp.set(R.x, R.y, R.z); m4.compose(pp, q, s); im.setMatrixAt(k, m4); });
+    list.forEach((R, k) => { e.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15)); q.setFromEuler(e); R.q = q.clone(); R.gi = gi; s.set(R.r, R.r * R.sy, R.r); pp.set(R.x, R.y, R.z); m4.compose(pp, q, s); im.setMatrixAt(k, m4); });
     scene.add(im);
   });
   buildWreck();
@@ -414,13 +461,15 @@ function buildRocksAndDecor() {
   }
 
   // decoração: gorgônias, sargaço, ouriços
-  const fanM = uwify(new THREE.MeshLambertMaterial({ map: fanTex(), alphaTest: 0.4, side: THREE.DoubleSide }), { key: 'f' });
+  const fanM = uwify(new THREE.MeshLambertMaterial({ map: fanTex(), alphaTest: 0.4, side: THREE.DoubleSide }), {
+    key: 'f', vBody: SURGE_GLSL + ' float fy=max(position.y,0.0); transformed.z+=(dot(surge,vec2(instanceMatrix[2].x,instanceMatrix[2].z))*0.22+sin(uTime*1.7+instanceMatrix[3].x)*0.03)*fy*fy;'
+  });
   const algM = uwify(new THREE.MeshLambertMaterial({ map: algaeTex(), alphaTest: 0.45, side: THREE.DoubleSide }), {
-    key: 'a', vBody: 'float sw=max(position.y,0.0); transformed.x+=sin(uTime*1.3+instanceMatrix[3].x*0.7+instanceMatrix[3].z*0.3)*0.16*sw; transformed.z+=cos(uTime*0.9+instanceMatrix[3].z*0.6)*0.1*sw;'
+    key: 'a', vBody: SURGE_GLSL + ' float sw=max(position.y,0.0); vec3 sw3=vec3(surge.x,0.0,surge.y), c0=instanceMatrix[0].xyz, c2=instanceMatrix[2].xyz; vec3 sl=vec3(dot(normalize(c0),sw3),0.0,dot(normalize(c2),sw3)); transformed.x+=(sin(uTime*1.3+instanceMatrix[3].x*0.7+instanceMatrix[3].z*0.3)*0.08+sl.x*0.18)*sw; transformed.z+=(cos(uTime*0.9+instanceMatrix[3].z*0.6)*0.05+sl.z*0.18)*sw;'
   });
   const fanG = new THREE.PlaneGeometry(1, 1); fanG.translate(0, 0.5, 0);
   const algG = (() => { const a = new THREE.PlaneGeometry(0.7, 1.2); a.translate(0, 0.6, 0); const b = a.clone(); b.rotateY(Math.PI / 2); const pa = [...a.attributes.position.array, ...b.attributes.position.array], ua = [...a.attributes.uv.array, ...b.attributes.uv.array], na = [...a.attributes.normal.array, ...b.attributes.normal.array]; const ia = [...a.index.array, ...b.index.array.map(i => i + 4)]; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pa, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(ua, 2)); g.setAttribute('normal', new THREE.Float32BufferAttribute(na, 3)); g.setIndex(ia); return g; })();
-  const urG = new THREE.IcosahedronGeometry(0.11, 1);
+  const urG = urchinGeo();
   const urM = uwify(new THREE.MeshStandardMaterial({ color: 0x1a0d1c, roughness: 0.6 }), { key: 'u' });
   const fans = [], algs = [], urs = [];
   ROCKS.forEach(R => {
@@ -428,14 +477,14 @@ function buildRocksAndDecor() {
     const n = Math.floor(rand(0, 3));
     for (let k = 0; k < n; k++) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * 1.05, z = R.z + Math.sin(a) * R.r * 1.05; fans.push([x, H(x, z), z, rand(0.5, 1.4), a]); }
     for (let k = 0; k < 3; k++) algs.push([R.x + rand(-R.r, R.r) * 0.5, R.y + R.r * R.sy * rand(0.55, 0.85), R.z + rand(-R.r, R.r) * 0.5, rand(0.5, 1.1)]);
-    for (let k = 0; k < 6; k++) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * 0.92, z = R.z + Math.sin(a) * R.r * 0.92; urs.push([x, H(x, z) + 0.08, z]); }
+    for (let k = 0; k < 5; k++) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * 0.92, z = R.z + Math.sin(a) * R.r * 0.92, u = [x, H(x, z) + 0.08, z]; u.spot = R.spot; urs.push(u); }
   });
-  const fanIM = new THREE.InstancedMesh(fanG, fanM, fans.length), algIM = new THREE.InstancedMesh(algG, algM, algs.length), urIM = new THREE.InstancedMesh(urG, urM, urs.length);
+  const fanIM = new THREE.InstancedMesh(fanG, fanM, fans.length), algIM = new THREE.InstancedMesh(algG, algM, algs.length);
   const fanCols = [0x8a3fa0, 0xd9a520, 0xc0502a, 0x6a2a80, 0xe0d0b0];
   fans.forEach((f, i) => { e.set(0, f[4], rand(-0.2, 0.2)); q.setFromEuler(e); s.set(f[3], f[3] * rand(0.8, 1.3), f[3]); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); fanIM.setMatrixAt(i, m4); fanIM.setColorAt(i, new THREE.Color(pick(fanCols))); });
   algs.forEach((f, i) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); s.set(f[3], f[3], f[3]); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); algIM.setMatrixAt(i, m4); });
-  urs.forEach((f, i) => { e.set(0, 0, 0); q.setFromEuler(e); s.set(1, 0.7, 1); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); urIM.setMatrixAt(i, m4); });
-  scene.add(fanIM, algIM, urIM);
+  chunked(urG, urM, urs, (f, i, im) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); s.setScalar(rand(0.75, 1.2)); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); });
+  scene.add(fanIM, algIM);
   // capim/sargaço espalhado no fundo arenoso da baía
   const sea = []; for (let i = 0; i < 2600; i++) { const x = rand(-760, 760), z = rand(-700, 740), h = H(x, z); if (h < -2 && h > -16 && fbm(x * 0.02 + 40, z * 0.02, 2) > 0.2) sea.push([x, h, z]); }
   const seaIM = new THREE.InstancedMesh(algG, algM, sea.length);
@@ -493,15 +542,20 @@ function buildLand() {
 const BUOYS = [];
 
 // ================= partículas / raios de luz =================
-let snow, snowPos, rays, bubbles;
+let snow, snowPos, rays, bubbles, plank;
+const _sg = new V3();
 function buildFX() {
   const N = 900; snowPos = new Float32Array(N * 3);
   for (let i = 0; i < N * 3; i++) snowPos[i] = rand(-14, 14);
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
   snow = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.05, map: dotTex(), transparent: true, opacity: 0.55, depthWrite: false, color: 0xcfe6e0 }));
   snow.frustumCulled = false; scene.add(snow);
+  const pg = new THREE.BufferGeometry(), pp = new Float32Array(160 * 3); for (let i = 0; i < pp.length; i++) pp[i] = rand(-9, 9);
+  pg.setAttribute('position', new THREE.BufferAttribute(pp, 3));
+  plank = new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.11, map: dotTex(), transparent: true, opacity: 0.4, depthWrite: false, color: 0xe8f4e0 }));
+  plank.frustumCulled = false; scene.add(plank);
   rays = new THREE.Group(); const rt = rayTex();
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 22; i++) {
     const w = rand(1.2, 4), pg = new THREE.PlaneGeometry(w, 40); pg.translate(0, -20, 0);
     const m = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ map: rt, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false, color: 0x9fe8ff }));
     m.userData = { ox: rand(-18, 18), oz: rand(-18, 18), ph: rand(0, TAU) }; rays.add(m);
@@ -518,11 +572,20 @@ function spawnBubbles(p, n, spread = 0.15) {
   for (let i = 0; i < n; i++) { if (L.length > 135) L.shift(); L.push({ x: p.x + rand(-spread, spread), y: p.y + rand(-spread, spread), z: p.z + rand(-spread, spread), vy: rand(0.4, 1.0), t: rand(0, 6) }); }
 }
 function updateFX(dt, camUnder, murk, t) {
-  snow.visible = camUnder;
+  updateChunks();
+  snow.visible = plank.visible = camUnder;
+  surgeAt(t, _sg);
   if (camUnder) {
     const c = camera.position;
+    // plâncton: flocos maiores, poucos, deriva lenta com o vaivém
+    const pa = plank.geometry.attributes.position.array;
+    for (let i = 0; i < pa.length; i += 3) {
+      pa[i] += (_sg.x * 0.18 + Math.sin(t * 0.3 + i) * 0.04) * dt; pa[i + 1] += Math.sin(t * 0.5 + i * 0.7) * 0.02 * dt; pa[i + 2] += (_sg.z * 0.18 + Math.cos(t * 0.27 + i) * 0.04) * dt;
+      for (let k = 0; k < 3; k++) { const cc = k === 0 ? c.x : k === 1 ? c.y : c.z; let v = pa[i + k]; if (v - cc > 9) v -= 18; else if (v - cc < -9) v += 18; pa[i + k] = v; }
+    }
+    plank.geometry.attributes.position.needsUpdate = true; plank.material.opacity = 0.35 + murk * 0.3;
     for (let i = 0; i < snowPos.length; i += 3) {
-      snowPos[i + 1] -= dt * 0.03;
+      snowPos[i] += _sg.x * dt * 0.12; snowPos[i + 1] -= dt * 0.03; snowPos[i + 2] += _sg.z * dt * 0.12;
       for (let k = 0; k < 3; k++) { const cc = k === 0 ? c.x : k === 1 ? c.y : c.z; let v = snowPos[i + k]; if (v - cc > 14) v -= 28; else if (v - cc < -14) v += 28; snowPos[i + k] = v; }
     }
     snow.geometry.attributes.position.needsUpdate = true;
@@ -534,7 +597,7 @@ function updateFX(dt, camUnder, murk, t) {
     rays.children.forEach(m => {
       const u = m.userData; m.position.set(c.x + u.ox, waveH(c.x + u.ox, c.z + u.oz, t), c.z + u.oz);
       m.rotation.set(0, Math.atan2(c.x - m.position.x, c.z - m.position.z), 0);
-      m.rotateZ(0.25); m.material.opacity = (0.035 + 0.03 * Math.sin(t * 0.7 + u.ph)) * (1 - murk);
+      m.rotateZ(0.25 + Math.sin(t * 0.13 + u.ph) * 0.06); m.material.opacity = (0.045 + 0.035 * Math.sin(t * 0.7 + u.ph)) * (1 - murk);
     });
   }
   const L = bubbles.userData.list, arr = bubbles.userData.arr;

@@ -60,11 +60,15 @@ function buildDecor2() {
   for (const R of ROCKS) {
     if (!R.spot || R.spot === 'foz') continue;
     if (Math.random() < 0.35) {
-      d.set(rand(-1, 1), rand(-0.2, 0.6), rand(-1, 1)).normalize();
-      const cx = R.x + d.x * R.r * 0.85, cy = R.y + d.y * R.r * R.sy * 0.85, cz = R.z + d.z * R.r * 0.85;
-      for (let k = 0; k < 22; k++) coral.push([cx + rand(-0.25, 0.25), cy + rand(-0.2, 0.2), cz + rand(-0.25, 0.25), d.clone()]);
+      // coral-sol em colônia: pólipos colados na face lateral/inferior da pedra
+      const d0 = new V3(rand(-1, 1), rand(-0.3, 0.5), rand(-1, 1)).normalize();
+      for (let k = 0; k < 22; k++) {
+        d.copy(d0).add(_t1.set(rand(-0.18, 0.18), rand(-0.15, 0.15), rand(-0.18, 0.18))).normalize();
+        if (R.q) { const w = rockSurf(R, d, _t2, _nr, 0.985); coral.push([w.x, w.y, w.z, _nr.clone()]); }
+        else coral.push([R.x + d.x * R.r * 0.85, R.y + d.y * R.r * R.sy * 0.85, R.z + d.z * R.r * 0.85, d.clone()]);
+      }
     }
-    if (Math.random() < 0.3) sponge.push([R.x + rand(-0.5, 0.5) * R.r, R.y + R.r * R.sy * 0.7, R.z + rand(-0.5, 0.5) * R.r, rand(0.6, 1.4)]);
+    if (Math.random() < 0.3) { if (R.q) { const w = rockSurf(R, d.set(rand(-0.6, 0.6), 1, rand(-0.6, 0.6)).normalize(), _t2, null, 0.95); sponge.push([w.x, w.y, w.z, rand(0.6, 1.4)]); } else sponge.push([R.x + rand(-0.5, 0.5) * R.r, R.y + R.r * R.sy * 0.7, R.z + rand(-0.5, 0.5) * R.r, rand(0.6, 1.4)]); }
     if (Math.random() < 0.4) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * rand(1.1, 1.8), z = R.z + Math.sin(a) * R.r * rand(1.1, 1.8); star.push([x, H(x, z) + 0.02, z]); }
   }
   const cG = new THREE.CylinderGeometry(0.035, 0.03, 0.07, 6); cG.translate(0, 0.035, 0);
@@ -79,6 +83,51 @@ function buildDecor2() {
   const stIM = new THREE.InstancedMesh(stG, uwify(new THREE.MeshStandardMaterial({ roughness: 0.8, side: THREE.DoubleSide }), { key: 'st' }), star.length);
   star.forEach((c, i) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); s.setScalar(rand(0.7, 1.4)); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); stIM.setMatrixAt(i, m4); stIM.setColorAt(i, new THREE.Color(pick([0xc8401c, 0xe08a20, 0xb03030]))); });
   scene.add(cIM, sIM, stIM);
+  buildReef3();
+}
+// coral-cérebro (Mussismilia, endêmico do Brasil): sulcos em meandro
+function brainTex() {
+  return canvasTex(128, 128, (g) => {
+    g.fillStyle = '#6a7048'; g.fillRect(0, 0, 128, 128);
+    g.lineCap = 'round';
+    for (let i = 0; i < 46; i++) {
+      let x = rand(0, 128), y = rand(0, 128), a = rand(0, TAU);
+      g.strokeStyle = `rgba(${rand(170, 200) | 0},${rand(175, 200) | 0},${rand(130, 150) | 0},.75)`; g.lineWidth = rand(2.5, 4);
+      g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 14; k++) { a += rand(-0.7, 0.7); x += Math.cos(a) * 5; y += Math.sin(a) * 5; g.lineTo(x, y); } g.stroke();
+    }
+    for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(30,40,20,${rand(0.1, 0.3)})`; g.fillRect(rand(0, 128), rand(0, 128), 2, 2); }
+  });
+}
+// zoantídeo (Palythoa): tapete de pólipos com disco claro
+function palyTex() {
+  return canvasTex(128, 128, (g) => {
+    g.fillStyle = '#353a1a'; g.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 150; i++) { const x = rand(0, 128), y = rand(0, 128), r = rand(3, 5.5); g.fillStyle = '#585a2a'; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.fillStyle = '#8a8450'; g.beginPath(); g.arc(x, y, r * 0.45, 0, TAU); g.fill(); g.fillStyle = '#3a3a18'; g.beginPath(); g.arc(x, y, r * 0.15, 0, TAU); g.fill(); }
+  });
+}
+// corais, zoantídeos nos topos das pedras; conchas e cascalho na areia em volta
+const _nr = new V3();
+function buildReef3() {
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3(), up = new V3(0, 1, 0), d = new V3();
+  const brain = [], paly = [], shell = [];
+  for (const R of ROCKS) {
+    if (!R.spot || R.spot === 'foz') continue;
+    if (R.q === undefined) continue;
+    const tag = it => { it.spot = R.spot; return it; };
+    const onRock = (minY, k, sz) => { d.set(rand(-1, 1), rand(minY, 1), rand(-1, 1)).normalize(); const w = rockSurf(R, d, new V3(), _nr, k); return tag([w.x, w.y, w.z, _nr.clone(), sz]); };
+    // quantidade cresce com a área da pedra
+    for (let k = 0, n = Math.round(R.r * rand(0.4, 1.4)); k < n; k++) brain.push(onRock(0.15, 0.97, rand(0.15, 0.45)));
+    for (let k = 0, n = Math.min(10, Math.round(R.r * R.r * rand(0.4, 1.2))); k < n; k++) paly.push(onRock(0.3, 0.985, rand(0.18, 0.45)));
+    for (let k = 0; k < 8; k++) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * rand(1.05, 2.2), z = R.z + Math.sin(a) * R.r * rand(1.05, 2.2); shell.push(tag([x, H(x, z) + 0.01, z])); }
+  }
+  const bG = new THREE.SphereGeometry(1, 10, 5, 0, TAU, 0, Math.PI / 2);
+  chunked(bG, uwify(new THREE.MeshStandardMaterial({ map: brainTex(), roughness: 0.85 }), { key: 'bc' }), brain, (c, i, im) => { q.setFromUnitVectors(up, c[3]); s.set(c[4], c[4] * rand(0.5, 0.75), c[4]); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); im.setColorAt(i, new THREE.Color().setHSL(rand(0.1, 0.2), 0.2, rand(0.4, 0.58))); });
+  const pG = new THREE.SphereGeometry(1, 8, 3, 0, TAU, 0, Math.PI / 2);
+  chunked(pG, uwify(new THREE.MeshStandardMaterial({ map: palyTex(), roughness: 0.75 }), { key: 'pl' }), paly, (c, i, im) => { q.setFromUnitVectors(up, c[3]); s.set(c[4], 0.04, c[4] * rand(0.6, 1)); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); });
+  // conchas (meia-lua clara) e cascalho, só aparecem de perto
+  const shG = new THREE.SphereGeometry(0.05, 6, 2, 0, TAU, 0, Math.PI / 2); shG.scale(1, 0.4, 0.75);
+  const shc = [0xe8dcc4, 0xd8c0a0, 0xc8b8a8, 0x9a948a, 0x7a7670, 0xf0e8dc];
+  chunked(shG, uwify(new THREE.MeshStandardMaterial({ roughness: 0.6 }), { key: 'sh' }), shell, (c, i, im) => { e.set(rand(-0.3, 0.3), rand(0, TAU), rand(-0.3, 0.3)); q.setFromEuler(e); s.setScalar(rand(0.5, 1.6)); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); im.setColorAt(i, new THREE.Color(pick(shc))); }, 40);
 }
 function updateLife(dt, t) {
   const c = camera.position, pu = P.mode === 'swim' && P.under;
