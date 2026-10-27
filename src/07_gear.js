@@ -164,8 +164,6 @@ function aimDir(out, tip) {
 
 // ---------- mergulhador (rig articulado) ----------
 let DIVER = null;
-// curva suave por nós [t, v]
-const knots = K => t => { if (t <= K[0][0]) return K[0][1]; for (let i = 1; i < K.length; i++) if (t <= K[i][0]) { const [a, va] = K[i - 1], [b, vb] = K[i], u = (t - a) / (b - a); return va + (vb - va) * u * u * (3 - 2 * u); } return K[K.length - 1][1]; };
 // sólido de revolução com seção elíptica: profundidade diferente na frente (-z) e atrás (+z)
 function bodyLathe(prof, seg, fd, bd) {
   const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), seg), p = g.attributes.position;

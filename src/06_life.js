@@ -36,8 +36,8 @@ function buildTurtle() {
 }
 const STR = { nodes: [], prev: [], line: null };
 function buildLife() {
-  makePool('sardinha', 'mack', fishTex('sardinha', { back: '#2c5a78', side: '#c8d6de', belly: '#f4f6f8', fin: '#7a8a96', iris: '#e0e0e0' }), 1600);
-  makePool('sargentinho', 'deep', fishTex('sargentinho', { back: '#3a5a40', side: '#e8e070', belly: '#f4f0d0', fin: '#9a9a60', iris: '#e0d070' }), 1200);
+  makePool('sardinha', 'mack', fishTex('sardinha', { back: '#2c5a78', side: '#c8d6de', belly: '#f4f6f8', fin: '#7a8a96', iris: '#e0e0e0' }), 1600, true);
+  makePool('sargentinho', 'deep', fishTex('sargentinho', { back: '#3a5a40', side: '#e8e070', belly: '#f4f0d0', fin: '#9a9a60', iris: '#e0d070' }), 1200, true);
   for (const s of SPOTS) if (s.r) { const n = s.id === 'foz' ? 1 : 2 + (s.id === 'laje' || s.id === 'jorge' ? 1 : 0); for (let i = 0; i < n; i++) SCHOOLS.push(newSchool(s)); }
   for (const s of SPOTS) {
     if (!s.r || s.id === 'foz') continue;

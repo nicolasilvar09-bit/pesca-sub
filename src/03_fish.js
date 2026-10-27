@@ -39,40 +39,66 @@ const SPECIES = {
     col: { back: '#3e3a26', side: '#5d5a3c', belly: '#8d8a68', fin: '#3a3622', iris: '#a08040' } },
 };
 const SHAPES = {
-  deep: { h: 0.46, w: 0.11, pk: 0.85, fork: true, tailH: 0.21, dors: 0.12 },
-  disc: { h: 0.66, w: 0.08, pk: 0.8, fork: false, tailH: 0.2, dors: 0.22 },
-  parrot: { h: 0.33, w: 0.15, pk: 0.72, fork: false, tailH: 0.17, dors: 0.07 },
-  grouper: { h: 0.31, w: 0.18, pk: 0.72, fork: false, tailH: 0.15, dors: 0.08 },
-  snap: { h: 0.36, w: 0.14, pk: 0.78, fork: true, tailH: 0.18, dors: 0.09 },
-  slim: { h: 0.23, w: 0.12, pk: 0.78, fork: true, tailH: 0.17, dors: 0.08 },
-  mack: { h: 0.18, w: 0.09, pk: 0.8, fork: true, tailH: 0.2, dors: 0.05 },
-  jack: { h: 0.37, w: 0.11, pk: 0.82, fork: true, tailH: 0.26, dors: 0.06 },
-  mahi: { h: 0.27, w: 0.09, pk: 0.92, fork: true, tailH: 0.25, dors: 0.11 },
-  barra: { h: 0.13, w: 0.075, pk: 0.7, fork: true, tailH: 0.14, dors: 0.05 },
-  amber: { h: 0.26, w: 0.12, pk: 0.85, fork: true, tailH: 0.23, dors: 0.05 },
+  deep: { h: 0.46, w: 0.11, pk: 0.85, fork: true, tailH: 0.21, dors: 0.12, df: 'one', pec: 0.12 },
+  disc: { h: 0.66, w: 0.08, pk: 0.8, fork: false, tailH: 0.2, dors: 0.22, df: 'one', pec: 0.11 },
+  parrot: { h: 0.33, w: 0.15, pk: 0.72, fork: false, tailH: 0.17, dors: 0.07, df: 'one', pec: 0.12 },
+  grouper: { h: 0.31, w: 0.18, pk: 0.72, fork: false, tailH: 0.15, dors: 0.08, df: 'one', pec: 0.13 },
+  snap: { h: 0.36, w: 0.14, pk: 0.78, fork: true, tailH: 0.18, dors: 0.09, df: 'one', pec: 0.13 },
+  slim: { h: 0.23, w: 0.12, pk: 0.78, fork: true, tailH: 0.17, dors: 0.08, df: 'two', pec: 0.1 },
+  mack: { h: 0.18, w: 0.09, pk: 0.8, fork: true, tailH: 0.2, dors: 0.05, df: 'two', pec: 0.08 },
+  jack: { h: 0.37, w: 0.11, pk: 0.82, fork: true, tailH: 0.26, dors: 0.06, df: 'two', pec: 0.17 },
+  mahi: { h: 0.27, w: 0.09, pk: 0.92, fork: true, tailH: 0.25, dors: 0.11, df: 'long', pec: 0.12 },
+  barra: { h: 0.13, w: 0.075, pk: 0.7, fork: true, tailH: 0.14, dors: 0.05, df: 'two', pec: 0.07 },
+  amber: { h: 0.26, w: 0.12, pk: 0.85, fork: true, tailH: 0.23, dors: 0.05, df: 'two', pec: 0.11 },
 };
-function fishGeo(sh) {
-  const NL = 22, NR = 16, pos = [], uv = [], idx = [], x0 = -0.36, x1 = 0.5;
+// corpo em tubo + nadadeiras em malha (com raios na textura) + olhos em relevo.
+// aPart = (parte, peso): 0 corpo, 1 caudal, 2 peitoral, 3 dorsal/anal/pélvica; peso 0 na base, 1 na borda
+function fishGeo(sh, lo) {
+  const NL = lo ? 12 : 22, NR = lo ? 10 : 16, pos = [], uv = [], prt = [], idx = [], x0 = -0.36, x1 = 0.5;
   const prof = t => 0.12 + 0.88 * Math.pow(Math.sin(Math.PI * Math.pow(clamp(t, 0, 1), sh.pk)), 0.6);
   const X = t => lerp(x0, x1, t), TOP = t => sh.h * prof(t) * 0.5, SIDE = t => sh.w * prof(t) * 0.5;
+  const add = (x, y, z, u, v, p = 0, w = 0) => { pos.push(x, y, z); uv.push(u, v); prt.push(p, w); return pos.length / 3 - 1; };
   for (let i = 0; i <= NL; i++) {
     const t = i / NL, x = X(t), hh = TOP(t), ww = SIDE(t);
-    for (let j = 0; j <= NR; j++) { const a = j / NR * TAU; const belly = Math.cos(a) < 0 ? 0.92 : 1; pos.push(x, Math.cos(a) * hh * belly, Math.sin(a) * ww * (1 - 0.25 * Math.pow(Math.abs(Math.cos(a)), 3))); uv.push(t * 0.97, (j / NR) * 0.78); }
+    for (let j = 0; j <= NR; j++) { const a = j / NR * TAU; const belly = Math.cos(a) < 0 ? 0.92 : 1; add(x, Math.cos(a) * hh * belly, Math.sin(a) * ww * (1 - 0.25 * Math.pow(Math.abs(Math.cos(a)), 3)), t * 0.97, (j / NR) * 0.78); }
   }
   for (let i = 0; i < NL; i++) for (let j = 0; j < NR; j++) { const a = i * (NR + 1) + j, b = a + NR + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
-  const add = (x, y, z, u, v) => { pos.push(x, y, z); uv.push(u, v); return pos.length / 3 - 1; };
   const tc = add(x0, 0, 0, 0, 0.39); for (let j = 0; j < NR; j++) idx.push(tc, j + 1, j);
   const sc = add(x1 + 0.012, 0, 0, 0.99, 0.39), base = NL * (NR + 1); for (let j = 0; j < NR; j++) idx.push(sc, base + j, base + j + 1);
-  const tri = (a, b, c) => { const i0 = add(a[0], a[1], a[2], 0.5, 0.86), i1 = add(b[0], b[1], b[2], 0.3, 0.97), i2 = add(c[0], c[1], c[2], 0.7, 0.97); idx.push(i0, i1, i2); };
-  const hp = TOP(0), tH = sh.tailH, tip = sh.fork ? 0.19 : 0.15, mid = sh.fork ? 0.085 : 0.15;
-  tri([x0 + 0.01, hp, 0], [x0 - tip, tH, 0], [x0 - mid, 0, 0]);
-  tri([x0 + 0.01, hp, 0], [x0 - mid, 0, 0], [x0 + 0.01, -hp, 0]);
-  tri([x0 + 0.01, -hp, 0], [x0 - mid, 0, 0], [x0 - tip, -tH, 0]);
-  tri([X(0.22), TOP(0.22) * 0.95, 0], [X(0.8), TOP(0.8) * 0.95, 0], [X(0.48) - 0.05, TOP(0.48) + sh.dors, 0]);
-  tri([X(0.18), -TOP(0.18) * 0.9, 0], [X(0.42), -TOP(0.42) * 0.9, 0], [X(0.25), -TOP(0.25) - sh.dors * 0.7, 0]);
-  for (const s of [1, -1]) tri([X(0.74), -TOP(0.74) * 0.25, s * SIDE(0.74) * 0.95], [X(0.68), -TOP(0.68) * 0.45, s * SIDE(0.68) * 0.95], [X(0.55), -TOP(0.55) * 0.5, s * (SIDE(0.55) + 0.07)]);
-  for (const s of [1, -1]) tri([X(0.66), -TOP(0.66) * 0.85, s * 0.02], [X(0.6), -TOP(0.6) * 0.9, s * 0.02], [X(0.5), -TOP(0.5) - 0.05, s * 0.05]);
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  // nadadeira: faixa entre a base e a borda; u corre ao longo da base (raios), v da base (0.8) à borda (0.99)
+  const fin = (S, R, bse, edge, p, us) => {
+    const o = pos.length / 3;
+    for (let i = 0; i <= S; i++) { const s = i / S, b = bse(s), e = edge(s, b); for (let r = 0; r <= R; r++) { const w = r / R; add(lerp(b[0], e[0], w), lerp(b[1], e[1], w), lerp(b[2], e[2], w), s * us, 0.8 + 0.19 * w, p, w); } }
+    for (let i = 0; i < S; i++) for (let r = 0; r < R; r++) { const a = o + i * (R + 1) + r, b = a + R + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  };
+  const S = lo ? 5 : 10, R = lo ? 1 : 3;
+  // caudal: bifurcada (lobos pontudos) ou arredondada
+  const hp = TOP(0), tH = sh.tailH, tip = sh.fork ? 0.19 : 0.15, mid = sh.fork ? 0.075 : 0.15;
+  fin(S + 2, R, s => [x0 + 0.02, hp * (1 - 2 * s) * 0.95, 0], s => { const ys = 1 - 2 * s; return sh.fork ? [x0 - (mid + (tip - mid) * Math.pow(Math.abs(ys), 1.3)), ys * tH, 0] : [x0 - tip * (1 - 0.3 * ys * ys), ys * tH * 0.95, 0]; }, 1, 0.9);
+  // dorsais e anal: perfil por nós (raia dura na frente, mole atrás)
+  const dfin = (a, b, h, K, down) => { const pf = knots(K); fin(S, R, s => { const t = lerp(a, b, s); return [X(t), (down ? -0.88 : 0.94) * TOP(t), 0]; }, (s, bb) => [bb[0] - h * 0.35 * pf(s), bb[1] + (down ? -1 : 1) * h * pf(s), 0], 3, 0.5); };
+  const D = sh.dors;
+  if (sh.df === 'one') dfin(0.2, 0.8, D, [[0, 0], [0.1, 0.8], [0.38, 0.62], [0.48, 0.5], [0.6, 0.85], [0.8, 1], [0.95, 0.7], [1, 0]]);
+  else if (sh.df === 'long') dfin(0.1, 0.97, D, [[0, 0], [0.06, 0.45], [0.6, 0.7], [0.93, 1], [1, 0]]);
+  else { dfin(0.56, 0.78, D * 1.2, [[0, 0], [0.15, 0.45], [0.65, 1], [0.92, 0.9], [1, 0]]); dfin(0.22, 0.44, D, [[0, 0], [0.2, 0.6], [0.75, 1], [1, 0]]); }
+  if (sh.df === 'long') dfin(0.1, 0.5, D * 0.8, [[0, 0], [0.1, 0.6], [0.85, 1], [1, 0]], true);
+  else dfin(0.17, 0.42, D * 0.75, [[0, 0], [0.2, 0.7], [0.75, 1], [1, 0]], true);
+  // peitorais (folha voltada para trás e para fora) e pélvicas
+  const pl = sh.pec, pt = 0.69;
+  for (const sz of [1, -1]) {
+    const y0 = -TOP(pt) * 0.3, z0 = sz * SIDE(pt) * 0.92;
+    fin(S, R, s => [X(pt) + 0.01 - s * 0.015, y0 + 0.022 - s * 0.044, z0], (s, b) => { const L = pl * (0.3 + 0.7 * Math.pow(Math.sin(Math.PI * (0.12 + 0.88 * s)), 0.7)) * (1 - 0.35 * s); return [b[0] - L * 0.9, b[1] - L * 0.35, b[2] + sz * L * 0.32]; }, 2, 0.4);
+    const yb = -TOP(0.6) * 0.86;
+    fin(lo ? 2 : 4, 1, s => [X(0.62) - s * 0.05, yb + s * 0.004, sz * 0.012], (s, b) => [b[0] - 0.05 * (1 - s), b[1] - D * 0.6 * (1 - s * 0.8), b[2] + sz * 0.025], 3, 0.25);
+  }
+  // olhos: cúpula com UV mapeada sobre a íris pintada na textura
+  if (!lo) for (const sz of [1, -1]) {
+    const t = 0.922, er = Math.min(0.03, TOP(t) * 0.42), cx = X(t), cy = TOP(t) * 0.12, cz = sz * SIDE(t) * 0.9, cu = 229 / 256, cv = (sz > 0 ? 25 : 75) / 128, o = pos.length / 3, RN = 3, AN = 10;
+    add(cx, cy, cz + sz * er * 0.55, cu, cv);
+    for (let r = 1; r <= RN; r++) for (let k = 0; k < AN; k++) { const a = k / AN * TAU, f = r / RN, ph = f * Math.PI / 2; add(cx + Math.cos(a) * Math.sin(ph) * er, cy + Math.sin(a) * Math.sin(ph) * er, cz + sz * Math.cos(ph) * er * 0.55, cu + Math.cos(a) * f * 7 / 256, cv + Math.sin(a) * f * 7 / 128); }
+    for (let k = 0; k < AN; k++) { const k1 = (k + 1) % AN; idx.push(o, o + 1 + k, o + 1 + k1); for (let r = 1; r < RN; r++) { const a = o + 1 + (r - 1) * AN, b = a + AN; idx.push(a + k, b + k, a + k1, b + k, b + k1, a + k1); } }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('aPart', new THREE.Float32BufferAttribute(prt, 2)); g.setIndex(idx); g.computeVertexNormals();
   return g;
 }
 function fishTex(key, c) {
@@ -80,7 +106,9 @@ function fishTex(key, c) {
   const t = canvasTex(256, 128, (g) => {
     const gr = g.createLinearGradient(0, 0, 0, 100);
     gr.addColorStop(0, c.back); gr.addColorStop(0.28, c.side); gr.addColorStop(0.5, c.belly); gr.addColorStop(0.72, c.side); gr.addColorStop(1, c.back);
-    g.fillStyle = gr; g.fillRect(0, 0, 256, 100); g.fillStyle = c.fin; g.fillRect(0, 100, 256, 28);
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 100);
+    const fg = g.createLinearGradient(0, 100, 0, 128); fg.addColorStop(0, c.fin); fg.addColorStop(0.75, c.fin); fg.addColorStop(1, c.side); g.fillStyle = fg; g.fillRect(0, 100, 256, 28);
+    g.fillStyle = 'rgba(0,0,0,.22)'; for (let x = 2; x < 256; x += 6) g.fillRect(x, 101, 1.4, 27); g.fillStyle = 'rgba(255,255,255,.08)'; for (let x = 5; x < 256; x += 6) g.fillRect(x, 101, 1, 27);
     const R = mulberry(key.length * 97 + key.charCodeAt(0));
     const blob = (x, y, rx, ry, col) => { g.fillStyle = col; g.beginPath(); g.ellipse(x, y, rx, ry, R() * 3, 0, TAU); g.fill(); };
     const bars = (n, x0, dx, w, col) => { g.fillStyle = col; for (let i = 0; i < n; i++) g.fillRect(x0 + i * dx, 0, w, 100); };
@@ -91,7 +119,7 @@ function fishTex(key, c) {
     if (key === 'marimba') { bars(4, 70, 34, 6, 'rgba(30,30,30,.18)'); blob(14, 25, 7, 9, 'rgba(5,5,5,.8)'); blob(14, 75, 7, 9, 'rgba(5,5,5,.8)'); }
     if (key === 'salema') { g.fillStyle = 'rgba(60,110,170,.45)'; for (let y = 4; y < 100; y += 8) g.fillRect(0, y, 200, 3); g.fillStyle = 'rgba(10,10,10,.75)'; g.fillRect(196, 0, 8, 100); g.fillRect(170, 0, 7, 100); }
     if (key === 'budiao') { g.strokeStyle = 'rgba(240,120,140,.35)'; g.lineWidth = 2; for (let y = 3; y < 100; y += 6) for (let x = 0; x < 210; x += 7) { g.strokeRect(x + (y % 12 ? 3 : 0), y, 6, 5); } blob(215, 25, 14, 9, 'rgba(230,120,60,.4)'); blob(215, 75, 14, 9, 'rgba(230,120,60,.4)'); }
-    if (key === 'frade') { for (let i = 0; i < 160; i++) blob(R() * 220, R() * 100, 2.5, 3.5, 'rgba(230,200,60,.75)'); g.fillStyle = 'rgba(230,200,60,.8)'; g.fillRect(208, 0, 5, 100); g.fillStyle = '#d8b030'; g.fillRect(0, 100, 256, 3); }
+    if (key === 'frade') { for (let i = 0; i < 160; i++) blob(R() * 220, R() * 100, 2.5, 3.5, 'rgba(230,200,60,.75)'); g.fillStyle = 'rgba(230,200,60,.8)'; g.fillRect(208, 0, 5, 100); g.fillStyle = '#d8b030'; g.fillRect(0, 124, 256, 4); }
     if (key === 'garoupa' || key === 'mero') { for (let i = 0; i < 70; i++) blob(R() * 240, R() * 100, 4 + R() * 9, 3 + R() * 6, key === 'mero' ? 'rgba(20,18,8,.35)' : 'rgba(225,210,170,.32)'); }
     if (key === 'badejo') { for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(35,28,20,.38)'; g.fillRect(R() * 230, R() * 100, 8 + R() * 10, 6 + R() * 8); } }
     if (key === 'caranha') { for (let i = 0; i < 30; i++) blob(R() * 220, R() * 100, 3 + R() * 5, 2 + R() * 3, 'rgba(160,60,50,.25)'); }
@@ -108,6 +136,7 @@ function fishTex(key, c) {
     if (key === 'olhodeboi') { g.strokeStyle = 'rgba(200,150,40,.7)'; g.lineWidth = 7; for (const y of [25, 75]) { g.beginPath(); g.moveTo(240, y - (y < 50 ? 12 : -12)); g.lineTo(20, y); g.stroke(); } }
     for (let i = 0; i < 1800; i++) { g.fillStyle = `rgba(${R() > 0.5 ? '255,255,255' : '0,0,0'},${R() * 0.07})`; g.fillRect(R() * 256, R() * 100, 2, 2); }
     g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 2; for (const [a, b] of [[6, 44], [56, 94]]) { g.beginPath(); g.moveTo(203, a); g.quadraticCurveTo(196, (a + b) / 2, 203, b); g.stroke(); }
+    g.strokeStyle = 'rgba(10,8,8,.55)'; g.lineWidth = 2; for (const [y, d] of [[36, -1], [64, 1]]) { g.beginPath(); g.moveTo(256, y); g.quadraticCurveTo(247, y + d * 2, 238, y + d * 6); g.stroke(); }
     for (const y of [25, 75]) { g.fillStyle = c.iris; g.beginPath(); g.arc(229, y, 6.5, 0, TAU); g.fill(); g.fillStyle = '#060606'; g.beginPath(); g.arc(229, y, 3.8, 0, TAU); g.fill(); g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.arc(228, y - 1.6, 1.3, 0, TAU); g.fill(); }
   });
   t.flipY = false; t.anisotropy = 4; return t;
@@ -116,12 +145,18 @@ function fishTex(key, c) {
 // ===== renderização instanciada: 1 draw call por espécie =====
 const POOLS = {};
 const _dummy = new THREE.Object3D();
-function makePool(key, shape, tex, max) {
-  const geo = fishGeo(SHAPES[shape]);
-  const anim = new THREE.InstancedBufferAttribute(new Float32Array(max * 2), 2); anim.setUsage(THREE.DynamicDrawUsage); geo.setAttribute('aAnim', anim);
+function makePool(key, shape, tex, max, lo) {
+  const geo = fishGeo(SHAPES[shape], lo);
+  const anim = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3); anim.setUsage(THREE.DynamicDrawUsage); geo.setAttribute('aAnim', anim);
   const mat = uwify(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.36, metalness: 0.3, side: THREE.DoubleSide }), {
-    key: 'fishI', vHead: 'attribute vec2 aAnim;\n',
-    vBody: 'float tw=smoothstep(0.3,-0.55,position.x); transformed.z+=sin(aAnim.x-position.x*7.0)*aAnim.y*(0.1+tw*tw*1.5);'
+    key: 'fishI', vHead: 'attribute vec3 aAnim;\nattribute vec2 aPart;\n',
+    // onda que corre da cabeça para a cauda, crescendo para trás; curva do corpo nas viradas;
+    // caudal flexiona com atraso, peitorais remam, dorsal e anal ondulam
+    vBody: `float x=position.x, tw=smoothstep(0.3,-0.55,x), pT=step(0.5,aPart.x)*step(aPart.x,1.5), pP=step(1.5,aPart.x)*step(aPart.x,2.5), pD=step(2.5,aPart.x);
+ transformed.z+=sin(aAnim.x-x*7.0)*aAnim.y*(0.1+tw*tw*1.5)+pT*aPart.y*sin(aAnim.x-x*7.0-1.3)*aAnim.y*0.7-aAnim.z*(x-0.08)*(x-0.08);
+ float fl=sin(aAnim.x*0.55+sign(position.z)*0.6)*(0.6+0.4*(1.0-clamp(aAnim.y*12.0,0.0,1.0)));
+ transformed.z+=pP*aPart.y*sign(position.z)*0.045*fl; transformed.x+=pP*aPart.y*0.02*cos(aAnim.x*0.55);
+ transformed.z+=pD*aPart.y*0.012*sin(aAnim.x*1.3-x*11.0);`
   });
   const im = new THREE.InstancedMesh(geo, mat, max); im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.count = 0; im.frustumCulled = false;
   scene.add(im); POOLS[key] = { im, anim, n: 0, max };
@@ -129,10 +164,10 @@ function makePool(key, shape, tex, max) {
 }
 function poolsBegin() { for (const k in POOLS) POOLS[k].n = 0; }
 // desenha um peixe: pos, yaw, pitch, roll, escala, fase, amplitude
-function poolPut(key, x, y, z, yaw, pitch, roll, s, ph, amp) {
+function poolPut(key, x, y, z, yaw, pitch, roll, s, ph, amp, bend = 0) {
   const P0 = POOLS[key]; if (!P0 || P0.n >= P0.max) return;
   _dummy.position.set(x, y, z); _dummy.rotation.set(roll, yaw, pitch, 'YZX'); _dummy.scale.setScalar(s); _dummy.updateMatrix();
-  P0.im.setMatrixAt(P0.n, _dummy.matrix); P0.anim.setXY(P0.n, ph, amp); P0.n++;
+  P0.im.setMatrixAt(P0.n, _dummy.matrix); P0.anim.setXYZ(P0.n, ph, amp, bend); P0.n++;
 }
 function poolsEnd() { for (const k in POOLS) { const p = POOLS[k]; p.im.count = p.n; p.im.instanceMatrix.needsUpdate = true; p.anim.needsUpdate = true; } }
 
@@ -155,6 +190,7 @@ class Fish {
     this.state = 'wander'; this.t = 0; this.target = pos.clone(); this.speed = sp.cruise;
     this.home = opt.home || null; this.leader = opt.leader || null; this.off = opt.off || new V3();
     this.alive = true; this.fight = 0; this.orbitA = rand(0, TAU); this.wob = rand(0, TAU);
+    this.bend = 0; this.gl = rand(0, TAU); this.glR = rand(0.3, 0.6);
     this.radius = SHAPES[sp.shape].h * 0.45 * this.len;
   }
   dir(out) { return out.set(Math.cos(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.sin(this.yaw) * Math.cos(this.pitch)); }
@@ -201,7 +237,12 @@ class Fish {
     switch (this.state) {
       case 'wander':
         this.speed = sp.cruise * (L ? 1.15 : 1);
-        if (L) { _t1.copy(this.off).applyAxisAngle(_t2.set(0, 1, 0), L.yaw); this.target.copy(L.pos).add(_t1); this.target.y += Math.sin(performance.now() * 0.001 + this.wob) * 0.3; if (L.state === 'curious') { this.state = 'curious'; this.t = L.t; } }
+        if (L) {
+          // cardume vivo: cada peixe deriva em torno do seu lugar no grupo
+          const tn = performance.now() * 0.001; _t1.copy(this.off).applyAxisAngle(_t2.set(0, 1, 0), L.yaw); this.target.copy(L.pos).add(_t1);
+          this.target.x += Math.sin(tn * 0.37 + this.wob) * 0.45; this.target.z += Math.cos(tn * 0.29 + this.wob * 1.7) * 0.45; this.target.y += Math.sin(tn + this.wob) * 0.3;
+          if (L.state === 'curious') { this.state = 'curious'; this.t = L.t; }
+        }
         else if (this.t <= 0 || p.distanceTo(this.target) < 1.2) { this.pickWander(); this.t = rand(5, 12); }
         if (!L && P.mode === 'swim' && P.under && P.still > 1.4 && dP < 24 && Math.random() < sp.curious * dt * 0.45) { this.state = 'curious'; this.t = rand(6, 11); }
         break;
@@ -243,18 +284,23 @@ class Fish {
     if (h > -1.0) { p.x -= this.vel.x * dt * 2; p.z -= this.vel.z * dt * 2; this.pickWander(); }
     if (this.state !== 'hidden') pushOutRocks(p, this.radius * 0.5 + 0.05);
     // orientação
-    const v = this.vel.length();
+    const v = this.vel.length(), y0 = this.yaw;
     if (this.state === 'hidden' && this.home) { this.yaw += angDiff(this.yaw, -this.home.dir) * clamp(dt * 2, 0, 1); this.pitch *= 0.95; }
     else if (v > 0.06) {
       const ty = Math.atan2(-this.vel.z, this.vel.x), tp = clamp(Math.atan2(this.vel.y, Math.hypot(this.vel.x, this.vel.z)), -0.6, 0.6);
       const dy = angDiff(this.yaw, ty); this.yaw += dy * clamp(dt * 4, 0, 1); this.pitch = lerp(this.pitch, tp, clamp(dt * 3, 0, 1)); this.roll = lerp(this.roll, clamp(-dy * 0.6, -0.5, 0.5), clamp(dt * 3, 0, 1));
     }
     if (this.state === 'curious' && !L) { const ty = Math.atan2(-(P.pos.z - p.z), P.pos.x - p.x); this.yaw += angDiff(this.yaw, ty) * clamp(dt * 1.2, 0, 1); }
-    const beat = this.state === 'hooked' && this.fight > 0 ? 18 : 3 + v / this.len * 2.4;
+    // corpo curva para dentro da virada
+    this.bend = lerp(this.bend, clamp(angDiff(y0, this.yaw) / Math.max(dt, 1e-3) * 0.12, -0.45, 0.45), clamp(dt * 6, 0, 1));
+    // nado de cruzeiro em ciclos de bater e planar; fuga e briga sempre a todo vapor
+    const calm = this.state === 'wander' || this.state === 'curious' || this.state === 'hidden';
+    this.gl += dt * this.glR; const gk = calm ? 0.3 + 0.7 * smooth(-0.4, 0.4, Math.sin(this.gl)) : 1;
+    const beat = this.state === 'hooked' && this.fight > 0 ? 18 : (3 + v / this.len * 2.4) * (0.45 + 0.55 * gk);
     this.ph += dt * beat;
-    this.amp = lerp(this.amp, this.state === 'hooked' && this.fight > 0 ? 0.13 : 0.035 + Math.min(0.07, v * 0.02 / this.len), clamp(dt * 3, 0, 1));
+    this.amp = lerp(this.amp, this.state === 'hooked' && this.fight > 0 ? 0.13 : (0.035 + Math.min(0.07, v * 0.02 / this.len)) * gk, clamp(dt * 3, 0, 1));
   }
-  draw() { poolPut(this.key, this.pos.x, this.pos.y, this.pos.z, this.yaw, this.pitch, this.roll, this.len, this.ph, this.amp); }
+  draw() { poolPut(this.key, this.pos.x, this.pos.y, this.pos.z, this.yaw, this.pitch, this.roll, this.len, this.ph, this.amp, this.bend); }
   remove() { this.alive = false; const i = FISHES.indexOf(this); if (i >= 0) FISHES.splice(i, 1); }
 }
 
