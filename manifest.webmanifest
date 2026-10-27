@@ -1,0 +1,17 @@
+{
+  "name": "Deep Spear · Pesca Sub Costa Verde",
+  "short_name": "Deep Spear",
+  "description": "Pesca submarina em apneia na baía de Angra dos Reis.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#04141c",
+  "theme_color": "#04141c",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "brand/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
