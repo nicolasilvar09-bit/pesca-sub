@@ -2122,57 +2122,132 @@ function aimDir(out, tip) {
 
 // ---------- mergulhador (rig articulado) ----------
 let DIVER = null;
+// curva suave por nós [t, v]
+const knots = K => t => { if (t <= K[0][0]) return K[0][1]; for (let i = 1; i < K.length; i++) if (t <= K[i][0]) { const [a, va] = K[i - 1], [b, vb] = K[i], u = (t - a) / (b - a); return va + (vb - va) * u * u * (3 - 2 * u); } return K[K.length - 1][1]; };
+// sólido de revolução com seção elíptica: profundidade diferente na frente (-z) e atrás (+z)
+function bodyLathe(prof, seg, fd, bd) {
+  const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), seg), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const y = p.getY(i), z = p.getZ(i); p.setZ(i, z * (z < 0 ? fd(y) : bd(y))); }
+  g.computeVertexNormals(); return g;
+}
+// nadadeira de apneia: pá longa em malha (flexiona) + trilhos laterais de borracha
+const FIN_L = 0.74, FIN_ANG = -0.42;
+function finGeos() {
+  const N = 16, M = 6, L = FIN_L, w = s => 0.105 + 0.095 * smooth(0, 0.32, s), pos = [], uv = [], idx = [];
+  for (let i = 0; i <= N; i++) for (let j = 0; j <= M; j++) {
+    const s = i / N, u = j / M * 2 - 1, x = u * w(s) / 2, d = s * L - 0.06 * u * u * smooth(0.8, 1, s);
+    pos.push(x, 0.0025 * (1 - u * u) * (1 - s), -d); uv.push(x, d);
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) { const a = i * (M + 1) + j, b = a + M + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const blade = new THREE.BufferGeometry(); blade.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); blade.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); blade.setIndex(idx);
+  // trilhos: perfil triangular que afina até sumir a 80% da pá
+  const rp = [], ri = [], R = 12;
+  for (const sx of [-1, 1]) for (let i = 0; i <= R; i++) {
+    const s = i / R * 0.8, h = 0.03 * Math.pow(1 - s / 0.8, 0.8) + 0.002, x = sx * w(s) / 2, d = s * L, o = rp.length / 3;
+    rp.push(x, 0, -d, x - sx * 0.006, h, -d, x - sx * 0.014, 0, -d);
+    if (i < R) for (const [a, b] of [[0, 1], [1, 2]]) ri.push(o + a, o + 3 + a, o + b, o + 3 + a, o + 3 + b, o + b);
+  }
+  const rail = new THREE.BufferGeometry(); rail.setAttribute('position', new THREE.Float32BufferAttribute(rp, 3)); rail.setIndex(ri);
+  for (const g of [blade, rail]) { g.userData.base = g.attributes.position.array.slice(); g.computeVertexNormals(); g.computeBoundingSphere(); g.boundingSphere.radius *= 1.4; }
+  return [blade, rail];
+}
+const _fb = new Float32Array(33 * 3);
+// curva a pá: ângulo cresce da raiz (rígida, dentro do calçador) até a ponta
+function bendFin(fin, A) {
+  if (Math.abs(A - (fin.userData.A ?? 9)) < 0.003) return;
+  fin.userData.A = A;
+  const N = 32, st = FIN_L / N; let y = 0, z = 0;
+  for (let i = 0; i <= N; i++) { const a = A * Math.pow(i / N, 1.7); _fb[i * 3] = y; _fb[i * 3 + 1] = z; _fb[i * 3 + 2] = a; y += Math.sin(a) * st; z -= Math.cos(a) * st; }
+  for (const g of fin.userData.geos) {
+    const b = g.userData.base, p = g.attributes.position.array;
+    for (let k = 0; k < b.length; k += 3) {
+      const f = clamp(-b[k + 2] / st, 0, N - 0.001), i = f | 0, u = f - i, q = i * 3;
+      const Y = _fb[q] + (_fb[q + 3] - _fb[q]) * u, Z = _fb[q + 1] + (_fb[q + 4] - _fb[q + 1]) * u, a = _fb[q + 2] + (_fb[q + 5] - _fb[q + 2]) * u;
+      p[k] = b[k]; p[k + 1] = Y + b[k + 1] * Math.cos(a); p[k + 2] = Z + b[k + 1] * Math.sin(a);
+    }
+    g.attributes.position.needsUpdate = true; g.computeVertexNormals();
+  }
+}
 function buildDiver(withGun) {
   gtex();
   const suit = new THREE.MeshStandardMaterial({ map: _camoT, roughness: 0.82 });
   const neo = new THREE.MeshStandardMaterial({ color: 0x15181a, roughness: 0.75 });
+  const rub = new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.55 });
   const skin = new THREE.MeshStandardMaterial({ color: 0xc28a62, roughness: 0.6 });
-  const finM = new THREE.MeshStandardMaterial({ map: _carbT, roughness: 0.35, metalness: 0.3, side: THREE.DoubleSide });
-  for (const m of [suit, neo, skin, finM]) uwify(m, { key: 'dv' });
+  const lead = new THREE.MeshStandardMaterial({ color: 0x3c3f42, metalness: 0.3, roughness: 0.65 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0xb8bcc0, metalness: 0.85, roughness: 0.3 });
+  const finM = new THREE.MeshStandardMaterial({ map: _carbT, roughness: 0.3, metalness: 0.35, side: THREE.DoubleSide });
+  for (const m of [suit, neo, rub, skin, lead, steel, finM]) uwify(m, { key: 'dv' });
   const J = () => new THREE.Group();
   const mesh = (geo, m, par, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); par.add(o); return o; };
+  const ball = (r, m, par, x, y, z) => mesh(new THREE.SphereGeometry(r, 14, 10), m, par, x, y, z);
   const root = J();
-  // tronco (perfil anatômico em torno)
-  const prof = [[0.0, -0.13], [0.125, -0.12], [0.165, -0.06], [0.16, 0.04], [0.145, 0.16], [0.16, 0.3], [0.18, 0.42], [0.175, 0.5], [0.13, 0.56], [0.07, 0.6], [0.055, 0.64], [0.0, 0.645]].map(([r, y]) => new THREE.Vector2(r, y));
-  const torso = mesh(new THREE.LatheGeometry(prof, 22), suit, root); torso.scale.set(1, 1, 0.68);
-  // cinto de lastro
-  const belt = mesh(new THREE.CylinderGeometry(0.168, 0.168, 0.045, 22, 1, true), neo, root, 0, -0.02, 0); belt.scale.set(1, 1, 0.7);
-  for (const a of [-0.9, 0, 0.9, 2.4]) mesh(new THREE.BoxGeometry(0.06, 0.05, 0.03), new THREE.MeshStandardMaterial({ color: 0x55585c, metalness: 0.6, roughness: 0.5 }), root, Math.sin(a) * 0.17, -0.02, Math.cos(a) * 0.12);
-  // cabeça com capuz, máscara e snorkel
+  // tronco: ombros largos, cintura, glúteos; peito mais fundo na frente, lombar mais rasa atrás
+  const fd = knots([[-0.15, 0.62], [-0.04, 0.62], [0.13, 0.58], [0.3, 0.7], [0.42, 0.74], [0.53, 0.6], [0.64, 0.92]]);
+  const bd = knots([[-0.15, 0.7], [-0.05, 0.84], [0.1, 0.56], [0.3, 0.62], [0.45, 0.66], [0.55, 0.6], [0.64, 0.92]]);
+  const prof = [[0, -0.155], [0.11, -0.148], [0.155, -0.1], [0.168, -0.04], [0.16, 0.04], [0.143, 0.13], [0.15, 0.22], [0.167, 0.32], [0.18, 0.4], [0.183, 0.46], [0.172, 0.52], [0.13, 0.575], [0.075, 0.605], [0.058, 0.635], [0.054, 0.68], [0, 0.685]];
+  mesh(bodyLathe(prof, 28, fd, bd), suit, root);
+  // pad de carregamento no peito (apoio da coronha)
+  const pad = mesh(new THREE.CapsuleGeometry(0.05, 0.06, 4, 10), neo, root, 0, 0.3, -0.112); pad.scale.set(1.15, 1, 0.22);
+  // cinto marselhês com chumbos e fivela inox
+  mesh(bodyLathe([[0.172, -0.045], [0.176, -0.02], [0.172, 0.005]], 28, fd, bd), rub, root);
+  mesh(new THREE.BoxGeometry(0.06, 0.04, 0.012), steel, root, 0, -0.02, -0.112);
+  for (const a of [-1.05, -0.62, 0.62, 1.05, 2.2, -2.2]) { const w = mesh(new THREE.CapsuleGeometry(0.018, 0.035, 3, 8), lead, root, Math.sin(a) * 0.174, -0.02, -Math.cos(a) * 0.174 * (Math.cos(a) > 0 ? fd(-0.02) : bd(-0.02))); w.rotation.set(0, -a, Math.PI / 2); w.scale.set(1, 1, 0.6); }
+  // cabeça: capuz com abertura do rosto, máscara de baixo volume com tira e snorkel
   const neck = J(); neck.position.set(0, 0.63, 0); root.add(neck);
-  const head = mesh(new THREE.SphereGeometry(0.105, 20, 16), neo, neck, 0, 0.11, 0.0); head.scale.set(0.92, 1.12, 1.0);
-  const face = mesh(new THREE.SphereGeometry(0.07, 14, 10), skin, neck, 0, 0.06, -0.068); face.scale.set(0.8, 0.55, 0.5);
-  const mask = mesh(new THREE.BoxGeometry(0.15, 0.065, 0.04), neo, neck, 0, 0.13, -0.098);
-  for (const sx of [-1, 1]) mesh(new THREE.BoxGeometry(0.058, 0.048, 0.006), new THREE.MeshStandardMaterial({ color: 0x0a1418, metalness: 0.9, roughness: 0.05 }), neck, sx * 0.034, 0.132, -0.12);
+  const head = mesh(new THREE.SphereGeometry(0.104, 22, 18), neo, neck, 0, 0.115, 0.006); head.scale.set(0.9, 1.12, 1.02);
+  mesh(new THREE.CylinderGeometry(0.06, 0.068, 0.09, 16), neo, neck, 0, 0.0, 0.004);
+  const face = mesh(new THREE.SphereGeometry(0.07, 16, 12), skin, neck, 0, 0.075, -0.064); face.scale.set(0.78, 0.92, 0.5);
+  const mask = mesh(new THREE.CylinderGeometry(0.036, 0.04, 0.034, 20), rub, neck, 0, 0.128, -0.098); mask.rotation.x = Math.PI / 2; mask.scale.set(2.05, 1, 0.92);
+  mesh(new THREE.ConeGeometry(0.022, 0.034, 10), rub, neck, 0, 0.088, -0.108).rotation.x = Math.PI;
+  for (const sx of [-1, 1]) { const l = mesh(new THREE.CircleGeometry(0.026, 18), new THREE.MeshStandardMaterial({ color: 0x0a1418, metalness: 0.9, roughness: 0.05 }), neck, sx * 0.034, 0.132, -0.1162); l.rotation.y = Math.PI; l.scale.set(1.08, 0.9, 1); }
+  const strap = mesh(new THREE.TorusGeometry(0.1, 0.007, 6, 28), rub, neck, 0, 0.13, 0.006); strap.scale.set(0.95, 1, 1.05); strap.rotation.x = Math.PI / 2 + 0.25;
   const snk = new THREE.CatmullRomCurve3([new V3(0.0, 0.05, -0.1), new V3(0.06, 0.06, -0.09), new V3(0.1, 0.12, -0.04), new V3(0.105, 0.26, 0.0), new V3(0.09, 0.33, 0.04)]);
-  mesh(new THREE.TubeGeometry(snk, 16, 0.011, 8), neo, neck);
-  // braços
-  const arm = (sx) => {
-    const sh = J(); sh.position.set(sx * 0.19, 0.5, 0); root.add(sh);
-    mesh(new THREE.SphereGeometry(0.058, 12, 10), suit, sh);
-    mesh(new THREE.CapsuleGeometry(0.047, 0.2, 4, 12), suit, sh, 0, -0.14, 0);
+  mesh(new THREE.TubeGeometry(snk, 20, 0.011, 8), rub, neck);
+  // mão de luva de neoprene: palma, dedos juntos levemente fechados e polegar
+  const hand = (wr, sx, curl) => {
+    ball(0.03, neo, wr, 0, -0.012, 0);
+    const palm = ball(0.04, neo, wr, 0, -0.055, 0); palm.scale.set(1.05, 1.15, 0.5);
+    const fg = J(); fg.position.set(0, -0.09, 0); fg.rotation.x = -curl; wr.add(fg);
+    const fi = mesh(new THREE.CapsuleGeometry(0.02, 0.05, 4, 10), neo, fg, 0, -0.035, 0); fi.scale.set(1.9, 1, 0.75);
+    const fg2 = J(); fg2.position.set(0, -0.065, 0); fg2.rotation.x = -curl * 0.9; fg.add(fg2);
+    const tip = mesh(new THREE.CapsuleGeometry(0.018, 0.03, 4, 10), neo, fg2, 0, -0.022, 0); tip.scale.set(2, 1, 0.75);
+    const th = mesh(new THREE.CapsuleGeometry(0.013, 0.045, 4, 8), neo, wr, sx * -0.035, -0.06, -0.018); th.rotation.set(-0.4 - curl * 0.5, 0, sx * -0.5);
+  };
+  // braços: bíceps, antebraço afinando até o punho
+  const arm = (sx, curl) => {
+    const sh = J(); sh.position.set(sx * 0.188, 0.5, 0); root.add(sh);
+    ball(0.064, suit, sh, sx * 0.004, 0.0, 0).scale.set(1, 0.95, 0.9);
+    mesh(bodyLathe([[0, -0.3], [0.039, -0.29], [0.042, -0.25], [0.05, -0.16], [0.054, -0.08], [0.058, 0], [0, 0.04]], 16, knots([[-0.3, 0.95], [-0.15, 1.08], [0, 1]]), knots([[-0.3, 0.95], [0, 0.95]])), suit, sh);
     const el = J(); el.position.set(0, -0.28, 0); sh.add(el);
-    mesh(new THREE.CapsuleGeometry(0.04, 0.19, 4, 12), suit, el, 0, -0.12, 0);
+    ball(0.041, suit, el, 0, 0, 0);
+    mesh(bodyLathe([[0, -0.265], [0.028, -0.255], [0.03, -0.22], [0.041, -0.13], [0.047, -0.055], [0.041, 0], [0, 0.03]], 16, knots([[0, 0.9]]), knots([[0, 0.9]])), suit, el);
     const wr = J(); wr.position.set(0, -0.25, 0); el.add(wr);
-    const hd = mesh(new THREE.CapsuleGeometry(0.033, 0.06, 4, 10), neo, wr, 0, -0.05, 0); hd.scale.set(1.1, 1, 0.7);
+    mesh(new THREE.CylinderGeometry(0.031, 0.032, 0.025, 14), neo, wr, 0, 0.006, 0);
+    hand(wr, sx, curl);
     return { sh, el, wr };
   };
-  const aL = arm(-1), aR = arm(1);
-  // pernas, nadadeiras longas de apneia
+  const aL = arm(-1, 0.35), aR = arm(1, 1.25);
+  // pernas: coxa, joelho com joelheira, panturrilha saliente atrás; nadadeira longa de apneia
   const leg = (sx) => {
-    const th = J(); th.position.set(sx * 0.09, -0.1, 0); root.add(th);
-    mesh(new THREE.CapsuleGeometry(0.075, 0.28, 4, 12), suit, th, 0, -0.2, 0);
+    const th = J(); th.position.set(sx * 0.088, -0.1, 0); root.add(th);
+    mesh(bodyLathe([[0, -0.46], [0.05, -0.45], [0.055, -0.4], [0.066, -0.3], [0.078, -0.18], [0.087, -0.06], [0.086, 0], [0.06, 0.045], [0, 0.055]], 18, knots([[-0.4, 0.92], [-0.2, 1.0]]), knots([[-0.4, 0.88], [-0.1, 0.95]])), suit, th);
     const kn = J(); kn.position.set(0, -0.43, 0); th.add(kn);
-    mesh(new THREE.CapsuleGeometry(0.056, 0.3, 4, 12), suit, kn, 0, -0.2, 0);
-    if (sx > 0) mesh(new THREE.BoxGeometry(0.03, 0.16, 0.05), neo, kn, 0.06, -0.2, 0.01); // faca na panturrilha
+    ball(0.053, suit, kn, 0, 0, 0);
+    const kp = mesh(new THREE.CapsuleGeometry(0.035, 0.035, 4, 10), neo, kn, 0, -0.01, -0.038); kp.scale.set(1.15, 1, 0.45);
+    mesh(bodyLathe([[0, -0.435], [0.033, -0.425], [0.035, -0.38], [0.044, -0.29], [0.054, -0.17], [0.054, -0.09], [0.05, 0], [0, 0.03]], 18, knots([[0, 0.85]]), knots([[-0.32, 0.95], [-0.17, 1.22], [-0.05, 1.0]])), suit, kn);
+    if (sx > 0) { const kf = mesh(new THREE.BoxGeometry(0.026, 0.15, 0.045), rub, kn, -0.045, -0.22, 0.008); kf.rotation.z = 0.06; mesh(new THREE.BoxGeometry(0.03, 0.012, 0.05), rub, kn, -0.047, -0.12, 0.008); } // faca na panturrilha
     const an = J(); an.position.set(0, -0.42, 0); kn.add(an);
-    const foot = mesh(new THREE.BoxGeometry(0.085, 0.07, 0.24), neo, an, 0, -0.03, -0.07);
-    const fs = new THREE.Shape(); fs.moveTo(-0.055, 0); fs.lineTo(0.055, 0); fs.lineTo(0.1, 0.72); fs.quadraticCurveTo(0, 0.77, -0.1, 0.72); fs.closePath();
-    const fg = new THREE.ShapeGeometry(fs, 6); fg.rotateX(-Math.PI / 2);
-    const fin = J(); fin.position.set(0, -0.045, -0.18); an.add(fin);
-    const blade = mesh(fg, finM, fin); blade.rotation.x = 0;
-    for (const rx of [-1, 1]) mesh(new THREE.BoxGeometry(0.008, 0.02, 0.7), neo, fin, rx * 0.075, 0.005, -0.33).rotation.y = rx * -0.06;
-    return { th, kn, an, fin };
+    ball(0.037, neo, an, 0, 0, 0);
+    const foot = mesh(new THREE.CapsuleGeometry(0.038, 0.17, 4, 12), neo, an, 0, -0.035, -0.065); foot.rotation.x = Math.PI / 2; foot.scale.set(1.15, 1, 0.78);
+    // calçador fechado de borracha + pá de carbono
+    const fin = J(); an.add(fin);
+    const pk = mesh(new THREE.CapsuleGeometry(0.047, 0.19, 4, 14), rub, fin, 0, -0.036, -0.075); pk.rotation.x = Math.PI / 2; pk.scale.set(1.12, 1, 0.84);
+    const sole = mesh(new THREE.BoxGeometry(0.105, 0.012, 0.2), rub, fin, 0, -0.072, -0.11); sole.rotation.x = -0.12;
+    const bl = J(); bl.position.set(0, -0.07, -0.15); bl.rotation.x = FIN_ANG; fin.add(bl);
+    const [bg, rg] = finGeos(); mesh(bg, finM, bl); mesh(rg, rub, bl);
+    bl.userData.geos = [bg, rg];
+    return { th, kn, an, fin, blade: bl };
   };
   const lL = leg(-1), lR = leg(1);
   scene.add(root);
@@ -2191,13 +2266,15 @@ function poseDiver(r, mode, t, kick, kickAmp) {
   // nadando: corpo horizontal (orientação no root), braço direito estendido com a arma
   r.neck.rotation.set(1.0, 0, 0);
   r.aR.sh.rotation.set(Math.PI - 0.12, 0, -0.08); r.aR.el.rotation.set(0.12, 0, 0); r.aR.wr.rotation.set(0, 0, 0);
-  r.aL.sh.rotation.set(0.15 + Math.sin(kick * 0.5) * 0.05 * kickAmp, 0, -0.18); r.aL.el.rotation.set(0.25, 0, 0); r.aL.wr.rotation.set(0, 0, 0);
+  r.aL.sh.rotation.set(0.15 + Math.sin(kick * 0.5) * 0.05 * kickAmp, 0, -0.14); r.aL.el.rotation.set(0.25, 0, 0); r.aL.wr.rotation.set(0.1, 0, 0.15);
+  // pernada de apneia: o movimento nasce no quadril, joelho dobra pouco na recuperação, tornozelo estendido;
+  // a pá flexiona contra o sentido do movimento (atraso de fase de 90°)
   for (const [l, s] of [[r.lL, 1], [r.lR, -1]]) {
-    const k = Math.sin(kick + (s > 0 ? 0 : Math.PI)) * kickAmp;
-    l.th.rotation.set(0.05 + k * 0.38, 0, -s * 0.04);
-    l.kn.rotation.set(-0.12 - Math.max(0, -k) * 0.45, 0, 0);
-    l.an.rotation.set(-1.45 + k * 0.15, 0, 0);
-    l.fin.visible = true; l.fin.rotation.x = -k * 0.25;
+    const ph = kick + (s > 0 ? 0 : Math.PI), k = Math.sin(ph) * kickAmp, v = Math.cos(ph) * kickAmp;
+    l.th.rotation.set(0.05 + k * 0.32, 0, -s * 0.035);
+    l.kn.rotation.set(-0.1 - Math.max(0, -k) * 0.42 - Math.max(0, v) * 0.12, 0, 0);
+    l.an.rotation.set(-1.02 + k * 0.1, 0, s * 0.04);
+    l.fin.visible = true; bendFin(l.blade, -v * 0.5 - 0.04);
   }
 }
 function updateDiver(dt, t) {
