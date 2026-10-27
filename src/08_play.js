@@ -32,7 +32,7 @@ function mission(ev, data = {}) {
     else inc = 1;
     if (!inc) continue;
     m.prog = Math.min(m.goal, m.prog + inc); changed = true;
-    if (m.prog >= m.goal) { m.done = true; SV.money += m.rew; toast(`Missão cumprida: ${m.t}! +${fmtR(m.rew)}`, 4, 'gold'); AU.coin(); buzz([40, 60, 40]); }
+    if (m.prog >= m.goal) { m.done = true; SV.money += m.rew; addXP(m.rew / 4); toast(`Missão cumprida: ${m.t}! +${fmtR(m.rew)}`, 4, 'gold'); AU.coin(); buzz([40, 60, 40]); }
     else if (ev !== 'sell') toast(`Missão: ${m.t} (${m.prog}/${m.goal})`, 2.5);
   }
   if (changed) save();

@@ -31,7 +31,7 @@ function renderOpt() {
     `</div><div class="it" style="margin-top:8px"><div class="d">Qualidade baixa reduz a resolução e o alcance do detalhe do fundo e dos peixes. Use se o celular esquentar ou travar.</div></div>`;
   const B = $('optBody');
   B.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => {
-    const k = b.dataset.opt, raw = b.dataset.v; OPT[k] = raw === 'true' ? true : raw === 'false' ? false : +raw;
+    const k = b.dataset.opt, raw = b.dataset.v; OPT[k] = raw === 'true' ? true : raw === 'false' ? false : +raw; if (k === 'q') OPT.qManual = true;
     if (k === 'third' && P.mode !== 'swim') THIRD = OPT.third;
     saveOpt(); applyOpt(); AU.click(); renderOpt();
   });

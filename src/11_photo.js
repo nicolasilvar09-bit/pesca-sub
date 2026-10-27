@@ -51,7 +51,7 @@ function takePhoto() {
   const score = Math.round(base * size * dist * cen * calm), pay = Math.round(score / (1 + rep * 0.8));
   SV.photos = SV.photos || {}; const first = !SV.photos[key];
   SV.photos[key] = Math.max(SV.photos[key] || 0, score);
-  SV.money += pay + (first ? 150 : 0);
+  SV.money += pay + (first ? 150 : 0); addXP(pay / 4 + (first ? 40 : 0));
   toast(`Foto: ${name}${o.len ? ' · ~' + Math.round(o.len * 100) + ' cm' : ''} · nota ${score} · revista paga ${fmtR(pay)}${rep ? ' (já fotografou hoje)' : ''}`, 3.5, 'gold');
   if (first) toast(`${name} entrou no guia de espécies! +${fmtR(150)}`, 3.5, 'gold');
   AU.coin(); save();

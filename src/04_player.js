@@ -82,6 +82,8 @@ function catchFish(f) {
   if (sp.protected) { SV.money -= 1000; toast(`MERO, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
   if (f.len < sp.min) { SV.money -= 200; toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
   P.stringer.push({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len });
+  if (!sp.ornamental) addXP(15 + f.kg * 12);
+  if ((SV.tod || 12) >= 19 || (SV.tod || 12) < 5) SV.nightCatch = true;
   compOnCatch(f);
   if (!sp.ornamental) { mission('catch', { key: f.key }); mission('catchkg', { kg: f.kg }); if (GUN.waitShot) mission('wait'); }
   if (sp.rare) toast(`${sp.name}! Peixe raro na fieira.`, 4, 'gold'); else if (isTrophy(f)) toast(`Troféu! ${sp.name} acima do tamanho comum.`, 4, 'gold');

@@ -169,7 +169,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateApnea(dt);
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateApnea(dt);
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -193,7 +193,7 @@ function updateEnv(dt) {
 let lastT = performance.now();
 function loop() {
   requestAnimationFrame(loop);
-  const now = performance.now(); const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; T += dt; CU.uTime.value = T;
+  const now = performance.now(); autoQuality((now - lastT) / 1000); const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; T += dt; CU.uTime.value = T;
   readKeys(dt);
   if (!started) {
     const a = T * 0.06; camera.position.set(BOAT.pos.x + Math.sin(a) * 26, 7 + Math.sin(T * 0.2) * 1.5, BOAT.pos.z + Math.cos(a) * 26); camera.lookAt(BOAT.pos.x, 1.5, BOAT.pos.z);
@@ -212,7 +212,7 @@ function startGame() {
   BOAT.camYaw = 0; camera.position.set(BOAT.pos.x, 6, BOAT.pos.z + 12);
   toast('Joystick: acelera e vira a lancha. Siga a seta laranja até o ponto.', 5);
   toast('Toque MAPA para escolher outro destino.', 5);
-  backupReminder();
+  backupReminder(); seedXP(); setupTut(); careerHUD();
   const D = ensureDaily(); if (D.list.some(m => !m.done)) toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5);
 }
 function init() {
