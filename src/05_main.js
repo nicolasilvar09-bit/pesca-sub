@@ -20,7 +20,7 @@ function setupInput() {
   window.__resetTouch = () => { JOY.id = null; JOY.x = JOY.y = 0; knob.style.transform = ''; LOOK.id = null; for (const k in IN.held) IN.held[k] = false; document.querySelectorAll('.b.on').forEach(b => b.classList.remove('on')); };
   addEventListener('blur', () => window.__resetTouch());
   renderer.domElement.addEventListener('pointerdown', e => { if (LOOK.id === null) { LOOK.id = e.pointerId; LOOK.x = e.clientX; LOOK.y = e.clientY; } AU.init(); });
-  const BTN = { bFire: ['p', 'fire'], bArm: ['p', 'arm'], bPull: ['h', 'pull'], bUp: ['h', 'up'], bDive: ['p', 'dive'], bCtx: ['p', 'ctx'], bAnchor: ['p', 'anchor'], bJump: ['p', 'jump'], bMarina: ['p', 'marina'], bMap: ['p', 'map'], bView: ['p', 'view'] };
+  const BTN = { bFire: ['p', 'fire'], bArm: ['p', 'arm'], bPull: ['h', 'pull'], bUp: ['h', 'up'], bDive: ['p', 'dive'], bCtx: ['p', 'ctx'], bAnchor: ['p', 'anchor'], bJump: ['p', 'jump'], bMarina: ['p', 'marina'], bMap: ['p', 'map'], bView: ['p', 'view'], bShop: ['p', 'shop'] };
   for (const [id, [kind, name]] of Object.entries(BTN)) {
     const el = $(id);
     el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); AU.init(); if (kind === 'p') IN.pressed[name] = true; else IN.held[name] = true; el.classList.add('on'); try { el.setPointerCapture(e.pointerId); } catch (_) { } });
@@ -29,7 +29,7 @@ function setupInput() {
   }
   addEventListener('keydown', e => {
     if (e.repeat) return; IN.keys[e.code] = true;
-    const m = { Space: 'fire', KeyR: 'arm', KeyQ: 'dive', KeyE: 'ctx', KeyM: 'map', KeyT: 'anchor', KeyV: 'view' }; if (m[e.code]) IN.pressed[m[e.code]] = true;
+    const m = { Space: 'fire', KeyR: 'arm', KeyQ: 'dive', KeyE: 'ctx', KeyM: 'map', KeyT: 'anchor', KeyV: 'view', KeyL: 'shop' }; if (m[e.code]) IN.pressed[m[e.code]] = true;
     if (e.code === 'KeyF') IN.held.pull = true; if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') IN.held.up = true;
     if (e.code === 'Space') e.preventDefault();
   });
@@ -80,47 +80,6 @@ function openMap() {
 function closePanels() { $('mapPanel').classList.add('hide'); $('marinaPanel').classList.add('hide'); paused = false; save(); }
 $('mapClose').onclick = closePanels; $('mClose').onclick = closePanels;
 
-// ---- marina ----
-let mTab = 'sell';
-function openMarina() { paused = true; $('marinaPanel').classList.remove('hide'); renderMarina(); }
-function renderMarina() {
-  $('mSub').textContent = `Saldo: ${fmtR(SV.money)} · Combustível: ${Math.round(SV.fuel)} L · Fôlego máx.: ${maxBreath()} s`;
-  const tabs = [['sell', 'Vender pescado'], ['guns', 'Arbaletes'], ['gear', 'Treino e nadadeiras'], ['fuel', 'Combustível'], ['rec', 'Recordes']];
-  $('mTabs').innerHTML = tabs.map(([k, n]) => `<div class="tab ${k === mTab ? 'on' : ''}" data-k="${k}">${n}</div>`).join('');
-  $('mTabs').querySelectorAll('.tab').forEach(t => t.onclick = () => { mTab = t.dataset.k; AU.click(); renderMarina(); });
-  let h = '';
-  if (mTab === 'sell') {
-    const tot = SV.cooler.reduce((s, f) => s + f.kg * SPECIES[f.key].price, 0);
-    h = SV.cooler.length ? `<div class="list">${SV.cooler.map(f => `<div class="it"><div><div class="n">${f.name}</div><div class="d">${f.cm} cm · ${fmtKg(f.kg)} kg · ${fmtR(SPECIES[f.key].price)}/kg</div></div><b>${fmtR(f.kg * SPECIES[f.key].price)}</b></div>`).join('')}</div>
-      <div class="row2"><span>Total: <b style="color:var(--acc)">${fmtR(tot)}</b></span><button class="btn gold" id="sellAll">VENDER TUDO</button></div>`
-      : '<div class="it">A caixa térmica está vazia. Vá pescar!</div>';
-  }
-  if (mTab === 'guns') h = '<div class="list">' + GUNS.map(g => {
-    const own = SV.guns.includes(g.id), eq = SV.gun === g.id;
-    return `<div class="it"><div><div class="n">${g.name}</div><div class="d">Alcance ${fmtKg(g.range)} m · ${g.pneu ? 'pneumático' : g.bands + ' elástico(s)'} · potência ${g.power} · ${g.desc}</div></div>
-      ${eq ? '<span class="d">EM USO</span>' : own ? `<button class="btn alt" data-eq="${g.id}">USAR</button>` : `<button class="btn" data-buy="${g.id}" ${SV.money < g.price ? 'disabled' : ''}>${fmtR(g.price)}</button>`}</div>`;
-  }).join('') + '</div>';
-  if (mTab === 'gear') {
-    const lvl = SV.apnea, price = 350 * (lvl + 1);
-    h = `<div class="list"><div class="it"><div><div class="n">Treino de apneia · nível ${lvl}/5</div><div class="d">+10 s de fôlego máximo por nível. Hoje: ${maxBreath()} s.</div></div>${lvl >= 5 ? '<span class="d">MÁXIMO</span>' : `<button class="btn" id="buyAp" ${SV.money < price ? 'disabled' : ''}>${fmtR(price)}</button>`}</div>` +
-      FINS.map((f, i) => `<div class="it"><div><div class="n">${f.name}</div><div class="d">Velocidade de nado ×${f.k.toFixed(2)}</div></div>${i <= SV.fins ? `<span class="d">${i === SV.fins ? 'EM USO' : 'TEM'}</span>` : `<button class="btn" data-fin="${i}" ${SV.money < f.price || i !== SV.fins + 1 ? 'disabled' : ''}>${fmtR(f.price)}</button>`}</div>`).join('') + '</div>';
-  }
-  if (mTab === 'fuel') {
-    const need = 100 - SV.fuel, cost = need * 6.5;
-    h = `<div class="list"><div class="it"><div><div class="n">Gasolina · ${Math.round(SV.fuel)}/100 L</div><div class="d">R$ 6,50 por litro. Uma ida e volta até a Laje Branca gasta uns 20 L.</div></div><button class="btn" id="fill" ${need < 1 || SV.money < 7 ? 'disabled' : ''}>ENCHER ${fmtR(Math.min(cost, Math.max(0, SV.money)))}</button></div></div>`;
-  }
-  if (mTab === 'rec') {
-    h = '<div class="list">' + Object.keys(SPECIES).filter(k => !SPECIES[k].protected).map(k => `<div class="it"><div><div class="n">${SPECIES[k].name}</div><div class="d">Medida mínima ${Math.round(SPECIES[k].min * 100)} cm · ${fmtR(SPECIES[k].price)}/kg</div></div><b>${SV.best[k] ? fmtKg(SV.best[k]) + ' kg' : '—'}</b></div>`).join('') + '</div>';
-  }
-  $('mBody').innerHTML = h;
-  const sa = $('sellAll'); if (sa) sa.onclick = () => { const tot = SV.cooler.reduce((s, f) => s + f.kg * SPECIES[f.key].price, 0); SV.money += tot; SV.cooler = []; AU.coin(); toast(`Vendido por ${fmtR(tot)}!`, 3, 'gold'); save(); renderMarina(); };
-  $('mBody').querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { const g = gunById(b.dataset.buy); if (SV.money < g.price) return; SV.money -= g.price; SV.guns.push(g.id); SV.gun = g.id; buildGun(g); AU.coin(); save(); renderMarina(); });
-  $('mBody').querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { SV.gun = b.dataset.eq; buildGun(gunById(SV.gun)); AU.click(); save(); renderMarina(); });
-  $('mBody').querySelectorAll('[data-fin]').forEach(b => b.onclick = () => { const i = +b.dataset.fin; if (SV.money < FINS[i].price) return; SV.money -= FINS[i].price; SV.fins = i; AU.coin(); save(); renderMarina(); });
-  const ap = $('buyAp'); if (ap) ap.onclick = () => { const p = 350 * (SV.apnea + 1); if (SV.money < p) return; SV.money -= p; SV.apnea++; AU.coin(); save(); renderMarina(); };
-  const fl = $('fill'); if (fl) fl.onclick = () => { const L = Math.min(100 - SV.fuel, SV.money / 6.5); SV.fuel += L; SV.money -= L * 6.5; AU.coin(); save(); renderMarina(); };
-}
-
 // ---- HUD ----
 let hudT = 0, lowWarned = false, beatT = 0;
 const show = (id, v) => $(id).classList.toggle('hide', !v);
@@ -142,7 +101,7 @@ function updateHUD(dt) {
   if (swim && !P.under && P.boatDist < 6) { ctx.textContent = 'SUBIR NO BARCO'; show('bCtx', true); }
   else if (!swim && SV.fuel <= 0 && !nearMarina()) { ctx.textContent = 'REBOQUE (R$ 150)'; show('bCtx', true); }
   else show('bCtx', false);
-  show('cross', swim); show('bands', swim); show('bView', swim); show('fuelChip', true);
+  show('cross', swim); show('bands', swim); show('bView', swim); show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
   const aim = aimOnFish(); $('cross').classList.toggle('ok', !!(aim && aim.ok));
   const al = $('aimLbl'); if (aim) { al.textContent = `${aim.f.sp.name} · ~${Math.round(aim.f.len * 100 / 5) * 5} cm${aim.ok ? '' : ' · longe'}`; al.classList.remove('hide'); } else al.classList.add('hide');
   const fighting = GUN.state === 'hooked' && GUN.fish && GUN.fish.fight > 0;
@@ -188,6 +147,7 @@ function ctxAction() {
 }
 function step(dt) {
   if (took('map')) { openMap(); return; }
+  if (took('shop')) { if (P.mode === 'boat') openShop(nearMarina()); return; }
   if (took('marina') && P.mode === 'boat' && nearMarina()) { openMarina(); return; }
   if (took('ctx')) ctxAction();
   if (took('anchor') && P.mode === 'boat') toggleAnchor();
@@ -201,6 +161,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
+  updateComp(dt, T); updateLight();
 }
 function updateEnv(dt) {
   const c = camera.position, sY = waveH(c.x, c.z, T);
@@ -214,7 +175,7 @@ function updateEnv(dt) {
   waterMat.uniforms.uUnder.value = camUnder ? 1 : 0; waterMat.uniforms.uFogC.value.copy(scene.fog.color); waterMat.uniforms.uFogD.value = scene.fog.density;
   water.position.set(c.x, 0, c.z); sky.position.copy(c);
   const base = camera.aspect < 1 ? clamp(2 * Math.atan(Math.tan(37 * Math.PI / 180) / camera.aspect) * 180 / Math.PI, 70, 100) : 70;
-  const fov = camUnder ? base * 0.84 : base; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = lerp(camera.fov, fov, clamp(dt * 6, 0, 1)); camera.updateProjectionMatrix(); }
+  const fov = (camUnder ? base * 0.84 : base) + (P.mode === 'swim' && camUnder ? maskNow().fov : 0); if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = lerp(camera.fov, fov, clamp(dt * 6, 0, 1)); camera.updateProjectionMatrix(); }
   if (lastUnder !== camUnder) { AU.setEnv(camUnder); lastUnder = camUnder; }
   BUOYS.forEach((b, i) => { b.position.y = waveH(b.position.x, b.position.z, T) - 0.15; b.rotation.set(Math.sin(T * 1.2 + i) * 0.12, i, Math.cos(T + i) * 0.1); });
   updateFX(dt, camUnder, camMurk, T);
@@ -246,7 +207,7 @@ function startGame() {
 function init() {
   loadSave();
   initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); buildFX();
-  DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife();
+  DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
   setupInput();
   $('playBtn').onclick = startGame;

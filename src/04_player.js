@@ -4,6 +4,7 @@ const GUNS = [
   { id: 'a90', name: 'Arbalete 90 cm', len: 0.9, range: 5.5, bands: 2, power: 12, speed: 20, price: 650, load: 1.3, wood: false, desc: 'Dois elásticos de 16 mm. Versátil.' },
   { id: 'p100', name: 'Pneumático 100', len: 1.0, range: 6.0, bands: 1, power: 15, speed: 22, price: 980, load: 3.2, wood: false, pneu: true, desc: 'Ar comprimido. Potente, mas lento para recarregar.' },
   { id: 'a110', name: 'Arbalete 110 cm madeira', len: 1.1, range: 7.0, bands: 2, power: 24, speed: 23, price: 1600, load: 1.4, wood: true, desc: 'Madeira, tiro silencioso e estável. Para costão.' },
+  { id: 'a150', name: 'Roller 150 Big Game', len: 1.5, range: 10, bands: 3, power: 75, speed: 30, price: 6500, load: 1.6, wood: true, desc: 'Arma de caça grande no azul. Tiro longo e muita força.' },
   { id: 'a130', name: 'Roller 130 cm', len: 1.3, range: 8.5, bands: 3, power: 42, speed: 27, price: 3400, load: 1.4, wood: true, desc: 'Sistema roller, alcance de azul. Para olho-de-boi.' },
 ];
 const FINS = [{ name: 'Nadadeira plástica', k: 1.0, price: 0 }, { name: 'Nadadeira de fibra', k: 1.18, price: 700 }, { name: 'Nadadeira de carbono', k: 1.35, price: 1700 }];
@@ -11,7 +12,7 @@ const gunById = id => GUNS.find(g => g.id === id);
 
 // ================= estado salvo =================
 const SAVE_KEY = 'pescasub_costaverde_v1';
-let SV = { money: 300, guns: ['a75'], gun: 'a75', apnea: 0, fins: 0, fuel: 80, cooler: [], best: {}, dest: 'botinas' };
+let SV = { money: 300, guns: ['a75'], gun: 'a75', apnea: 0, fins: 0, fuel: 80, cooler: [], best: {}, dest: 'botinas', suit: 0, suits: [0], mask: 0, masks: [0], light: false, boat: 0, boats: [0], wins: 0 };
 function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s) SV = Object.assign(SV, s); } catch (e) { } }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SV)); } catch (e) { } }
 
@@ -109,6 +110,7 @@ function catchFish(f) {
   if (sp.protected) { SV.money -= 1000; toast(`MERO, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
   if (f.len < sp.min) { SV.money -= 200; toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
   P.stringer.push({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len });
+  compOnCatch(f);
   if (sp.ornamental) toast(`${sp.name} é peixe ornamental, ninguém compra. Prefira deixar no mar.`, 4, 'bad');
   toast(`${sp.name} · ${cm} cm · ${fmtKg(f.kg)} kg`, 3.5, 'gold'); AU.coin();
   if (!SV.best[f.key] || SV.best[f.key] < f.kg) { SV.best[f.key] = f.kg; if (f.kg > 3) toast('Novo recorde da espécie!', 3, 'gold'); }
@@ -206,7 +208,7 @@ function updateBoat(dt, t) {
   if (driving && !B.anchored) {
     const thIn = clamp(IN.jy, -0.35, 1);
     B.throttle = lerp(B.throttle, SV.fuel > 0 ? thIn : 0, clamp(dt * 2, 0, 1));
-    const maxS = 30;
+    const maxS = boatNow().max;
     B.speed += (B.throttle * maxS - B.speed) * clamp(dt * (B.throttle > Math.abs(B.speed) / maxS ? 0.55 : 0.8), 0, 1);
     B.heading -= IN.jx * dt * (0.35 + 0.75 * Math.min(1, Math.abs(B.speed) / 6)) * (B.speed < -0.2 ? -1 : 1);
     SV.fuel = Math.max(0, SV.fuel - Math.abs(B.throttle) * dt * 0.09);
@@ -264,8 +266,8 @@ function toggleAnchor() {
 function jumpIn() {
   if (!BOAT.anchored) { toast('Ancore o barco antes de pular.'); return; }
   P.mode = 'swim'; const side = _a.set(Math.cos(BOAT.heading), 0, -Math.sin(BOAT.heading));
-  P.pos.set(BOAT.pos.x + side.x * 2.6, -0.2, BOAT.pos.z + side.z * 2.6); P.vel.set(0, 0, 0);
-  P.yaw = BOAT.heading - Math.PI / 2; P.pitch = -0.25; P.under = false; P.o2 = Math.max(P.o2, 0.6);
+  P.pos.set(BOAT.pos.x + side.x * 3.6, -0.2, BOAT.pos.z + side.z * 3.6); P.vel.set(0, 0, 0);
+  P.yaw = BOAT.heading + Math.PI / 2; P.pitch = -0.25; P.under = false; P.o2 = Math.max(P.o2, 0.6);
   diveBuoy.position.set(P.pos.x + 3, 0, P.pos.z); AU.splash(); spawnBubbles(_b.set(P.pos.x, -0.6, P.pos.z), 25, 0.5);
   toast('Na água! Olhe para baixo e toque MERGULHAR.', 3);
 }
@@ -323,7 +325,7 @@ function updateSwim(dt, t) {
     pushOutRocks(P.pos, 0.45);
     P.diveT += dt; P.maxD = Math.max(P.maxD, -P.pos.y);
     // consumo de oxigênio
-    P.o2 -= dt / maxBreath() * (0.7 + 0.65 * P.effort + depth / 45) * (P.stringer.length > 6 ? 1.1 : 1);
+    P.o2 -= dt / maxBreath() * (0.7 + 0.65 * P.effort + depth / 45) * (P.stringer.length > 6 ? 1.1 : 1) * suitNow().o2 * maskNow().o2;
     if (P.pos.y > surfY - 0.45 && P.vel.y > -0.05) {
       P.under = false; AU.breath(); P.surfT = 0;
       const d = P.maxD; if (d > 2) toast(`Mergulho: ${fmtKg(d)} m · ${Math.floor(P.diveT)} s`, 2.2);

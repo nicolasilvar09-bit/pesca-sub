@@ -11,7 +11,7 @@ js='\n'.join(open(f'{src}/{f}').read() for f in sorted(os.listdir(src)) if f.end
 assert '</script' not in js.lower()
 scripts=f'<script>{three}</script>\n<script>\n(function(){{\n{js}\n}})();\n</script>'
 
-open('index.html','w').write(f'<!doctype html>\n<html lang="pt-BR"><head><meta charset="utf-8">\n{head}</head><body>\n{body}\n{scripts}\n</body></html>')
+open('index.html','w').write(f'<!doctype html>\n<html lang="pt-BR"><head><meta charset="utf-8">\n{head}</head><body>\n{body}\n{scripts}\n</body></html>\n')
 
 
 print('ok', os.path.getsize('index.html'))

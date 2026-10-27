@@ -218,7 +218,7 @@ function buildDiver(withGun) {
   };
   const lL = leg(-1), lR = leg(1);
   scene.add(root);
-  const rig = { root, neck, aL, aR, lL, lR, handR: aR.wr };
+  const rig = { root, neck, aL, aR, lL, lR, handR: aR.wr, suitMat: suit };
   return rig;
 }
 // poses
@@ -257,11 +257,264 @@ function updateDiver(dt, t) {
 }
 // câmera de 3ª pessoa
 function thirdPersonCam(t) {
-  const cp = Math.cos(P.pitch), fwd = _a.set(-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp);
-  const tall = camera.aspect < 1, back = tall ? 4.0 : 3.1, up = (P.under ? 0.75 : 1.0) * (tall ? 1.25 : 1), sideK = 0.45, rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
+  const op = P.pitch * 0.55, cp = Math.cos(op), fwd = _a.set(-Math.sin(P.yaw) * cp, Math.sin(op), -Math.cos(P.yaw) * cp);
+  const tall = camera.aspect < 1, back = tall ? 6.0 : 5.2, up = (P.under ? 1.2 : 1.4) * (tall ? 1.2 : 1), sideK = 0.55, rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   const c = new V3(P.pos.x - fwd.x * back + rx * sideK, P.pos.y - fwd.y * back + up, P.pos.z - fwd.z * back + rz * sideK);
   const h = H(c.x, c.z); if (c.y < h + 0.35) c.y = h + 0.35;
   pushOutRocks(c, 0.3);
-  camera.position.lerp(c, 0.5);
-  camera.rotation.set(P.pitch - 0.16, P.yaw, 0, 'YXZ');
+  camera.position.lerp(c, 0.35);
+  camera.rotation.set(P.pitch - 0.2, P.yaw, 0, 'YXZ');
+}
+
+// ================= loja, equipamentos, naufrágio, parcel e campeonato =================
+const SUITS = [
+  { name: 'Roupa 3 mm lisa', o2: 1, shy: 1, price: 0, desc: 'Básica, preta. O peixe vê você de longe.' },
+  { name: 'Roupa 5 mm camuflada', o2: 0.93, shy: 0.85, price: 900, desc: 'Camuflagem de costão: o peixe estranha menos. Mais quente, gasta menos fôlego.' },
+  { name: 'Roupa 7 mm camuflada pro', o2: 0.86, shy: 0.72, price: 2400, desc: 'Corte de apneia, aberta por dentro. A melhor para fazer espera.' },
+];
+const MASKS = [
+  { name: 'Máscara padrão', o2: 1, fov: 0, price: 0, desc: 'Vem com o kit.' },
+  { name: 'Máscara baixo volume', o2: 0.95, fov: 6, price: 450, desc: 'Menos ar para compensar e campo de visão maior.' },
+];
+const BOATS = [
+  { name: 'Lancha 21 pés', max: 30, tank: 100, scale: 1, price: 0, desc: 'Motor de popa 150 hp.' },
+  { name: 'Lancha 26 pés', max: 36, tank: 150, scale: 1.15, price: 9000, desc: 'Motor 250 hp, tanque de 150 L.' },
+  { name: 'Lancha 32 pés', max: 42, tank: 220, scale: 1.3, price: 24000, desc: 'Dois motores 300 hp, tanque de 220 L. Chega no parcel voando.' },
+];
+const LIGHT_PRICE = 600;
+const suitNow = () => SUITS[SV.suit || 0], maskNow = () => MASKS[SV.mask || 0], boatNow = () => BOATS[SV.boat || 0];
+const tankMax = () => boatNow().tank;
+const NAUF = { x: 40, z: -430 }, AVENT = { x: 640, z: -600 };
+
+// ---------- relevo extra (chamado dentro de H) ----------
+function Hextra(x, z, h) {
+  const dA = Math.hypot(x - AVENT.x, z - AVENT.z);
+  if (dA < 320) { h = Math.min(h, lerp(-33, h, smooth(90, 300, dA))); h = Math.max(h, lerp(-13, -33, smooth(0, 75, dA)) + 1.5 * fbm(x * 0.07, z * 0.07, 2)); }
+  const dN = Math.hypot(x - NAUF.x, z - NAUF.z);
+  if (dN < 120) h = lerp(h, -19 + 0.3 * fbm(x * 0.1, z * 0.1, 2), 1 - smooth(35, 110, dN));
+  return h;
+}
+// ---------- pedras do parcel (antes de instanciar as pedras) ----------
+function extraRocks() {
+  const r = mulberry(77);
+  for (let i = 0; i < 110; i++) {
+    const a = r() * TAU, d = Math.pow(r(), 0.7) * 52, x = AVENT.x + Math.cos(a) * d, z = AVENT.z + Math.sin(a) * d;
+    const rad = lerp(5.2, 1.3, d / 52) * (0.6 + r() * 0.7);
+    const R = addRock(x, H(x, z) + rad * 0.25, z, rad, 'aventureiro');
+    if (rad > 2.4 && r() < 0.55) addHole(R, r() * TAU, 'aventureiro');
+  }
+  for (let i = 0; i < 18; i++) { const x = NAUF.x + rand(-30, 30), z = NAUF.z + rand(-30, 30); const h = H(x, z); addRock(x, h + 0.4, z, rand(1, 2.2), 'naufragio'); }
+}
+// ---------- casco afundado ----------
+function buildWreck() {
+  const L = 34, B = 7.5, D = 5;
+  const sh = new THREE.Shape();
+  sh.moveTo(-B / 2, -L / 2); sh.lineTo(B / 2, -L / 2); sh.lineTo(B / 2, L * 0.22); sh.quadraticCurveTo(B * 0.42, L * 0.44, 0, L / 2); sh.quadraticCurveTo(-B * 0.42, L * 0.44, -B / 2, L * 0.22); sh.closePath();
+  const hg = new THREE.ExtrudeGeometry(sh, { depth: D, steps: 3, bevelEnabled: true, bevelSize: 0.3, bevelThickness: 0.3, bevelSegments: 2 });
+  hg.rotateX(Math.PI / 2); hg.translate(0, D / 2, 0);
+  const p = hg.attributes.position;
+  for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y < 0) p.setX(i, p.getX(i) * lerp(1, 0.45, -y / (D / 2))); }
+  hg.computeVertexNormals();
+  const rt = rockTex(); rt.wrapS = rt.wrapT = THREE.RepeatWrapping; rt.repeat.set(4, 4);
+  const rust = uwify(new THREE.MeshStandardMaterial({ color: 0x7a5038, map: rt, roughness: 1, metalness: 0.2 }), { key: 'wr' });
+  const dark = uwify(new THREE.MeshStandardMaterial({ color: 0x1a120c, roughness: 1 }), { key: 'wd' });
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(hg, rust));
+  const house = new THREE.Mesh(new THREE.BoxGeometry(5.5, 3.2, 6), rust); house.position.set(0, D / 2 + 1.6, -6); g.add(house);
+  for (const z of [-7.5, -4.5]) for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.9, 1.2), dark); w.position.set(sx * 2.78, D / 2 + 2, z); g.add(w); }
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 14, 8), rust); mast.position.set(4, -1.2, 6); mast.rotation.set(0.15, 0, 1.25); g.add(mast);
+  for (const z of [-12, -1, 9]) for (const sx of [-1, 1]) { const hole = new THREE.Mesh(new THREE.CircleGeometry(0.9, 10), dark); hole.position.set(sx * (B / 2 + 0.32), 0.2, z); hole.rotation.y = sx * Math.PI / 2; g.add(hole); }
+  const hy = H(NAUF.x, NAUF.z);
+  g.position.set(NAUF.x, hy + 1.4, NAUF.z); g.rotation.set(-0.04, 0.6, 0.22);
+  scene.add(g); g.updateMatrixWorld(true);
+  const v = new V3();
+  for (let s = -L / 2 + 3; s <= L / 2 - 3; s += 3.2) { v.set(0, 0.6, s); g.localToWorld(v); const R = addRock(v.x, v.y, v.z, B / 2 + 0.6, 'naufragio'); R.sy = 0.75; }
+  for (const s of [-12, -1, 9]) for (const sx of [-1, 1]) {
+    v.set(sx * (B / 2 + 1.3), 0.2, s); g.localToWorld(v);
+    const a = Math.atan2(v.z - g.position.z, v.x - g.position.x);
+    HOLES.push({ x: v.x, z: v.z, y: Math.max(v.y, H(v.x, v.z) + 0.5), dir: a, spot: 'naufragio', used: 0 });
+  }
+}
+
+// ---------- equipamentos aplicados ----------
+let DLIGHT = null;
+function initExtra() {
+  DLIGHT = new THREE.SpotLight(0xfff2dc, 0, 28, 0.42, 0.6, 1.3);
+  DLIGHT.position.set(0.15, -0.1, 0); DLIGHT.target.position.set(0, -0.3, -6); camera.add(DLIGHT, DLIGHT.target);
+  applyGear();
+}
+function applyGear() {
+  if (BOAT.mesh) BOAT.mesh.scale.setScalar(boatNow().scale);
+  SV.fuel = Math.min(SV.fuel, tankMax());
+  if (DIVER && DIVER.suitMat) { const m = DIVER.suitMat; if ((SV.suit || 0) === 0) { m.map = null; m.color.set(0x1b1e22); } else { m.map = _camoT; m.color.set(SV.suit === 2 ? 0xd8e0c8 : 0xffffff); } m.needsUpdate = true; }
+}
+function updateLight() {
+  if (!DLIGHT) return;
+  const on = SV.light && P.mode === 'swim' && camUnder && (-camera.position.y > 7 || camMurk > 0.3);
+  DLIGHT.intensity = lerp(DLIGHT.intensity, on ? 3.2 : 0, 0.2);
+}
+
+// ---------- loja / marina ----------
+let shopTab = 'sell', shopAtMarina = false;
+function openShop(atMarina) { shopAtMarina = !!atMarina; paused = true; $('marinaPanel').classList.remove('hide'); renderShop(); }
+function openMarina() { openShop(true); }
+function buyBtn(attr, price, label) { return `<button class="btn" ${attr} ${SV.money < price ? 'disabled' : ''}>${label || fmtR(price)}</button>`; }
+function renderShop() {
+  const at = shopAtMarina;
+  $('marinaPanel').querySelector('h2').textContent = at ? 'Marina Balneário' : 'Loja Deep Spear';
+  $('mSub').textContent = `Saldo: ${fmtR(SV.money)} · Combustível: ${Math.round(SV.fuel)}/${tankMax()} L · Fôlego: ${maxBreath()} s`;
+  const tabs = [['sell', 'Vender pescado'], ['guns', 'Arbaletes'], ['gear', 'Roupa e acessórios'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['rec', 'Recordes']];
+  $('mTabs').innerHTML = tabs.map(([k, n]) => `<div class="tab ${k === shopTab ? 'on' : ''}" data-k="${k}">${n}</div>`).join('');
+  $('mTabs').querySelectorAll('.tab').forEach(t => t.onclick = () => { shopTab = t.dataset.k; AU.click(); renderShop(); });
+  let h = '';
+  if (shopTab === 'sell') {
+    const rate = at ? 1 : 0.75;
+    const tot = SV.cooler.reduce((s, f) => s + f.kg * SPECIES[f.key].price, 0) * rate;
+    const note = at ? 'Preço cheio da peixaria da marina.' : 'Longe da marina, o atravessador paga 75% do preço. Na marina você recebe o valor cheio.';
+    h = `<div class="it" style="margin-bottom:8px"><div class="d">${note}${P.mode === 'swim' ? ' O que está na fieira só pode ser vendido depois que você subir no barco.' : ''}</div></div>`;
+    h += SV.cooler.length ? `<div class="list">${SV.cooler.map(f => `<div class="it"><div><div class="n">${f.name}</div><div class="d">${f.cm} cm · ${fmtKg(f.kg)} kg · ${fmtR(SPECIES[f.key].price * rate)}/kg</div></div><b>${fmtR(f.kg * SPECIES[f.key].price * rate)}</b></div>`).join('')}</div>
+      <div class="row2"><span>Total: <b style="color:var(--acc)">${fmtR(tot)}</b></span><button class="btn gold" id="sellAll">VENDER TUDO</button></div>`
+      : '<div class="it">A caixa térmica está vazia. Vá pescar!</div>';
+  }
+  if (shopTab === 'guns') h = '<div class="list">' + GUNS.map(g => {
+    const own = SV.guns.includes(g.id), eq = SV.gun === g.id;
+    return `<div class="it"><div><div class="n">${g.name}</div><div class="d">Alcance ${fmtKg(g.range)} m · ${g.pneu ? 'pneumático' : g.bands + ' elástico(s)'} · segura peixe de até ~${g.power} kg · ${g.desc}</div></div>
+      ${eq ? '<span class="d">EM USO</span>' : own ? `<button class="btn alt" data-eq="${g.id}">USAR</button>` : buyBtn(`data-buy="${g.id}"`, g.price)}</div>`;
+  }).join('') + '</div>';
+  if (shopTab === 'gear') {
+    const lvl = SV.apnea, ap = 350 * (lvl + 1);
+    h = '<div class="list">';
+    h += SUITS.map((s, i) => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.desc}</div></div>${(SV.suit || 0) === i ? '<span class="d">EM USO</span>' : (SV.suits || [0]).includes(i) ? `<button class="btn alt" data-suit="${i}">USAR</button>` : buyBtn(`data-bsuit="${i}"`, s.price)}</div>`).join('');
+    h += MASKS.map((s, i) => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.desc}</div></div>${(SV.mask || 0) === i ? '<span class="d">EM USO</span>' : (SV.masks || [0]).includes(i) ? `<button class="btn alt" data-mask="${i}">USAR</button>` : buyBtn(`data-bmask="${i}"`, s.price)}</div>`).join('');
+    h += `<div class="it"><div><div class="n">Lanterna de mergulho</div><div class="d">Acende sozinha abaixo de 7 m e na água turva. Ilumina toca e naufrágio.</div></div>${SV.light ? '<span class="d">TEM</span>' : buyBtn('id="buyLight"', LIGHT_PRICE)}</div>`;
+    h += FINS.map((f, i) => `<div class="it"><div><div class="n">${f.name}</div><div class="d">Velocidade de nado ×${f.k.toFixed(2)}</div></div>${i <= SV.fins ? `<span class="d">${i === SV.fins ? 'EM USO' : 'TEM'}</span>` : `<button class="btn" data-fin="${i}" ${SV.money < f.price || i !== SV.fins + 1 ? 'disabled' : ''}>${fmtR(f.price)}</button>`}</div>`).join('');
+    h += `<div class="it"><div><div class="n">Treino de apneia · nível ${lvl}/5</div><div class="d">+10 s de fôlego por nível. Hoje: ${maxBreath()} s.</div></div>${lvl >= 5 ? '<span class="d">MÁXIMO</span>' : buyBtn('id="buyAp"', ap)}</div></div>`;
+  }
+  if (shopTab === 'boats') h = '<div class="list">' + BOATS.map((b, i) => `<div class="it"><div><div class="n">${b.name}</div><div class="d">${b.desc} Velocidade máx. ${Math.round(b.max * 1.94)} nós · tanque ${b.tank} L.</div></div>${(SV.boat || 0) === i ? '<span class="d">EM USO</span>' : (SV.boats || [0]).includes(i) ? `<button class="btn alt" data-boat="${i}">USAR</button>` : buyBtn(`data-bboat="${i}"`, b.price)}</div>`).join('') + '</div>';
+  if (shopTab === 'fuel') {
+    const need = tankMax() - SV.fuel, cost = need * 6.5;
+    h = at ? `<div class="list"><div class="it"><div><div class="n">Gasolina · ${Math.round(SV.fuel)}/${tankMax()} L</div><div class="d">R$ 6,50 por litro.</div></div><button class="btn" id="fill" ${need < 1 || SV.money < 7 ? 'disabled' : ''}>ENCHER ${fmtR(Math.min(cost, Math.max(0, SV.money)))}</button></div></div>`
+      : `<div class="it"><div><div class="n">Gasolina · ${Math.round(SV.fuel)}/${tankMax()} L</div><div class="d">Só dá para abastecer no posto da Marina Balneário.</div></div></div>`;
+  }
+  if (shopTab === 'comp') {
+    h = `<div class="it" style="margin-bottom:8px"><div><div class="n">Campeonato de pesca sub · 10 minutos</div><div class="d">Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso. Inscrição R$ 100. Prêmios: 1º R$ 1.500 · 2º R$ 600 · 3º R$ 250.</div></div></div><div class="list">` +
+      SPOTS.filter(s => s.r).map(s => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.depth}</div></div><button class="btn gold" data-comp="${s.id}" ${COMP.on || SV.money < 100 ? 'disabled' : ''}>COMPETIR</button></div>`).join('') + '</div>';
+  }
+  if (shopTab === 'rec') h = '<div class="list">' + Object.keys(SPECIES).filter(k => !SPECIES[k].protected && !SPECIES[k].ornamental).map(k => `<div class="it"><div><div class="n">${SPECIES[k].name}</div><div class="d">Medida mínima ${Math.round(SPECIES[k].min * 100)} cm · ${fmtR(SPECIES[k].price)}/kg</div></div><b>${SV.best[k] ? fmtKg(SV.best[k]) + ' kg' : '—'}</b></div>`).join('') + `<div class="it"><div class="n">Campeonatos vencidos</div><b>${SV.wins || 0}</b></div></div>`;
+  $('mBody').innerHTML = h;
+  const B = $('mBody'), on = (sel, fn) => B.querySelectorAll(sel).forEach(b => b.onclick = () => { fn(b); save(); renderShop(); });
+  const pay = p => { if (SV.money < p) return false; SV.money -= p; AU.coin(); return true; };
+  const sa = $('sellAll'); if (sa) sa.onclick = () => { const tot = SV.cooler.reduce((s, f) => s + f.kg * SPECIES[f.key].price, 0) * (at ? 1 : 0.75); SV.money += tot; SV.cooler = []; AU.coin(); toast(`Vendido por ${fmtR(tot)}!`, 3, 'gold'); save(); renderShop(); };
+  on('[data-buy]', b => { const g = gunById(b.dataset.buy); if (pay(g.price)) { SV.guns.push(g.id); SV.gun = g.id; buildGun(g); } });
+  on('[data-eq]', b => { SV.gun = b.dataset.eq; buildGun(gunById(SV.gun)); AU.click(); });
+  on('[data-bsuit]', b => { const i = +b.dataset.bsuit; if (pay(SUITS[i].price)) { SV.suits = [...new Set([...(SV.suits || [0]), i])]; SV.suit = i; applyGear(); } });
+  on('[data-suit]', b => { SV.suit = +b.dataset.suit; applyGear(); AU.click(); });
+  on('[data-bmask]', b => { const i = +b.dataset.bmask; if (pay(MASKS[i].price)) { SV.masks = [...new Set([...(SV.masks || [0]), i])]; SV.mask = i; } });
+  on('[data-mask]', b => { SV.mask = +b.dataset.mask; AU.click(); });
+  on('[data-bboat]', b => { const i = +b.dataset.bboat; if (pay(BOATS[i].price)) { SV.boats = [...new Set([...(SV.boats || [0]), i])]; SV.boat = i; applyGear(); } });
+  on('[data-boat]', b => { SV.boat = +b.dataset.boat; applyGear(); AU.click(); });
+  on('[data-fin]', b => { const i = +b.dataset.fin; if (pay(FINS[i].price)) SV.fins = i; });
+  on('[data-comp]', b => { closePanels(); startComp(b.dataset.comp); });
+  const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
+  const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
+  const fl = $('fill'); if (fl) fl.onclick = () => { const L = Math.min(tankMax() - SV.fuel, SV.money / 6.5); SV.fuel += L; SV.money -= L * 6.5; AU.coin(); save(); renderShop(); };
+}
+
+// ---------- rig genérico (bots) ----------
+function placeRig(r, pos, yaw, pitch, under, mv, kick) {
+  const bp = under ? clamp(pitch, -1.3, 1.2) * 0.85 : 0;
+  const fx = -Math.sin(yaw) * Math.cos(bp), fy = Math.sin(bp), fz = -Math.cos(yaw) * Math.cos(bp);
+  r.root.position.set(pos.x - fx * 0.62, pos.y - fy * 0.62 - (under ? 0.12 : 0.18), pos.z - fz * 0.62);
+  r.root.rotation.set(bp - Math.PI / 2, yaw, Math.sin(kick * 0.5) * 0.05 * mv, 'YXZ');
+  poseDiver(r, 'swim', 0, kick, 0.25 + mv * 0.75);
+}
+
+// ---------- campeonato ----------
+const COMP = { on: false, t: 0, spot: null, bots: [], me: { n: 0, kg: 0 } };
+const BOT_DEF = [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
+const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && f.state !== 'hooked' && f.state !== 'dead';
+function startComp(id) {
+  const s = spotById(id); if (!s || COMP.on) return;
+  if (SV.money < 100) { toast('Inscrição custa R$ 100.'); return; }
+  SV.money -= 100; save();
+  if (P.mode === 'swim') climbBoat();
+  let bx = s.x + 18, bz = s.z + 18; for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; const x = s.x + Math.cos(a) * 20, z = s.z + Math.sin(a) * 20; if (H(x, z) < -4) { bx = x; bz = z; break; } }
+  BOAT.pos.set(bx, 0, bz); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
+  jumpIn(); P.o2 = 1;
+  COMP.on = true; COMP.t = 600; COMP.spot = s; COMP.me = { n: 0, kg: 0 };
+  COMP.bots = BOT_DEF.map(([name, col], i) => {
+    const rig = buildDiver(false); rig.suitMat.map = null; rig.suitMat.color.set(col); rig.suitMat.needsUpdate = true;
+    const gm = buildGunMesh(gunById(i === 0 ? 'a110' : 'a90'), true); gm.g.rotation.set(-Math.PI / 2, 0, 0); gm.g.position.set(0, -0.09, 0); rig.handR.add(gm.g);
+    const a = rand(0, TAU), pos = new V3(s.x + Math.cos(a) * 12, -0.2, s.z + Math.sin(a) * 12);
+    return { name, rig, pos, vel: new V3(), yaw: rand(0, TAU), pitch: 0, state: 'surf', t: rand(4, 10), target: null, aimT: 0, n: 0, kg: 0, kick: 0, skill: [0.24, 0.2, 0.16][i] };
+  });
+  $('compHud').classList.remove('hide');
+  toast(`Valendo! 10 minutos na ${s.name}. Peixe abaixo da medida não conta.`, 5, 'gold'); AU.coin();
+}
+function compOnCatch(f) { if (!COMP.on) return; COMP.me.n++; COMP.me.kg += f.kg; }
+function updateComp(dt, t) {
+  if (!COMP.on) return;
+  COMP.t -= dt;
+  const s = COMP.spot;
+  for (const b of COMP.bots) {
+    const sy = waveH(b.pos.x, b.pos.z, t);
+    let des = _t1.set(0, 0, 0), under = b.state !== 'surf';
+    b.t -= dt;
+    if (b.state === 'surf') {
+      b.pos.y = sy - 0.15; des.set(s.x - b.pos.x, 0, s.z - b.pos.z); if (des.length() > 8) des.normalize().multiplyScalar(0.6); else des.set(0, 0, 0);
+      if (b.t <= 0) { b.state = 'dive'; b.t = rand(35, 50); b.target = null; spawnBubbles(b.pos, 10, 0.3); }
+    } else if (b.state === 'dive') {
+      if (!b.target || !legalFish(b.target) || b.target.pos.distanceTo(b.pos) > 35) {
+        let best = null, bd = 30; for (const f of FISHES) { if (!legalFish(f)) continue; const d = f.pos.distanceTo(b.pos); if (d < bd && Math.hypot(f.pos.x - s.x, f.pos.z - s.z) < s.r * 1.8) { bd = d; best = f; } }
+        b.target = best; b.aimT = 0;
+      }
+      if (b.target) {
+        const tp = b.target.pos; des.subVectors(tp, b.pos); const d = des.length();
+        if (d > 3.4) des.multiplyScalar(1.35 / d); else { des.set(0, 0, 0); b.aimT += dt; b.yaw = Math.atan2(-(tp.x - b.pos.x), -(tp.z - b.pos.z)); }
+        if (b.aimT > rand(1.8, 3.4)) {
+          b.aimT = 0;
+          const f = b.target, ok = Math.random() < b.skill * (f.state === 'curious' || f.state === 'hidden' ? 1.4 : 1);
+          if (ok) {
+            b.n++; b.kg += f.kg; spawnBubbles(f.pos, 14, 0.3);
+            if (camera.position.distanceTo(f.pos) < 25) AU.thud();
+            toast(`${b.name} pegou ${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg`, 2.2);
+            RESPAWN.push({ key: f.key, spot: f.spot.id, n: 1, t: performance.now() / 1000 + rand(60, 120) });
+            f.remove();
+          } else f.startFlee();
+          b.target = null;
+        }
+      } else des.set(Math.sin(t * 0.3 + b.yaw), -0.2, Math.cos(t * 0.3 + b.yaw)).multiplyScalar(0.8);
+      if (b.t <= 0) b.state = 'up';
+    } else if (b.state === 'up') {
+      des.set(0, 1.3, 0);
+      if (b.pos.y > sy - 0.5) { b.state = 'surf'; b.t = rand(18, 28); }
+    }
+    b.vel.lerp(des, clamp(dt * 2, 0, 1));
+    b.pos.addScaledVector(b.vel, dt);
+    const h = H(b.pos.x, b.pos.z); if (b.pos.y < h + 0.5) b.pos.y = h + 0.5;
+    if (under) pushOutRocks(b.pos, 0.45);
+    const v = b.vel.length();
+    if (v > 0.1) { b.yaw += angDiff(b.yaw, Math.atan2(-b.vel.x, -b.vel.z)) * clamp(dt * 3, 0, 1); b.pitch = lerp(b.pitch, clamp(Math.atan2(b.vel.y, Math.hypot(b.vel.x, b.vel.z)), -1.2, 1.2), clamp(dt * 3, 0, 1)); }
+    b.kick += dt * (2 + Math.min(1, v) * 5);
+    b.rig.root.visible = camera.position.distanceTo(b.pos) < 90;
+    placeRig(b.rig, b.pos, b.yaw, under ? b.pitch : 0, under, Math.min(1, v), b.kick);
+  }
+  // placar
+  const rows = [{ name: 'Você', n: COMP.me.n, kg: COMP.me.kg, me: true }, ...COMP.bots.map(b => ({ name: b.name, n: b.n, kg: b.kg }))].sort((a, b) => b.n - a.n || b.kg - a.kg);
+  const mm = Math.max(0, Math.ceil(COMP.t)), tt = `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}`;
+  $('compHud').innerHTML = `<div class="ct ${COMP.t < 60 ? 'low' : ''}">⏱ ${tt}</div>` + rows.map((r, i) => `<div class="cr ${r.me ? 'me' : ''}"><span>${i + 1}º ${r.name}</span><b>${r.n} · ${fmtKg(r.kg)} kg</b></div>`).join('');
+  if (COMP.t <= 0) endComp(rows);
+}
+function endComp(rows) {
+  COMP.on = false; $('compHud').classList.add('hide');
+  for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
+  const pos = rows.findIndex(r => r.me), prize = [1500, 600, 250, 0][pos];
+  SV.money += prize; if (pos === 0) SV.wins = (SV.wins || 0) + 1; save();
+  paused = true; $('marinaPanel').classList.remove('hide');
+  $('marinaPanel').querySelector('h2').textContent = 'Resultado do campeonato';
+  $('mSub').textContent = pos === 0 ? 'Você é o campeão da ' + COMP.spot.name + '!' : `Você ficou em ${pos + 1}º lugar.`;
+  $('mTabs').innerHTML = '';
+  $('mBody').innerHTML = '<div class="list">' + rows.map((r, i) => `<div class="it" ${r.me ? 'style="border-color:var(--acc)"' : ''}><div><div class="n">${i + 1}º ${r.name}</div><div class="d">${r.n} peixe(s) · ${fmtKg(r.kg)} kg</div></div><b>${fmtR([1500, 600, 250, 0][i])}</b></div>`).join('') + '</div>' +
+    `<div class="it" style="margin-top:8px"><div class="d">${prize ? 'Prêmio de ' + fmtR(prize) + ' já está no seu saldo. ' : ''}Os peixes que você pegou continuam na fieira e na caixa para vender.</div></div>`;
+  AU.coin();
 }

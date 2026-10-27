@@ -9,8 +9,9 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://nicolasilvar09-bit.github.io/pesca-sub/og.jpg">
 <meta name="apple-mobile-web-app-title" content="Deep Spear">
-<link rel="apple-touch-icon" href="%%ICON180%%">
-<link rel="icon" type="image/png" href="%%ICON32%%">
+<link rel="apple-touch-icon" sizes="180x180" href="brand/icon-180.png?v=2">
+<link rel="icon" type="image/png" sizes="192x192" href="brand/icon-192.png?v=2">
+<link rel="icon" type="image/png" sizes="32x32" href="brand/icon-32.png?v=2">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#04141c">
@@ -71,6 +72,13 @@ html,body{margin:0;height:100%;height:100dvh;position:fixed;inset:0;width:100%;o
 #bJump{right:96px;bottom:10px;width:76px;height:76px;font-size:12px;background:rgba(47,208,192,.4)}
 #bMarina{right:184px;bottom:10px;width:76px;height:76px;font-size:12px;background:rgba(255,176,32,.5)}
 #bView{position:absolute;left:calc(70px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px}
+#bShop{position:absolute;left:calc(70px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px;background:rgba(255,176,32,.45)}
+#compHud{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(4,16,20,.82);border:1px solid var(--line);border-radius:12px;padding:6px 10px;min-width:210px;font-size:12px}
+#compHud .ct{text-align:center;font-weight:800;font-size:16px;color:var(--acc);font-family:ui-monospace,Menlo,monospace;margin-bottom:2px}
+#compHud .ct.low{color:var(--bad)}
+#compHud .cr{display:flex;justify-content:space-between;gap:12px;color:var(--muted);line-height:1.5}
+#compHud .cr b{color:var(--ink);font-variant-numeric:tabular-nums}
+#compHud .cr.me span,#compHud .cr.me b{color:var(--acc2)}
 #bMap{position:absolute;left:calc(10px + env(safe-area-inset-left));top:auto;bottom:182px;width:52px;height:52px;font-size:10px}
 /* panels */
 .panel{position:fixed;inset:0;background:rgba(2,10,14,.74);display:grid;place-items:center;z-index:20;padding:12px}
@@ -121,7 +129,8 @@ body.short #joy{width:118px;height:118px;bottom:14px}
 body.short #knob{width:50px;height:50px;margin:-25px 0 0 -25px}
 body.short #btns{transform:scale(.84);transform-origin:right bottom;bottom:8px}
 body.short #bMap,body.short #bView{bottom:146px;width:46px;height:46px}
-body.short #bView{left:calc(62px + env(safe-area-inset-left))}
+body.short #bView,body.short #bShop{left:calc(62px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}
+body.short #compHud{top:6px;font-size:11px;padding:4px 8px}
 body.short #bands{bottom:190px}
 body.short #fight{bottom:80px}
 body.short #menu .tips{font-size:11px;margin-top:8px}
@@ -139,6 +148,8 @@ body.portrait #toast{top:34%}
 body.portrait #joy{width:126px;height:126px;left:16px;bottom:calc(24px + env(safe-area-inset-bottom))}
 body.portrait #btns{transform:scale(.8);transform-origin:right bottom;right:6px;bottom:calc(14px + env(safe-area-inset-bottom))}
 body.portrait #bMap{bottom:calc(166px + env(safe-area-inset-bottom));left:16px;width:48px;height:48px}
+body.portrait #bShop{bottom:calc(166px + env(safe-area-inset-bottom));left:72px;width:48px;height:48px}
+body.portrait #compHud{top:calc(122px + env(safe-area-inset-top))}
 body.portrait #bView{bottom:calc(166px + env(safe-area-inset-bottom));left:72px;width:48px;height:48px}
 body.portrait #bands{bottom:calc(200px + env(safe-area-inset-bottom));font-size:11px}
 body.portrait #fight{bottom:calc(240px + env(safe-area-inset-bottom));width:80vw}

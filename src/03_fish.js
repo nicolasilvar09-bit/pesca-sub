@@ -31,6 +31,10 @@ const SPECIES = {
     col: { back: '#2c5260', side: '#c4c49a', belly: '#f0ecd0', fin: '#c9a42a', iris: '#e8d070' } },
   olhodeboi: { name: 'Olho-de-boi', shape: 'amber', len: [0.75, 1.7], k: 11, price: 38, min: 0.75, cruise: 1.2, burst: 5.6, shy: 0.45, curious: 0.85, habit: 'pelagic', str: 2.2,
     col: { back: '#47506e', side: '#bcc0c8', belly: '#eeeeee', fin: '#9a8a4a', iris: '#d8b040' } },
+  dourado: { name: 'Dourado', shape: 'mahi', len: [0.6, 1.5], k: 7, price: 40, min: 0.6, cruise: 1.4, burst: 6.2, shy: 0.4, curious: 0.75, habit: 'pelagic', str: 1.8, school: true,
+    col: { back: '#1c7a72', side: '#cfc63a', belly: '#f2e27a', fin: '#2a8a9a', iris: '#e8e080' } },
+  bicuda: { name: 'Bicuda', shape: 'barra', len: [0.55, 1.4], k: 3.2, price: 25, min: 0.5, cruise: 0.8, burst: 6.5, shy: 0.35, curious: 0.85, habit: 'pelagic', str: 1.3, school: true,
+    col: { back: '#3d4e58', side: '#c8d0d4', belly: '#f0f2f2', fin: '#5a6a70', iris: '#e8e0b0' } },
   mero: { name: 'Mero', shape: 'grouper', len: [1.4, 2.2], k: 15, price: 0, min: 9, cruise: 0.3, burst: 1.8, shy: 0.1, curious: 0.6, habit: 'hole', str: 3.5, protected: true,
     col: { back: '#3e3a26', side: '#5d5a3c', belly: '#8d8a68', fin: '#3a3622', iris: '#a08040' } },
 };
@@ -43,6 +47,8 @@ const SHAPES = {
   slim: { h: 0.23, w: 0.12, pk: 0.78, fork: true, tailH: 0.17, dors: 0.08 },
   mack: { h: 0.18, w: 0.09, pk: 0.8, fork: true, tailH: 0.2, dors: 0.05 },
   jack: { h: 0.37, w: 0.11, pk: 0.82, fork: true, tailH: 0.26, dors: 0.06 },
+  mahi: { h: 0.27, w: 0.09, pk: 0.92, fork: true, tailH: 0.25, dors: 0.11 },
+  barra: { h: 0.13, w: 0.075, pk: 0.7, fork: true, tailH: 0.14, dors: 0.05 },
   amber: { h: 0.26, w: 0.12, pk: 0.85, fork: true, tailH: 0.23, dors: 0.05 },
 };
 function fishGeo(sh) {
@@ -97,6 +103,8 @@ function fishTex(key, c) {
     if (key === 'sardinha') { g.fillStyle = 'rgba(30,80,110,.45)'; g.fillRect(0, 0, 256, 18); g.fillRect(0, 82, 256, 18); }
     if (key === 'sargentinho') { bars(5, 60, 30, 9, 'rgba(10,10,10,.75)'); g.fillStyle = 'rgba(250,220,40,.45)'; g.fillRect(0, 0, 256, 14); g.fillRect(0, 86, 256, 14); }
     if (key === 'xareu') { blob(206, 14, 5, 4, 'rgba(10,10,10,.85)'); blob(206, 86, 5, 4, 'rgba(10,10,10,.85)'); g.fillStyle = 'rgba(230,200,60,.25)'; g.fillRect(0, 38, 256, 24); }
+    if (key === 'dourado') { for (let i = 0; i < 70; i++) blob(10 + R() * 200, R() * 100, 2.5, 2.5, 'rgba(40,110,200,.7)'); g.fillStyle = 'rgba(30,140,140,.5)'; g.fillRect(0, 0, 256, 10); g.fillRect(0, 90, 256, 10); }
+    if (key === 'bicuda') { g.strokeStyle = 'rgba(20,30,35,.45)'; g.lineWidth = 6; for (let i = 0; i < 16; i++) { g.beginPath(); g.moveTo(20 + i * 12, 0); g.lineTo(10 + i * 12, 26); g.moveTo(20 + i * 12, 100); g.lineTo(10 + i * 12, 74); g.stroke(); } for (let i = 0; i < 20; i++) blob(R() * 180, 30 + R() * 40, 3, 2, 'rgba(10,10,10,.5)'); }
     if (key === 'olhodeboi') { g.strokeStyle = 'rgba(200,150,40,.7)'; g.lineWidth = 7; for (const y of [25, 75]) { g.beginPath(); g.moveTo(240, y - (y < 50 ? 12 : -12)); g.lineTo(20, y); g.stroke(); } }
     for (let i = 0; i < 1800; i++) { g.fillStyle = `rgba(${R() > 0.5 ? '255,255,255' : '0,0,0'},${R() * 0.07})`; g.fillRect(R() * 256, R() * 100, 2, 2); }
     g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 2; for (const [a, b] of [[6, 44], [56, 94]]) { g.beginPath(); g.moveTo(203, a); g.quadraticCurveTo(196, (a + b) / 2, 203, b); g.stroke(); }
@@ -134,8 +142,8 @@ const FEAR = { pos: new V3(), r: 0, t: 0 };
 const _t1 = new V3(), _t2 = new V3();
 function rollLen(sp, big = 1) {
   const [a, b] = sp.len, r = Math.random();
-  if (r < 0.07) return b * rand(1.02, 1.3) * big;          // troféu
-  return lerp(a, b, Math.pow(Math.random(), 1.7)) * big;
+  if (r < 0.07) return Math.min(b * 1.45, b * rand(1.02, 1.3) * big); // troféu
+  return Math.min(b * 1.45, lerp(a, b, Math.pow(Math.random(), 1.7)) * big);
 }
 class Fish {
   constructor(key, spot, pos, opt = {}) {
@@ -183,7 +191,7 @@ class Fish {
     const dP = p.distanceTo(P.pos);
     if (this.state !== 'hooked') {
       const vis = P.mode === 'swim';
-      let fearR = (1.6 + sp.shy * 12 * (0.2 + P.noise * 1.15)) * (P.under ? 1 : 0.4);
+      let fearR = (1.6 + sp.shy * suitNow().shy * 12 * (0.2 + P.noise * 1.15)) * (P.under ? 1 : 0.4);
       if (P.still > 2 && P.under) fearR *= 0.55; // espera: peixe se aproxima mais
       if (FEAR.t > 0 && p.distanceTo(FEAR.pos) < FEAR.r) fearR = 999;
       if (vis && dP < fearR && this.state !== 'flee' && this.state !== 'tohole' && this.state !== 'hidden') this.startFlee();
@@ -257,6 +265,8 @@ const POP = {
   botinas: [['sargo', 6, [5, 10]], ['marimba', 4, [6, 11]], ['salema', 4, [8, 14]], ['garoupa', 6, [1, 1], 1, 0.8], ['robalo', 3, [1, 2]], ['budiao', 3, [1, 3]], ['frade', 2, [1, 2]], ['pampo', 3, [2, 5]]],
   foz: [['robalo', 9, [1, 3]], ['tainha', 5, [8, 14]], ['pampo', 3, [2, 5]], ['enchova', 2, [4, 7]]],
   gipoia: [['garoupa', 7, [1, 1]], ['sargo', 4, [5, 9]], ['marimba', 3, [6, 10]], ['salema', 3, [8, 12]], ['budiao', 3, [1, 3]], ['badejo', 3, [1, 1]], ['pampo', 2, [2, 4]], ['frade', 2, [1, 2]]],
+  naufragio: [['garoupa', 9, [1, 1], 1, 1.3], ['badejo', 5, [1, 1], 1, 1.3], ['caranha', 4, [1, 2], 1, 1.3], ['xareu', 3, [4, 8], 1, 1.25], ['sargo', 4, [5, 9]], ['enchova', 3, [4, 7]], ['sororoca', 2, [3, 6]], ['budiao', 2, [1, 3]], ['frade', 2, [1, 2]], ['mero', 1, [1, 1], 0.8]],
+  aventureiro: [['olhodeboi', 5, [1, 4], 1, 1.3], ['dourado', 4, [2, 5], 1, 1.2], ['bicuda', 3, [1, 3], 1, 1.2], ['xareu', 4, [4, 8], 1, 1.3], ['garoupa', 8, [1, 1], 1, 1.4], ['badejo', 4, [1, 1], 1, 1.3], ['caranha', 3, [1, 2], 1, 1.3], ['sororoca', 3, [3, 6], 1, 1.2], ['mero', 1, [1, 1], 0.6]],
   comprida: [['garoupa', 6, [1, 1]], ['sargo', 4, [5, 9]], ['salema', 3, [8, 12]], ['xareu', 2, [4, 7]], ['caranha', 2, [1, 2]], ['frade', 2, [1, 2]], ['budiao', 3, [1, 3]]],
 };
 function spawnGroup(spot, key, n, big = 1) {

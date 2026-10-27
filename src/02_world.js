@@ -49,7 +49,7 @@ function H(x, z) {
   // estuário raso
   const df = Math.hypot(x - FOZ.x, z - FOZ.z);
   if (h < 0 && df < 220) h = lerp(h, Math.max(h, -5.5 + df * 0.018), 1 - smooth(40, 210, df));
-  return h;
+  return Hextra(x, z, h);
 }
 const murkAt = (x, z) => Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z - FOZ.z)), smooth(-600, -650, x) * (1 - smooth(40, 80, Math.abs(z - FOZ.z))));
 
@@ -340,6 +340,8 @@ const SPOTS = [
   { id: 'jorge', name: 'Ilha Jorge Grego', x: 0, z: 0, r: 48, depth: '3–25 m', desc: 'Costão fundo e de água azul. Garoupa e badejo grandes, e olho-de-boi passando no azul.' },
   { id: 'gipoia', name: 'Ilha da Gipóia', x: 0, z: 0, r: 45, depth: '3–17 m', desc: 'Costão abrigado e cheio de vida. Garoupa, sargo, salema, budião e tartaruga.' },
   { id: 'comprida', name: 'Ilha Comprida', x: 0, z: 0, r: 42, depth: '3–14 m', desc: 'Pedras soltas e tocas rasas. Bom pra começar: garoupa, salema e xaréu de passagem.' },
+  { id: 'naufragio', name: 'Naufrágio do Pinguino', x: 40, z: -430, r: 45, depth: '12–19 m', desc: 'Casco afundado cheio de tocas. Garoupas, badejos e caranhas grandes moram lá dentro. Leve lanterna.' },
+  { id: 'aventureiro', name: 'Parcel do Aventureiro', x: 640, z: -600, r: 55, depth: '13–33 m', desc: 'Mar aberto e água azul. Peixe grande: olho-de-boi, dourado, bicuda e garoupa troféu.' },
   { id: 'foz', name: 'Foz do Rio Mambucaba', x: FOZ.x + 30, z: FOZ.z, r: 60, depth: '2–6 m', desc: 'Água turva de rio. Robalo encostado no fundo e cardume de tainha. Visibilidade baixa.' },
 ];
 const spotById = id => SPOTS.find(s => s.id === id);
@@ -387,6 +389,7 @@ function buildRocksAndDecor() {
   // foz: poucas pedras
   for (let i = 0; i < 25; i++) { const x = FOZ.x + rand(-60, 90), z = FOZ.z + rand(-70, 70); const h = H(x, z); if (h < -1.5) addRock(x, h + 0.3, z, rand(0.8, 2.0), 'foz'); }
 
+  extraRocks();
   // instancia as pedras em 6 variações
   const geos = [1, 2, 3, 4, 5, 6].map(s => rockGeo(s * 17));
   const rtex = rockTex(); rtex.wrapS = rtex.wrapT = THREE.RepeatWrapping; rtex.repeat.set(3, 2);
@@ -399,6 +402,7 @@ function buildRocksAndDecor() {
     list.forEach((R, k) => { e.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15)); q.setFromEuler(e); s.set(R.r, R.r * R.sy, R.r); pp.set(R.x, R.y, R.z); m4.compose(pp, q, s); im.setMatrixAt(k, m4); });
     scene.add(im);
   });
+  buildWreck();
 
   // troncos no rio
   const logMat = uwify(new THREE.MeshStandardMaterial({ color: 0x3b2c1e, roughness: 1 }), { key: 'l' });
