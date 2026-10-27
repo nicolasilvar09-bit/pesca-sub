@@ -96,6 +96,7 @@ function gunFire() {
   if (GUN.state !== 'ready') return;
   if (GUN.bands <= 0) { toast('Arbalete desarmado. Toque em ARMAR.'); AU.click(); return; }
   const f = Math.sqrt(GUN.bands / GUN.def.bands);
+  GUN.aimF = (aimOnFish() || {}).f || null; GUN.waitShot = P.under && P.still > 2;
   gunTipWorld(GUN.pos); aimDir(GUN.dir, GUN.pos);
   GUN.vel.copy(GUN.dir).multiplyScalar(GUN.def.speed * f);
   GUN.range = GUN.def.range * f; GUN.trav = 0; GUN.state = 'flying'; GUN.bands = 0; GUN.loadT = 0; GUN.rock = false;
@@ -111,6 +112,8 @@ function catchFish(f) {
   if (f.len < sp.min) { SV.money -= 200; toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
   P.stringer.push({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len });
   compOnCatch(f);
+  if (!sp.ornamental) { mission('catch', { key: f.key }); mission('catchkg', { kg: f.kg }); if (GUN.waitShot) mission('wait'); }
+  if (sp.rare) toast(`${sp.name}! Peixe raro na fieira.`, 4, 'gold'); else if (isTrophy(f)) toast(`Troféu! ${sp.name} acima do tamanho comum.`, 4, 'gold');
   if (sp.ornamental) toast(`${sp.name} é peixe ornamental, ninguém compra. Prefira deixar no mar.`, 4, 'bad');
   toast(`${sp.name} · ${cm} cm · ${fmtKg(f.kg)} kg`, 3.5, 'gold'); AU.coin();
   if (!SV.best[f.key] || SV.best[f.key] < f.kg) { SV.best[f.key] = f.kg; if (f.kg > 3) toast('Novo recorde da espécie!', 3, 'gold'); }
@@ -141,9 +144,9 @@ function updateGun(dt) {
       const cp = _t2.copy(prev).addScaledVector(_c, tt); const fd = f.dir(new V3()); const loc = cp.sub(f.pos); const along = loc.dot(fd) / f.len; const perp = loc.addScaledVector(fd, -along * f.len).length();
       if (Math.abs(along) < 0.47 && perp < f.radius * 1.15) { hitFish(f, along); return; }
     }
-    if (insideRock(GUN.pos)) { GUN.state = 'stuck'; GUN.rock = true; GUN.freeT = 1.0; AU.tink(); toast('Arpão bateu na pedra!'); }
-    else if (GUN.pos.y < H(GUN.pos.x, GUN.pos.z) + 0.05) { GUN.state = 'stuck'; GUN.rock = false; GUN.freeT = 0.2; AU.thud(); }
-    else if (GUN.trav > GUN.range * 1.5 || GUN.vel.length() < 0.5) { GUN.state = 'spent'; }
+    if (insideRock(GUN.pos)) { GUN.state = 'stuck'; GUN.rock = true; GUN.freeT = 1.0; AU.tink(); toast('Arpão bateu na pedra!'); missed(); }
+    else if (GUN.pos.y < H(GUN.pos.x, GUN.pos.z) + 0.05) { GUN.state = 'stuck'; GUN.rock = false; GUN.freeT = 0.2; AU.thud(); missed(); }
+    else if (GUN.trav > GUN.range * 1.5 || GUN.vel.length() < 0.5) { GUN.state = 'spent'; missed(); }
   } else if (GUN.state === 'spent') {
     if (!pulling) { GUN.pos.y = Math.max(GUN.pos.y - dt * 0.4, H(GUN.pos.x, GUN.pos.z) + 0.05); }
   } else if (GUN.state === 'hooked') {
@@ -154,6 +157,7 @@ function updateGun(dt) {
       // tensão da linha
       const d = f.pos.distanceTo(tip), maxL = def.range * 2.0;
       if (f.fight > 0) GUN.lineLen = Math.min(maxL, Math.max(GUN.lineLen, d));
+      if (f.fight > 0) fightStep(f, dt, pulling);
       if (pulling) GUN.lineLen -= dt * (f.fight > 0 ? 0.35 : 2.0);
       GUN.lineLen = Math.max(GUN.lineLen, 0.5);
       if (d > GUN.lineLen) { f.pos.copy(tip).addScaledVector(_c.subVectors(f.pos, tip).normalize(), GUN.lineLen); }
@@ -164,10 +168,10 @@ function updateGun(dt) {
         if (GUN.tearT <= 0) {
           GUN.tearT = 0.5;
           const ratio = f.kg * f.sp.str / def.power, qf = GUN.q === 'tail' ? 1.7 : 0.6;
-          const p = clamp(ratio - 0.55, 0, 1.5) * 0.22 * qf + (pulling && f.fight > 0 ? 0.03 : 0);
+          const p = (clamp(ratio - 0.55, 0, 1.5) * 0.22 * qf + (pulling && f.fight > 0 ? 0.03 : 0)) * (0.35 + (GUN.tension || 0) * 2.2) + (GUN.tension >= 0.99 ? 0.25 : 0);
           if (Math.random() < p) {
             f.state = 'wander'; f.fight = 0; f.startFlee(); GUN.fish = null; GUN.state = 'spent';
-            toast(`Rasgou! ${f.sp.name} de ~${fmtKg(f.kg)} kg escapou.`, 3, 'bad'); AU.bad();
+            toast(`Rasgou! ${f.sp.name} de ~${fmtKg(f.kg)} kg escapou.${GUN.tension > 0.6 ? ' Puxou na arrancada.' : ''}`, 3, 'bad'); AU.bad(); buzz(150);
           }
         }
       }
@@ -190,7 +194,8 @@ function updateGun(dt) {
   GUN.lineGeo.attributes.position.needsUpdate = true;
 }
 function hitFish(f, along) {
-  GUN.state = 'hooked'; GUN.fish = f; GUN.lineLen = f.pos.distanceTo(gunTipWorld(_a)); GUN.tearT = 0.4;
+  GUN.state = 'hooked'; GUN.fish = f; GUN.lineLen = f.pos.distanceTo(gunTipWorld(_a)); GUN.tearT = 0.4; GUN.aimF = null; GUN.tension = 0;
+  f.run = true; f.runT = rand(0.5, 1.2);
   FEAR.pos.copy(f.pos); FEAR.r = 14; FEAR.t = 1.5;
   f.state = 'hooked'; f.leader = null;
   for (const o of FISHES) if (o.leader === f) o.leader = null;
@@ -199,6 +204,7 @@ function hitFish(f, along) {
   else if (along > -0.05) { GUN.q = 'body'; f.fight = 1.5 + f.kg * 0.25 * f.sp.str; toast('Acertou! Puxe a linha.', 2); }
   else { GUN.q = 'tail'; f.fight = 3 + f.kg * 0.45 * f.sp.str; toast('Tiro no rabo, cuidado que pode rasgar!', 2.5, 'bad'); }
   GUN.fight0 = Math.max(f.fight, 0.01);
+  hitFX(GUN.q); if (GUN.q === 'head') mission('head');
   spawnBubbles(f.pos, 10, 0.2);
 }
 
@@ -329,6 +335,7 @@ function updateSwim(dt, t) {
     if (P.pos.y > surfY - 0.45 && P.vel.y > -0.05) {
       P.under = false; AU.breath(); P.surfT = 0;
       const d = P.maxD; if (d > 2) toast(`Mergulho: ${fmtKg(d)} m · ${Math.floor(P.diveT)} s`, 2.2);
+      mission('depth', { d });
     }
     if (P.o2 <= 0 && !P.blackT) blackout();
     // espera

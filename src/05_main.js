@@ -103,9 +103,9 @@ function updateHUD(dt) {
   else show('bCtx', false);
   show('cross', swim); show('bands', swim); show('bView', swim); show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
   const aim = aimOnFish(); $('cross').classList.toggle('ok', !!(aim && aim.ok));
-  const al = $('aimLbl'); if (aim) { al.textContent = `${aim.f.sp.name} · ~${Math.round(aim.f.len * 100 / 5) * 5} cm${aim.ok ? '' : ' · longe'}`; al.classList.remove('hide'); } else al.classList.add('hide');
+  const al = $('aimLbl'); if (aim) { al.textContent = `${aim.f.sp.rare ? '★ RARO · ' : isTrophy(aim.f) ? '★ TROFÉU · ' : ''}${aim.f.sp.name} · ~${Math.round(aim.f.len * 100 / 5) * 5} cm${aim.ok ? '' : ' · longe'}`; al.classList.remove('hide'); } else al.classList.add('hide');
   const fighting = GUN.state === 'hooked' && GUN.fish && GUN.fish.fight > 0;
-  show('fight', fighting); if (fighting) { $('fFill').style.width = clamp(GUN.fish.fight / GUN.fight0, 0, 1) * 100 + '%'; $('fTxt').textContent = `${GUN.fish.sp.name} brigando! Segure PUXAR LINHA`; }
+  show('fight', fighting); if (fighting) { $('fFill').style.width = clamp(GUN.fish.fight / GUN.fight0, 0, 1) * 100 + '%'; fightHUD(); }
   // máscara / alerta
   $('mask').style.opacity = swim && camUnder && !THIRD ? 1 : 0;
   const low = swim && P.under && P.o2 < 0.32;
@@ -146,6 +146,7 @@ function ctxAction() {
   if (BOAT.anchored) jumpIn(); else toggleAnchor();
 }
 function step(dt) {
+  dt *= timeScale(dt);
   if (took('map')) { openMap(); return; }
   if (took('shop')) { if (P.mode === 'boat') openShop(nearMarina()); return; }
   if (took('marina') && P.mode === 'boat' && nearMarina()) { openMarina(); return; }
@@ -161,7 +162,8 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight();
+  updateComp(dt, T); updateLight(); updateRare(dt);
+  applyShake(dt);
 }
 function updateEnv(dt) {
   const c = camera.position, sY = waveH(c.x, c.z, T);
@@ -203,6 +205,7 @@ function startGame() {
   BOAT.camYaw = 0; camera.position.set(BOAT.pos.x, 6, BOAT.pos.z + 12);
   toast('Joystick: acelera e vira a lancha. Siga a seta laranja até o ponto.', 5);
   toast('Toque MAPA para escolher outro destino.', 5);
+  const D = ensureDaily(); if (D.list.some(m => !m.done)) toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5);
 }
 function init() {
   loadSave();

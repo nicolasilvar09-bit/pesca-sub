@@ -35,6 +35,11 @@ const SPECIES = {
     col: { back: '#1c7a72', side: '#cfc63a', belly: '#f2e27a', fin: '#2a8a9a', iris: '#e8e080' } },
   bicuda: { name: 'Bicuda', shape: 'barra', len: [0.55, 1.4], k: 3.2, price: 25, min: 0.5, cruise: 0.8, burst: 6.5, shy: 0.35, curious: 0.85, habit: 'pelagic', str: 1.3, school: true,
     col: { back: '#3d4e58', side: '#c8d0d4', belly: '#f0f2f2', fin: '#5a6a70', iris: '#e8e0b0' } },
+  // raros: aparecem só às vezes nos pontos de pedra funda
+  dentao: { name: 'Dentão', shape: 'snap', len: [0.45, 0.95], k: 15, price: 85, min: 0.4, cruise: 0.5, burst: 3.8, shy: 0.95, curious: 0.15, habit: 'reef', str: 1.5, rare: true,
+    col: { back: '#6a3a2a', side: '#b0603e', belly: '#e8b090', fin: '#8a3a28', iris: '#e06030' } },
+  cherne: { name: 'Cherne', shape: 'grouper', len: [0.5, 1.1], k: 14, price: 90, min: 0.45, cruise: 0.35, burst: 2.8, shy: 0.8, curious: 0.35, habit: 'hole', str: 1.5, rare: true,
+    col: { back: '#2a2420', side: '#4a3e34', belly: '#7a6a58', fin: '#2a221c', iris: '#c09040' } },
   mero: { name: 'Mero', shape: 'grouper', len: [1.4, 2.2], k: 15, price: 0, min: 9, cruise: 0.3, burst: 1.8, shy: 0.1, curious: 0.6, habit: 'hole', str: 3.5, protected: true,
     col: { back: '#3e3a26', side: '#5d5a3c', belly: '#8d8a68', fin: '#3a3622', iris: '#a08040' } },
 };
@@ -133,6 +138,8 @@ function fishTex(key, c) {
     if (key === 'xareu') { blob(206, 14, 5, 4, 'rgba(10,10,10,.85)'); blob(206, 86, 5, 4, 'rgba(10,10,10,.85)'); g.fillStyle = 'rgba(230,200,60,.25)'; g.fillRect(0, 38, 256, 24); }
     if (key === 'dourado') { for (let i = 0; i < 70; i++) blob(10 + R() * 200, R() * 100, 2.5, 2.5, 'rgba(40,110,200,.7)'); g.fillStyle = 'rgba(30,140,140,.5)'; g.fillRect(0, 0, 256, 10); g.fillRect(0, 90, 256, 10); }
     if (key === 'bicuda') { g.strokeStyle = 'rgba(20,30,35,.45)'; g.lineWidth = 6; for (let i = 0; i < 16; i++) { g.beginPath(); g.moveTo(20 + i * 12, 0); g.lineTo(10 + i * 12, 26); g.moveTo(20 + i * 12, 100); g.lineTo(10 + i * 12, 74); g.stroke(); } for (let i = 0; i < 20; i++) blob(R() * 180, 30 + R() * 40, 3, 2, 'rgba(10,10,10,.5)'); }
+    if (key === 'dentao') { g.fillStyle = 'rgba(240,240,250,.75)'; for (const y of [25, 75]) { g.beginPath(); g.moveTo(222, y + (y < 50 ? 4 : -4)); g.lineTo(232, y + (y < 50 ? 4 : -4)); g.lineTo(226, y + (y < 50 ? 18 : -18)); g.fill(); } g.strokeStyle = 'rgba(90,150,230,.6)'; g.lineWidth = 1.5; for (const y of [30, 34, 66, 70]) { g.beginPath(); g.moveTo(238, y); g.lineTo(252, y + (y < 50 ? 3 : -3)); g.stroke(); } }
+    if (key === 'cherne') { for (let i = 0; i < 26; i++) blob(R() * 200, 10 + R() * 80, 3 + R() * 3, 3 + R() * 3, 'rgba(230,225,210,.45)'); }
     if (key === 'olhodeboi') { g.strokeStyle = 'rgba(200,150,40,.7)'; g.lineWidth = 7; for (const y of [25, 75]) { g.beginPath(); g.moveTo(240, y - (y < 50 ? 12 : -12)); g.lineTo(20, y); g.stroke(); } }
     for (let i = 0; i < 1800; i++) { g.fillStyle = `rgba(${R() > 0.5 ? '255,255,255' : '0,0,0'},${R() * 0.07})`; g.fillRect(R() * 256, R() * 100, 2, 2); }
     g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 2; for (const [a, b] of [[6, 44], [56, 94]]) { g.beginPath(); g.moveTo(203, a); g.quadraticCurveTo(196, (a + b) / 2, 203, b); g.stroke(); }
@@ -268,7 +275,7 @@ class Fish {
         this.fight -= dt;
         _t1.subVectors(p, P.pos); _t1.y = rand(-0.5, 0.3); _t1.normalize();
         _t1.applyAxisAngle(_t2.set(0, 1, 0), Math.sin(performance.now() * 0.004 + this.orbitA) * 1.2);
-        this.target.copy(p).addScaledVector(_t1, 5); this.speed = this.fight > 0 ? sp.burst * 0.75 : 0;
+        this.target.copy(p).addScaledVector(_t1, 5); this.speed = this.fight > 0 ? sp.burst * (this.run ? 0.85 : 0.15) : 0;
         if (this.fight <= 0) { this.state = 'dead'; this.vel.set(0, 0, 0); }
         break;
     }
@@ -306,13 +313,13 @@ class Fish {
 
 // população por ponto: [espécie, grupos, tamanho do grupo, chance, multiplicador de tamanho]
 const POP = {
-  laje: [['sargo', 5, [5, 10]], ['marimba', 4, [6, 12]], ['salema', 3, [8, 15]], ['garoupa', 9, [1, 1]], ['badejo', 4, [1, 1]], ['caranha', 3, [1, 2]], ['xareu', 3, [4, 8]], ['budiao', 4, [1, 3]], ['frade', 3, [1, 2]], ['sororoca', 2, [3, 6]], ['mero', 1, [1, 1], 0.6]],
-  jorge: [['garoupa', 10, [1, 1], 1, 1.12], ['badejo', 5, [1, 1], 1, 1.1], ['caranha', 3, [1, 2]], ['sargo', 4, [5, 9]], ['marimba', 3, [6, 10]], ['xareu', 3, [4, 8]], ['olhodeboi', 3, [1, 4]], ['sororoca', 3, [3, 6]], ['budiao', 4, [1, 3]], ['frade', 3, [1, 2]], ['enchova', 2, [4, 8]]],
+  laje: [['dentao', 1, [1, 1], 0.35], ['sargo', 5, [5, 10]], ['marimba', 4, [6, 12]], ['salema', 3, [8, 15]], ['garoupa', 9, [1, 1]], ['badejo', 4, [1, 1]], ['caranha', 3, [1, 2]], ['xareu', 3, [4, 8]], ['budiao', 4, [1, 3]], ['frade', 3, [1, 2]], ['sororoca', 2, [3, 6]], ['mero', 1, [1, 1], 0.6]],
+  jorge: [['dentao', 1, [1, 1], 0.45], ['cherne', 1, [1, 1], 0.3], ['garoupa', 10, [1, 1], 1, 1.12], ['badejo', 5, [1, 1], 1, 1.1], ['caranha', 3, [1, 2]], ['sargo', 4, [5, 9]], ['marimba', 3, [6, 10]], ['xareu', 3, [4, 8]], ['olhodeboi', 3, [1, 4]], ['sororoca', 3, [3, 6]], ['budiao', 4, [1, 3]], ['frade', 3, [1, 2]], ['enchova', 2, [4, 8]]],
   botinas: [['sargo', 6, [5, 10]], ['marimba', 4, [6, 11]], ['salema', 4, [8, 14]], ['garoupa', 6, [1, 1], 1, 0.8], ['robalo', 3, [1, 2]], ['budiao', 3, [1, 3]], ['frade', 2, [1, 2]], ['pampo', 3, [2, 5]]],
   foz: [['robalo', 9, [1, 3]], ['tainha', 5, [8, 14]], ['pampo', 3, [2, 5]], ['enchova', 2, [4, 7]]],
   gipoia: [['garoupa', 7, [1, 1]], ['sargo', 4, [5, 9]], ['marimba', 3, [6, 10]], ['salema', 3, [8, 12]], ['budiao', 3, [1, 3]], ['badejo', 3, [1, 1]], ['pampo', 2, [2, 4]], ['frade', 2, [1, 2]]],
-  naufragio: [['garoupa', 9, [1, 1], 1, 1.3], ['badejo', 5, [1, 1], 1, 1.3], ['caranha', 4, [1, 2], 1, 1.3], ['xareu', 3, [4, 8], 1, 1.25], ['sargo', 4, [5, 9]], ['enchova', 3, [4, 7]], ['sororoca', 2, [3, 6]], ['budiao', 2, [1, 3]], ['frade', 2, [1, 2]], ['mero', 1, [1, 1], 0.8]],
-  aventureiro: [['olhodeboi', 5, [1, 4], 1, 1.3], ['dourado', 4, [2, 5], 1, 1.2], ['bicuda', 3, [1, 3], 1, 1.2], ['xareu', 4, [4, 8], 1, 1.3], ['garoupa', 8, [1, 1], 1, 1.4], ['badejo', 4, [1, 1], 1, 1.3], ['caranha', 3, [1, 2], 1, 1.3], ['sororoca', 3, [3, 6], 1, 1.2], ['mero', 1, [1, 1], 0.6]],
+  naufragio: [['dentao', 1, [1, 1], 0.6], ['cherne', 1, [1, 1], 0.5], ['garoupa', 9, [1, 1], 1, 1.3], ['badejo', 5, [1, 1], 1, 1.3], ['caranha', 4, [1, 2], 1, 1.3], ['xareu', 3, [4, 8], 1, 1.25], ['sargo', 4, [5, 9]], ['enchova', 3, [4, 7]], ['sororoca', 2, [3, 6]], ['budiao', 2, [1, 3]], ['frade', 2, [1, 2]], ['mero', 1, [1, 1], 0.8]],
+  aventureiro: [['dentao', 2, [1, 1], 0.55], ['cherne', 1, [1, 1], 0.6], ['olhodeboi', 5, [1, 4], 1, 1.3], ['dourado', 4, [2, 5], 1, 1.2], ['bicuda', 3, [1, 3], 1, 1.2], ['xareu', 4, [4, 8], 1, 1.3], ['garoupa', 8, [1, 1], 1, 1.4], ['badejo', 4, [1, 1], 1, 1.3], ['caranha', 3, [1, 2], 1, 1.3], ['sororoca', 3, [3, 6], 1, 1.2], ['mero', 1, [1, 1], 0.6]],
   comprida: [['garoupa', 6, [1, 1]], ['sargo', 4, [5, 9]], ['salema', 3, [8, 12]], ['xareu', 2, [4, 7]], ['caranha', 2, [1, 2]], ['frade', 2, [1, 2]], ['budiao', 3, [1, 3]]],
 };
 function spawnGroup(spot, key, n, big = 1) {
