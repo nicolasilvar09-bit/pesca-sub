@@ -86,3 +86,33 @@ function fightHUD() {
   $('fight').classList.toggle('run', !!f.run);
   $('fTen').style.width = Math.round((GUN.tension || 0) * 100) + '%';
 }
+
+// ---------- mapa maior: combustível, correnteza, navegação direta ----------
+const FUEL_RATE = 0.2; // L/s com o acelerador no máximo
+const mapU = x => (x - WB.x0) / (WB.x1 - WB.x0) * 100, mapV = z => (z - WB.z0) / (WB.z1 - WB.z0) * 100;
+// combustível para cobrir d metros em velocidade máxima, com margem de manobra
+const travelFuel = d => d / boatNow().max * FUEL_RATE * 1.15;
+let curSpot = null;
+const _cur = new V3();
+function currentAt(p) {
+  for (const s of SPOTS) {
+    if (!s.cur) continue;
+    const d = Math.hypot(p.x - s.x, p.z - s.z), k = 1 - smooth(s.r, s.r * 2.6, d);
+    if (k <= 0) continue;
+    if (curSpot !== s) { curSpot = s; toast(`Correnteza forte em ${s.name}! Nade contra ela ou ela leva você.`, 4, 'bad'); }
+    return _cur.set(s.cur[0] * k, 0, s.cur[1] * k);
+  }
+  curSpot = null; return null;
+}
+// leva o barco direto ao ponto, gastando o combustível do trajeto
+function goTo(id) {
+  const s = spotById(id); if (!s || P.mode !== 'boat' || COMP.on) return;
+  const d = Math.hypot(s.x - BOAT.pos.x, s.z - BOAT.pos.z), L = travelFuel(d);
+  if (SV.fuel < L) { toast(`Combustível insuficiente: precisa de ${Math.ceil(L)} L.`, 3, 'bad'); return; }
+  let bx = s.x, bz = s.z;
+  if (s.type !== 'marina') for (let k = 0; k < 24; k++) { const a = k / 24 * TAU + 0.3, x = s.x + Math.cos(a) * 22, z = s.z + Math.sin(a) * 22; if (H(x, z) < -4 && H(x + Math.cos(a) * 6, z + Math.sin(a) * 6) < -3) { bx = x; bz = z; break; } }
+  else { bx = PIER.x + 14; bz = PIER.z1 - 6; }
+  SV.fuel -= L; SV.dest = id;
+  BOAT.pos.set(bx, 0, bz); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; BOAT.heading = Math.atan2(s.x - bx, s.z - bz);
+  AU.click(); closePanels(); toast(`Chegou em ${s.name}. Gastou ${Math.ceil(L)} L.`, 3); save();
+}

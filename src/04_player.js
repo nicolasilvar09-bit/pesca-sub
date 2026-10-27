@@ -217,7 +217,7 @@ function updateBoat(dt, t) {
     const maxS = boatNow().max;
     B.speed += (B.throttle * maxS - B.speed) * clamp(dt * (B.throttle > Math.abs(B.speed) / maxS ? 0.55 : 0.8), 0, 1);
     B.heading -= IN.jx * dt * (0.35 + 0.75 * Math.min(1, Math.abs(B.speed) / 6)) * (B.speed < -0.2 ? -1 : 1);
-    SV.fuel = Math.max(0, SV.fuel - Math.abs(B.throttle) * dt * 0.09);
+    SV.fuel = Math.max(0, SV.fuel - Math.abs(B.throttle) * dt * FUEL_RATE);
   } else { B.throttle = lerp(B.throttle, 0, dt * 3); B.speed *= Math.exp(-dt * (B.anchored ? 3 : 0.6)); }
   const dir = _a.set(Math.sin(B.heading), 0, Math.cos(B.heading));
   if (!B.vel) B.vel = new V3();
@@ -229,8 +229,8 @@ function updateBoat(dt, t) {
   if (bowH > -0.8 || midH > -0.9 || onPier || onTee) {
     if (Math.abs(B.speed) > 2) { toast('Cuidado! Encostou no raso/píer.', 2, 'bad'); AU.thud(); }
     B.speed *= -0.25; B.vel.multiplyScalar(-0.25);
-  } else { B.pos.x = clamp(nx, -LIMIT, LIMIT); B.pos.z = clamp(nz, -LIMIT, LIMIT); }
-  if (Math.abs(B.pos.x) >= LIMIT || Math.abs(B.pos.z) >= LIMIT) { if (Math.random() < dt) toast('Limite do mapa. Volte para a baía.'); }
+  } else { B.pos.x = clamp(nx, WB.x0, WB.x1); B.pos.z = clamp(nz, WB.z0, WB.z1); }
+  if (B.pos.x <= WB.x0 || B.pos.x >= WB.x1 || B.pos.z <= WB.z0 || B.pos.z >= WB.z1) { if (Math.random() < dt) toast('Limite do mapa. Volte para a baía.'); }
   // flutuação
   const wy = waveH(B.pos.x, B.pos.z, t), wf = waveH(B.pos.x + dir.x * 3, B.pos.z + dir.z * 3, t), wb = waveH(B.pos.x - dir.x * 3, B.pos.z - dir.z * 3, t);
   const wl = waveH(B.pos.x + dir.z * 1.2, B.pos.z - dir.x * 1.2, t), wr = waveH(B.pos.x - dir.z * 1.2, B.pos.z + dir.x * 1.2, t);
@@ -348,8 +348,10 @@ function updateSwim(dt, t) {
   // batimentos (reflexo de mergulho)
   const bTarget = P.under ? 52 + P.effort * 45 + (P.o2 < 0.3 ? 25 : 0) - Math.min(8, P.still * 1.5) : 72 + (1 - P.o2) * 25;
   P.bpm = lerp(P.bpm, bTarget, clamp(dt * 0.6, 0, 1));
+  // correnteza dos pontos expostos
+  const cu = currentAt(P.pos); if (cu) { P.pos.x += cu.x * dt; P.pos.z += cu.z * dt; }
   // limites do mapa
-  P.pos.x = clamp(P.pos.x, -LIMIT, LIMIT); P.pos.z = clamp(P.pos.z, -LIMIT, LIMIT);
+  P.pos.x = clamp(P.pos.x, WB.x0, WB.x1); P.pos.z = clamp(P.pos.z, WB.z0, WB.z1);
   if (H(P.pos.x, P.pos.z) > -0.3 && !P.under) { P.pos.addScaledVector(P.vel, -dt * 2); P.vel.multiplyScalar(-0.3); }
   // câmera
   P.kick = (P.kick || 0) + dt * 5.5 * Math.min(1, mv + (IN.held.up ? 1 : 0));

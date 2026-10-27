@@ -45,27 +45,28 @@ function readKeys(dt) {
 // ---- mapa ----
 let mapDrawn = false;
 function drawMap() {
-  const cv = $('mapCv'), g = cv.getContext('2d'), N = 180, img = g.createImageData(N, N);
+  const cv = $('mapCv'), g = cv.getContext('2d'), N = 240, img = g.createImageData(N, N);
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-    const x = -800 + (i + 0.5) / N * 1600, z = -800 + (j + 0.5) / N * 1600, h = H(x, z), o = (j * N + i) * 4;
+    const x = WB.x0 + (i + 0.5) / N * (WB.x1 - WB.x0), z = WB.z0 + (j + 0.5) / N * (WB.z1 - WB.z0), h = H(x, z), o = (j * N + i) * 4;
     let c;
     if (h > 0) { const k = clamp(h / 60, 0, 1); c = [lerp(120, 60, k), lerp(150, 100, k), lerp(90, 70, k)]; if (h < 2) c = [215, 200, 160]; }
-    else { const k = clamp(-h / 25, 0, 1); c = [lerp(150, 20, k), lerp(215, 80, k), lerp(225, 140, k)]; const m = murkAt(x, z); c = c.map((v, n) => lerp(v, [140, 130, 90][n], m * 0.6)); }
+    else { const k = clamp(-h / 32, 0, 1); c = [lerp(150, 20, k), lerp(215, 80, k), lerp(225, 140, k)]; const m = murkAt(x, z); c = c.map((v, n) => lerp(v, [140, 130, 90][n], m * 0.6)); }
     img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
   }
   const tmp = document.createElement('canvas'); tmp.width = tmp.height = N; tmp.getContext('2d').putImageData(img, 0, 0);
   g.imageSmoothingEnabled = true; g.drawImage(tmp, 0, 0, cv.width, cv.height);
   g.strokeStyle = 'rgba(255,255,255,.08)'; for (let i = 1; i < 8; i++) { g.beginPath(); g.moveTo(i * 45, 0); g.lineTo(i * 45, 360); g.moveTo(0, i * 45); g.lineTo(360, i * 45); g.stroke(); }
-  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = 'bold 11px system-ui'; g.fillText('N ↑', 8, 16); g.fillText('ILHA GRANDE', 140, 16); g.fillText('ANGRA DOS REIS', 130, 352);
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = 'bold 11px system-ui'; g.fillText('N ↑', 8, 16); g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ILHA GRANDE', 70, 160); g.fillText('ANGRA DOS REIS', 215, 352);
   const box = $('mapBox');
   SPOTS.forEach(s => {
-    const m = document.createElement('div'); m.className = 'mk' + (s.type === 'marina' ? ' m' : '') + (s.x > 120 ? ' l' : ''); m.dataset.id = s.id;
-    m.style.left = (s.x + 800) / 16 + '%'; m.style.top = (s.z + 800) / 16 + '%';
+    const m = document.createElement('div'); m.className = 'mk' + (s.type === 'marina' ? ' m' : '') + (mapU(s.x) > 70 ? ' l' : ''); m.dataset.id = s.id;
+    m.style.left = mapU(s.x) + '%'; m.style.top = mapV(s.z) + '%';
     m.innerHTML = `<span>${s.name}</span>`; m.onclick = () => setDest(s.id); box.appendChild(m);
   });
   const list = $('spotList');
-  list.innerHTML = SPOTS.map(s => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.depth ? s.depth + ' · ' : ''}${s.desc}</div></div><button class="btn" data-dest="${s.id}">ROTA</button></div>`).join('');
-  list.querySelectorAll('button').forEach(b => b.onclick = () => setDest(b.dataset.dest));
+  list.innerHTML = SPOTS.map(s => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.depth ? s.depth + ' · ' : ''}${s.desc}</div></div><div style="display:flex;gap:6px"><button class="btn" data-dest="${s.id}">ROTA</button><button class="btn gold" data-go="${s.id}">IR</button></div></div>`).join('');
+  list.querySelectorAll('[data-dest]').forEach(b => b.onclick = () => setDest(b.dataset.dest));
+  list.querySelectorAll('[data-go]').forEach(b => b.onclick = () => goTo(b.dataset.go));
   mapDrawn = true;
 }
 function setDest(id) { SV.dest = id; save(); AU.click(); toast('Rota traçada: ' + spotById(id).name); closePanels(); }
@@ -73,7 +74,8 @@ function openMap() {
   if (!mapDrawn) drawMap();
   document.querySelectorAll('.mk').forEach(m => m.classList.toggle('sel', m.dataset.id === SV.dest));
   const b = $('meBoat'), ref = P.mode === 'boat' ? BOAT.pos : P.pos;
-  b.style.zIndex = 3; b.style.left = `calc(${(ref.x + 800) / 16}% - 7px)`; b.style.top = `calc(${(ref.z + 800) / 16}% - 9px)`;
+  b.style.zIndex = 3; b.style.left = `calc(${mapU(ref.x)}% - 7px)`; b.style.top = `calc(${mapV(ref.z)}% - 9px)`;
+  document.querySelectorAll('[data-go]').forEach(g => { const s = spotById(g.dataset.go), d = Math.hypot(s.x - BOAT.pos.x, s.z - BOAT.pos.z), L = travelFuel(d); g.textContent = `IR · ${Math.ceil(L)} L`; g.disabled = P.mode !== 'boat' || COMP.on || d < 120 || SV.fuel < L; });
   b.style.transform = `rotate(${(Math.PI - BOAT.heading) * 180 / Math.PI}deg)`;
   $('mapPanel').classList.remove('hide'); paused = true;
 }
@@ -167,7 +169,7 @@ function step(dt) {
 }
 function updateEnv(dt) {
   const c = camera.position, sY = waveH(c.x, c.z, T);
-  camUnder = c.y < sY - 0.02; camMurk = murkAt(c.x, c.z);
+  camUnder = c.y < sY - 0.02; camMurk = murkAt(c.x, c.z); updateTerrain(c);
   if (camUnder) {
     const k = clamp(-c.y / 28, 0, 1);
     _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k)).lerp(MURKC, camMurk);

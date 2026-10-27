@@ -427,6 +427,15 @@ const NAUF = { x: 40, z: -430 }, AVENT = { x: 640, z: -600 };
 function Hextra(x, z, h) {
   const dA = Math.hypot(x - AVENT.x, z - AVENT.z);
   if (dA < 320) { h = Math.min(h, lerp(-33, h, smooth(90, 300, dA))); h = Math.max(h, lerp(-13, -33, smooth(0, 75, dA)) + 1.5 * fbm(x * 0.07, z * 0.07, 2)); }
+  // Lagoa Azul: rasa e clara entre as ilhotas e a Ilha Grande
+  const dL = Math.hypot(x - LAGOA.x, z - LAGOA.z);
+  if (dL < 200 && h < 0) h = lerp(h, Math.max(h, -4.2 + 1.2 * fbm(x * 0.05, z * 0.05, 2)), 1 - smooth(60, 190, dL));
+  // Parcel de Fora: pináculo subindo do fundo do oceano
+  const dF = Math.hypot(x - FORA.x, z - FORA.z);
+  if (dF < 260) h = Math.max(h, lerp(-15, -40, smooth(0, 125, dF)) + 2 * fbm(x * 0.07, z * 0.07, 2));
+  // cargueiro: areia plana a ~26 m
+  const dC = Math.hypot(x - CARG.x, z - CARG.z);
+  if (dC < 140) h = lerp(h, -26 + 0.3 * fbm(x * 0.1, z * 0.1, 2), 1 - smooth(55, 130, dC));
   const dN = Math.hypot(x - NAUF.x, z - NAUF.z);
   if (dN < 120) h = lerp(h, -19 + 0.3 * fbm(x * 0.1, z * 0.1, 2), 1 - smooth(35, 110, dN));
   return h;
@@ -440,11 +449,11 @@ function extraRocks() {
     const R = addRock(x, H(x, z) + rad * 0.25, z, rad, 'aventureiro');
     if (rad > 2.4 && r() < 0.55) addHole(R, r() * TAU, 'aventureiro');
   }
-  for (let i = 0; i < 18; i++) { const x = NAUF.x + rand(-30, 30), z = NAUF.z + rand(-30, 30); const h = H(x, z); addRock(x, h + 0.4, z, rand(1, 2.2), 'naufragio'); }
+  for (const [W, sp] of [[NAUF, 'naufragio'], [CARG, 'cargueiro']]) for (let i = 0; i < 18; i++) { const x = W.x + rand(-34, 34), z = W.z + rand(-34, 34); const h = H(x, z); addRock(x, h + 0.4, z, rand(1, 2.2), sp); }
 }
 // ---------- casco afundado ----------
-function buildWreck() {
-  const L = 34, B = 7.5, D = 5;
+function buildWreck(W) {
+  const L = W.L, B = 7.5 * L / 34, D = 5 * L / 34;
   const sh = new THREE.Shape();
   sh.moveTo(-B / 2, -L / 2); sh.lineTo(B / 2, -L / 2); sh.lineTo(B / 2, L * 0.22); sh.quadraticCurveTo(B * 0.42, L * 0.44, 0, L / 2); sh.quadraticCurveTo(-B * 0.42, L * 0.44, -B / 2, L * 0.22); sh.closePath();
   const hg = new THREE.ExtrudeGeometry(sh, { depth: D, steps: 3, bevelEnabled: true, bevelSize: 0.3, bevelThickness: 0.3, bevelSegments: 2 });
@@ -461,15 +470,15 @@ function buildWreck() {
   for (const z of [-7.5, -4.5]) for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.9, 1.2), dark); w.position.set(sx * 2.78, D / 2 + 2, z); g.add(w); }
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 14, 8), rust); mast.position.set(4, -1.2, 6); mast.rotation.set(0.15, 0, 1.25); g.add(mast);
   for (const z of [-12, -1, 9]) for (const sx of [-1, 1]) { const hole = new THREE.Mesh(new THREE.CircleGeometry(0.9, 10), dark); hole.position.set(sx * (B / 2 + 0.32), 0.2, z); hole.rotation.y = sx * Math.PI / 2; g.add(hole); }
-  const hy = H(NAUF.x, NAUF.z);
-  g.position.set(NAUF.x, hy + 1.4, NAUF.z); g.rotation.set(-0.04, 0.6, 0.22);
+  const hy = H(W.x, W.z);
+  g.position.set(W.x, hy + 1.4 * L / 34, W.z); g.rotation.set(-0.04, W.ry, 0.22);
   scene.add(g); g.updateMatrixWorld(true);
   const v = new V3();
-  for (let s = -L / 2 + 3; s <= L / 2 - 3; s += 3.2) { v.set(0, 0.6, s); g.localToWorld(v); const R = addRock(v.x, v.y, v.z, B / 2 + 0.6, 'naufragio'); R.sy = 0.75; }
-  for (const s of [-12, -1, 9]) for (const sx of [-1, 1]) {
+  for (let s = -L / 2 + 3; s <= L / 2 - 3; s += 3.2) { v.set(0, 0.6, s); g.localToWorld(v); const R = addRock(v.x, v.y, v.z, B / 2 + 0.6, W.spot); R.sy = 0.75; }
+  for (const s of [-12, -1, 9].map(k => k * L / 34)) for (const sx of [-1, 1]) {
     v.set(sx * (B / 2 + 1.3), 0.2, s); g.localToWorld(v);
     const a = Math.atan2(v.z - g.position.z, v.x - g.position.x);
-    HOLES.push({ x: v.x, z: v.z, y: Math.max(v.y, H(v.x, v.z) + 0.5), dir: a, spot: 'naufragio', used: 0 });
+    HOLES.push({ x: v.x, z: v.z, y: Math.max(v.y, H(v.x, v.z) + 0.5), dir: a, spot: W.spot, used: 0 });
   }
 }
 

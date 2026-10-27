@@ -6,14 +6,26 @@ const ISLANDS = [
   { x: -160, z: -560, r: 75, h: 32, base: -17 },
   { x: -430, z: 250, r: 42, h: 22, base: -14 },
   { x: 150, z: -150, r: 22, h: 9, base: -14 },
+  // expansão leste: ilhotas da Lagoa Azul, Cataguases e Ilha dos Porcos
+  { x: 1010, z: -585, r: 26, h: 14, base: -6, name: 'Ilhas do Macaco' },
+  { x: 1095, z: -555, r: 19, h: 10, base: -6 },
+  { x: 1650, z: -120, r: 48, h: 26, base: -18, name: 'Cataguases' },
+  { x: 1745, z: -45, r: 26, h: 13, base: -16 },
+  { x: 1585, z: -25, r: 17, h: 8, base: -15 },
+  { x: 2060, z: 380, r: 72, h: 38, base: -20, name: 'Ilha dos Porcos' },
 ];
 const LAJE = { x: -330, z: -180 };
 const FOZ = { x: -615, z: 560 };
 const PIER = { x: 0, z0: 790, z1: 700 };
-const LIMIT = 780;
+// área jogável: 3,2 km de lado; a baía original fica no canto sudoeste
+const WB = { x0: -780, x1: 2420, z0: -2420, z1: 780 };
+const IG = { e: 1480, o: -1640 }; // Ilha Grande: ponta leste (x) e costa de fora (z)
+const FORA = { x: 1960, z: -2060 }, CARG = { x: 2080, z: -720 }, LAGOA = { x: 1050, z: -655 };
 
 function H(x, z) {
   let h = -16 + 3.5 * fbm(x * 0.004 + 7, z * 0.004 - 3, 3) + 0.9 * fbm(x * 0.03, z * 0.03, 2);
+  // fora da baía o fundo cai: lado de fora da Ilha Grande e canal leste
+  h -= 20 * smooth(IG.o + 60, IG.o - 420, z) + 7 * smooth(900, 2200, x) * (1 - smooth(500, 760, z));
   h += 0.1 * Math.sin(x * 0.8 + z * 0.25 + 3 * fbm(x * 0.05, z * 0.05, 1));
   // laje submersa
   const dl = Math.hypot(x - LAJE.x, z - LAJE.z);
@@ -38,10 +50,13 @@ function H(x, z) {
   const wc = -668 + 25 * fbm(2.3, z * 0.006, 2);
   const lw = smooth(wc + 70, wc - 40, x);
   if (lw > 0) h = lerp(h, 2 + 12 * smooth(wc, wc - 60, x) + 5 * fbm(x * 0.02 + 5, z * 0.02, 2) + 200 * smooth(wc - 80, wc - 420, x) * (0.55 + 0.45 * fbm(x * 0.006 + 3, z * 0.006, 4)), lw);
-  // Ilha Grande ao norte
-  const nc = -742 + 30 * fbm(x * 0.005, 9.1, 2);
-  const ln = smooth(nc + 80, nc - 40, z);
-  if (ln > 0) h = lerp(h, 3 + 20 * smooth(nc, nc - 50, z) + 6 * fbm(x * 0.02, z * 0.02 + 3, 2) + 300 * smooth(nc - 60, nc - 420, z) * (0.5 + 0.5 * fbm(x * 0.005 + 9, z * 0.005, 4)), ln);
+  // Ilha Grande ao norte: costa da baía (nc), costa de fora (oc) e ponta leste (ec)
+  // a costa de dentro (pontos antigos) fica como era; a de fora e a ponta leste ganham enseadas e pontas
+  const zm = (IG.o - 742) / 2, tz = (z - zm) / ((-742 - IG.o) / 2);
+  const nc = -742 + 30 * fbm(x * 0.005, 9.1, 2), oc = IG.o + 90 * fbm(x * 0.0045, 4.2, 3), ec = IG.e + 90 * fbm(3.7, z * 0.005, 3) - 420 * tz * tz;
+  const wild = Math.max(smooth(-1000, -1250, z), smooth(700, 1100, x));
+  const di = Math.min(nc - z, z - oc, ec - x) + wild * (70 * fbm(x * 0.007 + 2, z * 0.007, 3) + 22 * fbm(x * 0.025, z * 0.025 + 5, 2)), ln = smooth(-80, 40, di);
+  if (ln > 0) h = lerp(h, 3 + 20 * smooth(0, 50, di) + 6 * fbm(x * 0.02, z * 0.02 + 3, 2) + 300 * smooth(60, 420, di) * (0.5 + 0.5 * fbm(x * 0.005 + 9, z * 0.005, 4)), ln);
   // canal do rio
   const rz = FOZ.z + 18 * Math.sin(x * 0.012);
   const ch = (1 - smooth(14, 34, Math.abs(z - rz))) * smooth(-560, -610, x);
@@ -68,7 +83,7 @@ function initRenderer() {
   document.getElementById('game').appendChild(renderer.domElement);
   scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(HAZE.clone(), 0.0006);
-  camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 4200);
+  camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 5000);
   scene.add(camera);
   const fit = () => {
     const vv = window.visualViewport, w = Math.max(1, Math.round(vv ? vv.width : innerWidth)), h = Math.max(1, Math.round(vv ? vv.height : innerHeight));
@@ -147,41 +162,73 @@ function buildSky() {
 }
 
 // ================= terreno =================
-function buildTerrain() {
-  const S = 2400, N = 300;
-  const g = new THREE.PlaneGeometry(S, S, N, N); g.rotateX(-Math.PI / 2);
-  const p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) p.setY(i, H(p.getX(i), p.getZ(i)));
-  g.computeVertexNormals();
-  const n = g.attributes.normal, col = new Float32Array(p.count * 3), c = new THREE.Color();
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), ny = n.getY(i), v = fbm(x * 0.05, z * 0.05, 2);
-    if (y > 2.2) {
-      const rock = smooth(0.82, 0.62, ny);
-      c.setRGB(0.07 + 0.03 * v, 0.17 + 0.05 * v, 0.06 + 0.02 * v);
-      if (y < 4) c.lerp(new THREE.Color(0.55, 0.5, 0.36), smooth(4, 2.2, y));
-      c.lerp(new THREE.Color(0.28, 0.26, 0.22), rock * 0.8);
-    } else if (y > -0.6) {
-      c.setRGB(0.78 + 0.05 * v, 0.70 + 0.05 * v, 0.52 + 0.04 * v);
-    } else {
-      c.setRGB(0.6 + 0.06 * v, 0.55 + 0.06 * v, 0.42 + 0.05 * v);
-      const deep = smooth(-8, -24, y); c.lerp(new THREE.Color(0.55, 0.53, 0.45), deep * 0.6);
-      c.lerp(new THREE.Color(0.32, 0.30, 0.26), smooth(0.9, 0.65, ny));
-      const m = murkAt(x, z); c.lerp(new THREE.Color(0.36, 0.31, 0.22), m * 0.85);
-      if (fbm(x * 0.02 + 40, z * 0.02, 2) > 0.25 && y > -14) c.lerp(new THREE.Color(0.30, 0.38, 0.22), 0.35); // manchas de alga
-    }
-    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+// terreno em blocos de 400 m: malha grossa sempre, malha fina (8 m) só perto da câmera, gerada sob demanda.
+// bordas com saia vertical escondem as frestas entre blocos de detalhe diferente.
+const TERR = { list: [], mat: null, S: 400, x0: -1600, z0: -3200, nx: 12, nz: 12 };
+function terrColor(x, y, z, ny, c) {
+  const v = fbm(x * 0.05, z * 0.05, 2);
+  if (y > 2.2) {
+    const rock = smooth(0.82, 0.62, ny);
+    c.setRGB(0.07 + 0.03 * v, 0.17 + 0.05 * v, 0.06 + 0.02 * v);
+    if (y < 4) c.lerp(_tc.setRGB(0.55, 0.5, 0.36), smooth(4, 2.2, y));
+    c.lerp(_tc.setRGB(0.28, 0.26, 0.22), rock * 0.8);
+  } else if (y > -0.6) {
+    c.setRGB(0.78 + 0.05 * v, 0.70 + 0.05 * v, 0.52 + 0.04 * v);
+  } else {
+    c.setRGB(0.6 + 0.06 * v, 0.55 + 0.06 * v, 0.42 + 0.05 * v);
+    const deep = smooth(-8, -24, y); c.lerp(_tc.setRGB(0.55, 0.53, 0.45), deep * 0.6);
+    c.lerp(_tc.setRGB(0.32, 0.30, 0.26), smooth(0.9, 0.65, ny));
+    const m = murkAt(x, z); c.lerp(_tc.setRGB(0.36, 0.31, 0.22), m * 0.85);
+    if (fbm(x * 0.02 + 40, z * 0.02, 2) > 0.25 && y > -14) c.lerp(_tc.setRGB(0.30, 0.38, 0.22), 0.35); // manchas de alga
   }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const st = sandTex(); st.wrapS = st.wrapT = THREE.RepeatWrapping; st.repeat.set(340, 340); st.anisotropy = 8;
-  const m = uwify(new THREE.MeshLambertMaterial({ vertexColors: true, map: st }), { key: 't' });
-  const mesh = new THREE.Mesh(g, m); scene.add(mesh); return mesh;
+  return c;
+}
+const _tc = new THREE.Color();
+function terrGeo(cx, cz, n) {
+  const S = TERR.S, d = S / n, W = n + 3, hs = new Float32Array(W * W);
+  for (let j = 0; j < W; j++) for (let i = 0; i < W; i++) hs[j * W + i] = H(cx - S / 2 + (i - 1) * d, cz - S / 2 + (j - 1) * d);
+  const pos = [], nor = [], col = [], uv = [], idx = [], c = new THREE.Color(), nv = new V3();
+  const vtx = (i, j, drop) => {
+    const x = cx - S / 2 + i * d, z = cz - S / 2 + j * d, k = (j + 1) * W + i + 1, y = hs[k];
+    nv.set(hs[k - 1] - hs[k + 1], 2 * d, hs[k - W] - hs[k + W]).normalize();
+    pos.push(x, y - drop, z); nor.push(nv.x, nv.y, nv.z); terrColor(x, y, z, nv.y, c); col.push(c.r, c.g, c.b); uv.push(x / 7.06, z / 7.06);
+    return pos.length / 3 - 1;
+  };
+  for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) vtx(i, j, 0);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const a = j * (n + 1) + i, b = a + n + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  // saias nas 4 bordas
+  const edges = [[i => [i, 0]], [i => [n, i]], [i => [n - i, n]], [i => [0, n - i]]];
+  for (const [f] of edges) for (let i = 0; i < n; i++) {
+    const [i0, j0] = f(i), [i1, j1] = f(i + 1), a = j0 * (n + 1) + i0, b = j1 * (n + 1) + i1, a2 = vtx(i0, j0, 6), b2 = vtx(i1, j1, 6);
+    idx.push(a, a2, b, b, a2, b2, a, b, a2, b, b2, a2);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+  g.computeBoundingSphere(); return g;
+}
+function buildTerrain() {
+  const st = sandTex(); st.wrapS = st.wrapT = THREE.RepeatWrapping; st.anisotropy = 8;
+  TERR.mat = uwify(new THREE.MeshLambertMaterial({ vertexColors: true, map: st }), { key: 't' });
+  for (let j = 0; j < TERR.nz; j++) for (let i = 0; i < TERR.nx; i++) {
+    const cx = TERR.x0 + (i + 0.5) * TERR.S, cz = TERR.z0 + (j + 0.5) * TERR.S;
+    const lo = new THREE.Mesh(terrGeo(cx, cz, 12), TERR.mat); scene.add(lo);
+    TERR.list.push({ cx, cz, lo, hi: null });
+  }
+  updateTerrain(new V3(PIER.x, 0, PIER.z1), 99);
+}
+// troca para a malha fina nos blocos perto da câmera; gera no máximo `budget` por chamada
+function updateTerrain(c, budget = 1) {
+  for (const t of TERR.list) {
+    const d = Math.max(Math.abs(c.x - t.cx), Math.abs(c.z - t.cz)), near = d < 650;
+    if (near && !t.hi && budget > 0) { t.hi = new THREE.Mesh(terrGeo(t.cx, t.cz, 50), TERR.mat); scene.add(t.hi); budget--; }
+    if (t.hi) { t.hi.visible = near; t.lo.visible = !near; if (d > 1400) { scene.remove(t.hi); t.hi.geometry.dispose(); t.hi = null; t.lo.visible = true; } }
+  }
 }
 
-// ================= água =================
 let water, waterMat;
 function buildWater() {
-  const RINGS = 150, SEG = 112, RMAX = 3000, pos = [], idx = [];
+  const RINGS = 160, SEG = 112, RMAX = 5200, pos = [], idx = [];
   pos.push(0, 0, 0);
   for (let i = 1; i <= RINGS; i++) {
     const r = RMAX * Math.pow(i / RINGS, 2.4);
@@ -389,6 +436,12 @@ const SPOTS = [
   { id: 'comprida', name: 'Ilha Comprida', x: 0, z: 0, r: 42, depth: '3–14 m', desc: 'Pedras soltas e tocas rasas. Bom pra começar: garoupa, salema e xaréu de passagem.' },
   { id: 'naufragio', name: 'Naufrágio do Pinguino', x: 40, z: -430, r: 45, depth: '12–19 m', desc: 'Casco afundado cheio de tocas. Garoupas, badejos e caranhas grandes moram lá dentro. Leve lanterna.' },
   { id: 'aventureiro', name: 'Parcel do Aventureiro', x: 640, z: -600, r: 55, depth: '13–33 m', desc: 'Mar aberto e água azul. Peixe grande: olho-de-boi, dourado, bicuda e garoupa troféu.' },
+  { id: 'lagoa', name: 'Lagoa Azul', x: LAGOA.x, z: LAGOA.z, r: 50, depth: '2–6 m', desc: 'Piscina natural entre as Ilhas do Macaco e a Ilha Grande. Água clarinha, muito peixe manso. Ótima para começar.' },
+  { id: 'cataguases', name: 'Ilhas de Cataguases', x: 0, z: 0, r: 48, depth: '4–20 m', desc: 'Arquipélago no meio da baía. Costão com tocas, garoupa, badejo e cardume de xaréu.' },
+  { id: 'porcos', name: 'Ilha dos Porcos', x: 0, z: 0, r: 50, depth: '5–22 m', desc: 'Ilha grande na boca leste da baía. Costão fundo onde passa sororoca, enchova e olho-de-boi.' },
+  { id: 'cargueiro', name: 'Naufrágio do Cargueiro', x: CARG.x, z: CARG.z, r: 50, depth: '20–27 m', desc: 'Casco grande deitado na areia, fundo de verdade. Garoupas e chernes enormes nas tocas. Só com fôlego treinado.' },
+  { id: 'castelhanos', name: 'Ponta de Castelhanos', x: 0, z: 0, r: 52, depth: '8–28 m', cur: [0.32, 0.1], desc: 'Lado de fora da Ilha Grande, mar aberto batendo no costão. Correnteza forte e peixe grande.' },
+  { id: 'fora', name: 'Parcel de Fora', x: FORA.x, z: FORA.z, r: 58, depth: '15–40 m', cur: [0.45, -0.18], desc: 'Pináculo isolado no oceano. Água azul, correnteza e pelágicos grandes. Leve combustível de sobra.' },
   { id: 'foz', name: 'Foz do Rio Mambucaba', x: FOZ.x + 30, z: FOZ.z, r: 60, depth: '2–6 m', desc: 'Água turva de rio. Robalo encostado no fundo e cardume de tainha. Visibilidade baixa.' },
 ];
 const spotById = id => SPOTS.find(s => s.id === id);
@@ -404,6 +457,18 @@ function scatterRocksRing(I, n, seed, spot, holeChance) {
     const rad = lerp(3.6, 1.0, (dd - shore) / 30) * (0.55 + r() * 0.7);
     const R = addRock(x, h + rad * 0.25, z, rad, spot);
     if (rad > 2.2 && r() < holeChance) addHole(R, a + Math.PI + rand(-0.6, 0.6), spot);
+  }
+}
+// pedras ao longo de uma costa reta: anda de dentro da terra na direção (dx, dz) até achar água
+function scatterCoast(S, dx, dz, spread, n, seed, spot, holeChance) {
+  const r = mulberry(seed), px = -dz, pz = dx;
+  for (let k = 0; k < n; k++) {
+    const o = (r() * 2 - 1) * spread, x0 = S.x + px * o - dx * 200, z0 = S.z + pz * o - dz * 200; let shore = null;
+    for (let d = 0; d < 420; d += 3) if (H(x0 + dx * d, z0 + dz * d) < -1.2) { shore = d; break; }
+    if (shore == null) continue;
+    const dd = shore + Math.pow(r(), 1.6) * 36, x = x0 + dx * dd, z = z0 + dz * dd, h = H(x, z); if (h > -1) continue;
+    const rad = lerp(4.2, 1.1, (dd - shore) / 36) * (0.55 + r() * 0.7), R = addRock(x, h + rad * 0.25, z, rad, spot);
+    if (rad > 2.2 && r() < holeChance) addHole(R, Math.atan2(-dz, -dx) + rand(-0.6, 0.6), spot);
   }
 }
 function addHole(R, a, spot) {
@@ -433,6 +498,16 @@ function buildRocksAndDecor() {
   // posiciona o ponto da Jorge Grego no costão sudoeste
   const placeSpot = (id, I, dx, dz, depth) => { const J = spotById(id), L = Math.hypot(dx, dz); for (let d = 20; d < 360; d += 2) { const x = I.x + dx / L * d, z = I.z + dz / L * d; if (H(x, z) < depth) { J.x = x; J.z = z; break; } } };
   placeSpot('jorge', ISLANDS[0], -0.62, 0.78, -7); placeSpot('gipoia', ISLANDS[3], 0.45, 0.9, -5); placeSpot('comprida', ISLANDS[4], 0.85, -0.35, -5);
+  // expansão: Lagoa Azul, Cataguases, Porcos, Castelhanos, Parcel de Fora
+  placeSpot('cataguases', ISLANDS[8], 0.3, -0.95, -6); placeSpot('porcos', ISLANDS[11], -0.8, -0.6, -7); placeSpot('castelhanos', { x: 1250, z: -1350 }, 0, -1, -10);
+  scatterRocksRing(ISLANDS[6], 45, 13, 'lagoa', 0.2); scatterRocksRing(ISLANDS[7], 30, 14, 'lagoa', 0.2);
+  scatterRocksRing(ISLANDS[8], 170, 15, 'cataguases', 0.5); scatterRocksRing(ISLANDS[9], 55, 16, 'cataguases', 0.45); scatterRocksRing(ISLANDS[10], 35, 17, null, 0.3);
+  scatterRocksRing(ISLANDS[11], 200, 18, 'porcos', 0.45);
+  scatterCoast(spotById('castelhanos'), 0, -1, 140, 190, 19, 'castelhanos', 0.55);
+  for (let i = 0; i < 120; i++) {
+    const a = r() * TAU, d = Math.pow(r(), 0.7) * 62, x = FORA.x + Math.cos(a) * d, z = FORA.z + Math.sin(a) * d, rad = lerp(5.5, 1.4, d / 62) * (0.6 + r() * 0.7);
+    const R = addRock(x, H(x, z) + rad * 0.25, z, rad, 'fora'); if (rad > 2.5 && r() < 0.5) addHole(R, r() * TAU, 'fora');
+  }
   // foz: poucas pedras
   for (let i = 0; i < 25; i++) { const x = FOZ.x + rand(-60, 90), z = FOZ.z + rand(-70, 70); const h = H(x, z); if (h < -1.5) addRock(x, h + 0.3, z, rand(0.8, 2.0), 'foz'); }
 
@@ -449,7 +524,8 @@ function buildRocksAndDecor() {
     list.forEach((R, k) => { e.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15)); q.setFromEuler(e); R.q = q.clone(); R.gi = gi; s.set(R.r, R.r * R.sy, R.r); pp.set(R.x, R.y, R.z); m4.compose(pp, q, s); im.setMatrixAt(k, m4); });
     scene.add(im);
   });
-  buildWreck();
+  buildWreck({ x: NAUF.x, z: NAUF.z, ry: 0.6, L: 34, spot: 'naufragio' });
+  buildWreck({ x: CARG.x, z: CARG.z, ry: -0.45, L: 48, spot: 'cargueiro' });
 
   // troncos no rio
   const logMat = uwify(new THREE.MeshStandardMaterial({ color: 0x3b2c1e, roughness: 1 }), { key: 'l' });
@@ -486,7 +562,7 @@ function buildRocksAndDecor() {
   chunked(urG, urM, urs, (f, i, im) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); s.setScalar(rand(0.75, 1.2)); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); });
   scene.add(fanIM, algIM);
   // capim/sargaço espalhado no fundo arenoso da baía
-  const sea = []; for (let i = 0; i < 2600; i++) { const x = rand(-760, 760), z = rand(-700, 740), h = H(x, z); if (h < -2 && h > -16 && fbm(x * 0.02 + 40, z * 0.02, 2) > 0.2) sea.push([x, h, z]); }
+  const sea = []; for (let i = 0; i < 6500; i++) { const x = rand(WB.x0, WB.x1), z = rand(WB.z0, WB.z1), h = H(x, z); if (h < -2 && h > -16 && fbm(x * 0.02 + 40, z * 0.02, 2) > 0.2) sea.push([x, h, z]); }
   const seaIM = new THREE.InstancedMesh(algG, algM, sea.length);
   sea.forEach((f, i) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); const k = rand(0.35, 0.8); s.set(k, k, k); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); seaIM.setMatrixAt(i, m4); });
   scene.add(seaIM);
@@ -495,8 +571,8 @@ function buildRocksAndDecor() {
 // ================= terra: árvores, casas, píer, bóias =================
 function buildLand() {
   const trees = [], houses = [];
-  for (let i = 0; i < 9000 && trees.length < 2600; i++) {
-    const x = rand(-1150, 1150), z = rand(-1150, 1150), h = H(x, z);
+  for (let i = 0; i < 26000 && trees.length < 5200; i++) {
+    const x = rand(-1500, 3000), z = rand(-2600, 1300), h = H(x, z);
     if (h > 3 && h < 140) trees.push([x, h, z]);
   }
   for (let i = 0; i < 4000 && houses.length < 70; i++) {
