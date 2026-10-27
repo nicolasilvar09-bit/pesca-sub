@@ -88,6 +88,7 @@ const AU = {
   coin() { this.tone(880, 1320, 0.1, 0.12, 'triangle'); this.tone(1320, 1760, 0.14, 0.1, 'triangle', 0.09); },
   breath() { this.burst(0.5, 600, 'bandpass', 0.35); this.burst(0.8, 900, 'bandpass', 0.22); },
   bad() { this.tone(300, 120, 0.4, 0.2, 'sawtooth'); },
+  scrape() { for (let i = 0; i < 5; i++) setTimeout(() => this.burst(0.09, rand(1800, 2600), 'bandpass', 0.35), i * 120); },
 };
 
 // ================= entrada =================

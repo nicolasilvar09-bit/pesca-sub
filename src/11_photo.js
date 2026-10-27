@@ -23,7 +23,8 @@ const SP_INFO = {
   cherne: ['Hyporthodus niveatus', 'Tocas fundas e naufrágios.', 'Cresce devagar e está em declínio: pegar só os grandes e com moderação.'],
   mero: ['Epinephelus itajara', 'Naufrágios e tocas grandes.', 'Protegido por lei no Brasil: pode passar de 2 m e 300 kg. Só foto!'],
 };
-const GUIDE_EXTRA = [['tartaruga', 'Tartaruga-verde', 'Chelonia mydas', 'Costões com algas, sobe para respirar.', 'Ameaçada de extinção e protegida. Só foto!']];
+const GUIDE_EXTRA = [['tartaruga', 'Tartaruga-verde', 'Chelonia mydas', 'Costões com algas, sobe para respirar.', 'Ameaçada de extinção e protegida. Só foto!'],
+  ['moreia', 'Moreia-pintada', 'Gymnothorax moringa', 'Tocas de costão e naufrágio.', 'Abre e fecha a boca o tempo todo para respirar, não é ameaça. Mas morde se você enfiar a mão na toca.']];
 
 // alvo no centro da tela: peixe ou tartaruga até 8 m
 function photoTarget() {
@@ -31,6 +32,7 @@ function photoTarget() {
   const test = (pos, rad, obj) => { _b.subVectors(pos, o); const t = _b.dot(d); if (t < 0.4 || t > bt) return; const off = _b.addScaledVector(d, -t).length(); if (off < rad + 0.2) { best = { obj, t, off: off / (rad + 0.2) }; bt = t; } };
   for (const f of FISHES) if (f.vis && f.state !== 'dead' && f.state !== 'hooked') test(f.pos, f.radius, f);
   for (const T of TURTLES) test(T.pos, 0.55, { turtle: true, key: 'tartaruga', pos: T.pos });
+  moreiaTargets(test);
   return best;
 }
 function takePhoto() {
@@ -39,11 +41,11 @@ function takePhoto() {
   AU.tone(2400, 1800, 0.04, 0.05, 'square'); AU.tone(900, 700, 0.06, 0.04, 'square', 0.05); P.noise = Math.max(P.noise, 0.45);
   const tg = photoTarget();
   if (!tg) { toast('Foto de água azul. Mire num peixe ou numa tartaruga.', 2); return; }
-  const o = tg.obj, key = o.key, sp = SPECIES[key], name = sp ? sp.name : 'Tartaruga-verde';
+  const o = tg.obj, key = o.key, sp = SPECIES[key], name = sp ? sp.name : o.moreia ? 'Moreia-pintada' : 'Tartaruga-verde';
   // valor: espécie (raro/protegido valem mais), tamanho, distância, centralizado e peixe calmo
-  let base = o.turtle ? 260 : sp.protected ? 380 : sp.rare ? 300 : sp.ornamental ? 110 : 40 + sp.price * 1.4;
-  const size = o.turtle ? 1 : clamp(o.len / sp.len[1], 0.4, 1.5), dist = 1 - smooth(2.2, 8, tg.t) * 0.6, cen = 1 - tg.off * 0.4;
-  const calm = o.turtle || o.state === 'wander' || o.state === 'curious' || o.state === 'hidden' ? 1.25 : 0.8;
+  let base = o.moreia ? 150 : o.turtle ? 260 : sp.protected ? 380 : sp.rare ? 300 : sp.ornamental ? 110 : 40 + sp.price * 1.4;
+  const size = o.turtle || o.moreia ? 1 : clamp(o.len / sp.len[1], 0.4, 1.5), dist = 1 - smooth(2.2, 8, tg.t) * 0.6, cen = 1 - tg.off * 0.4;
+  const calm = o.turtle || o.moreia || o.state === 'wander' || o.state === 'curious' || o.state === 'hidden' ? 1.25 : 0.8;
   const D = SV.photoDay && SV.photoDay.day === SV.day ? SV.photoDay : (SV.photoDay = { day: SV.day, n: {} });
   const rep = D.n[key] || 0; D.n[key] = rep + 1;
   const score = Math.round(base * size * dist * cen * calm), pay = Math.round(score / (1 + rep * 0.8));
