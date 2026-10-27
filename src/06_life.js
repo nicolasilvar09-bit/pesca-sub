@@ -106,24 +106,31 @@ function palyTex() {
   });
 }
 // corais, zoantídeos nos topos das pedras; conchas e cascalho na areia em volta
-const _nr = new V3();
+const _nr = new V3(), _fq = new THREE.Quaternion();
 function buildReef3() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3(), up = new V3(0, 1, 0), d = new V3();
-  const brain = [], paly = [], shell = [];
+  const brain = [], paly = [], shell = [], fire = [];
   for (const R of ROCKS) {
     if (!R.spot || R.spot === 'foz') continue;
     if (R.q === undefined) continue;
     const tag = it => { it.spot = R.spot; return it; };
     const onRock = (minY, k, sz) => { d.set(rand(-1, 1), rand(minY, 1), rand(-1, 1)).normalize(); const w = rockSurf(R, d, new V3(), _nr, k); return tag([w.x, w.y, w.z, _nr.clone(), sz]); };
     // quantidade cresce com a área da pedra
-    for (let k = 0, n = Math.round(R.r * rand(0.4, 1.4)); k < n; k++) brain.push(onRock(0.15, 0.97, rand(0.15, 0.45)));
-    for (let k = 0, n = Math.min(10, Math.round(R.r * R.r * rand(0.4, 1.2))); k < n; k++) paly.push(onRock(0.3, 0.985, rand(0.18, 0.45)));
+    for (let k = 0, n = Math.round(R.r * rand(0.6, 1.9)); k < n; k++) brain.push(onRock(0.15, 0.97, rand(0.15, 0.45)));
+    for (let k = 0, n = Math.random() < 0.3 ? Math.round(R.r * rand(0.3, 0.8)) : 0; k < n; k++) fire.push(onRock(0.0, 0.96, rand(1.6, 3.0)));
+    for (let k = 0, n = Math.min(14, Math.round(R.r * R.r * rand(0.6, 1.6))); k < n; k++) paly.push(onRock(0.3, 0.985, rand(0.18, 0.45)));
     for (let k = 0; k < 8; k++) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * rand(1.05, 2.2), z = R.z + Math.sin(a) * R.r * rand(1.05, 2.2); shell.push(tag([x, H(x, z) + 0.01, z])); }
   }
   const bG = new THREE.SphereGeometry(1, 10, 5, 0, TAU, 0, Math.PI / 2);
   chunked(bG, uwify(new THREE.MeshStandardMaterial({ map: brainTex(), roughness: 0.85 }), { key: 'bc' }), brain, (c, i, im) => { q.setFromUnitVectors(up, c[3]); s.set(c[4], c[4] * rand(0.5, 0.75), c[4]); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); im.setColorAt(i, new THREE.Color().setHSL(rand(0.1, 0.2), 0.2, rand(0.4, 0.58))); });
   const pG = new THREE.SphereGeometry(1, 8, 3, 0, TAU, 0, Math.PI / 2);
   chunked(pG, uwify(new THREE.MeshStandardMaterial({ map: palyTex(), roughness: 0.75 }), { key: 'pl' }), paly, (c, i, im) => { q.setFromUnitVectors(up, c[3]); s.set(c[4], 0.04, c[4] * rand(0.6, 1)); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); });
+  // coral-de-fogo (Millepora): ramos achatados amarelo-mostarda saindo da pedra
+  const fireG = (() => { const parts = [], r = mulberry(9);
+    const br = (x, y, a, l, w, d) => { if (d > 2) return; const g = new THREE.BoxGeometry(w, l, w * 0.35); g.translate(0, l / 2, 0); g.rotateZ(a); g.translate(x, y, 0); parts.push(g); const x2 = x - Math.sin(a) * l, y2 = y + Math.cos(a) * l; br(x2, y2, a - 0.3 - r() * 0.35, l * 0.72, w * 0.8, d + 1); br(x2, y2, a + 0.3 + r() * 0.35, l * 0.72, w * 0.8, d + 1); };
+    br(0, 0, 0, 0.12, 0.05, 0); br(0, 0, -0.6, 0.1, 0.045, 1); br(0, 0, 0.6, 0.1, 0.045, 1);
+    return mergeGeos(parts); })();
+  chunked(fireG, uwify(new THREE.MeshStandardMaterial({ color: 0xc9a43a, roughness: 0.55, emissive: 0x2a1c00 }), { key: 'fc' }), fire, (c, i, im) => { q.setFromUnitVectors(up, c[3]); _fq.setFromAxisAngle(c[3], rand(0, TAU)); q.premultiply(_fq); s.setScalar(c[4]); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); im.setColorAt(i, new THREE.Color().setHSL(rand(0.1, 0.14), 0.55, rand(0.4, 0.55))); });
   // conchas (meia-lua clara) e cascalho, só aparecem de perto
   const shG = new THREE.SphereGeometry(0.05, 6, 2, 0, TAU, 0, Math.PI / 2); shG.scale(1, 0.4, 0.75);
   const shc = [0xe8dcc4, 0xd8c0a0, 0xc8b8a8, 0x9a948a, 0x7a7670, 0xf0e8dc];

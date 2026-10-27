@@ -372,7 +372,7 @@ function rockGeo(seed) {
 // instâncias agrupadas por ponto de pesca; cada grupo só é desenhado com a câmera por perto
 const CHUNKS = [], _cv = new V3();
 function chunked(geo, mat, items, place, far = 90) {
-  const by = new Map(); for (const it of items) { const k = it.spot || '-'; if (!by.has(k)) by.set(k, []); by.get(k).push(it); }
+  const by = new Map(); for (const it of items) { const k = Math.floor(it[0] / 160) + ':' + Math.floor(it[2] / 160); if (!by.has(k)) by.set(k, []); by.get(k).push(it); }
   for (const list of by.values()) {
     const im = new THREE.InstancedMesh(geo, mat, list.length), c = new V3(); let r = 0;
     list.forEach(it => c.add(_cv.set(it[0], it[1], it[2]))); c.divideScalar(list.length);
@@ -477,7 +477,11 @@ const SPOTS = [
   { id: 'fora', name: 'Parcel de Fora', x: FORA.x, z: FORA.z, r: 58, depth: '15–40 m', cur: [0.45, -0.18], desc: 'Pináculo isolado no oceano. Água azul, correnteza e pelágicos grandes. Leve combustível de sobra.' },
   { id: 'foz', name: 'Foz do Rio Mambucaba', x: FOZ.x + 30, z: FOZ.z, r: 60, depth: '2–6 m', desc: 'Água turva de rio. Robalo encostado no fundo e cardume de tainha. Visibilidade baixa.' },
 ];
-const spotById = id => SPOTS.find(s => s.id === id);
+// zonas: pedaços de costão e lajes fora dos pontos do mapa, com peixe próprio (não aparecem na carta)
+const ZONES = [];
+const spotById = id => SPOTS.find(s => s.id === id) || ZONES.find(s => s.id === id);
+// lajes submersas espalhadas pela baía
+const LAJES2 = [{ x: 40, z: 130 }, { x: 1000, z: 300 }, { x: 1250, z: -60 }, { x: 1720, z: -540 }, { x: -470, z: -520 }];
 
 function scatterRocksRing(I, n, seed, spot, holeChance) {
   const r = mulberry(seed);
@@ -522,20 +526,44 @@ function buildRocksAndDecor() {
   }
   for (let i = 0; i < 16; i++) { const a = r() * TAU, d = r() * 14, x = LAJE.x + Math.cos(a) * d, z = LAJE.z + Math.sin(a) * d; const rad = 1.4 + r() * 2.2; addRock(x, H(x, z) + 2.4 + rad * 0.3, z, rad, 'laje'); }
   // costões
-  scatterRocksRing(ISLANDS[0], 260, 7, 'jorge', 0.5);
-  scatterRocksRing(ISLANDS[1], 70, 8, 'botinas', 0.35);
-  scatterRocksRing(ISLANDS[2], 55, 9, 'botinas', 0.35);
-  scatterRocksRing(ISLANDS[3], 170, 10, 'gipoia', 0.5);
-  scatterRocksRing(ISLANDS[4], 130, 11, 'comprida', 0.5);
-  scatterRocksRing(ISLANDS[5], 40, 12, null, 0.2);
+  scatterRocksRing(ISLANDS[0], 400, 7, 'jorge', 0.5);
+  scatterRocksRing(ISLANDS[1], 100, 8, 'botinas', 0.35);
+  scatterRocksRing(ISLANDS[2], 80, 9, 'botinas', 0.35);
+  scatterRocksRing(ISLANDS[3], 260, 10, 'gipoia', 0.5);
+  scatterRocksRing(ISLANDS[4], 200, 11, 'comprida', 0.5);
+  scatterRocksRing(ISLANDS[5], 70, 12, 'z_cobras', 0.35);
   // posiciona o ponto da Jorge Grego no costão sudoeste
   const placeSpot = (id, I, dx, dz, depth) => { const J = spotById(id), L = Math.hypot(dx, dz); for (let d = 20; d < 360; d += 2) { const x = I.x + dx / L * d, z = I.z + dz / L * d; if (H(x, z) < depth) { J.x = x; J.z = z; break; } } };
   placeSpot('jorge', ISLANDS[0], -0.62, 0.78, -7); placeSpot('gipoia', ISLANDS[3], 0.45, 0.9, -5); placeSpot('comprida', ISLANDS[4], 0.85, -0.35, -5);
   // expansão: Lagoa Azul, Cataguases, Porcos, Castelhanos, Parcel de Fora
   placeSpot('cataguases', ISLANDS[8], 0.3, -0.95, -6); placeSpot('porcos', ISLANDS[11], -0.8, -0.6, -7); placeSpot('castelhanos', { x: 1250, z: -1350 }, 0, -1, -10);
-  scatterRocksRing(ISLANDS[6], 45, 13, 'lagoa', 0.2); scatterRocksRing(ISLANDS[7], 30, 14, 'lagoa', 0.2);
-  scatterRocksRing(ISLANDS[8], 170, 15, 'cataguases', 0.5); scatterRocksRing(ISLANDS[9], 55, 16, 'cataguases', 0.45); scatterRocksRing(ISLANDS[10], 35, 17, null, 0.3);
-  scatterRocksRing(ISLANDS[11], 200, 18, 'porcos', 0.45);
+  scatterRocksRing(ISLANDS[6], 70, 13, 'lagoa', 0.25); scatterRocksRing(ISLANDS[7], 45, 14, 'lagoa', 0.25);
+  scatterRocksRing(ISLANDS[8], 260, 15, 'cataguases', 0.5); scatterRocksRing(ISLANDS[9], 85, 16, 'cataguases', 0.45); scatterRocksRing(ISLANDS[10], 60, 17, 'cataguases', 0.35);
+  scatterRocksRing(ISLANDS[11], 300, 18, 'porcos', 0.45);
+  // zonas de costão em volta das ilhas, longe dos pontos do mapa (uma a cada ~120 m de costa)
+  const far = (x, z, m) => SPOTS.every(s => Math.hypot(s.x - x, s.z - z) > m) && ZONES.every(s => Math.hypot(s.x - x, s.z - z) > 95);
+  ISLANDS.forEach((I, idx) => {
+    if (idx === 5) { ZONES.push({ id: 'z_cobras', x: I.x, z: I.z, r: I.r * 2.2, zone: 'costao' }); return; }
+    const n = Math.max(3, Math.round(TAU * I.r * 1.9 / 120));
+    for (let k = 0; k < n; k++) {
+      const a = k / n * TAU + idx; let px = null, pz = null;
+      for (let d = I.r * 0.5; d < I.r * 3; d += 3) { const x = I.x + Math.cos(a) * d, z = I.z + Math.sin(a) * d; if (H(x, z) < -3) { px = x + Math.cos(a) * 14; pz = z + Math.sin(a) * 14; break; } }
+      if (px != null && H(px, pz) < -3 && far(px, pz, 110)) ZONES.push({ id: 'zi' + idx + '_' + k, x: px, z: pz, r: 38, zone: 'costao' });
+    }
+  });
+  // costões da Ilha Grande (lado da baía e lado de fora) e do continente, cada zona com seu trecho de pedras
+  const coastZ = (x0, x1, step, zFrom, dz, id) => { for (let x = x0, k = 0; x <= x1; x += step, k++) { let z = zFrom; for (let i = 0; i < 160 && H(x, z) > -3; i++) z += dz * 3; z += dz * 10; if (H(x, z) < -3 && far(x, z, 110)) { const Z = { id: id + k, x, z, r: 40, zone: 'costao' }; ZONES.push(Z); scatterCoast(Z, 0, dz, 45, 45, 50 + k + id.length * 7, Z.id, 0.45); } } };
+  coastZ(-600, 1380, 170, -900, 1, 'zg');         // Ilha Grande, lado da baía
+  coastZ(-700, 1350, 230, -1300, -1, 'zf');      // Ilha Grande, lado de fora (oceano)
+  coastZ(-500, 900, 210, 900, -1, 'zc');          // continente (Angra)
+  // lajes novas: monte de pedras com tocas
+  LAJES2.forEach((L, k) => {
+    const id = 'lj' + k; ZONES.push({ id, x: L.x, z: L.z, r: 40, zone: 'laje' });
+    for (let i = 0; i < 70; i++) {
+      const a = r() * TAU, d = Math.pow(r(), 0.75) * 40, x = L.x + Math.cos(a) * d, z = L.z + Math.sin(a) * d, rad = lerp(4.2, 1.1, d / 40) * (0.6 + r() * 0.7);
+      const R = addRock(x, H(x, z) + rad * 0.25, z, rad, id); if (rad > 2.2 && r() < 0.5) addHole(R, r() * TAU, id);
+    }
+  });
   scatterCoast(spotById('castelhanos'), 0, -1, 140, 190, 19, 'castelhanos', 0.55);
   for (let i = 0; i < 120; i++) {
     const a = r() * TAU, d = Math.pow(r(), 0.7) * 62, x = FORA.x + Math.cos(a) * d, z = FORA.z + Math.sin(a) * d, rad = lerp(5.5, 1.4, d / 62) * (0.6 + r() * 0.7);
@@ -552,10 +580,9 @@ function buildRocksAndDecor() {
   const groups = geos.map(() => []);
   ROCKS.forEach((R, i) => groups[i % 6].push(R));
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3();
+  // pedras desenhadas por blocos de 160 m, só com a câmera por perto (vistas de longe também da superfície)
   groups.forEach((list, gi) => {
-    const im = new THREE.InstancedMesh(geos[gi], mat, list.length);
-    list.forEach((R, k) => { e.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15)); q.setFromEuler(e); R.q = q.clone(); R.gi = gi; s.set(R.r, R.r * R.sy, R.r); pp.set(R.x, R.y, R.z); m4.compose(pp, q, s); im.setMatrixAt(k, m4); });
-    scene.add(im);
+    chunked(geos[gi], mat, list.map(R => { const it = [R.x, R.y, R.z]; it.R = R; return it; }), (it, k, im) => { const R = it.R; e.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15)); q.setFromEuler(e); R.q = q.clone(); R.gi = gi; s.set(R.r, R.r * R.sy, R.r); pp.set(R.x, R.y, R.z); m4.compose(pp, q, s); im.setMatrixAt(k, m4); }, 300);
   });
   buildWreck({ x: NAUF.x, z: NAUF.z, ry: 0.6, L: 34, spot: 'naufragio' });
   buildWreck({ x: CARG.x, z: CARG.z, ry: -0.45, L: 48, spot: 'cargueiro' });
@@ -583,17 +610,16 @@ function buildRocksAndDecor() {
   const fans = [], algs = [], urs = [];
   ROCKS.forEach(R => {
     if (R.spot === 'foz' || !R.spot) { if (Math.random() < 0.5) algs.push([R.x + rand(-1, 1), R.y + R.r * R.sy * 0.75, R.z + rand(-1, 1), rand(0.6, 1.2)]); return; }
-    const n = Math.floor(rand(0, 3));
+    const n = Math.floor(rand(0, 4.5));
     for (let k = 0; k < n; k++) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * 1.05, z = R.z + Math.sin(a) * R.r * 1.05; fans.push([x, H(x, z), z, rand(0.5, 1.4), a]); }
-    for (let k = 0; k < 3; k++) algs.push([R.x + rand(-R.r, R.r) * 0.5, R.y + R.r * R.sy * rand(0.55, 0.85), R.z + rand(-R.r, R.r) * 0.5, rand(0.5, 1.1)]);
+    for (let k = 0; k < 4; k++) algs.push([R.x + rand(-R.r, R.r) * 0.5, R.y + R.r * R.sy * rand(0.55, 0.85), R.z + rand(-R.r, R.r) * 0.5, rand(0.5, 1.1)]);
     for (let k = 0; k < 5; k++) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * 0.92, z = R.z + Math.sin(a) * R.r * 0.92, u = [x, H(x, z) + 0.08, z]; u.spot = R.spot; urs.push(u); }
   });
-  const fanIM = new THREE.InstancedMesh(fanG, fanM, fans.length), algIM = new THREE.InstancedMesh(algG, algM, algs.length);
+  
   const fanCols = [0x8a3fa0, 0xd9a520, 0xc0502a, 0x6a2a80, 0xe0d0b0];
-  fans.forEach((f, i) => { e.set(0, f[4], rand(-0.2, 0.2)); q.setFromEuler(e); s.set(f[3], f[3] * rand(0.8, 1.3), f[3]); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); fanIM.setMatrixAt(i, m4); fanIM.setColorAt(i, new THREE.Color(pick(fanCols))); });
-  algs.forEach((f, i) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); s.set(f[3], f[3], f[3]); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); algIM.setMatrixAt(i, m4); });
+  chunked(fanG, fanM, fans, (f, i, fanIM) => { e.set(0, f[4], rand(-0.2, 0.2)); q.setFromEuler(e); s.set(f[3], f[3] * rand(0.8, 1.3), f[3]); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); fanIM.setMatrixAt(i, m4); fanIM.setColorAt(i, new THREE.Color(pick(fanCols))); });
+  chunked(algG, algM, algs, (f, i, algIM) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); s.set(f[3], f[3], f[3]); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); algIM.setMatrixAt(i, m4); });
   chunked(urG, urM, urs, (f, i, im) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); s.setScalar(rand(0.75, 1.2)); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); });
-  scene.add(fanIM, algIM);
   // capim/sargaço espalhado no fundo arenoso da baía
   const sea = []; for (let i = 0; i < 6500; i++) { const x = rand(WB.x0, WB.x1), z = rand(WB.z0, WB.z1), h = H(x, z); if (h < -2 && h > -16 && fbm(x * 0.02 + 40, z * 0.02, 2) > 0.2) sea.push([x, h, z]); }
   const seaIM = new THREE.InstancedMesh(algG, algM, sea.length);

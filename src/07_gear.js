@@ -439,6 +439,8 @@ function Hextra(x, z, h) {
   // cargueiro: areia plana a ~26 m
   const dC = Math.hypot(x - CARG.x, z - CARG.z);
   if (dC < 140) h = lerp(h, -26 + 0.3 * fbm(x * 0.1, z * 0.1, 2), 1 - smooth(55, 130, dC));
+  // lajes novas: sobem do fundo até uns 6–8 m
+  for (const L of LAJES2) { const d = Math.hypot(x - L.x, z - L.z); if (d < 150) h = Math.max(h, lerp(-6.5, -16, smooth(0, 55, d)) + 1.3 * fbm(x * 0.08 + L.x, z * 0.08, 2)); }
   const dN = Math.hypot(x - NAUF.x, z - NAUF.z);
   if (dN < 120) h = lerp(h, -19 + 0.3 * fbm(x * 0.1, z * 0.1, 2), 1 - smooth(35, 110, dN));
   return h;

@@ -21,6 +21,13 @@ const SP_INFO = {
   bicuda: ['Sphyraena spp.', 'Água aberta e parcéis.', 'Barracuda: espreita parada e ataca numa arrancada.'],
   dentao: ['Lutjanus jocu', 'Costões fundos e naufrágios.', 'Desconfiado e raro; a marca clara embaixo do olho entrega a espécie.'],
   cherne: ['Hyporthodus niveatus', 'Tocas fundas e naufrágios.', 'Cresce devagar e está em declínio: pegar só os grandes e com moderação.'],
+  cocoroca: ['Haemulon aurolineatum', 'Costões rasos, em cardumes grandes.', 'Ronca quando é pega: range os dentes da garganta, daí o nome em inglês "grunt".'],
+  canhanha: ['Archosargus rhomboidalis', 'Costões e fundos com algas perto da costa.', 'Parente do sargo, com finas listras douradas e uma mancha escura no ombro.'],
+  peixegalo: ['Selene setapinnis', 'Meia-água, perto de costões e praias.', 'Corpo alto e fininho, quase transparente de frente: some quando vira de cara para você.'],
+  cangulo: ['Balistes capriscus', 'Pedras e naufrágios.', 'Peixe-porco: tem um "gatilho" na dorsal que trava o espinho em pé dentro da toca.'],
+  cioba: ['Lutjanus analis', 'Pedras fundas e naufrágios.', 'Vermelho de carne nobre; as linhas azuis embaixo do olho entregam a espécie.'],
+  olhete: ['Seriola lalandi', 'Água azul, parcéis e costões expostos.', 'Primo do olho-de-boi, com a faixa amarela marcada e cauda amarela.'],
+  albacora: ['Thunnus albacares', 'Mar aberto, passa perto de parcéis fundos.', 'Atum de nadadeiras amarelas: nadador de longa distância, chega a mais de 100 kg.'],
   mero: ['Epinephelus itajara', 'Naufrágios e tocas grandes.', 'Protegido por lei no Brasil: pode passar de 2 m e 300 kg. Só foto!'],
 };
 const GUIDE_EXTRA = [['tartaruga', 'Tartaruga-verde', 'Chelonia mydas', 'Costões com algas, sobe para respirar.', 'Ameaçada de extinção e protegida. Só foto!'],

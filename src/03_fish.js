@@ -35,6 +35,22 @@ const SPECIES = {
     col: { back: '#1c7a72', side: '#cfc63a', belly: '#f2e27a', fin: '#2a8a9a', iris: '#e8e080' } },
   bicuda: { name: 'Bicuda', shape: 'barra', len: [0.55, 1.4], k: 3.2, price: 25, min: 0.5, cruise: 0.8, burst: 6.5, shy: 0.35, curious: 0.85, habit: 'pelagic', str: 1.3, school: true,
     col: { back: '#3d4e58', side: '#c8d0d4', belly: '#f0f2f2', fin: '#5a6a70', iris: '#e8e0b0' } },
+  // pequenos de costão
+  cocoroca: { name: 'Cocoroca', shape: 'deep', len: [0.14, 0.3], k: 21, price: 14, min: 0.15, cruise: 0.6, burst: 3.0, shy: 0.4, curious: 0.55, habit: 'reef', str: 0.6, school: true,
+    col: { back: '#5d6a7a', side: '#b9c4cc', belly: '#eef0f0', fin: '#c9b04a', iris: '#d8c060' } },
+  canhanha: { name: 'Canhanha', shape: 'deep', len: [0.18, 0.38], k: 22, price: 16, min: 0.18, cruise: 0.65, burst: 3.2, shy: 0.45, curious: 0.6, habit: 'reef', str: 0.7, school: true,
+    col: { back: '#6b6f60', side: '#c8c8b0', belly: '#f2f0e0', fin: '#b8a048', iris: '#d0b060' } },
+  peixegalo: { name: 'Peixe-galo', shape: 'disc', len: [0.18, 0.45], k: 18, price: 18, min: 0.2, cruise: 0.8, burst: 3.6, shy: 0.5, curious: 0.65, habit: 'mid', str: 0.8, school: true,
+    col: { back: '#7a8a98', side: '#dfe6ec', belly: '#f6f8fa', fin: '#a8b4bc', iris: '#e0e0d0' } },
+  cangulo: { name: 'Cangulo', shape: 'parrot', len: [0.22, 0.55], k: 26, price: 15, min: 0.25, cruise: 0.45, burst: 2.6, shy: 0.35, curious: 0.7, habit: 'reef', str: 0.9,
+    col: { back: '#4f5650', side: '#7d857a', belly: '#b8bca8', fin: '#45504a', iris: '#5aa0d0' } },
+  // médios e grandes
+  cioba: { name: 'Cioba', shape: 'snap', len: [0.35, 0.85], k: 14, price: 48, min: 0.35, cruise: 0.6, burst: 3.6, shy: 0.75, curious: 0.3, habit: 'reef', str: 1.2,
+    col: { back: '#5f5a46', side: '#c0906e', belly: '#ecd2bc', fin: '#c46a50', iris: '#e06040' } },
+  olhete: { name: 'Olhete', shape: 'amber', len: [0.6, 1.4], k: 11, price: 36, min: 0.6, cruise: 1.2, burst: 5.4, shy: 0.45, curious: 0.8, habit: 'pelagic', str: 2.0, school: true,
+    col: { back: '#3b5470', side: '#c4ccd2', belly: '#eff1f1', fin: '#d6b43a', iris: '#d8c060' } },
+  albacora: { name: 'Albacora', shape: 'tuna', len: [0.7, 1.8], k: 16, price: 60, min: 0.6, cruise: 1.5, burst: 6.8, shy: 0.55, curious: 0.5, habit: 'pelagic', str: 2.6, school: true,
+    col: { back: '#1d2c52', side: '#9eb0c4', belly: '#eef1f4', fin: '#f0c81e', iris: '#d0d0d0' } },
   // raros: aparecem só às vezes nos pontos de pedra funda
   dentao: { name: 'Dentão', shape: 'snap', len: [0.45, 0.95], k: 15, price: 85, min: 0.4, cruise: 0.5, burst: 3.8, shy: 0.95, curious: 0.15, habit: 'reef', str: 1.5, rare: true,
     col: { back: '#6a3a2a', side: '#b0603e', belly: '#e8b090', fin: '#8a3a28', iris: '#e06030' } },
@@ -55,6 +71,7 @@ const SHAPES = {
   mahi: { h: 0.27, w: 0.09, pk: 0.92, fork: true, tailH: 0.25, dors: 0.11, df: 'long', pec: 0.12 },
   barra: { h: 0.13, w: 0.075, pk: 0.7, fork: true, tailH: 0.14, dors: 0.05, df: 'two', pec: 0.07 },
   amber: { h: 0.26, w: 0.12, pk: 0.85, fork: true, tailH: 0.23, dors: 0.05, df: 'two', pec: 0.11 },
+  tuna: { h: 0.29, w: 0.19, pk: 0.72, fork: true, tailH: 0.32, dors: 0.11, df: 'two', pec: 0.16 },
 };
 // corpo em tubo + nadadeiras em malha (com raios na textura) + olhos em relevo.
 // aPart = (parte, peso): 0 corpo, 1 caudal, 2 peitoral, 3 dorsal/anal/pélvica; peso 0 na base, 1 na borda
@@ -138,6 +155,13 @@ function fishTex(key, c) {
     if (key === 'xareu') { blob(206, 14, 5, 4, 'rgba(10,10,10,.85)'); blob(206, 86, 5, 4, 'rgba(10,10,10,.85)'); g.fillStyle = 'rgba(230,200,60,.25)'; g.fillRect(0, 38, 256, 24); }
     if (key === 'dourado') { for (let i = 0; i < 70; i++) blob(10 + R() * 200, R() * 100, 2.5, 2.5, 'rgba(40,110,200,.7)'); g.fillStyle = 'rgba(30,140,140,.5)'; g.fillRect(0, 0, 256, 10); g.fillRect(0, 90, 256, 10); }
     if (key === 'bicuda') { g.strokeStyle = 'rgba(20,30,35,.45)'; g.lineWidth = 6; for (let i = 0; i < 16; i++) { g.beginPath(); g.moveTo(20 + i * 12, 0); g.lineTo(10 + i * 12, 26); g.moveTo(20 + i * 12, 100); g.lineTo(10 + i * 12, 74); g.stroke(); } for (let i = 0; i < 20; i++) blob(R() * 180, 30 + R() * 40, 3, 2, 'rgba(10,10,10,.5)'); }
+    if (key === 'cocoroca') { g.fillStyle = 'rgba(240,200,60,.55)'; for (const y of [12, 22, 32, 68, 78, 88]) g.fillRect(0, y, 210, 3); blob(14, 30, 4, 4, 'rgba(10,10,10,.35)'); blob(14, 70, 4, 4, 'rgba(10,10,10,.35)'); }
+    if (key === 'canhanha') { g.fillStyle = 'rgba(220,180,70,.4)'; for (let y = 6; y < 100; y += 7) g.fillRect(0, y, 210, 1.6); blob(170, 22, 7, 6, 'rgba(10,10,10,.55)'); blob(170, 78, 7, 6, 'rgba(10,10,10,.55)'); }
+    if (key === 'peixegalo') { const gl = g.createLinearGradient(0, 0, 256, 100); gl.addColorStop(0, 'rgba(160,190,230,.25)'); gl.addColorStop(0.5, 'rgba(255,255,255,.3)'); gl.addColorStop(1, 'rgba(200,170,230,.2)'); g.fillStyle = gl; g.fillRect(0, 0, 256, 100); }
+    if (key === 'cangulo') { for (let i = 0; i < 50; i++) blob(R() * 200, R() * 100, 2, 2, 'rgba(110,170,220,.5)'); g.fillStyle = 'rgba(30,35,30,.25)'; for (const x of [60, 110, 160]) g.fillRect(x, 0, 14, 100); }
+    if (key === 'cioba') { g.strokeStyle = 'rgba(90,150,230,.7)'; g.lineWidth = 1.5; for (const y of [30, 36, 64, 70]) { g.beginPath(); g.moveTo(250, y); g.lineTo(212, y + (y < 50 ? -4 : 4)); g.stroke(); } blob(120, 20, 8, 7, 'rgba(10,10,10,.55)'); blob(120, 80, 8, 7, 'rgba(10,10,10,.55)'); }
+    if (key === 'olhete') { g.strokeStyle = 'rgba(230,200,60,.7)'; g.lineWidth = 6; for (const y of [30, 70]) { g.beginPath(); g.moveTo(250, y); g.lineTo(10, y + (y < 50 ? -3 : 3)); g.stroke(); } }
+    if (key === 'albacora') { g.fillStyle = 'rgba(240,200,30,.55)'; g.fillRect(20, 34, 210, 5); g.fillRect(20, 61, 210, 5); g.fillStyle = 'rgba(255,255,255,.18)'; for (let x = 20; x < 180; x += 9) { g.fillRect(x, 40, 2, 20); } g.fillStyle = '#f0c81e'; for (let x = 4; x < 60; x += 9) { g.fillRect(x, 4, 4, 6); g.fillRect(x, 90, 4, 6); } }
     if (key === 'dentao') { g.fillStyle = 'rgba(240,240,250,.75)'; for (const y of [25, 75]) { g.beginPath(); g.moveTo(222, y + (y < 50 ? 4 : -4)); g.lineTo(232, y + (y < 50 ? 4 : -4)); g.lineTo(226, y + (y < 50 ? 18 : -18)); g.fill(); } g.strokeStyle = 'rgba(90,150,230,.6)'; g.lineWidth = 1.5; for (const y of [30, 34, 66, 70]) { g.beginPath(); g.moveTo(238, y); g.lineTo(252, y + (y < 50 ? 3 : -3)); g.stroke(); } }
     if (key === 'cherne') { for (let i = 0; i < 26; i++) blob(R() * 200, 10 + R() * 80, 3 + R() * 3, 3 + R() * 3, 'rgba(230,225,210,.45)'); }
     if (key === 'olhodeboi') { g.strokeStyle = 'rgba(200,150,40,.7)'; g.lineWidth = 7; for (const y of [25, 75]) { g.beginPath(); g.moveTo(240, y - (y < 50 ? 12 : -12)); g.lineTo(20, y); g.stroke(); } }
@@ -315,20 +339,20 @@ class Fish {
 
 // população por ponto: [espécie, grupos, tamanho do grupo, chance, multiplicador de tamanho]
 const POP = {
-  laje: [['dentao', 1, [1, 1], 0.35], ['sargo', 5, [5, 10]], ['marimba', 4, [6, 12]], ['salema', 3, [8, 15]], ['garoupa', 9, [1, 1]], ['badejo', 4, [1, 1]], ['caranha', 3, [1, 2]], ['xareu', 3, [4, 8]], ['budiao', 4, [1, 3]], ['frade', 3, [1, 2]], ['sororoca', 2, [3, 6]], ['mero', 1, [1, 1], 0.6]],
-  jorge: [['dentao', 1, [1, 1], 0.45], ['cherne', 1, [1, 1], 0.3], ['garoupa', 10, [1, 1], 1, 1.12], ['badejo', 5, [1, 1], 1, 1.1], ['caranha', 3, [1, 2]], ['sargo', 4, [5, 9]], ['marimba', 3, [6, 10]], ['xareu', 3, [4, 8]], ['olhodeboi', 3, [1, 4]], ['sororoca', 3, [3, 6]], ['budiao', 4, [1, 3]], ['frade', 3, [1, 2]], ['enchova', 2, [4, 8]]],
-  botinas: [['sargo', 6, [5, 10]], ['marimba', 4, [6, 11]], ['salema', 4, [8, 14]], ['garoupa', 6, [1, 1], 1, 0.8], ['robalo', 3, [1, 2]], ['budiao', 3, [1, 3]], ['frade', 2, [1, 2]], ['pampo', 3, [2, 5]]],
-  foz: [['robalo', 9, [1, 3]], ['tainha', 5, [8, 14]], ['pampo', 3, [2, 5]], ['enchova', 2, [4, 7]]],
-  gipoia: [['garoupa', 7, [1, 1]], ['sargo', 4, [5, 9]], ['marimba', 3, [6, 10]], ['salema', 3, [8, 12]], ['budiao', 3, [1, 3]], ['badejo', 3, [1, 1]], ['pampo', 2, [2, 4]], ['frade', 2, [1, 2]]],
-  naufragio: [['dentao', 1, [1, 1], 0.6], ['cherne', 1, [1, 1], 0.5], ['garoupa', 9, [1, 1], 1, 1.3], ['badejo', 5, [1, 1], 1, 1.3], ['caranha', 4, [1, 2], 1, 1.3], ['xareu', 3, [4, 8], 1, 1.25], ['sargo', 4, [5, 9]], ['enchova', 3, [4, 7]], ['sororoca', 2, [3, 6]], ['budiao', 2, [1, 3]], ['frade', 2, [1, 2]], ['mero', 1, [1, 1], 0.8]],
-  aventureiro: [['dentao', 2, [1, 1], 0.55], ['cherne', 1, [1, 1], 0.6], ['olhodeboi', 5, [1, 4], 1, 1.3], ['dourado', 4, [2, 5], 1, 1.2], ['bicuda', 3, [1, 3], 1, 1.2], ['xareu', 4, [4, 8], 1, 1.3], ['garoupa', 8, [1, 1], 1, 1.4], ['badejo', 4, [1, 1], 1, 1.3], ['caranha', 3, [1, 2], 1, 1.3], ['sororoca', 3, [3, 6], 1, 1.2], ['mero', 1, [1, 1], 0.6]],
-  lagoa: [['sargo', 5, [5, 10]], ['salema', 5, [8, 15]], ['budiao', 5, [1, 3]], ['frade', 4, [1, 2]], ['marimba', 3, [6, 10]], ['garoupa', 3, [1, 1], 1, 0.7], ['robalo', 2, [1, 2], 1, 0.8], ['pampo', 2, [2, 4]]],
-  cataguases: [['dentao', 1, [1, 1], 0.4], ['garoupa', 9, [1, 1], 1, 1.1], ['badejo', 4, [1, 1], 1, 1.1], ['sargo', 5, [5, 10]], ['xareu', 4, [4, 8]], ['caranha', 3, [1, 2]], ['budiao', 3, [1, 3]], ['frade', 2, [1, 2]], ['marimba', 3, [6, 10]]],
-  porcos: [['garoupa', 8, [1, 1], 1, 1.15], ['badejo', 4, [1, 1], 1, 1.1], ['sororoca', 4, [3, 6]], ['enchova', 4, [4, 8]], ['olhodeboi', 2, [1, 3]], ['xareu', 3, [4, 8]], ['sargo', 4, [5, 9]], ['caranha', 2, [1, 2]]],
-  cargueiro: [['cherne', 2, [1, 1], 0.7, 1.15], ['dentao', 1, [1, 1], 0.5], ['garoupa', 10, [1, 1], 1, 1.4], ['badejo', 5, [1, 1], 1, 1.35], ['caranha', 4, [1, 2], 1, 1.35], ['xareu', 3, [4, 8], 1, 1.3], ['mero', 1, [1, 1], 0.8], ['enchova', 3, [4, 7]]],
-  castelhanos: [['dentao', 2, [1, 1], 0.55], ['cherne', 1, [1, 1], 0.5], ['garoupa', 9, [1, 1], 1, 1.35], ['badejo', 5, [1, 1], 1, 1.3], ['olhodeboi', 4, [1, 4], 1, 1.2], ['xareu', 4, [4, 8], 1, 1.2], ['caranha', 3, [1, 2], 1, 1.25], ['sargo', 4, [5, 9]], ['mero', 1, [1, 1], 0.5]],
-  fora: [['dourado', 5, [2, 5], 1, 1.3], ['olhodeboi', 6, [1, 4], 1, 1.4], ['bicuda', 3, [1, 3], 1, 1.25], ['xareu', 4, [4, 8], 1, 1.35], ['sororoca', 4, [3, 6], 1, 1.2], ['cherne', 2, [1, 1], 0.6, 1.2], ['garoupa', 6, [1, 1], 1, 1.45], ['mero', 1, [1, 1], 0.6]],
-  comprida: [['garoupa', 6, [1, 1]], ['sargo', 4, [5, 9]], ['salema', 3, [8, 12]], ['xareu', 2, [4, 7]], ['caranha', 2, [1, 2]], ['frade', 2, [1, 2]], ['budiao', 3, [1, 3]]],
+  laje: [['cocoroca', 3, [8, 14]], ['canhanha', 2, [6, 10]], ['cioba', 2, [1, 1]], ['dentao', 1, [1, 1], 0.35], ['sargo', 5, [5, 10]], ['marimba', 4, [6, 12]], ['salema', 3, [8, 15]], ['garoupa', 9, [1, 1]], ['badejo', 4, [1, 1]], ['caranha', 3, [1, 2]], ['xareu', 3, [4, 8]], ['budiao', 4, [1, 3]], ['frade', 3, [1, 2]], ['sororoca', 2, [3, 6]], ['mero', 1, [1, 1], 0.6]],
+  jorge: [['cocoroca', 3, [8, 14]], ['cangulo', 3, [1, 3]], ['olhete', 2, [2, 5]], ['cioba', 2, [1, 1]], ['dentao', 1, [1, 1], 0.45], ['cherne', 1, [1, 1], 0.3], ['garoupa', 10, [1, 1], 1, 1.12], ['badejo', 5, [1, 1], 1, 1.1], ['caranha', 3, [1, 2]], ['sargo', 4, [5, 9]], ['marimba', 3, [6, 10]], ['xareu', 3, [4, 8]], ['olhodeboi', 3, [1, 4]], ['sororoca', 3, [3, 6]], ['budiao', 4, [1, 3]], ['frade', 3, [1, 2]], ['enchova', 2, [4, 8]]],
+  botinas: [['cocoroca', 4, [8, 14]], ['canhanha', 3, [6, 10]], ['peixegalo', 2, [4, 8]], ['sargo', 6, [5, 10]], ['marimba', 4, [6, 11]], ['salema', 4, [8, 14]], ['garoupa', 6, [1, 1], 1, 0.8], ['robalo', 3, [1, 2]], ['budiao', 3, [1, 3]], ['frade', 2, [1, 2]], ['pampo', 3, [2, 5]]],
+  foz: [['peixegalo', 3, [5, 10]], ['robalo', 9, [1, 3]], ['tainha', 5, [8, 14]], ['pampo', 3, [2, 5]], ['enchova', 2, [4, 7]]],
+  gipoia: [['cocoroca', 3, [8, 14]], ['cangulo', 2, [1, 3]], ['canhanha', 2, [6, 10]], ['garoupa', 7, [1, 1]], ['sargo', 4, [5, 9]], ['marimba', 3, [6, 10]], ['salema', 3, [8, 12]], ['budiao', 3, [1, 3]], ['badejo', 3, [1, 1]], ['pampo', 2, [2, 4]], ['frade', 2, [1, 2]]],
+  naufragio: [['cioba', 3, [1, 2], 1, 1.2], ['cangulo', 2, [1, 3]], ['olhete', 1, [2, 4]], ['dentao', 1, [1, 1], 0.6], ['cherne', 1, [1, 1], 0.5], ['garoupa', 9, [1, 1], 1, 1.3], ['badejo', 5, [1, 1], 1, 1.3], ['caranha', 4, [1, 2], 1, 1.3], ['xareu', 3, [4, 8], 1, 1.25], ['sargo', 4, [5, 9]], ['enchova', 3, [4, 7]], ['sororoca', 2, [3, 6]], ['budiao', 2, [1, 3]], ['frade', 2, [1, 2]], ['mero', 1, [1, 1], 0.8]],
+  aventureiro: [['albacora', 2, [3, 6], 0.6], ['olhete', 3, [2, 5], 1, 1.2], ['dentao', 2, [1, 1], 0.55], ['cherne', 1, [1, 1], 0.6], ['olhodeboi', 5, [1, 4], 1, 1.3], ['dourado', 4, [2, 5], 1, 1.2], ['bicuda', 3, [1, 3], 1, 1.2], ['xareu', 4, [4, 8], 1, 1.3], ['garoupa', 8, [1, 1], 1, 1.4], ['badejo', 4, [1, 1], 1, 1.3], ['caranha', 3, [1, 2], 1, 1.3], ['sororoca', 3, [3, 6], 1, 1.2], ['mero', 1, [1, 1], 0.6]],
+  lagoa: [['cocoroca', 4, [8, 14]], ['canhanha', 3, [6, 10]], ['peixegalo', 2, [4, 8]], ['sargo', 5, [5, 10]], ['salema', 5, [8, 15]], ['budiao', 5, [1, 3]], ['frade', 4, [1, 2]], ['marimba', 3, [6, 10]], ['garoupa', 3, [1, 1], 1, 0.7], ['robalo', 2, [1, 2], 1, 0.8], ['pampo', 2, [2, 4]]],
+  cataguases: [['cioba', 2, [1, 1]], ['cangulo', 3, [1, 3]], ['cocoroca', 3, [8, 14]], ['dentao', 1, [1, 1], 0.4], ['garoupa', 9, [1, 1], 1, 1.1], ['badejo', 4, [1, 1], 1, 1.1], ['sargo', 5, [5, 10]], ['xareu', 4, [4, 8]], ['caranha', 3, [1, 2]], ['budiao', 3, [1, 3]], ['frade', 2, [1, 2]], ['marimba', 3, [6, 10]]],
+  porcos: [['olhete', 3, [2, 5]], ['peixegalo', 2, [4, 8]], ['albacora', 1, [3, 5], 0.35], ['garoupa', 8, [1, 1], 1, 1.15], ['badejo', 4, [1, 1], 1, 1.1], ['sororoca', 4, [3, 6]], ['enchova', 4, [4, 8]], ['olhodeboi', 2, [1, 3]], ['xareu', 3, [4, 8]], ['sargo', 4, [5, 9]], ['caranha', 2, [1, 2]]],
+  cargueiro: [['cioba', 3, [1, 2], 1, 1.25], ['olhete', 2, [2, 4], 1, 1.2], ['cangulo', 2, [1, 3]], ['cherne', 2, [1, 1], 0.7, 1.15], ['dentao', 1, [1, 1], 0.5], ['garoupa', 10, [1, 1], 1, 1.4], ['badejo', 5, [1, 1], 1, 1.35], ['caranha', 4, [1, 2], 1, 1.35], ['xareu', 3, [4, 8], 1, 1.3], ['mero', 1, [1, 1], 0.8], ['enchova', 3, [4, 7]]],
+  castelhanos: [['olhete', 3, [2, 5], 1, 1.2], ['albacora', 1, [3, 6], 0.45], ['cioba', 2, [1, 1]], ['dentao', 2, [1, 1], 0.55], ['cherne', 1, [1, 1], 0.5], ['garoupa', 9, [1, 1], 1, 1.35], ['badejo', 5, [1, 1], 1, 1.3], ['olhodeboi', 4, [1, 4], 1, 1.2], ['xareu', 4, [4, 8], 1, 1.2], ['caranha', 3, [1, 2], 1, 1.25], ['sargo', 4, [5, 9]], ['mero', 1, [1, 1], 0.5]],
+  fora: [['albacora', 4, [3, 7], 1, 1.2], ['olhete', 3, [2, 5], 1, 1.3], ['dourado', 5, [2, 5], 1, 1.3], ['olhodeboi', 6, [1, 4], 1, 1.4], ['bicuda', 3, [1, 3], 1, 1.25], ['xareu', 4, [4, 8], 1, 1.35], ['sororoca', 4, [3, 6], 1, 1.2], ['cherne', 2, [1, 1], 0.6, 1.2], ['garoupa', 6, [1, 1], 1, 1.45], ['mero', 1, [1, 1], 0.6]],
+  comprida: [['cocoroca', 3, [8, 14]], ['canhanha', 2, [6, 10]], ['garoupa', 6, [1, 1]], ['sargo', 4, [5, 9]], ['salema', 3, [8, 12]], ['xareu', 2, [4, 7]], ['caranha', 2, [1, 2]], ['frade', 2, [1, 2]], ['budiao', 3, [1, 3]]],
 };
 function spawnGroup(spot, key, n, big = 1) {
   const sp = SPECIES[key];
@@ -348,11 +372,19 @@ function spawnGroup(spot, key, n, big = 1) {
     const f = new Fish(key, spot, pos.clone().add(off), { leader, off, len: leader.len * rand(0.72, 1.25) }); FISHES.push(f);
   }
 }
+// zonas (costões e lajes fora dos pontos do mapa): mistura menor, de acordo com a profundidade
+const POP_ZONE = [['cocoroca', 2, [6, 12]], ['sargo', 1, [4, 8]], ['canhanha', 1, [5, 9], 0.7], ['marimba', 1, [4, 8], 0.6], ['salema', 1, [6, 10], 0.5], ['garoupa', 2, [1, 1], 1, 0.85], ['budiao', 1, [1, 2], 0.8], ['cangulo', 1, [1, 2], 0.7], ['frade', 1, [1, 1], 0.5], ['xareu', 1, [3, 6], 0.35], ['cioba', 1, [1, 1], 0.4], ['badejo', 1, [1, 1], 0.4], ['peixegalo', 1, [3, 6], 0.4]];
+const POP_LAJE = [...POP_ZONE, ['garoupa', 2, [1, 1], 1, 1.0], ['caranha', 1, [1, 1], 0.5], ['olhete', 1, [2, 4], 0.35], ['dentao', 1, [1, 1], 0.15]];
+const POP_FORA_COSTA = [['olhete', 1, [2, 4], 0.5], ['sororoca', 1, [3, 5], 0.5], ['enchova', 1, [3, 6], 0.5]];
 function spawnAll() {
   for (const k of Object.keys(SPECIES)) makePool(k, SPECIES[k].shape, fishTex(k), k === 'mero' ? 8 : 260);
   for (const s of SPOTS) {
     const pop = POP[s.id]; if (!pop) continue;
     for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0; g < groups; g++) if (Math.random() < chance) spawnGroup(s, key, Math.round(rand(a, b)), big);
+  }
+  for (const z of ZONES) {
+    const pop = z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
+    for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0; g < groups; g++) if (Math.random() < chance) spawnGroup(z, key, Math.round(rand(a, b)), big);
   }
 }
 function updateFishes(dt, now) {
