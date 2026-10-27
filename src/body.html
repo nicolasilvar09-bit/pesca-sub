@@ -16,6 +16,7 @@
     <div class="chip">Caixa<b id="hCool">0 · 0,0 kg</b></div>
     <div class="chip" id="fuelChip">Combust.<b id="hFuel">100 L</b></div>
     <div class="chip" id="clockChip">Dia 1<b id="hClock">07:00</b></div>
+    <div class="chip" id="optChip" style="cursor:pointer;pointer-events:auto">Opções<b>⚙</b></div>
   </div>
   <div id="cross"></div><div id="aimLbl" class="hide"></div>
   <div id="toast"></div>
@@ -46,6 +47,7 @@
     <h1>DEEP <em>SPEAR</em><br><span style="font-size:.36em;letter-spacing:5px;color:#cfe">PESCA SUB · COSTA VERDE</span></h1>
     <div class="tag">Apneia, arbalete e lajes da baía de Angra dos Reis</div>
     <button class="btn play" id="playBtn">JOGAR</button>
+    <div><button class="btn alt" id="optBtn" style="margin-top:8px">OPÇÕES</button></div>
     <div class="tips">
       Pilote a lancha até um ponto, <b>ancore</b> e pule na água. Olhe para o fundo e <b>mergulhe</b>.
       Fique parado no fundo para fazer <b>espera</b>, que os peixes curiosos chegam perto. Respeite o seu fôlego e a medida mínima. O <b>mero é protegido</b>.<br>
@@ -74,6 +76,15 @@
     <div class="tabs" id="mTabs"></div>
     <div id="mBody"></div>
     <div class="row2"><span></span><button class="btn alt" id="mClose">VOLTAR AO BARCO</button></div>
+  </div>
+</div>
+
+<div id="optPanel" class="panel hide">
+  <div class="card">
+    <h2>Opções</h2>
+    <div class="sub">Gráficos, controles e som. Fica salvo neste aparelho.</div>
+    <div id="optBody"></div>
+    <div class="row2"><span></span><button class="btn alt" id="optClose">FECHAR</button></div>
   </div>
 </div>
 

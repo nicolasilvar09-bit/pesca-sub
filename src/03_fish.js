@@ -359,7 +359,7 @@ function updateFishes(dt, now) {
   const c = camera.position;
   for (let i = FISHES.length - 1; i >= 0; i--) {
     const f = FISHES[i]; const d2 = (f.pos.x - c.x) ** 2 + (f.pos.z - c.z) ** 2;
-    f.vis = d2 < 110 * 110 || f.state === 'hooked' || f === GUN.fish;
+    f.vis = d2 < QF().fish * QF().fish || f.state === 'hooked' || f === GUN.fish;
     if (f.vis) f.update(dt);
   }
   for (let i = RESPAWN.length - 1; i >= 0; i--) {

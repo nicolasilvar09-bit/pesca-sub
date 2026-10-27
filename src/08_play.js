@@ -53,7 +53,7 @@ const isTrophy = f => f.len > f.sp.len[1];
 
 // ---------- retorno do tiro: câmera lenta, tremor, marcador na mira, vibração ----------
 const FX = { slowT: 0, shake: 0, hitT: 0 };
-const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } };
+const buzz = p => { try { if (OPT.vib && navigator.vibrate) navigator.vibrate(p); } catch (e) { } };
 function timeScale(dt) { if (FX.slowT > 0) { FX.slowT -= dt; return 0.3; } return 1; }
 function hitFX(q) {
   FX.slowT = q === 'head' ? 0.22 : 0.12; FX.shake = q === 'head' ? 1 : 0.6; FX.hitT = 0.35;

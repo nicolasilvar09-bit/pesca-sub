@@ -42,7 +42,7 @@ const AU = {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     try { const C = window.AudioContext || window.webkitAudioContext; this.ctx = new C(); } catch (e) { return; }
     const c = this.ctx;
-    this.master = c.createGain(); this.master.gain.value = 0.8; this.master.connect(c.destination);
+    this.master = c.createGain(); this.master.gain.value = typeof OPT !== 'undefined' ? OPT.vol : 0.8; this.master.connect(c.destination);
     const b = c.createBuffer(1, c.sampleRate * 2, c.sampleRate); const d = b.getChannelData(0);
     let last = 0; for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; last = last * 0.6 + w * 0.4; d[i] = last * 1.6; }
     this.noiseBuf = b;

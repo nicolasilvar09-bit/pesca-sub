@@ -251,7 +251,7 @@ function updateBoat(dt, t) {
   B.wakePts.geometry.attributes.position.needsUpdate = true; B.wakePts.geometry.attributes.color.needsUpdate = true;
   AU.setEngine(Math.abs(B.throttle), !B.anchored && (driving || Math.abs(B.speed) > 0.3), camUnder);
   if (driving) {
-    B.camYaw -= IN.lookX * 0.005; B.camPitch = clamp(B.camPitch + IN.lookY * 0.004, 0.05, 1.1);
+    B.camYaw -= IN.lookX * 0.005 * OPT.sens; B.camPitch = clamp(B.camPitch + IN.lookY * 0.004 * OPT.sens * (OPT.inv ? -1 : 1), 0.05, 1.1);
     if (!IN.lookX && Math.abs(B.speed) > 4) B.camYaw *= Math.exp(-dt * 0.8);
     const cy = B.heading + Math.PI + B.camYaw, R = (12 + Math.abs(B.speed) * 0.2) * (camera.aspect < 1 ? 1.5 : 1);
     const tx = B.pos.x + Math.sin(cy) * Math.cos(B.camPitch) * R, tz = B.pos.z + Math.cos(cy) * Math.cos(B.camPitch) * R;
@@ -297,8 +297,8 @@ function blackout() {
 
 // ================= nado / apneia =================
 function updateSwim(dt, t) {
-  const sens = 0.0042;
-  P.yaw -= IN.lookX * sens; P.pitch = clamp(P.pitch - IN.lookY * sens, -1.5, 1.4);
+  const sens = 0.0042 * OPT.sens;
+  P.yaw -= IN.lookX * sens; P.pitch = clamp(P.pitch - IN.lookY * sens * (OPT.inv ? -1 : 1), -1.5, 1.4);
   const surfY = waveH(P.pos.x, P.pos.z, t);
   const cp = Math.cos(P.pitch), fwd = _a.set(-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp), right = _b.set(Math.cos(P.yaw), 0, -Math.sin(P.yaw));
   const finK = FINS[SV.fins].k, mv = Math.hypot(IN.jx, IN.jy);

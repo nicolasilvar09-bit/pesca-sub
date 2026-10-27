@@ -182,6 +182,7 @@ body.portrait #mapBox{width:min(88vw,360px)}
     <div class="chip">Caixa<b id="hCool">0 · 0,0 kg</b></div>
     <div class="chip" id="fuelChip">Combust.<b id="hFuel">100 L</b></div>
     <div class="chip" id="clockChip">Dia 1<b id="hClock">07:00</b></div>
+    <div class="chip" id="optChip" style="cursor:pointer;pointer-events:auto">Opções<b>⚙</b></div>
   </div>
   <div id="cross"></div><div id="aimLbl" class="hide"></div>
   <div id="toast"></div>
@@ -212,6 +213,7 @@ body.portrait #mapBox{width:min(88vw,360px)}
     <h1>DEEP <em>SPEAR</em><br><span style="font-size:.36em;letter-spacing:5px;color:#cfe">PESCA SUB · COSTA VERDE</span></h1>
     <div class="tag">Apneia, arbalete e lajes da baía de Angra dos Reis</div>
     <button class="btn play" id="playBtn">JOGAR</button>
+    <div><button class="btn alt" id="optBtn" style="margin-top:8px">OPÇÕES</button></div>
     <div class="tips">
       Pilote a lancha até um ponto, <b>ancore</b> e pule na água. Olhe para o fundo e <b>mergulhe</b>.
       Fique parado no fundo para fazer <b>espera</b>, que os peixes curiosos chegam perto. Respeite o seu fôlego e a medida mínima. O <b>mero é protegido</b>.<br>
@@ -240,6 +242,15 @@ body.portrait #mapBox{width:min(88vw,360px)}
     <div class="tabs" id="mTabs"></div>
     <div id="mBody"></div>
     <div class="row2"><span></span><button class="btn alt" id="mClose">VOLTAR AO BARCO</button></div>
+  </div>
+</div>
+
+<div id="optPanel" class="panel hide">
+  <div class="card">
+    <h2>Opções</h2>
+    <div class="sub">Gráficos, controles e som. Fica salvo neste aparelho.</div>
+    <div id="optBody"></div>
+    <div class="row2"><span></span><button class="btn alt" id="optClose">FECHAR</button></div>
   </div>
 </div>
 
@@ -298,7 +309,7 @@ const AU = {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     try { const C = window.AudioContext || window.webkitAudioContext; this.ctx = new C(); } catch (e) { return; }
     const c = this.ctx;
-    this.master = c.createGain(); this.master.gain.value = 0.8; this.master.connect(c.destination);
+    this.master = c.createGain(); this.master.gain.value = typeof OPT !== 'undefined' ? OPT.vol : 0.8; this.master.connect(c.destination);
     const b = c.createBuffer(1, c.sampleRate * 2, c.sampleRate); const d = b.getChannelData(0);
     let last = 0; for (let i = 0; i < d.length; i++) { const w = Math.random() * 2 - 1; last = last * 0.6 + w * 0.4; d[i] = last * 1.6; }
     this.noiseBuf = b;
@@ -580,9 +591,9 @@ function buildTerrain() {
 // troca para a malha fina nos blocos perto da câmera; gera no máximo `budget` por chamada
 function updateTerrain(c, budget = 1) {
   for (const t of TERR.list) {
-    const d = Math.max(Math.abs(c.x - t.cx), Math.abs(c.z - t.cz)), near = d < 650;
+    const d = Math.max(Math.abs(c.x - t.cx), Math.abs(c.z - t.cz)), near = d < QF().terr;
     if (near && !t.hi && budget > 0) { t.hi = new THREE.Mesh(terrGeo(t.cx, t.cz, 50), TERR.mat); scene.add(t.hi); budget--; }
-    if (t.hi) { t.hi.visible = near; t.lo.visible = !near; if (d > 1400) { scene.remove(t.hi); t.hi.geometry.dispose(); t.hi = null; t.lo.visible = true; } }
+    if (t.hi) { t.hi.visible = near; t.lo.visible = !near; if (d > QF().terr + 750) { scene.remove(t.hi); t.hi.geometry.dispose(); t.hi = null; t.lo.visible = true; } }
   }
 }
 
@@ -704,10 +715,10 @@ function chunked(geo, mat, items, place, far = 90) {
     const im = new THREE.InstancedMesh(geo, mat, list.length), c = new V3(); let r = 0;
     list.forEach(it => c.add(_cv.set(it[0], it[1], it[2]))); c.divideScalar(list.length);
     list.forEach((it, i) => { place(it, i, im); r = Math.max(r, c.distanceTo(_cv.set(it[0], it[1], it[2]))); });
-    im.frustumCulled = false; CHUNKS.push({ im, c, r: r + far }); scene.add(im);
+    im.frustumCulled = false; CHUNKS.push({ im, c, r, fk: far / 90 }); scene.add(im);
   }
 }
-function updateChunks() { const p = camera.position; for (const k of CHUNKS) k.im.visible = p.distanceToSquared(k.c) < k.r * k.r; }
+function updateChunks() { const p = camera.position, f = QF().decor; for (const k of CHUNKS) { const R = k.r + f * k.fk; k.im.visible = p.distanceToSquared(k.c) < R * R; } }
 // junta geometrias (sem índice) numa só
 function mergeGeos(list) {
   const pa = [], na = [];
@@ -1403,7 +1414,7 @@ function updateFishes(dt, now) {
   const c = camera.position;
   for (let i = FISHES.length - 1; i >= 0; i--) {
     const f = FISHES[i]; const d2 = (f.pos.x - c.x) ** 2 + (f.pos.z - c.z) ** 2;
-    f.vis = d2 < 110 * 110 || f.state === 'hooked' || f === GUN.fish;
+    f.vis = d2 < QF().fish * QF().fish || f.state === 'hooked' || f === GUN.fish;
     if (f.vis) f.update(dt);
   }
   for (let i = RESPAWN.length - 1; i >= 0; i--) {
@@ -1667,7 +1678,7 @@ function updateBoat(dt, t) {
   B.wakePts.geometry.attributes.position.needsUpdate = true; B.wakePts.geometry.attributes.color.needsUpdate = true;
   AU.setEngine(Math.abs(B.throttle), !B.anchored && (driving || Math.abs(B.speed) > 0.3), camUnder);
   if (driving) {
-    B.camYaw -= IN.lookX * 0.005; B.camPitch = clamp(B.camPitch + IN.lookY * 0.004, 0.05, 1.1);
+    B.camYaw -= IN.lookX * 0.005 * OPT.sens; B.camPitch = clamp(B.camPitch + IN.lookY * 0.004 * OPT.sens * (OPT.inv ? -1 : 1), 0.05, 1.1);
     if (!IN.lookX && Math.abs(B.speed) > 4) B.camYaw *= Math.exp(-dt * 0.8);
     const cy = B.heading + Math.PI + B.camYaw, R = (12 + Math.abs(B.speed) * 0.2) * (camera.aspect < 1 ? 1.5 : 1);
     const tx = B.pos.x + Math.sin(cy) * Math.cos(B.camPitch) * R, tz = B.pos.z + Math.cos(cy) * Math.cos(B.camPitch) * R;
@@ -1713,8 +1724,8 @@ function blackout() {
 
 // ================= nado / apneia =================
 function updateSwim(dt, t) {
-  const sens = 0.0042;
-  P.yaw -= IN.lookX * sens; P.pitch = clamp(P.pitch - IN.lookY * sens, -1.5, 1.4);
+  const sens = 0.0042 * OPT.sens;
+  P.yaw -= IN.lookX * sens; P.pitch = clamp(P.pitch - IN.lookY * sens * (OPT.inv ? -1 : 1), -1.5, 1.4);
   const surfY = waveH(P.pos.x, P.pos.z, t);
   const cp = Math.cos(P.pitch), fwd = _a.set(-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp), right = _b.set(Math.cos(P.yaw), 0, -Math.sin(P.yaw));
   const finK = FINS[SV.fins].k, mv = Math.hypot(IN.jx, IN.jy);
@@ -2004,7 +2015,7 @@ function init() {
   initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); buildFX();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput();
+  setupInput(); setupOpt();
   $('playBtn').onclick = startGame;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
   loop();
@@ -2962,7 +2973,7 @@ const isTrophy = f => f.len > f.sp.len[1];
 
 // ---------- retorno do tiro: câmera lenta, tremor, marcador na mira, vibração ----------
 const FX = { slowT: 0, shake: 0, hitT: 0 };
-const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } };
+const buzz = p => { try { if (OPT.vib && navigator.vibrate) navigator.vibrate(p); } catch (e) { } };
 function timeScale(dt) { if (FX.slowT > 0) { FX.slowT -= dt; return 0.3; } return 1; }
 function hitFX(q) {
   FX.slowT = q === 'head' ? 0.22 : 0.12; FX.shake = q === 'head' ? 1 : 0.6; FX.hitT = 0.35;
@@ -3095,6 +3106,50 @@ function bulletinHTML() {
     <div class="it"><div><div class="n">Esperar</div><div class="d">O peixe muda com a hora: de manhã a garoupa sai da toca, no fim da tarde o robalo caça.</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn" data-wait="3">+3 h</button><button class="btn" data-until="17">ATÉ 17h</button><button class="btn gold" data-until="6">DORMIR ATÉ 6h</button></div></div>
     </div>`;
+}
+
+// ================= opções: qualidade, controles, som =================
+const OPT_KEY = 'deepspear_opt';
+const QUALITY = [
+  { name: 'Baixa', pr: 0.65, terr: 420, decor: 45, fish: 70 },
+  { name: 'Média', pr: 1.15, terr: 650, decor: 90, fish: 110 },
+  { name: 'Alta', pr: 2, terr: 950, decor: 140, fish: 150 },
+];
+const OPT = { q: matchMedia('(pointer:coarse)').matches ? 1 : 2, sens: 1, inv: false, vol: 0.8, vib: true, third: true };
+try { Object.assign(OPT, JSON.parse(localStorage.getItem(OPT_KEY) || '{}')); } catch (e) { }
+const QF = () => QUALITY[OPT.q] || QUALITY[1];
+function saveOpt() { try { localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); } catch (e) { } }
+function applyOpt() {
+  if (renderer && !/lite/.test(location.search)) { renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QF().pr)); if (window.__fit) window.__fit(); }
+  if (AU.master) AU.master.gain.value = OPT.vol;
+}
+function optRow(label, ctrl) { return `<div class="it"><div class="n">${label}</div><div style="display:flex;gap:6px;align-items:center">${ctrl}</div></div>`; }
+function renderOpt() {
+  const seg = (k, opts) => opts.map(([v, n]) => `<button class="btn ${OPT[k] === v ? 'gold' : 'alt'}" data-opt="${k}" data-v="${v}">${n}</button>`).join('');
+  $('optBody').innerHTML = '<div class="list">' +
+    optRow('Qualidade gráfica', seg('q', QUALITY.map((q, i) => [i, q.name]))) +
+    optRow('Sensibilidade da câmera', `<input type="range" min="0.4" max="2.2" step="0.1" value="${OPT.sens}" data-range="sens"><b>${OPT.sens.toFixed(1)}×</b>`) +
+    optRow('Inverter eixo vertical', seg('inv', [[false, 'NÃO'], [true, 'SIM']])) +
+    optRow('Volume', `<input type="range" min="0" max="1" step="0.05" value="${OPT.vol}" data-range="vol"><b>${Math.round(OPT.vol * 100)}%</b>`) +
+    optRow('Vibração', seg('vib', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
+    optRow('Vista ao nadar', seg('third', [[true, '3ª PESSOA'], [false, '1ª PESSOA']])) +
+    optRow('Progresso', `<button class="btn alt" id="optReset">APAGAR SAVE</button>`) +
+    `</div><div class="it" style="margin-top:8px"><div class="d">Qualidade baixa reduz a resolução e o alcance do detalhe do fundo e dos peixes. Use se o celular esquentar ou travar.</div></div>`;
+  const B = $('optBody');
+  B.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => {
+    const k = b.dataset.opt, raw = b.dataset.v; OPT[k] = raw === 'true' ? true : raw === 'false' ? false : +raw;
+    if (k === 'third' && P.mode !== 'swim') THIRD = OPT.third;
+    saveOpt(); applyOpt(); AU.click(); renderOpt();
+  });
+  B.querySelectorAll('[data-range]').forEach(r => r.oninput = () => { OPT[r.dataset.range] = +r.value; r.nextElementSibling.textContent = r.dataset.range === 'vol' ? Math.round(OPT.vol * 100) + '%' : OPT.sens.toFixed(1) + '×'; saveOpt(); applyOpt(); });
+  $('optReset').onclick = () => { if (confirm('Apagar todo o progresso (dinheiro, equipamentos, recordes)? Não dá para desfazer.')) { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } location.reload(); } };
+}
+function openOpt() { renderOpt(); $('optPanel').classList.remove('hide'); paused = true; }
+function setupOpt() {
+  $('optClose').onclick = () => { $('optPanel').classList.add('hide'); paused = false; };
+  const open = e => { e.preventDefault(); e.stopPropagation(); AU.init(); openOpt(); };
+  $('optChip').addEventListener('pointerdown', open); $('optBtn').addEventListener('click', open);
+  THIRD = OPT.third; applyOpt();
 }
 
 init();

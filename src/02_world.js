@@ -228,9 +228,9 @@ function buildTerrain() {
 // troca para a malha fina nos blocos perto da câmera; gera no máximo `budget` por chamada
 function updateTerrain(c, budget = 1) {
   for (const t of TERR.list) {
-    const d = Math.max(Math.abs(c.x - t.cx), Math.abs(c.z - t.cz)), near = d < 650;
+    const d = Math.max(Math.abs(c.x - t.cx), Math.abs(c.z - t.cz)), near = d < QF().terr;
     if (near && !t.hi && budget > 0) { t.hi = new THREE.Mesh(terrGeo(t.cx, t.cz, 50), TERR.mat); scene.add(t.hi); budget--; }
-    if (t.hi) { t.hi.visible = near; t.lo.visible = !near; if (d > 1400) { scene.remove(t.hi); t.hi.geometry.dispose(); t.hi = null; t.lo.visible = true; } }
+    if (t.hi) { t.hi.visible = near; t.lo.visible = !near; if (d > QF().terr + 750) { scene.remove(t.hi); t.hi.geometry.dispose(); t.hi = null; t.lo.visible = true; } }
   }
 }
 
@@ -352,10 +352,10 @@ function chunked(geo, mat, items, place, far = 90) {
     const im = new THREE.InstancedMesh(geo, mat, list.length), c = new V3(); let r = 0;
     list.forEach(it => c.add(_cv.set(it[0], it[1], it[2]))); c.divideScalar(list.length);
     list.forEach((it, i) => { place(it, i, im); r = Math.max(r, c.distanceTo(_cv.set(it[0], it[1], it[2]))); });
-    im.frustumCulled = false; CHUNKS.push({ im, c, r: r + far }); scene.add(im);
+    im.frustumCulled = false; CHUNKS.push({ im, c, r, fk: far / 90 }); scene.add(im);
   }
 }
-function updateChunks() { const p = camera.position; for (const k of CHUNKS) k.im.visible = p.distanceToSquared(k.c) < k.r * k.r; }
+function updateChunks() { const p = camera.position, f = QF().decor; for (const k of CHUNKS) { const R = k.r + f * k.fk; k.im.visible = p.distanceToSquared(k.c) < R * R; } }
 // junta geometrias (sem índice) numa só
 function mergeGeos(list) {
   const pa = [], na = [];
