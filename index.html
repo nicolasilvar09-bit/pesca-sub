@@ -2232,7 +2232,7 @@ function buildDiver(withGun) {
   const fd = knots([[-0.15, 0.62], [-0.04, 0.62], [0.13, 0.58], [0.3, 0.7], [0.42, 0.74], [0.53, 0.6], [0.64, 0.92]]);
   const bd = knots([[-0.15, 0.7], [-0.05, 0.84], [0.1, 0.56], [0.3, 0.62], [0.45, 0.66], [0.55, 0.6], [0.64, 0.92]]);
   const prof = [[0, -0.155], [0.11, -0.148], [0.155, -0.1], [0.168, -0.04], [0.16, 0.04], [0.143, 0.13], [0.15, 0.22], [0.167, 0.32], [0.18, 0.4], [0.183, 0.46], [0.172, 0.52], [0.13, 0.575], [0.075, 0.605], [0.058, 0.635], [0.054, 0.68], [0, 0.685]];
-  mesh(bodyLathe(prof, 28, fd, bd), suit, root);
+  const torso = mesh(bodyLathe(prof, 28, fd, bd), suit, root);
   // pad de carregamento no peito (apoio da coronha)
   const pad = mesh(new THREE.CapsuleGeometry(0.05, 0.06, 4, 10), neo, root, 0, 0.3, -0.112); pad.scale.set(1.15, 1, 0.22);
   // cinto marselhês com chumbos e fivela inox
@@ -2297,11 +2297,11 @@ function buildDiver(withGun) {
   };
   const lL = leg(-1), lR = leg(1);
   scene.add(root);
-  const rig = { root, neck, aL, aR, lL, lR, handR: aR.wr, suitMat: suit };
+  const rig = { root, torso, neck, aL, aR, lL, lR, handR: aR.wr, suitMat: suit };
   return rig;
 }
 // poses
-function poseDiver(r, mode, t, kick, kickAmp) {
+function poseDiver(r, mode, t, kick, kickAmp, st) {
   if (mode === 'drive') {
     r.neck.rotation.set(0.1, 0, 0);
     for (const [a, s] of [[r.aL, -1], [r.aR, 1]]) { a.sh.rotation.set(0.75, 0, s * 0.18); a.el.rotation.set(0.65, 0, 0); a.wr.rotation.set(0.2, 0, 0); }
@@ -2309,37 +2309,99 @@ function poseDiver(r, mode, t, kick, kickAmp) {
     for (const [l, s] of [[r.lL, -1], [r.lR, 1]]) { l.th.rotation.set(-0.08 + sway * s, 0, s * 0.05); l.kn.rotation.set(0.16, 0, 0); l.an.rotation.set(-0.08, 0, 0); l.fin.visible = false; }
     return;
   }
-  // nadando: corpo horizontal (orientação no root), braço direito estendido com a arma
-  r.neck.rotation.set(1.0, 0, 0);
-  r.aR.sh.rotation.set(Math.PI - 0.12, 0, -0.08); r.aR.el.rotation.set(0.12, 0, 0); r.aR.wr.rotation.set(0, 0, 0);
-  r.aL.sh.rotation.set(0.15 + Math.sin(kick * 0.5) * 0.05 * kickAmp, 0, -0.14); r.aL.el.rotation.set(0.25, 0, 0); r.aL.wr.rotation.set(0.1, 0, 0.15);
+  // nadando: corpo horizontal (orientação no root), braço direito estendido com a arma.
+  // st (opcional, só o jogador): turn -1..1, load 0..1 (-1 sem recarga), pull, recoil, surf, look, still, breath
+  const S = st || {}, turn = S.turn || 0, load = S.load ?? -1, rc = S.recoil || 0;
+  // cabeça acompanha a mira e, na espera, varre o fundo devagar
+  r.neck.rotation.set(1.0 + clamp(S.look || 0, -0.5, 0.45), (S.still > 2 ? Math.sin(t * 0.4) * 0.35 : 0) - turn * 0.25, 0);
+  r.torso.scale.set(1 + (S.breath || 0) * 0.03, 1, 1 + (S.breath || 0) * 0.05);
+  if (load >= 0) {
+    // recarga: arma recolhida contra o peito, mão esquerda puxa o elástico até o entalhe
+    const pu = smooth(0, 0.85, load);
+    r.aR.sh.rotation.set(Math.PI - 0.75, 0, -0.32); r.aR.el.rotation.set(1.05, 0, 0); r.aR.wr.rotation.set(-0.5, 0, 0);
+    r.aL.sh.rotation.set(Math.PI - 0.55 - pu * 0.55, 0, 0.38 - pu * 0.12); r.aL.el.rotation.set(0.35 + pu * 1.2, 0, 0); r.aL.wr.rotation.set(-0.3, 0, 0);
+  } else {
+    r.aR.sh.rotation.set(Math.PI - 0.12 - rc * 0.35, 0, -0.08); r.aR.el.rotation.set(0.12 + rc * 0.3, 0, 0); r.aR.wr.rotation.set(-rc * 0.5, 0, 0);
+    if (S.pull) {
+      // recolhendo a linha mão sobre mão
+      const c = t * 5.5; r.aL.sh.rotation.set(Math.PI - 0.9 + Math.sin(c) * 0.45, 0, 0.18); r.aL.el.rotation.set(0.7 - Math.sin(c) * 0.5, 0, 0); r.aL.wr.rotation.set(-0.3, 0, 0);
+    } else if (S.surf) {
+      // na superfície: braço esquerdo remando devagar para se equilibrar
+      r.aL.sh.rotation.set(0.6 + Math.sin(t * 1.2) * 0.25, 0, -0.5); r.aL.el.rotation.set(0.5, 0, 0); r.aL.wr.rotation.set(0, 0, 0.4 + Math.sin(t * 1.2) * 0.3);
+    } else {
+      // colado ao corpo; abre para o lado da virada como leme
+      const tl = Math.max(0, turn);
+      r.aL.sh.rotation.set(0.15 + Math.sin(kick * 0.5) * 0.05 * kickAmp + tl * 0.5, 0, -0.14 - tl * 0.7); r.aL.el.rotation.set(0.25 + tl * 0.3, 0, 0); r.aL.wr.rotation.set(0.1, 0, 0.15 + tl * 0.6);
+    }
+  }
   // pernada de apneia: o movimento nasce no quadril, joelho dobra pouco na recuperação, tornozelo estendido;
-  // a pá flexiona contra o sentido do movimento (atraso de fase de 90°)
+  // a pá flexiona contra o sentido do movimento (atraso de fase de 90°). Nas viradas as pernas abrem em leque.
+  const rest = S.still > 2 ? smooth(2, 4, S.still) : 0;
   for (const [l, s] of [[r.lL, 1], [r.lR, -1]]) {
     const ph = kick + (s > 0 ? 0 : Math.PI), k = Math.sin(ph) * kickAmp, v = Math.cos(ph) * kickAmp;
-    l.th.rotation.set(0.05 + k * 0.32, 0, -s * 0.035);
-    l.kn.rotation.set(-0.1 - Math.max(0, -k) * 0.42 - Math.max(0, v) * 0.12, 0, 0);
+    l.th.rotation.set(0.05 + k * 0.32 + rest * 0.1, turn * 0.18, -s * 0.035 + turn * 0.12);
+    l.kn.rotation.set(-0.1 - Math.max(0, -k) * 0.42 - Math.max(0, v) * 0.12 - rest * 0.35, 0, 0);
     l.an.rotation.set(-1.02 + k * 0.1, 0, s * 0.04);
-    l.fin.visible = true; bendFin(l.blade, -v * 0.5 - 0.04);
+    l.fin.visible = true; bendFin(l.blade, -v * 0.5 - 0.04 - rest * 0.08);
   }
 }
 function updateDiver(dt, t) {
   if (!DIVER) return;
+  updateSpray(dt);
   const show = P.mode === 'swim' && THIRD;
   DIVER.root.visible = show;
   if (!show) return;
   const mv = Math.min(1, Math.hypot(IN.jx, IN.jy) + (IN.held.up ? 1 : 0));
-  P.kickAnim = (P.kickAnim || 0) + dt * (2 + mv * 5);
+  P.kickAnim = (P.kickAnim || 0) + dt * (P.under ? 2 + mv * 5 : 1.2 + mv * 4);
   const bodyP = P.under ? clamp(P.pitch, -1.3, 1.2) * 0.85 : 0;
+  // velocidade de giro → inclinação e curva do corpo
+  const yr = angDiff(DIVER.lastYaw ?? P.yaw, P.yaw) / Math.max(dt, 1e-3); DIVER.lastYaw = P.yaw;
+  DIVER.turn = lerp(DIVER.turn || 0, clamp(yr * 0.5, -1, 1), clamp(dt * 5, 0, 1));
   const fw = _a.set(-Math.sin(P.yaw) * Math.cos(bodyP), Math.sin(bodyP), -Math.cos(P.yaw) * Math.cos(bodyP));
-  DIVER.root.position.set(P.pos.x - fw.x * 0.62, P.pos.y - fw.y * 0.62 - (P.under ? 0.12 : 0.18), P.pos.z - fw.z * 0.62);
-  DIVER.root.rotation.set(bodyP - Math.PI / 2, P.yaw, Math.sin(P.kickAnim * 0.5) * 0.05 * mv, 'YXZ');
-  poseDiver(DIVER, 'swim', t, P.kickAnim, 0.25 + mv * 0.75);
+  const bob = P.under ? 0 : Math.sin(t * 1.6) * 0.03;
+  DIVER.root.position.set(P.pos.x - fw.x * 0.62, P.pos.y - fw.y * 0.62 - (P.under ? 0.12 : 0.18) + bob, P.pos.z - fw.z * 0.62);
+  DIVER.root.rotation.set(bodyP - Math.PI / 2, P.yaw, Math.sin(P.kickAnim * 0.5) * 0.05 * mv - DIVER.turn * 0.2, 'YXZ');
+  const def = GUN.def, ld = GUN.loadT > 0 && def ? 1 - GUN.loadT / (def.load * (P.under ? 1.35 : 1)) : -1;
+  // respiração: forte logo após emergir, depois ritmo calmo
+  const br = P.under ? 0 : Math.sin(t * (P.surfT < 8 ? 3.2 : 1.6)) * (P.surfT < 8 ? 1 : 0.5);
+  poseDiver(DIVER, 'swim', t, P.kickAnim, P.under ? 0.25 + mv * 0.75 : 0.15 + mv * 0.5, {
+    turn: DIVER.turn, load: ld, recoil: GUN.recoil, surf: !P.under, still: P.under ? P.still : 0, breath: br,
+    pull: IN.held.pull && GUN.state !== 'ready', look: P.under ? P.pitch * 0.85 - bodyP : P.pitch + 0.3,
+  });
+  // bolhas: soltando o ar na subida final e ao esvaziar o snorkel na superfície
+  DIVER.bubT = (DIVER.bubT || 0) - dt;
+  const ascend = P.under && P.vel.y > 0.4 && P.pos.y > -4, purge = !P.under && P.surfT < 0.5;
+  if ((ascend || purge || (P.under && P.o2 < 0.2)) && DIVER.bubT <= 0) {
+    DIVER.bubT = purge ? 0.08 : rand(0.25, 0.6);
+    DIVER.neck.updateMatrixWorld(true); const m = DIVER.neck.localToWorld(_b.set(0, 0.06, -0.12));
+    if (m.y < -0.1) spawnBubbles(m, purge ? 1 : rand(2, 4) | 0, 0.03);
+    if (purge) spawnSpray(DIVER.neck.localToWorld(_b.set(0.09, 0.33, 0.04)), 6);
+  }
+}
+// jato d'água do snorkel ao emergir
+let SPRAY = null;
+function spawnSpray(p, n) {
+  if (!SPRAY) {
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(60 * 3).fill(9999), 3));
+    SPRAY = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.05, map: dotTex(), transparent: true, opacity: 0.75, depthWrite: false, color: 0xf2fbff }));
+    SPRAY.frustumCulled = false; SPRAY.userData.list = []; scene.add(SPRAY);
+  }
+  const L = SPRAY.userData.list;
+  for (let i = 0; i < n; i++) { if (L.length >= 60) L.shift(); L.push({ x: p.x, y: p.y, z: p.z, vx: rand(-0.35, 0.35), vy: rand(1.6, 2.8), vz: rand(-0.35, 0.35) }); }
+}
+function updateSpray(dt) {
+  if (!SPRAY) return;
+  const L = SPRAY.userData.list, a = SPRAY.geometry.attributes.position.array;
+  for (let i = L.length - 1; i >= 0; i--) { const q = L[i]; q.vy -= 9.8 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt; if (q.y < waveH(q.x, q.z, T) - 0.05) L.splice(i, 1); }
+  a.fill(9999); L.forEach((q, i) => { a[i * 3] = q.x; a[i * 3 + 1] = q.y; a[i * 3 + 2] = q.z; });
+  SPRAY.geometry.attributes.position.needsUpdate = true;
 }
 // câmera de 3ª pessoa
 function thirdPersonCam(t) {
   const op = P.pitch * 0.55, cp = Math.cos(op), fwd = _a.set(-Math.sin(P.yaw) * cp, Math.sin(op), -Math.cos(P.yaw) * cp);
-  const tall = camera.aspect < 1, back = tall ? 6.0 : 5.2, up = (P.under ? 1.2 : 1.4) * (tall ? 1.2 : 1), sideK = 0.55, rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
+  // mergulho de cabeça para baixo: as pernas sobem em direção à câmera, então ela abre para o lado e recua
+  const steep = P.under ? smooth(0.35, 1.1, -P.pitch) : 0;
+  const tall = camera.aspect < 1, back = (tall ? 6.0 : 5.2) + steep * 1.0, up = (P.under ? 1.2 : 1.4) * (tall ? 1.2 : 1) + steep * 0.5, sideK = 0.55 + steep * 1.0, rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   const c = new V3(P.pos.x - fwd.x * back + rx * sideK, P.pos.y - fwd.y * back + up, P.pos.z - fwd.z * back + rz * sideK);
   const h = H(c.x, c.z); if (c.y < h + 0.35) c.y = h + 0.35;
   pushOutRocks(c, 0.3);
