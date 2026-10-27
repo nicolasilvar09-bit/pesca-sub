@@ -5,7 +5,7 @@ const QUALITY = [
   { name: 'Média', pr: 1.15, terr: 650, decor: 90, fish: 110 },
   { name: 'Alta', pr: 2, terr: 950, decor: 140, fish: 150 },
 ];
-const OPT = { q: matchMedia('(pointer:coarse)').matches ? 1 : 2, sens: 1, inv: false, vol: 0.8, vib: true, third: true };
+const OPT = { q: matchMedia('(pointer:coarse)').matches ? 1 : 2, sens: 1, inv: false, vol: 0.8, mus: true, vib: true, third: true };
 try { Object.assign(OPT, JSON.parse(localStorage.getItem(OPT_KEY) || '{}')); } catch (e) { }
 const QF = () => QUALITY[OPT.q] || QUALITY[1];
 function saveOpt() { try { localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); } catch (e) { } }
@@ -21,6 +21,7 @@ function renderOpt() {
     optRow('Sensibilidade da câmera', `<input type="range" min="0.4" max="2.2" step="0.1" value="${OPT.sens}" data-range="sens"><b>${OPT.sens.toFixed(1)}×</b>`) +
     optRow('Inverter eixo vertical', seg('inv', [[false, 'NÃO'], [true, 'SIM']])) +
     optRow('Volume', `<input type="range" min="0" max="1" step="0.05" value="${OPT.vol}" data-range="vol"><b>${Math.round(OPT.vol * 100)}%</b>`) +
+    optRow('Música', seg('mus', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
     optRow('Vibração', seg('vib', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
     optRow('Vista ao nadar', seg('third', [[true, '3ª PESSOA'], [false, '1ª PESSOA']])) +
     optRow('Progresso', `<button class="btn alt" id="optReset">APAGAR SAVE</button>`) +
