@@ -232,7 +232,8 @@ function buildDiver(withGun) {
   // cinto marselhês com chumbos e fivela inox
   mesh(bodyLathe([[0.172, -0.045], [0.176, -0.02], [0.172, 0.005]], 28, fd, bd), rub, root);
   mesh(new THREE.BoxGeometry(0.06, 0.04, 0.012), steel, root, 0, -0.02, -0.112);
-  for (const a of [-1.05, -0.62, 0.62, 1.05, 2.2, -2.2]) { const w = mesh(new THREE.CapsuleGeometry(0.018, 0.035, 3, 8), lead, root, Math.sin(a) * 0.174, -0.02, -Math.cos(a) * 0.174 * (Math.cos(a) > 0 ? fd(-0.02) : bd(-0.02))); w.rotation.set(0, -a, Math.PI / 2); w.scale.set(1, 1, 0.6); }
+  const leads = [];
+  for (const a of [-1.05, 1.05, -0.62, 0.62, 2.2, -2.2]) { const w = mesh(new THREE.CapsuleGeometry(0.018, 0.035, 3, 8), lead, root, Math.sin(a) * 0.174, -0.02, -Math.cos(a) * 0.174 * (Math.cos(a) > 0 ? fd(-0.02) : bd(-0.02))); w.rotation.set(0, -a, Math.PI / 2); w.scale.set(1, 1, 0.6); leads.push(w); }
   // cabeça: capuz com abertura do rosto, máscara de baixo volume com tira e snorkel
   const neck = J(); neck.position.set(0, 0.63, 0); root.add(neck);
   const head = mesh(new THREE.SphereGeometry(0.104, 22, 18), neo, neck, 0, 0.115, 0.006); head.scale.set(0.9, 1.12, 1.02);
@@ -291,7 +292,7 @@ function buildDiver(withGun) {
   };
   const lL = leg(-1), lR = leg(1);
   scene.add(root);
-  const rig = { root, torso, neck, aL, aR, lL, lR, handR: aR.wr, suitMat: suit };
+  const rig = { root, torso, neck, aL, aR, lL, lR, handR: aR.wr, suitMat: suit, finM, mask, leads };
   return rig;
 }
 // poses
@@ -492,7 +493,7 @@ function initExtra() {
 function applyGear() {
   if (BOAT.mesh) BOAT.mesh.scale.setScalar(boatNow().scale);
   SV.fuel = Math.min(SV.fuel, tankMax());
-  if (DIVER && DIVER.suitMat) { const m = DIVER.suitMat; if ((SV.suit || 0) === 0) { m.map = null; m.color.set(0x1b1e22); } else { m.map = _camoT; m.color.set(SV.suit === 2 ? 0xd8e0c8 : 0xffffff); } m.needsUpdate = true; }
+  if (DIVER && DIVER.suitMat) { const m = DIVER.suitMat; if ((SV.suit || 0) === 0) { m.map = null; m.color.set(0x1b1e22); } else { m.map = _camoT; m.color.set(SV.suit === 2 ? 0xd8e0c8 : 0xffffff); } m.needsUpdate = true; applyDiverLook(DIVER); }
 }
 function updateLight() {
   if (!DLIGHT) return;
@@ -509,7 +510,8 @@ function renderShop() {
   const at = shopAtMarina;
   $('marinaPanel').querySelector('h2').textContent = at ? 'Marina Balneário' : 'Loja Deep Spear';
   $('mSub').textContent = `Saldo: ${fmtR(SV.money)} · Combustível: ${Math.round(SV.fuel)}/${tankMax()} L · Fôlego: ${maxBreath()} s`;
-  const tabs = [['sell', 'Vender pescado'], ['guns', 'Arbaletes'], ['gear', 'Roupa e acessórios'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['mar', 'Boletim do mar'], ['miss', 'Missões'], ['guia', 'Guia de espécies'], ['rec', 'Recordes']];
+  if (shopTab === 'guns' || shopTab === 'gear') shopTab = 'equip';
+  const tabs = [['sell', 'Vender pescado'], ['equip', 'Equipamentos'], ['apneia', 'Apneia'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['mar', 'Boletim do mar'], ['miss', 'Missões'], ['guia', 'Guia de espécies'], ['rec', 'Recordes']];
   $('mTabs').innerHTML = tabs.map(([k, n]) => `<div class="tab ${k === shopTab ? 'on' : ''}" data-k="${k}">${n}</div>`).join('');
   $('mTabs').querySelectorAll('.tab').forEach(t => t.onclick = () => { shopTab = t.dataset.k; AU.click(); renderShop(); });
   let h = '';
@@ -522,22 +524,8 @@ function renderShop() {
       <div class="row2"><span>Total: <b style="color:var(--acc)">${fmtR(tot)}</b></span><button class="btn gold" id="sellAll">VENDER TUDO</button></div>`
       : '<div class="it">A caixa térmica está vazia. Vá pescar!</div>';
   }
-  if (shopTab === 'guns') h = '<div class="list">' + GUNS.map(g => {
-    const own = SV.guns.includes(g.id), eq = SV.gun === g.id;
-    return `<div class="it"><div><div class="n">${g.name}</div><div class="d">Alcance ${fmtKg(g.range)} m · ${g.pneu ? 'pneumático' : g.bands + ' elástico(s)'} · segura peixe de até ~${g.power} kg · ${g.desc}</div></div>
-      ${eq ? '<span class="d">EM USO</span>' : own ? `<button class="btn alt" data-eq="${g.id}">USAR</button>` : buyBtn(`data-buy="${g.id}"`, g.price)}</div>`;
-  }).join('') + '</div>';
-  if (shopTab === 'gear') {
-    const lvl = SV.apnea, ap = 350 * (lvl + 1);
-    h = '<div class="list">';
-    h += SUITS.map((s, i) => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.desc}</div></div>${(SV.suit || 0) === i ? '<span class="d">EM USO</span>' : (SV.suits || [0]).includes(i) ? `<button class="btn alt" data-suit="${i}">USAR</button>` : buyBtn(`data-bsuit="${i}"`, s.price)}</div>`).join('');
-    h += MASKS.map((s, i) => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.desc}</div></div>${(SV.mask || 0) === i ? '<span class="d">EM USO</span>' : (SV.masks || [0]).includes(i) ? `<button class="btn alt" data-mask="${i}">USAR</button>` : buyBtn(`data-bmask="${i}"`, s.price)}</div>`).join('');
-    h += `<div class="it"><div><div class="n">Lanterna de mergulho</div><div class="d">Acende sozinha abaixo de 7 m e na água turva. Ilumina toca e naufrágio.</div></div>${SV.light ? '<span class="d">TEM</span>' : buyBtn('id="buyLight"', LIGHT_PRICE)}</div>`;
-    h += `<div class="it"><div><div class="n">Dupla de mergulho · hoje</div><div class="d">Fica na superfície vigiando enquanto você desce (um sobe, o outro desce). Num apagão, ela te resgata e salva a fieira.</div></div>${hasBuddy() ? '<span class="d">CONTRATADA</span>' : buyBtn('id="buyBuddy"', BUDDY_PRICE)}</div>`;
-    h += `<div class="it"><div><div class="n">Câmera submarina</div><div class="d">Botão FOTO embaixo d'água. Revistas pagam pelas fotos: peixe raro, mero e tartaruga valem mais. Perto, centralizado e com o peixe calmo dá nota maior.</div></div>${SV.cam ? '<span class="d">TEM</span>' : buyBtn('id="buyCam"', CAM_PRICE)}</div>`;
-    h += FINS.map((f, i) => `<div class="it"><div><div class="n">${f.name}</div><div class="d">Velocidade de nado ×${f.k.toFixed(2)}</div></div>${i <= SV.fins ? `<span class="d">${i === SV.fins ? 'EM USO' : 'TEM'}</span>` : `<button class="btn" data-fin="${i}" ${SV.money < f.price || i !== SV.fins + 1 ? 'disabled' : ''}>${fmtR(f.price)}</button>`}</div>`).join('');
-    h += `<div class="it"><div><div class="n">Treino de apneia · nível ${lvl}/5</div><div class="d">+10 s de fôlego por nível. Hoje: ${maxBreath()} s.</div></div>${lvl >= 5 ? '<span class="d">MÁXIMO</span>' : buyBtn('id="buyAp"', ap)}</div></div>`;
-  }
+  if (shopTab === 'equip') h = equipHTML();
+  if (shopTab === 'apneia') h = apneaHTML();
   if (shopTab === 'boats') h = '<div class="list">' + BOATS.map((b, i) => `<div class="it"><div><div class="n">${b.name}</div><div class="d">${b.desc} Velocidade máx. ${Math.round(b.max * 1.94)} nós · tanque ${b.tank} L.</div></div>${(SV.boat || 0) === i ? '<span class="d">EM USO</span>' : (SV.boats || [0]).includes(i) ? `<button class="btn alt" data-boat="${i}">USAR</button>` : buyBtn(`data-bboat="${i}"`, b.price)}</div>`).join('') + '</div>';
   if (shopTab === 'fuel') {
     const need = tankMax() - SV.fuel, cost = need * 6.5;
@@ -569,6 +557,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
+  bindEquip(B, on, pay);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };

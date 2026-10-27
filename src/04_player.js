@@ -19,7 +19,9 @@ function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SV)); } ca
 // ================= jogador / barco =================
 const P = { mode: 'boat', pos: new V3(), vel: new V3(), yaw: 0, pitch: -0.1, under: false, o2: 1, bpm: 68, still: 0, noise: 0, diveT: 0, maxD: 0, stringer: [], effort: 0, surfT: 99, out: 0 };
 const BOAT = { pos: new V3(PIER.x + 8, 0, PIER.z1 - 8), heading: Math.PI, speed: 0, throttle: 0, anchored: false, mesh: null, camYaw: 0, camPitch: 0.28, roll: 0, pitch: 0 };
-const maxBreath = () => 45 + SV.apnea * 10;
+// apneia estática: ganho de fôlego por nível (cada nível rende um pouco menos)
+const STATIC_STEPS = [10, 10, 8, 8, 6, 6, 5, 5];
+const maxBreath = () => 45 + STATIC_STEPS.slice(0, SV.apnea || 0).reduce((a, b) => a + b, 0);
 let camUnder = false, camMurk = 0;
 
 function buildBoat() {
@@ -305,7 +307,7 @@ function updateSwim(dt, t) {
   P.yaw -= IN.lookX * sens; P.pitch = clamp(P.pitch - IN.lookY * sens * (OPT.inv ? -1 : 1), -1.5, 1.4);
   const surfY = waveH(P.pos.x, P.pos.z, t);
   const cp = Math.cos(P.pitch), fwd = _a.set(-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp), right = _b.set(Math.cos(P.yaw), 0, -Math.sin(P.yaw));
-  const finK = FINS[SV.fins].k, mv = Math.hypot(IN.jx, IN.jy);
+  const finK = FINS[SV.fins].k * (1 + 0.03 * lvl('trKick')), mv = Math.hypot(IN.jx, IN.jy);
   const fighting = GUN.state === 'hooked' && GUN.fish && GUN.fish.fight > 0;
   P.effort = clamp(mv * 0.8 + (IN.held.up ? 0.7 : 0) + (GUN.loadT > 0 ? 0.8 : 0) + (fighting ? 0.9 : 0) + (IN.held.pull ? 0.3 : 0), 0, 1.6);
   if (!P.under) {
@@ -317,17 +319,17 @@ function updateSwim(dt, t) {
     if (took('dive') || (IN.jy > 0.5 && P.pitch < -0.75)) {
       P.under = true; P.pos.y = surfY - 0.8; P.vel.set(fwd.x * 0.6, -1.4, fwd.z * 0.6); P.pitch = Math.min(P.pitch, -0.9);
       P.diveT = 0; P.maxD = 0; AU.splash(); spawnBubbles(_c.set(P.pos.x, P.pos.y + 0.3, P.pos.z), 20, 0.4);
-      P.startO2 = P.o2; buddyDiveTip();
+      P.startO2 = P.o2; buddyDiveTip(); onDiveStart();
       if (P.o2 < 0.6) toast('Pouco fôlego! Respire mais na superfície antes de descer.', 3, 'bad');
       if (DAY.amb < 0.35 && !P.nightTip) { P.nightTip = true; toast('Na vida real, confira as regras locais: em muitos lugares a pesca sub noturna é proibida.', 5); }
     }
-    P.o2 = Math.min(1, P.o2 + dt / (maxBreath() * 0.85)); P.surfT += dt;
+    P.o2 = Math.min(1, P.o2 + dt / (maxBreath() * 0.85) * recMult()); P.surfT += dt;
     P.still = 0;
   } else {
     const des = new V3().addScaledVector(fwd, IN.jy * 2.1 * finK).addScaledVector(right, IN.jx * 0.9);
     if (IN.held.up) des.y += 1.8 * finK;
     const depth = -P.pos.y;
-    const buoy = clamp((7 - depth) / 7, -1, 1) * 0.22; // flutuabilidade: neutro ~7 m com o lastro
+    const nd = neutralDepth(), buoy = clamp((nd - depth) / nd, -1, 1) * 0.22; // flutuabilidade: neutro conforme o cinto de lastro
     P.vel.lerp(des, clamp(dt * 2.2, 0, 1)); P.vel.y += buoy * dt;
     if (mv < 0.05 && !IN.held.up) P.vel.multiplyScalar(Math.exp(-dt * 0.9));
     P.pos.addScaledVector(P.vel, dt);
@@ -336,7 +338,7 @@ function updateSwim(dt, t) {
     pushOutRocks(P.pos, 0.45);
     P.diveT += dt; P.maxD = Math.max(P.maxD, -P.pos.y);
     // consumo de oxigênio
-    P.o2 -= dt / maxBreath() * (0.7 + 0.65 * P.effort + depth / 45) * (P.stringer.length > 6 ? 1.1 : 1) * suitNow().o2 * maskNow().o2;
+    P.o2 -= dt / maxBreath() * (0.7 + 0.65 * P.effort * kickEff() + depth / 45) * eqPenalty(depth) * (P.stringer.length > 6 ? 1.1 : 1) * suitNow().o2 * maskNow().o2 * beltNow().o2 / (1 + (P.diveBonus || 0));
     if (P.pos.y > surfY - 0.45 && P.vel.y > -0.05) {
       P.under = false; AU.breath(); P.surfT = 0; P.lastDiveT = P.diveT;
       const d = P.maxD; if (d > 2) toast(`Mergulho: ${fmtKg(d)} m · ${Math.floor(P.diveT)} s`, 2.2);

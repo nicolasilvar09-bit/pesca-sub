@@ -117,6 +117,7 @@ function updateHUD(dt) {
   const dep = swim ? Math.max(0, -P.pos.y) : 0;
   $('hDepth').innerHTML = dep.toFixed(1) + '<small>m</small>';
   const tt = P.under ? P.diveT : P.surfT; $('hTime').textContent = (P.under ? '' : 'Sup. ') + Math.floor(tt / 60) + ':' + String(Math.floor(tt % 60)).padStart(2, '0');
+  prepHUD();
   $('hO2').textContent = Math.round(P.o2 * 100) + '%'; $('o2fill').style.width = clamp(P.o2, 0, 1) * 100 + '%'; $('o2bar').classList.toggle('low', P.o2 < 0.35);
   $('hBpm').textContent = Math.round(P.bpm); $('hMax').textContent = P.maxD.toFixed(1) + ' m';
   $('hMoney').textContent = fmtR(SV.money); $('money').style.color = SV.money < 0 ? 'var(--bad)' : '';
@@ -164,11 +165,11 @@ function step(dt) {
   callCD = Math.max(0, callCD - dt);
   updateBoat(dt, T);
   if (P.mode === 'swim') { updateSwim(dt, T); if (THIRD) thirdPersonCam(T); }
-  else { took('dive'); diveBuoy.visible = false; diveLine.visible = false; P.pos.copy(BOAT.pos); P.under = false; P.o2 = Math.min(1, P.o2 + dt / (maxBreath() * 0.85)); P.bpm = lerp(P.bpm, 70, dt * 0.5); P.surfT += dt; P.still = 0; }
+  else { took('dive'); diveBuoy.visible = false; diveLine.visible = false; P.pos.copy(BOAT.pos); P.under = false; P.o2 = Math.min(1, P.o2 + dt / (maxBreath() * 0.85) * recMult()); P.bpm = lerp(P.bpm, 70, dt * 0.5); P.surfT += dt; P.still = 0; }
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T);
+  updateComp(dt, T); updateLight(); updateRare(dt); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateApnea(dt);
   applyShake(dt);
 }
 function updateEnv(dt) {
