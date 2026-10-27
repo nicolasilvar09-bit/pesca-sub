@@ -236,6 +236,7 @@ class Fish {
       const vis = P.mode === 'swim';
       let fearR = (1.6 + sp.shy * suitNow().shy * 12 * (0.2 + P.noise * 1.15)) * (P.under ? 1 : 0.4);
       if (P.still > 2 && P.under) fearR *= 0.55; // espera: peixe se aproxima mais
+      fearR *= 0.6 + 0.4 * DAY.amb; // no escuro o peixe enxerga menos
       if (FEAR.t > 0 && p.distanceTo(FEAR.pos) < FEAR.r) fearR = 999;
       if (vis && dP < fearR && this.state !== 'flee' && this.state !== 'tohole' && this.state !== 'hidden') this.startFlee();
       if (this.state === 'hidden' && vis && dP < 1.6 + P.noise * 3) { this.state = 'flee'; this.t = 3; this.speed = sp.burst; this.target.copy(p).addScaledVector(_t1.subVectors(p, P.pos).normalize(), 15); }
@@ -243,7 +244,7 @@ class Fish {
     let L = this.leader; if (L && !L.alive) L = this.leader = null;
     switch (this.state) {
       case 'wander':
-        this.speed = sp.cruise * (L ? 1.15 : 1);
+        this.speed = sp.cruise * (L ? 1.15 : 1) * fishAct(this.key);
         if (L) {
           // cardume vivo: cada peixe deriva em torno do seu lugar no grupo
           const tn = performance.now() * 0.001; _t1.copy(this.off).applyAxisAngle(_t2.set(0, 1, 0), L.yaw); this.target.copy(L.pos).add(_t1);
@@ -251,7 +252,7 @@ class Fish {
           if (L.state === 'curious') { this.state = 'curious'; this.t = L.t; }
         }
         else if (this.t <= 0 || p.distanceTo(this.target) < 1.2) { this.pickWander(); this.t = rand(5, 12); }
-        if (!L && P.mode === 'swim' && P.under && P.still > 1.4 && dP < 24 && Math.random() < sp.curious * dt * 0.45) { this.state = 'curious'; this.t = rand(6, 11); }
+        if (!L && P.mode === 'swim' && P.under && P.still > 1.4 && dP < 24 && Math.random() < sp.curious * fishAct(this.key) * dt * 0.45) { this.state = 'curious'; this.t = rand(6, 11); }
         break;
       case 'curious': {
         this.speed = sp.cruise * 0.9;

@@ -70,7 +70,7 @@ const murkAt = (x, z) => Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z -
 
 // ================= renderer / cena =================
 let renderer, scene, camera, hemi, sun;
-const CU = { uTime: { value: 0 } };
+const CU = { uTime: { value: 0 }, uDay: { value: 1 }, uDusk: { value: 0 }, uCloud: { value: 0 }, uSwell: { value: 1 } };
 const SUN_DIR = new V3(0.45, 0.72, -0.53).normalize();
 const HAZE = new THREE.Color(0.70, 0.80, 0.88);
 function initRenderer() {
@@ -106,7 +106,7 @@ function initRenderer() {
 const SURGE_GLSL = 'vec2 surge=vec2(sin(uTime*0.55),cos(uTime*0.44)*0.6);';
 const surgeAt = (t, out) => out.set(Math.sin(t * 0.55), 0, Math.cos(t * 0.44) * 0.6);
 // ===== shader subaquático compartilhado (absorção da luz + cáusticas) =====
-const UW_FRAG_HEAD = `uniform float uTime; varying vec3 vWP;
+const UW_FRAG_HEAD = `uniform float uTime; uniform float uDay; varying vec3 vWP;
 float causF(vec2 uv){ vec2 p=mod(uv*6.28318,6.28318)-250.0; vec2 i=p; float c=1.0; float inten=0.005;
  for(int n=0;n<4;n++){ float t=uTime*0.45*(1.0-(3.5/float(n+1))); i=p+vec2(cos(t-i.x)+sin(t+i.y),sin(t-i.y)+cos(t+i.x));
  c+=1.0/length(vec2(p.x/(sin(i.x+t)/inten),p.y/(cos(i.y+t)/inten))); }
@@ -121,12 +121,12 @@ const UW_FRAG_BODY = `
   vec3 upV=normalize((viewMatrix*vec4(0.0,1.0,0.0,0.0)).xyz);
   float facing=clamp(dot(normal,upV),0.0,1.0);
   float cs=causF(vWP.xz/8.5+vec2(vWP.y*0.02));
-  gl_FragColor.rgb+=vec3(0.5,0.78,0.85)*min(cs,1.2)*0.3*facing*exp(-dp*0.065)*smoothstep(0.0,1.2,dp)*(1.0-murk*0.9);
+  gl_FragColor.rgb+=vec3(0.5,0.78,0.85)*min(cs,1.2)*0.3*facing*exp(-dp*0.065)*smoothstep(0.0,1.2,dp)*(1.0-murk*0.9)*uDay*uDay;
  }
 `;
 function uwify(mat, ext = {}) {
   mat.onBeforeCompile = sh => {
-    sh.uniforms.uTime = CU.uTime;
+    sh.uniforms.uTime = CU.uTime; sh.uniforms.uDay = CU.uDay;
     if (ext.uniforms) Object.assign(sh.uniforms, ext.uniforms);
     sh.vertexShader = 'varying vec3 vWP;\nuniform float uTime;\n' + (ext.vHead || '') + sh.vertexShader
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + (ext.vBody || ''))
@@ -140,17 +140,25 @@ function uwify(mat, ext = {}) {
 // ================= céu =================
 function buildSky() {
   const m = new THREE.ShaderMaterial({
-    uniforms: { uSun: { value: SUN_DIR }, uHaze: { value: HAZE }, uTime: CU.uTime },
+    uniforms: { uSun: { value: SUN_DIR }, uHaze: { value: HAZE }, uTime: CU.uTime, uDay: CU.uDay, uDusk: CU.uDusk, uCloud: CU.uCloud },
     vertexShader: `varying vec3 vD; void main(){ vD=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_Position.z=gl_Position.w*0.99999; }`,
-    fragmentShader: `uniform vec3 uSun; uniform vec3 uHaze; uniform float uTime; varying vec3 vD;
+    fragmentShader: `uniform vec3 uSun; uniform vec3 uHaze; uniform float uTime; uniform float uDay; uniform float uDusk; uniform float uCloud; varying vec3 vD;
       float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
       float fb(vec2 p){float s=0.0,a=0.5;for(int i=0;i<5;i++){s+=a*n(p);p*=2.03;a*=0.5;}return s;}
       void main(){ vec3 d=normalize(vD); float y=max(d.y,0.0);
-        vec3 c=mix(uHaze,vec3(0.30,0.53,0.84),pow(y,0.5));
-        float s=max(dot(d,uSun),0.0); c+=vec3(1.0,0.88,0.65)*(pow(s,900.0)*10.0+pow(s,10.0)*0.22);
-        if(d.y>0.0){ vec2 cp=d.xz/(d.y+0.12)*1.4+vec2(uTime*0.004,0.0); float cl=smoothstep(0.52,0.78,fb(cp)); cl*=smoothstep(0.0,0.12,d.y);
-          c=mix(c,vec3(0.95,0.96,0.97)*(0.85+0.3*s),cl*0.85); }
+        vec3 zen=mix(vec3(0.008,0.014,0.04),vec3(0.30,0.53,0.84),uDay); zen=mix(zen,vec3(0.5,0.53,0.57)*uDay+0.01,uCloud*0.6);
+        vec3 c=mix(uHaze,zen,pow(y,0.5));
+        float s=max(dot(d,uSun),0.0), up=smoothstep(-0.08,0.02,uSun.y);
+        c+=vec3(1.0,0.88,0.65)*(pow(s,900.0)*10.0+pow(s,10.0)*0.22)*up*(1.0-uCloud*0.85);
+        c+=vec3(1.0,0.4,0.12)*uDusk*pow(s,3.0)*(1.0-y)*0.8;
+        // lua e estrelas
+        vec3 md=normalize(vec3(-uSun.x,abs(uSun.y)*0.8+0.25,uSun.z)); float mn=max(dot(d,md),0.0);
+        c+=vec3(0.85,0.9,1.0)*(pow(mn,2500.0)*4.0+pow(mn,40.0)*0.04)*(1.0-uDay)*(1.0-uCloud*0.8);
+        if(d.y>0.0){ vec2 sp=floor(d.xz/(d.y+0.06)*220.0); c+=vec3(step(0.9975,h(sp)))*(1.0-smoothstep(0.1,0.45,uDay))*smoothstep(0.04,0.3,d.y)*(1.0-uCloud); }
+        if(d.y>0.0){ vec2 cp=d.xz/(d.y+0.12)*1.4+vec2(uTime*0.004,0.0); float cl=smoothstep(0.52-uCloud*0.4,0.78,fb(cp)); cl*=smoothstep(0.0,0.12,d.y);
+          vec3 cc=vec3(0.95,0.96,0.97)*(0.85+0.3*s)*(0.06+0.94*uDay); cc=mix(cc,vec3(1.0,0.55,0.35)*0.9,uDusk*0.55); cc=mix(cc,vec3(0.5,0.52,0.56)*(0.08+0.92*uDay),uCloud*0.6);
+          c=mix(c,cc,cl*0.85); }
         else c=uHaze*0.92;
         gl_FragColor=vec4(c,1.0);
       }`,
@@ -241,12 +249,12 @@ function buildWater() {
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
   waterMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: CU.uTime, uSun: { value: SUN_DIR }, uUnder: { value: 0 }, uFogC: { value: new THREE.Color() }, uFogD: { value: 0.0006 }, uHaze: { value: HAZE } },
+    uniforms: { uTime: CU.uTime, uSun: { value: SUN_DIR }, uUnder: { value: 0 }, uFogC: { value: new THREE.Color() }, uFogD: { value: 0.0006 }, uHaze: { value: HAZE }, uDay: CU.uDay, uSwell: CU.uSwell },
     vertexShader: WAVE_GLSL + `uniform float uTime; varying vec3 vW;
       void main(){ vec4 w=modelMatrix*vec4(position,1.0); float fade=1.0-smoothstep(250.0,1100.0,length(position.xz));
         w.y+=waveH(w.xz,uTime)*fade; vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader: WAVE_GLSL + `uniform float uTime; uniform vec3 uSun; uniform float uUnder; uniform vec3 uFogC; uniform float uFogD; uniform vec3 uHaze; varying vec3 vW;
-      vec3 sky(vec3 d){ float y=max(d.y,0.0); return mix(uHaze,vec3(0.30,0.53,0.84),pow(y,0.5)); }
+    fragmentShader: WAVE_GLSL + `uniform float uTime; uniform vec3 uSun; uniform float uUnder; uniform vec3 uFogC; uniform float uFogD; uniform vec3 uHaze; uniform float uDay; varying vec3 vW;
+      vec3 sky(vec3 d){ float y=max(d.y,0.0); return mix(uHaze,vec3(0.30,0.53,0.84)*uDay+0.01,pow(y,0.5)); }
       void main(){
         vec3 Vd=cameraPosition-vW; float dist=length(Vd); vec3 V=Vd/dist;
         vec2 p=vW.xz; float t=uTime; float rf=1.0-smoothstep(20.0,260.0,dist);
@@ -260,8 +268,8 @@ function buildWater() {
         if(uUnder<0.5){
           float fr=0.02+0.98*pow(1.0-max(dot(N,V),0.0),5.0);
           vec3 R=reflect(-V,N); R.y=abs(R.y);
-          vec3 refl=sky(R)+vec3(1.0,0.9,0.72)*pow(max(dot(R,uSun),0.0),600.0)*7.0;
-          vec3 deep=vec3(0.03,0.19,0.24);
+          vec3 refl=sky(R)+vec3(1.0,0.9,0.72)*pow(max(dot(R,uSun),0.0),600.0)*7.0*smoothstep(-0.05,0.05,uSun.y);
+          vec3 deep=vec3(0.03,0.19,0.24)*(0.1+0.9*uDay);
           col=mix(deep,refl,fr);
           col+=vec3(0.0,0.10,0.08)*clamp(waveH(p,t)+0.3,0.0,1.0);
           a=mix(0.5,1.0,max(fr,smoothstep(6.0,80.0,dist)));
@@ -270,7 +278,7 @@ function buildWater() {
           float cw=dot(-V,N);
           float win=smoothstep(0.60,0.70,cw);
           vec3 tir=uFogC*1.25;
-          vec3 skyc=vec3(0.75,0.93,0.97)+vec3(1.0,0.95,0.8)*pow(max(dot(-V,uSun),0.0),30.0)*3.0;
+          vec3 skyc=(vec3(0.75,0.93,0.97)+vec3(1.0,0.95,0.8)*pow(max(dot(-V,uSun),0.0),30.0)*3.0*smoothstep(-0.05,0.05,uSun.y))*(0.06+0.94*uDay);
           col=mix(tir,skyc,win);
           col=mix(col,uFogC,1.0-exp(-dist*uFogD));
           a=mix(0.94,0.62,win);
@@ -673,7 +681,7 @@ function updateFX(dt, camUnder, murk, t) {
     rays.children.forEach(m => {
       const u = m.userData; m.position.set(c.x + u.ox, waveH(c.x + u.ox, c.z + u.oz, t), c.z + u.oz);
       m.rotation.set(0, Math.atan2(c.x - m.position.x, c.z - m.position.z), 0);
-      m.rotateZ(0.25 + Math.sin(t * 0.13 + u.ph) * 0.06); m.material.opacity = (0.045 + 0.035 * Math.sin(t * 0.7 + u.ph)) * (1 - murk);
+      m.rotateZ(0.25 + Math.sin(t * 0.13 + u.ph) * 0.06); m.material.opacity = (0.045 + 0.035 * Math.sin(t * 0.7 + u.ph)) * (1 - murk) * DAY.sun;
     });
   }
   const L = bubbles.userData.list, arr = bubbles.userData.arr;

@@ -122,6 +122,7 @@ function updateHUD(dt) {
   $('hMoney').textContent = fmtR(SV.money); $('money').style.color = SV.money < 0 ? 'var(--bad)' : '';
   const sk = P.stringer.reduce((s, f) => s + f.kg, 0), ck = SV.cooler.reduce((s, f) => s + f.kg, 0);
   $('hStr').textContent = `${P.stringer.length} · ${fmtKg(sk)} kg`; $('hCool').textContent = `${SV.cooler.length} · ${fmtKg(ck)} kg`;
+  $('hClock').textContent = hhmm(SV.tod || 7); $('clockChip').firstChild.textContent = 'Dia ' + (SV.day || 1);
   $('hFuel').textContent = Math.round(SV.fuel) + ' L'; $('hFuel').style.color = SV.fuel < 15 ? 'var(--bad)' : '';
   // bússola
   const d = spotById(SV.dest);
@@ -169,13 +170,13 @@ function step(dt) {
 }
 function updateEnv(dt) {
   const c = camera.position, sY = waveH(c.x, c.z, T);
-  camUnder = c.y < sY - 0.02; camMurk = murkAt(c.x, c.z); updateTerrain(c);
+  camUnder = c.y < sY - 0.02; camMurk = murkAt(c.x, c.z); updateTerrain(c); updateClock(started && !paused ? dt : 0);
   if (camUnder) {
     const k = clamp(-c.y / 28, 0, 1);
-    _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k)).lerp(MURKC, camMurk);
-    scene.fog.color.copy(_col); scene.fog.density = lerp(0.042, 0.15, camMurk);
-    scene.background = scene.fog.color; sky.visible = false; sun.intensity = lerp(1.3, 0.7, k) * (1 - camMurk * 0.4); hemi.intensity = 0.65;
-  } else { scene.fog.color.copy(HAZE); scene.fog.density = 0.0006; scene.background = null; sky.visible = true; sun.intensity = 1.7; hemi.intensity = 0.75; }
+    _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k)).lerp(MURKC, camMurk).multiplyScalar(0.06 + 0.94 * DAY.amb);
+    scene.fog.color.copy(_col); scene.fog.density = lerp(0.042, 0.15, camMurk) / COND.vis;
+    scene.background = scene.fog.color; sky.visible = false; sun.intensity = lerp(1.3, 0.7, k) * (1 - camMurk * 0.4) * DAY.sun + 0.12 * DAY.moon; hemi.intensity = 0.65 * DAY.amb;
+  } else { scene.fog.color.copy(HAZE); scene.fog.density = 0.0006 * (1 + COND.cloud * 0.8); scene.background = null; sky.visible = true; sun.intensity = 1.7 * DAY.sun + 0.13 * DAY.moon; hemi.intensity = 0.75 * DAY.amb; }
   waterMat.uniforms.uUnder.value = camUnder ? 1 : 0; waterMat.uniforms.uFogC.value.copy(scene.fog.color); waterMat.uniforms.uFogD.value = scene.fog.density;
   water.position.set(c.x, 0, c.z); sky.position.copy(c);
   const base = camera.aspect < 1 ? clamp(2 * Math.atan(Math.tan(37 * Math.PI / 180) / camera.aspect) * 180 / Math.PI, 70, 100) : 70;

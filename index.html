@@ -181,6 +181,7 @@ body.portrait #mapBox{width:min(88vw,360px)}
     <div class="chip">Fieira<b id="hStr">0 · 0,0 kg</b></div>
     <div class="chip">Caixa<b id="hCool">0 · 0,0 kg</b></div>
     <div class="chip" id="fuelChip">Combust.<b id="hFuel">100 L</b></div>
+    <div class="chip" id="clockChip">Dia 1<b id="hClock">07:00</b></div>
   </div>
   <div id="cross"></div><div id="aimLbl" class="hide"></div>
   <div id="toast"></div>
@@ -282,11 +283,12 @@ const fmtR = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
 const WAVES = [ // dirX, dirZ, k, amplitude
   [0.83, 0.56, 0.19, 0.28], [-0.45, 0.89, 0.33, 0.15], [0.97, -0.24, 0.55, 0.07], [0.2, 0.98, 0.95, 0.035]];
 WAVES.forEach(w => w.push(Math.sqrt(9.8 * w[2])));
-function waveH(x, z, t) { let h = 0; for (const w of WAVES) h += w[3] * Math.sin((x * w[0] + z * w[1]) * w[2] - t * w[4]); return h; }
+const SWELL = { k: 1 }; // ondulação do dia
+function waveH(x, z, t) { let h = 0; for (const w of WAVES) h += w[3] * Math.sin((x * w[0] + z * w[1]) * w[2] - t * w[4]); return h * SWELL.k; }
 const _f = n => n.toFixed(5);
-const WAVE_GLSL = `
-float waveH(vec2 p,float t){float h=0.0;${WAVES.map(w => `h+=${_f(w[3])}*sin(dot(p,vec2(${_f(w[0])},${_f(w[1])}))*${_f(w[2])}-t*${_f(w[4])});`).join('')}return h;}
-vec2 waveG(vec2 p,float t){vec2 g=vec2(0.0);${WAVES.map(w => `g+=${_f(w[3] * w[2])}*cos(dot(p,vec2(${_f(w[0])},${_f(w[1])}))*${_f(w[2])}-t*${_f(w[4])})*vec2(${_f(w[0])},${_f(w[1])});`).join('')}return g;}
+const WAVE_GLSL = `uniform float uSwell;
+float waveH(vec2 p,float t){float h=0.0;${WAVES.map(w => `h+=${_f(w[3])}*sin(dot(p,vec2(${_f(w[0])},${_f(w[1])}))*${_f(w[2])}-t*${_f(w[4])});`).join('')}return h*uSwell;}
+vec2 waveG(vec2 p,float t){vec2 g=vec2(0.0);${WAVES.map(w => `g+=${_f(w[3] * w[2])}*cos(dot(p,vec2(${_f(w[0])},${_f(w[1])}))*${_f(w[2])}-t*${_f(w[4])})*vec2(${_f(w[0])},${_f(w[1])});`).join('')}return g*uSwell;}
 `;
 
 // ================= áudio procedural =================
@@ -420,7 +422,7 @@ const murkAt = (x, z) => Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z -
 
 // ================= renderer / cena =================
 let renderer, scene, camera, hemi, sun;
-const CU = { uTime: { value: 0 } };
+const CU = { uTime: { value: 0 }, uDay: { value: 1 }, uDusk: { value: 0 }, uCloud: { value: 0 }, uSwell: { value: 1 } };
 const SUN_DIR = new V3(0.45, 0.72, -0.53).normalize();
 const HAZE = new THREE.Color(0.70, 0.80, 0.88);
 function initRenderer() {
@@ -456,7 +458,7 @@ function initRenderer() {
 const SURGE_GLSL = 'vec2 surge=vec2(sin(uTime*0.55),cos(uTime*0.44)*0.6);';
 const surgeAt = (t, out) => out.set(Math.sin(t * 0.55), 0, Math.cos(t * 0.44) * 0.6);
 // ===== shader subaquático compartilhado (absorção da luz + cáusticas) =====
-const UW_FRAG_HEAD = `uniform float uTime; varying vec3 vWP;
+const UW_FRAG_HEAD = `uniform float uTime; uniform float uDay; varying vec3 vWP;
 float causF(vec2 uv){ vec2 p=mod(uv*6.28318,6.28318)-250.0; vec2 i=p; float c=1.0; float inten=0.005;
  for(int n=0;n<4;n++){ float t=uTime*0.45*(1.0-(3.5/float(n+1))); i=p+vec2(cos(t-i.x)+sin(t+i.y),sin(t-i.y)+cos(t+i.x));
  c+=1.0/length(vec2(p.x/(sin(i.x+t)/inten),p.y/(cos(i.y+t)/inten))); }
@@ -471,12 +473,12 @@ const UW_FRAG_BODY = `
   vec3 upV=normalize((viewMatrix*vec4(0.0,1.0,0.0,0.0)).xyz);
   float facing=clamp(dot(normal,upV),0.0,1.0);
   float cs=causF(vWP.xz/8.5+vec2(vWP.y*0.02));
-  gl_FragColor.rgb+=vec3(0.5,0.78,0.85)*min(cs,1.2)*0.3*facing*exp(-dp*0.065)*smoothstep(0.0,1.2,dp)*(1.0-murk*0.9);
+  gl_FragColor.rgb+=vec3(0.5,0.78,0.85)*min(cs,1.2)*0.3*facing*exp(-dp*0.065)*smoothstep(0.0,1.2,dp)*(1.0-murk*0.9)*uDay*uDay;
  }
 `;
 function uwify(mat, ext = {}) {
   mat.onBeforeCompile = sh => {
-    sh.uniforms.uTime = CU.uTime;
+    sh.uniforms.uTime = CU.uTime; sh.uniforms.uDay = CU.uDay;
     if (ext.uniforms) Object.assign(sh.uniforms, ext.uniforms);
     sh.vertexShader = 'varying vec3 vWP;\nuniform float uTime;\n' + (ext.vHead || '') + sh.vertexShader
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + (ext.vBody || ''))
@@ -490,17 +492,25 @@ function uwify(mat, ext = {}) {
 // ================= céu =================
 function buildSky() {
   const m = new THREE.ShaderMaterial({
-    uniforms: { uSun: { value: SUN_DIR }, uHaze: { value: HAZE }, uTime: CU.uTime },
+    uniforms: { uSun: { value: SUN_DIR }, uHaze: { value: HAZE }, uTime: CU.uTime, uDay: CU.uDay, uDusk: CU.uDusk, uCloud: CU.uCloud },
     vertexShader: `varying vec3 vD; void main(){ vD=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_Position.z=gl_Position.w*0.99999; }`,
-    fragmentShader: `uniform vec3 uSun; uniform vec3 uHaze; uniform float uTime; varying vec3 vD;
+    fragmentShader: `uniform vec3 uSun; uniform vec3 uHaze; uniform float uTime; uniform float uDay; uniform float uDusk; uniform float uCloud; varying vec3 vD;
       float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
       float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
       float fb(vec2 p){float s=0.0,a=0.5;for(int i=0;i<5;i++){s+=a*n(p);p*=2.03;a*=0.5;}return s;}
       void main(){ vec3 d=normalize(vD); float y=max(d.y,0.0);
-        vec3 c=mix(uHaze,vec3(0.30,0.53,0.84),pow(y,0.5));
-        float s=max(dot(d,uSun),0.0); c+=vec3(1.0,0.88,0.65)*(pow(s,900.0)*10.0+pow(s,10.0)*0.22);
-        if(d.y>0.0){ vec2 cp=d.xz/(d.y+0.12)*1.4+vec2(uTime*0.004,0.0); float cl=smoothstep(0.52,0.78,fb(cp)); cl*=smoothstep(0.0,0.12,d.y);
-          c=mix(c,vec3(0.95,0.96,0.97)*(0.85+0.3*s),cl*0.85); }
+        vec3 zen=mix(vec3(0.008,0.014,0.04),vec3(0.30,0.53,0.84),uDay); zen=mix(zen,vec3(0.5,0.53,0.57)*uDay+0.01,uCloud*0.6);
+        vec3 c=mix(uHaze,zen,pow(y,0.5));
+        float s=max(dot(d,uSun),0.0), up=smoothstep(-0.08,0.02,uSun.y);
+        c+=vec3(1.0,0.88,0.65)*(pow(s,900.0)*10.0+pow(s,10.0)*0.22)*up*(1.0-uCloud*0.85);
+        c+=vec3(1.0,0.4,0.12)*uDusk*pow(s,3.0)*(1.0-y)*0.8;
+        // lua e estrelas
+        vec3 md=normalize(vec3(-uSun.x,abs(uSun.y)*0.8+0.25,uSun.z)); float mn=max(dot(d,md),0.0);
+        c+=vec3(0.85,0.9,1.0)*(pow(mn,2500.0)*4.0+pow(mn,40.0)*0.04)*(1.0-uDay)*(1.0-uCloud*0.8);
+        if(d.y>0.0){ vec2 sp=floor(d.xz/(d.y+0.06)*220.0); c+=vec3(step(0.9975,h(sp)))*(1.0-smoothstep(0.1,0.45,uDay))*smoothstep(0.04,0.3,d.y)*(1.0-uCloud); }
+        if(d.y>0.0){ vec2 cp=d.xz/(d.y+0.12)*1.4+vec2(uTime*0.004,0.0); float cl=smoothstep(0.52-uCloud*0.4,0.78,fb(cp)); cl*=smoothstep(0.0,0.12,d.y);
+          vec3 cc=vec3(0.95,0.96,0.97)*(0.85+0.3*s)*(0.06+0.94*uDay); cc=mix(cc,vec3(1.0,0.55,0.35)*0.9,uDusk*0.55); cc=mix(cc,vec3(0.5,0.52,0.56)*(0.08+0.92*uDay),uCloud*0.6);
+          c=mix(c,cc,cl*0.85); }
         else c=uHaze*0.92;
         gl_FragColor=vec4(c,1.0);
       }`,
@@ -591,12 +601,12 @@ function buildWater() {
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
   waterMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: CU.uTime, uSun: { value: SUN_DIR }, uUnder: { value: 0 }, uFogC: { value: new THREE.Color() }, uFogD: { value: 0.0006 }, uHaze: { value: HAZE } },
+    uniforms: { uTime: CU.uTime, uSun: { value: SUN_DIR }, uUnder: { value: 0 }, uFogC: { value: new THREE.Color() }, uFogD: { value: 0.0006 }, uHaze: { value: HAZE }, uDay: CU.uDay, uSwell: CU.uSwell },
     vertexShader: WAVE_GLSL + `uniform float uTime; varying vec3 vW;
       void main(){ vec4 w=modelMatrix*vec4(position,1.0); float fade=1.0-smoothstep(250.0,1100.0,length(position.xz));
         w.y+=waveH(w.xz,uTime)*fade; vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader: WAVE_GLSL + `uniform float uTime; uniform vec3 uSun; uniform float uUnder; uniform vec3 uFogC; uniform float uFogD; uniform vec3 uHaze; varying vec3 vW;
-      vec3 sky(vec3 d){ float y=max(d.y,0.0); return mix(uHaze,vec3(0.30,0.53,0.84),pow(y,0.5)); }
+    fragmentShader: WAVE_GLSL + `uniform float uTime; uniform vec3 uSun; uniform float uUnder; uniform vec3 uFogC; uniform float uFogD; uniform vec3 uHaze; uniform float uDay; varying vec3 vW;
+      vec3 sky(vec3 d){ float y=max(d.y,0.0); return mix(uHaze,vec3(0.30,0.53,0.84)*uDay+0.01,pow(y,0.5)); }
       void main(){
         vec3 Vd=cameraPosition-vW; float dist=length(Vd); vec3 V=Vd/dist;
         vec2 p=vW.xz; float t=uTime; float rf=1.0-smoothstep(20.0,260.0,dist);
@@ -610,8 +620,8 @@ function buildWater() {
         if(uUnder<0.5){
           float fr=0.02+0.98*pow(1.0-max(dot(N,V),0.0),5.0);
           vec3 R=reflect(-V,N); R.y=abs(R.y);
-          vec3 refl=sky(R)+vec3(1.0,0.9,0.72)*pow(max(dot(R,uSun),0.0),600.0)*7.0;
-          vec3 deep=vec3(0.03,0.19,0.24);
+          vec3 refl=sky(R)+vec3(1.0,0.9,0.72)*pow(max(dot(R,uSun),0.0),600.0)*7.0*smoothstep(-0.05,0.05,uSun.y);
+          vec3 deep=vec3(0.03,0.19,0.24)*(0.1+0.9*uDay);
           col=mix(deep,refl,fr);
           col+=vec3(0.0,0.10,0.08)*clamp(waveH(p,t)+0.3,0.0,1.0);
           a=mix(0.5,1.0,max(fr,smoothstep(6.0,80.0,dist)));
@@ -620,7 +630,7 @@ function buildWater() {
           float cw=dot(-V,N);
           float win=smoothstep(0.60,0.70,cw);
           vec3 tir=uFogC*1.25;
-          vec3 skyc=vec3(0.75,0.93,0.97)+vec3(1.0,0.95,0.8)*pow(max(dot(-V,uSun),0.0),30.0)*3.0;
+          vec3 skyc=(vec3(0.75,0.93,0.97)+vec3(1.0,0.95,0.8)*pow(max(dot(-V,uSun),0.0),30.0)*3.0*smoothstep(-0.05,0.05,uSun.y))*(0.06+0.94*uDay);
           col=mix(tir,skyc,win);
           col=mix(col,uFogC,1.0-exp(-dist*uFogD));
           a=mix(0.94,0.62,win);
@@ -1023,7 +1033,7 @@ function updateFX(dt, camUnder, murk, t) {
     rays.children.forEach(m => {
       const u = m.userData; m.position.set(c.x + u.ox, waveH(c.x + u.ox, c.z + u.oz, t), c.z + u.oz);
       m.rotation.set(0, Math.atan2(c.x - m.position.x, c.z - m.position.z), 0);
-      m.rotateZ(0.25 + Math.sin(t * 0.13 + u.ph) * 0.06); m.material.opacity = (0.045 + 0.035 * Math.sin(t * 0.7 + u.ph)) * (1 - murk);
+      m.rotateZ(0.25 + Math.sin(t * 0.13 + u.ph) * 0.06); m.material.opacity = (0.045 + 0.035 * Math.sin(t * 0.7 + u.ph)) * (1 - murk) * DAY.sun;
     });
   }
   const L = bubbles.userData.list, arr = bubbles.userData.arr;
@@ -1270,6 +1280,7 @@ class Fish {
       const vis = P.mode === 'swim';
       let fearR = (1.6 + sp.shy * suitNow().shy * 12 * (0.2 + P.noise * 1.15)) * (P.under ? 1 : 0.4);
       if (P.still > 2 && P.under) fearR *= 0.55; // espera: peixe se aproxima mais
+      fearR *= 0.6 + 0.4 * DAY.amb; // no escuro o peixe enxerga menos
       if (FEAR.t > 0 && p.distanceTo(FEAR.pos) < FEAR.r) fearR = 999;
       if (vis && dP < fearR && this.state !== 'flee' && this.state !== 'tohole' && this.state !== 'hidden') this.startFlee();
       if (this.state === 'hidden' && vis && dP < 1.6 + P.noise * 3) { this.state = 'flee'; this.t = 3; this.speed = sp.burst; this.target.copy(p).addScaledVector(_t1.subVectors(p, P.pos).normalize(), 15); }
@@ -1277,7 +1288,7 @@ class Fish {
     let L = this.leader; if (L && !L.alive) L = this.leader = null;
     switch (this.state) {
       case 'wander':
-        this.speed = sp.cruise * (L ? 1.15 : 1);
+        this.speed = sp.cruise * (L ? 1.15 : 1) * fishAct(this.key);
         if (L) {
           // cardume vivo: cada peixe deriva em torno do seu lugar no grupo
           const tn = performance.now() * 0.001; _t1.copy(this.off).applyAxisAngle(_t2.set(0, 1, 0), L.yaw); this.target.copy(L.pos).add(_t1);
@@ -1285,7 +1296,7 @@ class Fish {
           if (L.state === 'curious') { this.state = 'curious'; this.t = L.t; }
         }
         else if (this.t <= 0 || p.distanceTo(this.target) < 1.2) { this.pickWander(); this.t = rand(5, 12); }
-        if (!L && P.mode === 'swim' && P.under && P.still > 1.4 && dP < 24 && Math.random() < sp.curious * dt * 0.45) { this.state = 'curious'; this.t = rand(6, 11); }
+        if (!L && P.mode === 'swim' && P.under && P.still > 1.4 && dP < 24 && Math.random() < sp.curious * fishAct(this.key) * dt * 0.45) { this.state = 'curious'; this.t = rand(6, 11); }
         break;
       case 'curious': {
         this.speed = sp.cruise * 0.9;
@@ -1720,6 +1731,7 @@ function updateSwim(dt, t) {
       P.diveT = 0; P.maxD = 0; AU.splash(); spawnBubbles(_c.set(P.pos.x, P.pos.y + 0.3, P.pos.z), 20, 0.4);
       P.startO2 = P.o2;
       if (P.o2 < 0.6) toast('Pouco fôlego! Respire mais na superfície antes de descer.', 3, 'bad');
+      if (DAY.amb < 0.35 && !P.nightTip) { P.nightTip = true; toast('Na vida real, confira as regras locais: em muitos lugares a pesca sub noturna é proibida.', 5); }
     }
     P.o2 = Math.min(1, P.o2 + dt / (maxBreath() * 0.85)); P.surfT += dt;
     P.still = 0;
@@ -1899,6 +1911,7 @@ function updateHUD(dt) {
   $('hMoney').textContent = fmtR(SV.money); $('money').style.color = SV.money < 0 ? 'var(--bad)' : '';
   const sk = P.stringer.reduce((s, f) => s + f.kg, 0), ck = SV.cooler.reduce((s, f) => s + f.kg, 0);
   $('hStr').textContent = `${P.stringer.length} · ${fmtKg(sk)} kg`; $('hCool').textContent = `${SV.cooler.length} · ${fmtKg(ck)} kg`;
+  $('hClock').textContent = hhmm(SV.tod || 7); $('clockChip').firstChild.textContent = 'Dia ' + (SV.day || 1);
   $('hFuel').textContent = Math.round(SV.fuel) + ' L'; $('hFuel').style.color = SV.fuel < 15 ? 'var(--bad)' : '';
   // bússola
   const d = spotById(SV.dest);
@@ -1946,13 +1959,13 @@ function step(dt) {
 }
 function updateEnv(dt) {
   const c = camera.position, sY = waveH(c.x, c.z, T);
-  camUnder = c.y < sY - 0.02; camMurk = murkAt(c.x, c.z); updateTerrain(c);
+  camUnder = c.y < sY - 0.02; camMurk = murkAt(c.x, c.z); updateTerrain(c); updateClock(started && !paused ? dt : 0);
   if (camUnder) {
     const k = clamp(-c.y / 28, 0, 1);
-    _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k)).lerp(MURKC, camMurk);
-    scene.fog.color.copy(_col); scene.fog.density = lerp(0.042, 0.15, camMurk);
-    scene.background = scene.fog.color; sky.visible = false; sun.intensity = lerp(1.3, 0.7, k) * (1 - camMurk * 0.4); hemi.intensity = 0.65;
-  } else { scene.fog.color.copy(HAZE); scene.fog.density = 0.0006; scene.background = null; sky.visible = true; sun.intensity = 1.7; hemi.intensity = 0.75; }
+    _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k)).lerp(MURKC, camMurk).multiplyScalar(0.06 + 0.94 * DAY.amb);
+    scene.fog.color.copy(_col); scene.fog.density = lerp(0.042, 0.15, camMurk) / COND.vis;
+    scene.background = scene.fog.color; sky.visible = false; sun.intensity = lerp(1.3, 0.7, k) * (1 - camMurk * 0.4) * DAY.sun + 0.12 * DAY.moon; hemi.intensity = 0.65 * DAY.amb;
+  } else { scene.fog.color.copy(HAZE); scene.fog.density = 0.0006 * (1 + COND.cloud * 0.8); scene.background = null; sky.visible = true; sun.intensity = 1.7 * DAY.sun + 0.13 * DAY.moon; hemi.intensity = 0.75 * DAY.amb; }
   waterMat.uniforms.uUnder.value = camUnder ? 1 : 0; waterMat.uniforms.uFogC.value.copy(scene.fog.color); waterMat.uniforms.uFogD.value = scene.fog.density;
   water.position.set(c.x, 0, c.z); sky.position.copy(c);
   const base = camera.aspect < 1 ? clamp(2 * Math.atan(Math.tan(37 * Math.PI / 180) / camera.aspect) * 180 / Math.PI, 70, 100) : 70;
@@ -2721,7 +2734,7 @@ function applyGear() {
 }
 function updateLight() {
   if (!DLIGHT) return;
-  const on = SV.light && P.mode === 'swim' && camUnder && (-camera.position.y > 7 || camMurk > 0.3);
+  const on = SV.light && P.mode === 'swim' && camUnder && (-camera.position.y > 7 || camMurk > 0.3 || DAY.amb < 0.45 || COND.vis < 0.75);
   DLIGHT.intensity = lerp(DLIGHT.intensity, on ? 3.2 : 0, 0.2);
 }
 
@@ -2734,7 +2747,7 @@ function renderShop() {
   const at = shopAtMarina;
   $('marinaPanel').querySelector('h2').textContent = at ? 'Marina Balneário' : 'Loja Deep Spear';
   $('mSub').textContent = `Saldo: ${fmtR(SV.money)} · Combustível: ${Math.round(SV.fuel)}/${tankMax()} L · Fôlego: ${maxBreath()} s`;
-  const tabs = [['sell', 'Vender pescado'], ['guns', 'Arbaletes'], ['gear', 'Roupa e acessórios'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['miss', 'Missões'], ['rec', 'Recordes']];
+  const tabs = [['sell', 'Vender pescado'], ['guns', 'Arbaletes'], ['gear', 'Roupa e acessórios'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['mar', 'Boletim do mar'], ['miss', 'Missões'], ['rec', 'Recordes']];
   $('mTabs').innerHTML = tabs.map(([k, n]) => `<div class="tab ${k === shopTab ? 'on' : ''}" data-k="${k}">${n}</div>`).join('');
   $('mTabs').querySelectorAll('.tab').forEach(t => t.onclick = () => { shopTab = t.dataset.k; AU.click(); renderShop(); });
   let h = '';
@@ -2772,6 +2785,7 @@ function renderShop() {
       SPOTS.filter(s => s.r).map(s => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.depth}</div></div><button class="btn gold" data-comp="${s.id}" ${COMP.on || SV.money < 100 ? 'disabled' : ''}>COMPETIR</button></div>`).join('') + '</div>';
   }
   if (shopTab === 'miss') h = missionsHTML();
+  if (shopTab === 'mar') h = bulletinHTML();
   if (shopTab === 'rec') h = '<div class="list">' + Object.keys(SPECIES).filter(k => !SPECIES[k].protected && !SPECIES[k].ornamental).map(k => `<div class="it"><div><div class="n">${SPECIES[k].name}</div><div class="d">Medida mínima ${Math.round(SPECIES[k].min * 100)} cm · ${fmtR(SPECIES[k].price)}/kg</div></div><b>${SV.best[k] ? fmtKg(SV.best[k]) + ' kg' : '—'}</b></div>`).join('') + `<div class="it"><div class="n">Campeonatos vencidos</div><b>${SV.wins || 0}</b></div></div>`;
   $('mBody').innerHTML = h;
   const B = $('mBody'), on = (sel, fn) => B.querySelectorAll(sel).forEach(b => b.onclick = () => { fn(b); save(); renderShop(); });
@@ -2787,6 +2801,8 @@ function renderShop() {
   on('[data-boat]', b => { SV.boat = +b.dataset.boat; applyGear(); AU.click(); });
   on('[data-fin]', b => { const i = +b.dataset.fin; if (pay(FINS[i].price)) SV.fins = i; });
   on('[data-comp]', b => { closePanels(); startComp(b.dataset.comp); });
+  on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
+  on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
   const fl = $('fill'); if (fl) fl.onclick = () => { const L = Math.min(tankMax() - SV.fuel, SV.money / 6.5); SV.fuel += L; SV.money -= L * 6.5; AU.coin(); save(); renderShop(); };
@@ -2893,8 +2909,8 @@ function endComp(rows) {
 
 // ================= jogabilidade: missões do dia, peixes raros, retorno do tiro e briga =================
 
-// ---------- missões do dia (3 por dia, sorteadas pela data) ----------
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+// ---------- missões do dia (3 por dia de jogo) ----------
+const today = () => 'dia-' + (SV.day || 1); // missões trocam a cada dia de jogo
 const MISSION_POOL = [
   r => { const k = r.pick(['sargo', 'marimba', 'salema', 'garoupa', 'robalo', 'xareu', 'pampo', 'badejo', 'caranha']), n = SPECIES[k].school ? 3 : 1; return { t: `Pegue ${n} ${SPECIES[k].name} dentro da medida`, ev: 'catch', key: k, goal: n, rew: 200 + n * 90 }; },
   r => { const kg = r.pick([3, 5, 8]); return { t: `Pegue um peixe de ${kg} kg ou mais`, ev: 'catchkg', kg, goal: 1, rew: kg * 90 }; },
@@ -2993,7 +3009,7 @@ function currentAt(p) {
     const d = Math.hypot(p.x - s.x, p.z - s.z), k = 1 - smooth(s.r, s.r * 2.6, d);
     if (k <= 0) continue;
     if (curSpot !== s) { curSpot = s; toast(`Correnteza forte em ${s.name}! Nade contra ela ou ela leva você.`, 4, 'bad'); }
-    return _cur.set(s.cur[0] * k, 0, s.cur[1] * k);
+    return _cur.set(s.cur[0] * k * COND.cur, 0, s.cur[1] * k * COND.cur);
   }
   curSpot = null; return null;
 }
@@ -3008,6 +3024,77 @@ function goTo(id) {
   SV.fuel -= L; SV.dest = id;
   BOAT.pos.set(bx, 0, bz); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; BOAT.heading = Math.atan2(s.x - bx, s.z - bz);
   AU.click(); closePanels(); toast(`Chegou em ${s.name}. Gastou ${Math.ceil(L)} L.`, 3); save();
+}
+
+// ================= hora do dia e condições do mar =================
+// 1 hora de jogo = HOUR_S segundos reais; o sol nasce às 6h e se põe às 18h.
+const HOUR_S = 50;
+const DAY = { sun: 1, amb: 1, dusk: 0, moon: 0, el: 1 };
+const COND = { vis: 1, swell: 1, cur: 1, cloud: 0 };
+const HAZE_D = new THREE.Color(0.70, 0.80, 0.88), HAZE_DUSK = new THREE.Color(0.88, 0.6, 0.42), HAZE_N = new THREE.Color(0.03, 0.045, 0.08), HAZE_C = new THREE.Color(0.6, 0.63, 0.66);
+const SUN_COL = new THREE.Color(1, 0.945, 0.85), DUSK_COL = new THREE.Color(1, 0.62, 0.38), MOON_COL = new THREE.Color(0.55, 0.65, 0.95);
+const hhmm = h => `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor(h % 1 * 60)).padStart(2, '0')}`;
+
+// condições sorteadas pelo número do dia: visibilidade, ondulação, correnteza e nuvens
+function rollCond() {
+  const r = mulberry((SV.day || 1) * 7919 + 13);
+  COND.vis = lerp(0.6, 1.6, r()); COND.swell = lerp(0.55, 1.7, Math.pow(r(), 1.3)); COND.cur = lerp(0.6, 1.5, r());
+  COND.cloud = r() < 0.28 ? lerp(0.55, 1, r()) : r() * 0.3;
+  SWELL.k = COND.swell; CU.uSwell.value = COND.swell; CU.uCloud.value = COND.cloud;
+}
+const visM = () => Math.round(0.83 / (0.042 / COND.vis));
+const condTxt = () => `Visibilidade ~${visM()} m · ondas ${(0.55 * COND.swell).toFixed(1).replace('.', ',')} m · correnteza ${COND.cur < 0.85 ? 'fraca' : COND.cur < 1.2 ? 'moderada' : 'forte'} · ${COND.cloud > 0.5 ? 'nublado' : COND.cloud > 0.2 ? 'poucas nuvens' : 'céu limpo'}`;
+
+function updateClock(dt) {
+  if (SV.tod == null) { SV.tod = 7; SV.day = SV.day || 1; }
+  if (!DAY.ready) { rollCond(); DAY.ready = true; }
+  SV.tod += dt / HOUR_S;
+  if (SV.tod >= 24) newDay(SV.tod - 24);
+  if (dt > 0 && Math.floor(SV.tod - dt / HOUR_S) !== Math.floor(SV.tod)) {
+    const h = Math.floor(SV.tod);
+    if (h === 17) toast('O sol está baixando. Fim de tarde: robalo e caranha mais ativos.', 4);
+    if (h === 19) toast(SV.light ? 'Anoiteceu. A lanterna acende sozinha embaixo d\'água.' : 'Anoiteceu. Sem lanterna, o fundo fica escuro: compre uma na loja.', 4, SV.light ? '' : 'bad');
+    if (h === 6) toast('Amanhecendo. Garoupas saindo da toca.', 4);
+  }
+  applyDay();
+}
+function newDay(tod) {
+  SV.day = (SV.day || 1) + 1; SV.tod = tod; rollCond(); save();
+  toast(`Dia ${SV.day}. Boletim do mar: ${condTxt()}`, 6);
+}
+// espera na marina/barco: pula horas (e talvez para o dia seguinte)
+function waitHours(h) { SV.tod += h; if (SV.tod >= 24) newDay(SV.tod - 24); applyDay(); save(); }
+function waitUntil(hour) { waitHours((hour - SV.tod + 24) % 24 || 24); }
+
+function applyDay() {
+  const a = (SV.tod - 6) / 12 * Math.PI, el = Math.sin(a);
+  SUN_DIR.set(Math.cos(a) * 0.85, el, -0.45).normalize();
+  const day = smooth(-0.15, 0.3, el);
+  DAY.el = el;
+  DAY.sun = smooth(-0.05, 0.25, el) * (1 - COND.cloud * 0.5);
+  DAY.dusk = smooth(0.4, 0.06, el) * smooth(-0.16, 0.02, el);
+  DAY.moon = 1 - smooth(-0.12, 0.05, el);
+  DAY.amb = (0.07 + 0.93 * day) * (1 - COND.cloud * 0.3);
+  HAZE.copy(HAZE_N).lerp(HAZE_D, day).lerp(HAZE_DUSK, DAY.dusk * 0.7).lerp(HAZE_C.clone().multiplyScalar(0.1 + 0.9 * day), COND.cloud * 0.55);
+  CU.uDay.value = DAY.amb; CU.uDusk.value = DAY.dusk;
+  // de noite a luz direcional vira luar, vinda do lado oposto
+  if (el > -0.02) { sun.position.copy(SUN_DIR).multiplyScalar(100); sun.color.copy(SUN_COL).lerp(DUSK_COL, DAY.dusk); }
+  else { sun.position.set(-SUN_DIR.x, 0.6, SUN_DIR.z).multiplyScalar(100); sun.color.copy(MOON_COL); }
+}
+
+// atividade dos peixes ao longo do dia: noturnos rendem no fim da tarde e à noite
+const NOCT = { robalo: 1, caranha: 1, dentao: 1, cherne: 1, bicuda: 1 };
+function fishAct(key) { const k = smooth(-0.1, 0.35, DAY.el); return NOCT[key] ? 1.25 - 0.45 * k + 0.3 * DAY.dusk : 0.45 + 0.55 * k; }
+
+// aba "Boletim do mar" na loja/marina
+function bulletinHTML() {
+  return `<div class="it" style="margin-bottom:8px"><div><div class="n">Dia ${SV.day || 1} · ${hhmm(SV.tod || 7)}</div><div class="d">${condTxt()}</div></div></div>
+    <div class="list">
+    <div class="it"><div><div class="n">Visibilidade</div><div class="d">${COND.vis > 1.25 ? 'Água azul: dia de procurar peixe longe, no Parcel de Fora ou em Castelhanos.' : COND.vis < 0.8 ? 'Água turva: fique nos pontos rasos e abrigados, e leve lanterna.' : 'Água normal na baía.'}</div></div></div>
+    <div class="it"><div><div class="n">Mar</div><div class="d">${COND.swell > 1.25 ? 'Ondulação grande: o lado de fora da Ilha Grande fica perigoso. Prefira a baía.' : 'Mar tranquilo para atravessar.'}</div></div></div>
+    <div class="it"><div><div class="n">Esperar</div><div class="d">O peixe muda com a hora: de manhã a garoupa sai da toca, no fim da tarde o robalo caça.</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn" data-wait="3">+3 h</button><button class="btn" data-until="17">ATÉ 17h</button><button class="btn gold" data-until="6">DORMIR ATÉ 6h</button></div></div>
+    </div>`;
 }
 
 init();

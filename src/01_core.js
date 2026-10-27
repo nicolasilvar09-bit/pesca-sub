@@ -27,11 +27,12 @@ const fmtR = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
 const WAVES = [ // dirX, dirZ, k, amplitude
   [0.83, 0.56, 0.19, 0.28], [-0.45, 0.89, 0.33, 0.15], [0.97, -0.24, 0.55, 0.07], [0.2, 0.98, 0.95, 0.035]];
 WAVES.forEach(w => w.push(Math.sqrt(9.8 * w[2])));
-function waveH(x, z, t) { let h = 0; for (const w of WAVES) h += w[3] * Math.sin((x * w[0] + z * w[1]) * w[2] - t * w[4]); return h; }
+const SWELL = { k: 1 }; // ondulação do dia
+function waveH(x, z, t) { let h = 0; for (const w of WAVES) h += w[3] * Math.sin((x * w[0] + z * w[1]) * w[2] - t * w[4]); return h * SWELL.k; }
 const _f = n => n.toFixed(5);
-const WAVE_GLSL = `
-float waveH(vec2 p,float t){float h=0.0;${WAVES.map(w => `h+=${_f(w[3])}*sin(dot(p,vec2(${_f(w[0])},${_f(w[1])}))*${_f(w[2])}-t*${_f(w[4])});`).join('')}return h;}
-vec2 waveG(vec2 p,float t){vec2 g=vec2(0.0);${WAVES.map(w => `g+=${_f(w[3] * w[2])}*cos(dot(p,vec2(${_f(w[0])},${_f(w[1])}))*${_f(w[2])}-t*${_f(w[4])})*vec2(${_f(w[0])},${_f(w[1])});`).join('')}return g;}
+const WAVE_GLSL = `uniform float uSwell;
+float waveH(vec2 p,float t){float h=0.0;${WAVES.map(w => `h+=${_f(w[3])}*sin(dot(p,vec2(${_f(w[0])},${_f(w[1])}))*${_f(w[2])}-t*${_f(w[4])});`).join('')}return h*uSwell;}
+vec2 waveG(vec2 p,float t){vec2 g=vec2(0.0);${WAVES.map(w => `g+=${_f(w[3] * w[2])}*cos(dot(p,vec2(${_f(w[0])},${_f(w[1])}))*${_f(w[2])}-t*${_f(w[4])})*vec2(${_f(w[0])},${_f(w[1])});`).join('')}return g*uSwell;}
 `;
 
 // ================= áudio procedural =================

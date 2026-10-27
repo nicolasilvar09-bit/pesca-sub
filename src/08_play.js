@@ -1,7 +1,7 @@
 // ================= jogabilidade: missões do dia, peixes raros, retorno do tiro e briga =================
 
-// ---------- missões do dia (3 por dia, sorteadas pela data) ----------
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+// ---------- missões do dia (3 por dia de jogo) ----------
+const today = () => 'dia-' + (SV.day || 1); // missões trocam a cada dia de jogo
 const MISSION_POOL = [
   r => { const k = r.pick(['sargo', 'marimba', 'salema', 'garoupa', 'robalo', 'xareu', 'pampo', 'badejo', 'caranha']), n = SPECIES[k].school ? 3 : 1; return { t: `Pegue ${n} ${SPECIES[k].name} dentro da medida`, ev: 'catch', key: k, goal: n, rew: 200 + n * 90 }; },
   r => { const kg = r.pick([3, 5, 8]); return { t: `Pegue um peixe de ${kg} kg ou mais`, ev: 'catchkg', kg, goal: 1, rew: kg * 90 }; },
@@ -100,7 +100,7 @@ function currentAt(p) {
     const d = Math.hypot(p.x - s.x, p.z - s.z), k = 1 - smooth(s.r, s.r * 2.6, d);
     if (k <= 0) continue;
     if (curSpot !== s) { curSpot = s; toast(`Correnteza forte em ${s.name}! Nade contra ela ou ela leva você.`, 4, 'bad'); }
-    return _cur.set(s.cur[0] * k, 0, s.cur[1] * k);
+    return _cur.set(s.cur[0] * k * COND.cur, 0, s.cur[1] * k * COND.cur);
   }
   curSpot = null; return null;
 }

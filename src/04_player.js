@@ -315,6 +315,7 @@ function updateSwim(dt, t) {
       P.diveT = 0; P.maxD = 0; AU.splash(); spawnBubbles(_c.set(P.pos.x, P.pos.y + 0.3, P.pos.z), 20, 0.4);
       P.startO2 = P.o2;
       if (P.o2 < 0.6) toast('Pouco fôlego! Respire mais na superfície antes de descer.', 3, 'bad');
+      if (DAY.amb < 0.35 && !P.nightTip) { P.nightTip = true; toast('Na vida real, confira as regras locais: em muitos lugares a pesca sub noturna é proibida.', 5); }
     }
     P.o2 = Math.min(1, P.o2 + dt / (maxBreath() * 0.85)); P.surfT += dt;
     P.still = 0;
