@@ -1,14 +1,16 @@
 // ================= dupla de mergulho: um sobe, o outro desce =================
 const BUDDY_PRICE = 150;
 const BUDDY = { rig: null, pos: new V3(), yaw: 0, kick: 0, state: 'surf', t: 0, a: 0, tipDay: 0 };
-const hasBuddy = () => SV.buddyDay === (SV.day || 1);
+const hiredBuddy = () => SV.buddyDay === (SV.day || 1);
+// conta como dupla: a dupla contratada ou um amigo pescando junto
+const hasBuddy = () => hiredBuddy() || (P.mode === 'swim' && !COMP.on && withMe().length > 0);
 function hireBuddy() {
-  if (hasBuddy() || SV.money < BUDDY_PRICE) return;
+  if (hiredBuddy() || SV.money < BUDDY_PRICE) return;
   SV.money -= BUDDY_PRICE; SV.buddyDay = SV.day || 1; AU.coin(); save();
   toast('Dupla contratada para hoje: ela fica na superfície de olho em você.', 4, 'gold');
 }
 function updateBuddy(dt, t) {
-  const on = hasBuddy() && P.mode === 'swim' && !COMP.on;
+  const on = hiredBuddy() && P.mode === 'swim' && !COMP.on;
   if (!BUDDY.rig) {
     if (!on) return;
     const r = buildDiver(false); r.suitMat.map = null; r.suitMat.color.set(0x24364e); r.suitMat.needsUpdate = true; BUDDY.rig = r;

@@ -164,7 +164,7 @@ function equipHTML() {
     h += card(thumb('aLight', lightObj, [0.4, 0.5, 1]), 'Lanterna de mergulho', 'Acende sozinha abaixo de 7 m, na água turva e à noite. Ilumina toca e naufrágio.', SV.light ? '<span class="d">TEM</span>' : buyBtn('id="buyLight"', LIGHT_PRICE));
     h += card(thumb('aCam', camObj, [0.6, 0.4, 1]), 'Câmera submarina', 'Botão FOTO embaixo d\'água. Revistas pagam pelas fotos: peixe raro, mero e tartaruga valem mais.', SV.cam ? '<span class="d">TEM</span>' : buyBtn('id="buyCam"', CAM_PRICE));
     h += card(thumb('aComp', compObj, [0.3, 0.4, 1]), 'Computador de apneia', 'No pulso: mostra o intervalo de superfície recomendado (2× o mergulho), alarme de profundidade e alarme de fôlego em 40%.', SV.comp ? '<span class="d">TEM</span>' : buyBtn('id="buyComp"', COMP_PRICE));
-    h += card(thumb('aBuddy', () => diverObj(0x24364e), [0.2, 0.05, -1], 1.6), 'Dupla de mergulho · hoje', 'Fica na superfície vigiando enquanto você desce (um sobe, o outro desce). Num apagão, ela te resgata e salva a fieira.', hasBuddy() ? '<span class="d">CONTRATADA</span>' : buyBtn('id="buyBuddy"', BUDDY_PRICE));
+    h += card(thumb('aBuddy', () => diverObj(0x24364e), [0.2, 0.05, -1], 1.6), 'Dupla de mergulho · hoje', 'Fica na superfície vigiando enquanto você desce (um sobe, o outro desce). Num apagão, ela te resgata e salva a fieira.', hiredBuddy() ? '<span class="d">CONTRATADA</span>' : buyBtn('id="buyBuddy"', BUDDY_PRICE));
   }
   return h + '</div>';
 }

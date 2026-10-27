@@ -169,7 +169,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateApnea(dt);
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt);
   applyShake(dt);
 }
 function updateEnv(dt) {

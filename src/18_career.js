@@ -86,7 +86,7 @@ function setupTut() {
 }
 let tutBtn = null;
 function tutHUD() {
-  const on = started && tutActive(); $('tut').classList.toggle('hide', !on);
+  const on = started && tutActive() && !COMP.on; $('tut').classList.toggle('hide', !on);
   if (tutBtn) { $(tutBtn).classList.remove('pulse'); tutBtn = null; }
   if (!on) return;
   const s = TUT[SV.tut]; $('tutTxt').textContent = s.t; $('tutN').textContent = `${SV.tut + 1}/${TUT.length}`;
@@ -94,6 +94,7 @@ function tutHUD() {
 }
 function updateTut() {
   if (!tutActive() || !started) return;
+  if (COMP.on !== tutHUD.comp) { tutHUD.comp = COMP.on; tutHUD(); }
   if (GUN.state === 'flying') P.tutShots = (P.tutShots || 0) + (P.tutFly ? 0 : 1), P.tutFly = true; else P.tutFly = false;
   if (TUT[SV.tut].ok()) {
     SV.tut++; AU.coin(); save();
