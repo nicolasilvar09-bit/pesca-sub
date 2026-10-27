@@ -52,7 +52,7 @@ function buildDiveBuoy() {
 
 // ================= arbalete =================
 const GUN = { def: null, bands: 0, loadT: 0, state: 'ready', model: null, bandMeshes: [], spearVM: null, spear: null, line: null, pos: new V3(), vel: new V3(), dir: new V3(), trav: 0, range: 0, fish: null, freeT: 0, rock: false, lineLen: 0, tearT: 0, recoil: 0, q: '' };
-const _a = new V3(), _b = new V3(), _c = new V3(), _up = new V3(0, 1, 0);
+const _a = new V3(), _b = new V3(), _c = new V3(), _up = new V3(0, 1, 0), _rockN = new V3(), _rn2 = new V3();
 function cylBetween(m, a, b) { _c.subVectors(b, a); const l = _c.length(); m.position.copy(a).addScaledVector(_c, 0.5); m.scale.set(1, Math.max(l, 0.001), 1); m.quaternion.setFromUnitVectors(_up, _c.normalize()); }
 function camFwd(out) { return out.set(0, 0, -1).applyQuaternion(camera.quaternion); }
 
@@ -301,17 +301,33 @@ function updateSwim(dt, t) {
     if (IN.held.up) des.y += 1.8 * finK;
     const depth = -P.pos.y;
     const nd = neutralDepth(), buoy = clamp((nd - depth) / nd, -1, 1) * 0.22; // flutuabilidade: neutro conforme o cinto de lastro
-    P.vel.lerp(des, clamp(dt * 2.2, 0, 1)); P.vel.y += buoy * dt;
+    // segurando na pedra: imóvel até mexer o joystick ou subir
+    if (P.grip && (mv > 0.05 || IN.held.up)) P.grip = false;
+    if (P.grip) P.vel.set(0, 0, 0);
+    else { P.vel.lerp(des, clamp(dt * 2.2, 0, 1)); P.vel.y += buoy * dt; }
     if (mv < 0.05 && !IN.held.up) P.vel.multiplyScalar(Math.exp(-dt * 0.9));
     P.pos.addScaledVector(P.vel, dt);
     const h = H(P.pos.x, P.pos.z);
     if (P.pos.y < h + 0.4) { P.pos.y = h + 0.4; P.vel.y = Math.max(P.vel.y, 0); }
-    pushOutRocks(P.pos, 0.45);
+    // pedra e naufrágio são sólidos: cabeça/tronco e também quadril e pés (o corpo deitado atrás do ponto da câmera)
+    P.onRock = (solidPush(P.pos, 0.45, _rockN) && _rockN.y > 0.45) || P.grip;
+    const bf = _c.set(-Math.sin(P.yaw), 0, -Math.cos(P.yaw));
+    for (const k of [0.75, 1.5]) {
+      const q = _b.copy(P.pos).addScaledVector(bf, -k); q.y -= 0.14;
+      const q0 = _t1.copy(q);
+      if (solidPush(q, 0.22, _rn2)) { P.pos.add(q.sub(q0)); if (_rn2.y > 0.45) P.onRock = true; }
+    }
+    // apoiado em cima: não afunda nem escorrega, e parado fica imóvel para fazer a espera
+    if (P.onRock) {
+      P.vel.y = Math.max(P.vel.y, 0);
+      if (mv < 0.05 && !IN.held.up) { P.vel.multiplyScalar(Math.exp(-dt * 7)); if (P.vel.length() < 0.25) P.grip = true; }
+      if (!P.rockTip && P.still > 1.5) { P.rockTip = true; toast('Deitado na pedra: fique parado que os peixes vêm ver.', 3.5); }
+    }
     P.diveT += dt; P.maxD = Math.max(P.maxD, -P.pos.y);
     // consumo de oxigênio
     P.o2 -= dt / maxBreath() * (0.7 + 0.65 * P.effort * kickEff() + depth / 45) * eqPenalty(depth) * (P.stringer.length > 6 ? 1.1 : 1) * suitNow().o2 * maskNow().o2 * beltNow().o2 / (1 + (P.diveBonus || 0));
     if (P.pos.y > surfY - 0.45 && P.vel.y > -0.05) {
-      P.under = false; AU.breath(); P.surfT = 0; P.lastDiveT = P.diveT;
+      P.under = false; P.grip = false; AU.breath(); P.surfT = 0; P.lastDiveT = P.diveT;
       const d = P.maxD; if (d > 2) toast(`Mergulho: ${fmtKg(d)} m · ${Math.floor(P.diveT)} s`, 2.2);
       mission('depth', { d });
     }
@@ -327,7 +343,8 @@ function updateSwim(dt, t) {
   const bTarget = P.under ? 52 + P.effort * 45 + (P.o2 < 0.3 ? 25 : 0) - Math.min(8, P.still * 1.5) : 72 + (1 - P.o2) * 25;
   P.bpm = lerp(P.bpm, bTarget, clamp(dt * 0.6, 0, 1));
   // correnteza dos pontos expostos
-  const cu = currentAt(P.pos); if (cu) { P.pos.x += cu.x * dt; P.pos.z += cu.z * dt; }
+  // correnteza (segurando na pedra, parado, ela não leva)
+  const cu = currentAt(P.pos); if (cu && !P.grip) { P.pos.x += cu.x * dt; P.pos.z += cu.z * dt; }
   // limites do mapa
   P.pos.x = clamp(P.pos.x, WB.x0, WB.x1); P.pos.z = clamp(P.pos.z, WB.z0, WB.z1);
   if (H(P.pos.x, P.pos.z) > -0.3 && !P.under) { P.pos.addScaledVector(P.vel, -dt * 2); P.vel.multiplyScalar(-0.3); }

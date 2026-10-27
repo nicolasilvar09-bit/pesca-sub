@@ -311,9 +311,34 @@ function pushOutRocks(p, pad) {
   }
   return hit;
 }
+// colisão precisa: usa a superfície real da pedra (mesmo ruído e rotação do modelo 3D).
+// devolve true se empurrou; em nrm fica a normal da superfície no ponto de contato
+const _ip = new V3(), _rl = new V3(), _rq = new THREE.Quaternion();
+function rockPush(R, p, pad, nrm) {
+  const sx = R.r, sy = R.r * R.sy;
+  _rl.set(p.x - R.x, p.y - R.y, p.z - R.z);
+  if (R.q) _rl.applyQuaternion(_rq.copy(R.q).invert());
+  const vx = _rl.x / sx, vy = _rl.y / sy, vz = _rl.z / sx, L = Math.hypot(vx, vy, vz);
+  if (L < 1e-4 || L > 2.2) return false;
+  const dx = vx / L, dy = vy / L, dz = vz / L;
+  const n = R.q && ROCK_O[R.gi] ? rockN(_rl.set(dx, dy, dz), ROCK_O[R.gi][0], ROCK_O[R.gi][1]) : 1;
+  const surf = n + pad / lerp(sx, sy, Math.abs(dy));
+  if (L >= surf) return false;
+  _rl.set(dx * surf * sx, dy * surf * sy, dz * surf * sx);
+  if (R.q) _rl.applyQuaternion(R.q);
+  p.set(R.x + _rl.x, R.y + _rl.y, R.z + _rl.z);
+  if (nrm) { nrm.set(dx / sx, dy / sy, dz / sx); if (R.q) nrm.applyQuaternion(R.q); nrm.normalize(); }
+  return true;
+}
+// versão precisa para o mergulhador, o arpão e a câmera; acumula a normal do contato mais "de cima"
+const _rn = new V3();
+function solidPush(p, pad, out) {
+  let hit = false; if (out) out.set(0, 0, 0);
+  for (const R of rocksNear(p.x, p.z)) if (rockPush(R, p, pad, _rn)) { hit = true; if (out && _rn.y > out.y) out.copy(_rn); }
+  return hit;
+}
 function insideRock(p) {
-  for (const R of rocksNear(p.x, p.z)) { const dx = p.x - R.x, dy = (p.y - R.y) / R.sy, dz = p.z - R.z; if (dx * dx + dy * dy + dz * dz < (R.r * 0.84) ** 2) return true; }
-  return false;
+  const q = _ip.copy(p); return solidPush(q, 0) && q.distanceToSquared(p) > 0.0004;
 }
 // raio da pedra na direção unitária v (o mesmo ruído que deforma a malha)
 const rockN = (v, o1, o2) => 1 + 0.3 * vnoise(v.x * 1.6 + o1, v.y * 1.6 + v.z * 1.2) + 0.14 * vnoise(v.z * 3.4 + o2, v.x * 3.1 - v.y * 2.3) + 0.07 * vnoise(v.x * 7 + v.z * 5, v.y * 7 + o1) + 0.035 * vnoise(v.x * 15 + o2, v.z * 15 - v.y * 11) + 0.08 * Math.max(0, vnoise(v.x * 2.2 - o1, v.z * 2.2) - 0.3);

@@ -348,7 +348,9 @@ function updateDiver(dt, t) {
   if (!show) return;
   const mv = Math.min(1, Math.hypot(IN.jx, IN.jy) + (IN.held.up ? 1 : 0));
   P.kickAnim = (P.kickAnim || 0) + dt * (P.under ? 2 + mv * 5 : 1.2 + mv * 4);
-  const bodyP = P.under ? clamp(P.pitch, -1.3, 1.2) * 0.85 : 0;
+  // deitado na pedra e parado: corpo reto, apoiado; nadando: acompanha a mira
+  DIVER.lay = lerp(DIVER.lay || 0, P.under && P.onRock && P.still > 0.4 ? 1 : 0, clamp(dt * 3, 0, 1));
+  const bodyP = (P.under ? clamp(P.pitch, -1.3, 1.2) * 0.85 : 0) * (1 - DIVER.lay);
   // velocidade de giro → inclinação e curva do corpo
   const yr = angDiff(DIVER.lastYaw ?? P.yaw, P.yaw) / Math.max(dt, 1e-3); DIVER.lastYaw = P.yaw;
   DIVER.turn = lerp(DIVER.turn || 0, clamp(yr * 0.5, -1, 1), clamp(dt * 5, 0, 1));
@@ -399,7 +401,7 @@ function thirdPersonCam(t) {
   const tall = camera.aspect < 1, back = (tall ? 6.0 : 5.2) + steep * 1.0, up = (P.under ? 1.2 : 1.4) * (tall ? 1.2 : 1) + steep * 0.5, sideK = 0.55 + steep * 1.0, rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
   const c = new V3(P.pos.x - fwd.x * back + rx * sideK, P.pos.y - fwd.y * back + up, P.pos.z - fwd.z * back + rz * sideK);
   const h = H(c.x, c.z); if (c.y < h + 0.35) c.y = h + 0.35;
-  pushOutRocks(c, 0.3);
+  solidPush(c, 0.3);
   camera.position.lerp(c, 0.35);
   camera.rotation.set(P.pitch - 0.2, P.yaw, 0, 'YXZ');
 }

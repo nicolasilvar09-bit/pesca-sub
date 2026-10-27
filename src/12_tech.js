@@ -4,7 +4,8 @@
 function updateHide(dt) {
   const was = P.hide;
   P.hide = false;
-  if (P.mode === 'swim' && P.under && P.still > 1 && P.pos.y - H(P.pos.x, P.pos.z) < 1.1) {
+  if (P.mode === 'swim' && P.under && P.still > 1 && P.onRock) P.hide = true;
+  else if (P.mode === 'swim' && P.under && P.still > 1 && P.pos.y - H(P.pos.x, P.pos.z) < 1.1) {
     for (const R of rocksNear(P.pos.x, P.pos.z)) if (Math.hypot(P.pos.x - R.x, P.pos.z - R.z) < R.r + 1.3) { P.hide = true; break; }
   }
   if (P.hide && !was && !SV.tipHide) { SV.tipHide = true; toast('Agachon: escondido atrás da pedra, os peixes chegam bem mais perto.', 4); }
