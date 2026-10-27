@@ -14,7 +14,8 @@ const gunById = id => GUNS.find(g => g.id === id);
 const SAVE_KEY = 'pescasub_costaverde_v1';
 let SV = { money: 300, guns: ['a75'], gun: 'a75', apnea: 0, fins: 0, fuel: 80, cooler: [], best: {}, dest: 'botinas', suit: 0, suits: [0], mask: 0, masks: [0], light: false, boat: 0, boats: [0], wins: 0 };
 function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s) SV = Object.assign(SV, s); } catch (e) { } }
-function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SV)); } catch (e) { } }
+let SAVE_LOCK = false; // ligado ao apagar/restaurar, para o autosave da saída não regravar o progresso antigo
+function save() { if (SAVE_LOCK) return; SV.savedAt = Date.now(); const j = JSON.stringify(SV); try { localStorage.setItem(SAVE_KEY, j); } catch (e) { } if (typeof mirrorSave === 'function') mirrorSave(j); }
 
 // ================= jogador / barco =================
 const P = { mode: 'boat', pos: new V3(), vel: new V3(), yaw: 0, pitch: -0.1, under: false, o2: 1, bpm: 68, still: 0, noise: 0, diveT: 0, maxD: 0, stringer: [], effort: 0, surfT: 99, out: 0 };
