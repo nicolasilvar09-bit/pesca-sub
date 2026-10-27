@@ -415,9 +415,9 @@ const MASKS = [
   { name: 'Máscara baixo volume', o2: 0.95, fov: 6, price: 450, desc: 'Menos ar para compensar e campo de visão maior.' },
 ];
 const BOATS = [
-  { name: 'Lancha 21 pés', max: 30, tank: 100, scale: 1, price: 0, desc: 'Motor de popa 150 hp.' },
-  { name: 'Lancha 26 pés', max: 36, tank: 150, scale: 1.15, price: 9000, desc: 'Motor 250 hp, tanque de 150 L.' },
-  { name: 'Lancha 32 pés', max: 42, tank: 220, scale: 1.3, price: 24000, desc: 'Dois motores 300 hp, tanque de 220 L. Chega no parcel voando.' },
+  { name: 'Lancha 21 pés', max: 30, tank: 100, scale: 1, price: 0, desc: 'Console central aberto com bimini de lona. Motor de popa 150 hp.' },
+  { name: 'Lancha 26 pés', max: 36, tank: 150, scale: 1.15, price: 9000, desc: 'Cabinada: cabine na proa com vigias, T-top com radar e porta-varas. Motor 250 hp.' },
+  { name: 'Lancha 32 pés', max: 42, tank: 220, scale: 1.3, price: 24000, desc: 'Pesca oceânica: cabine longa, hardtop com torre de observação, tangones e poltrona de briga. Dois motores 300 hp, chega no parcel voando.' },
 ];
 const LIGHT_PRICE = 600;
 const suitNow = () => SUITS[SV.suit || 0], maskNow = () => MASKS[SV.mask || 0], boatNow = () => BOATS[SV.boat || 0];
@@ -491,7 +491,7 @@ function initExtra() {
   applyGear();
 }
 function applyGear() {
-  if (BOAT.mesh) BOAT.mesh.scale.setScalar(boatNow().scale);
+  if (BOAT.mesh && (BOAT.meshIdx !== (SV.boat || 0) || BOAT.meshPaint !== JSON.stringify(SV.boatPaint || {}))) rebuildBoat();
   SV.fuel = Math.min(SV.fuel, tankMax());
   if (DIVER && DIVER.suitMat) { const m = DIVER.suitMat; if ((SV.suit || 0) === 0) { m.map = null; m.color.set(0x1b1e22); } else { m.map = _camoT; m.color.set(SV.suit === 2 ? 0xd8e0c8 : 0xffffff); } m.needsUpdate = true; applyDiverLook(DIVER); }
 }
@@ -526,7 +526,7 @@ function renderShop() {
   }
   if (shopTab === 'equip') h = equipHTML();
   if (shopTab === 'apneia') h = apneaHTML();
-  if (shopTab === 'boats') h = '<div class="list">' + BOATS.map((b, i) => `<div class="it"><div><div class="n">${b.name}</div><div class="d">${b.desc} Velocidade máx. ${Math.round(b.max * 1.94)} nós · tanque ${b.tank} L.</div></div>${(SV.boat || 0) === i ? '<span class="d">EM USO</span>' : (SV.boats || [0]).includes(i) ? `<button class="btn alt" data-boat="${i}">USAR</button>` : buyBtn(`data-bboat="${i}"`, b.price)}</div>`).join('') + '</div>';
+  if (shopTab === 'boats') h = boatsHTML();
   if (shopTab === 'fuel') {
     const need = tankMax() - SV.fuel, cost = need * 6.5;
     h = at ? `<div class="list"><div class="it"><div><div class="n">Gasolina · ${Math.round(SV.fuel)}/${tankMax()} L</div><div class="d">R$ 6,50 por litro.</div></div><button class="btn" id="fill" ${need < 1 || SV.money < 7 ? 'disabled' : ''}>ENCHER ${fmtR(Math.min(cost, Math.max(0, SV.money)))}</button></div></div>`
@@ -557,7 +557,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
-  bindEquip(B, on, pay);
+  bindEquip(B, on, pay); bindBoats(on, pay);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };

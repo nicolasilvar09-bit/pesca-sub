@@ -25,39 +25,7 @@ const maxBreath = () => 45 + STATIC_STEPS.slice(0, SV.apnea || 0).reduce((a, b) 
 let camUnder = false, camMurk = 0;
 
 function buildBoat() {
-  const g = new THREE.Group();
-  const sh = new THREE.Shape();
-  sh.moveTo(-1.15, -3.5); sh.lineTo(1.15, -3.5); sh.lineTo(1.25, 0.8); sh.quadraticCurveTo(1.05, 2.9, 0, 3.9); sh.quadraticCurveTo(-1.05, 2.9, -1.25, 0.8); sh.closePath();
-  const hg = new THREE.ExtrudeGeometry(sh, { depth: 1.15, steps: 5, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 2, curveSegments: 10 });
-  hg.rotateX(Math.PI / 2); hg.translate(0, 0.62, 0);
-  const p = hg.attributes.position, col = new Float32Array(p.count * 3);
-  for (let i = 0; i < p.count; i++) {
-    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const dn = clamp((0.62 - y) / 1.25, 0, 1); x *= lerp(1, 0.28, dn * dn); if (dn > 0.5) y += Math.max(0, z - 0.8) * 0.18 * dn;
-    p.setXYZ(i, x, y, z);
-    let c = [0.95, 0.96, 0.97]; if (y < 0.3 && y > 0.05) c = [0.06, 0.16, 0.3]; if (y <= -0.12) c = [0.45, 0.08, 0.06];
-    col.set(c, i * 3);
-  }
-  hg.setAttribute('color', new THREE.BufferAttribute(col, 3)); hg.computeVertexNormals();
-  const hull = new THREE.Mesh(hg, uwify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35 }), { key: 'b' })); g.add(hull);
-  const deckG = new THREE.ShapeGeometry(sh); deckG.rotateX(-Math.PI / 2); deckG.scale(0.9, 1, 0.93);
-  const deck = new THREE.Mesh(deckG, new THREE.MeshStandardMaterial({ color: 0xb08a5a, roughness: 0.8 })); deck.position.y = 0.715; g.add(deck);
-  const white = new THREE.MeshStandardMaterial({ color: 0xf4f6f6, roughness: 0.4 });
-  const box = (w, h, d, x, y, z, m = white) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
-  box(0.95, 0.95, 0.75, 0, 1.12, 0.2);
-  const glass = box(1.05, 0.5, 0.04, 0, 1.78, 0.62, new THREE.MeshStandardMaterial({ color: 0x223844, transparent: true, opacity: 0.45, roughness: 0.1 })); glass.rotation.x = -0.45;
-  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.025, 6, 16), new THREE.MeshStandardMaterial({ color: 0x111111 })); wheel.position.set(0.15, 1.68, -0.2); wheel.rotation.x = -0.9; g.add(wheel);
-  const post = new THREE.CylinderGeometry(0.03, 0.03, 1.9, 6), steel = new THREE.MeshStandardMaterial({ color: 0xc8cdd0, metalness: 0.8, roughness: 0.25 });
-  for (const [x, z] of [[-0.75, 1], [0.75, 1], [-0.75, -0.9], [0.75, -0.9]]) { const m = new THREE.Mesh(post, steel); m.position.set(x, 1.62, z); g.add(m); }
-  box(1.7, 0.07, 2.2, 0, 2.58, 0.05, new THREE.MeshStandardMaterial({ color: 0x1d4f7a, roughness: 0.8 }));
-  box(2.0, 0.42, 0.65, 0, 0.88, -2.7, new THREE.MeshStandardMaterial({ color: 0xece2cc, roughness: 0.7 }));
-  box(1.2, 0.5, 0.7, 0, 0.92, 1.9, new THREE.MeshStandardMaterial({ color: 0xece2cc, roughness: 0.7 }));
-  const motor = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 });
-  box(0.5, 0.85, 0.55, 0, 1.0, -3.78, motor); box(0.16, 1.1, 0.24, 0, 0.1, -3.82, motor);
-  // piloto
-  const pilot = buildDiver(false); scene.remove(pilot.root); g.add(pilot.root); pilot.root.position.set(0.15, 0.715 + 1.02, -0.62); pilot.root.rotation.y = Math.PI;
-  poseDiver(pilot, 'drive', 0); g.userData.pilot = [pilot.root]; g.userData.rig = pilot;
-  scene.add(g); BOAT.mesh = g;
+  rebuildBoat();
   // âncora
   BOAT.rope = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new V3(), new V3()]), new THREE.LineBasicMaterial({ color: 0xd8d0b0 }));
   BOAT.rope.frustumCulled = false; BOAT.rope.visible = false; scene.add(BOAT.rope);
