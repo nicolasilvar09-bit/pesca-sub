@@ -20,7 +20,7 @@ function setupInput() {
   window.__resetTouch = () => { JOY.id = null; JOY.x = JOY.y = 0; knob.style.transform = ''; LOOK.id = null; for (const k in IN.held) IN.held[k] = false; document.querySelectorAll('.b.on').forEach(b => b.classList.remove('on')); };
   addEventListener('blur', () => window.__resetTouch());
   renderer.domElement.addEventListener('pointerdown', e => { if (LOOK.id === null) { LOOK.id = e.pointerId; LOOK.x = e.clientX; LOOK.y = e.clientY; } AU.init(); });
-  const BTN = { bFire: ['p', 'fire'], bArm: ['p', 'arm'], bPull: ['h', 'pull'], bUp: ['h', 'up'], bDive: ['p', 'dive'], bCtx: ['p', 'ctx'], bAnchor: ['p', 'anchor'], bJump: ['p', 'jump'], bMarina: ['p', 'marina'], bMap: ['p', 'map'], bView: ['p', 'view'], bShop: ['p', 'shop'] };
+  const BTN = { bFire: ['p', 'fire'], bArm: ['p', 'arm'], bPull: ['h', 'pull'], bUp: ['h', 'up'], bDive: ['p', 'dive'], bCtx: ['p', 'ctx'], bAnchor: ['p', 'anchor'], bJump: ['p', 'jump'], bMarina: ['p', 'marina'], bMap: ['p', 'map'], bView: ['p', 'view'], bShop: ['p', 'shop'], bPhoto: ['p', 'photo'] };
   for (const [id, [kind, name]] of Object.entries(BTN)) {
     const el = $(id);
     el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); AU.init(); if (kind === 'p') IN.pressed[name] = true; else IN.held[name] = true; el.classList.add('on'); try { el.setPointerCapture(e.pointerId); } catch (_) { } });
@@ -29,7 +29,7 @@ function setupInput() {
   }
   addEventListener('keydown', e => {
     if (e.repeat) return; IN.keys[e.code] = true;
-    const m = { Space: 'fire', KeyR: 'arm', KeyQ: 'dive', KeyE: 'ctx', KeyM: 'map', KeyT: 'anchor', KeyV: 'view', KeyL: 'shop' }; if (m[e.code]) IN.pressed[m[e.code]] = true;
+    const m = { Space: 'fire', KeyR: 'arm', KeyQ: 'dive', KeyE: 'ctx', KeyM: 'map', KeyT: 'anchor', KeyV: 'view', KeyL: 'shop', KeyP: 'photo' }; if (m[e.code]) IN.pressed[m[e.code]] = true;
     if (e.code === 'KeyF') IN.held.pull = true; if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') IN.held.up = true;
     if (e.code === 'Space') e.preventDefault();
   });
@@ -103,7 +103,7 @@ function updateHUD(dt) {
   if (swim && !P.under && P.boatDist < 6) { ctx.textContent = 'SUBIR NO BARCO'; show('bCtx', true); }
   else if (!swim && SV.fuel <= 0 && !nearMarina()) { ctx.textContent = 'REBOQUE (R$ 150)'; show('bCtx', true); }
   else show('bCtx', false);
-  show('cross', swim); show('bands', swim); show('bView', swim); show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
+  show('cross', swim); show('bands', swim); show('bView', swim); show('bPhoto', swim && P.under && !!SV.cam); show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
   const aim = aimOnFish(); $('cross').classList.toggle('ok', !!(aim && aim.ok));
   const al = $('aimLbl'); if (aim) { al.textContent = `${aim.f.sp.rare ? '★ RARO · ' : isTrophy(aim.f) ? '★ TROFÉU · ' : ''}${aim.f.sp.name} · ~${Math.round(aim.f.len * 100 / 5) * 5} cm${aim.ok ? '' : ' · longe'}`; al.classList.remove('hide'); } else al.classList.add('hide');
   const fighting = GUN.state === 'hooked' && GUN.fish && GUN.fish.fight > 0;
@@ -159,6 +159,7 @@ function step(dt) {
   if (took('view')) { THIRD = !THIRD; toast(THIRD ? 'Vista em 3ª pessoa' : 'Vista em 1ª pessoa (mira de precisão)'); }
   if (took('fire')) gunFire();
   if (took('arm')) gunArm();
+  if (took('photo')) takePhoto();
   updateBoat(dt, T);
   if (P.mode === 'swim') { updateSwim(dt, T); if (THIRD) thirdPersonCam(T); }
   else { took('dive'); diveBuoy.visible = false; diveLine.visible = false; P.pos.copy(BOAT.pos); P.under = false; P.o2 = Math.min(1, P.o2 + dt / (maxBreath() * 0.85)); P.bpm = lerp(P.bpm, 70, dt * 0.5); P.surfT += dt; P.still = 0; }

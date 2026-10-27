@@ -49,7 +49,7 @@ function buildLife() {
       SWARMS.push(sw);
     }
   }
-  for (const id of ['jorge', 'laje', 'gipoia']) { const s = spotById(id); const m = buildTurtle(); TURTLES.push({ m, spot: s, pos: new V3(s.x, H(s.x, s.z) + 3, s.z), vel: new V3(), tgt: new V3(), t: 0, yaw: 0, flap: 0, breathe: rand(30, 80) }); }
+  for (const id of ['jorge', 'laje', 'gipoia', 'lagoa', 'lagoa', 'castelhanos', 'cataguases']) { const s = spotById(id); const m = buildTurtle(); TURTLES.push({ m, spot: s, pos: new V3(s.x, H(s.x, s.z) + 3, s.z), vel: new V3(), tgt: new V3(), t: 0, yaw: 0, flap: 0, breathe: rand(30, 80) }); }
   STR.line = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(40 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xd8d0a0 }));
   STR.line.frustumCulled = false; scene.add(STR.line);
   buildDecor2();
