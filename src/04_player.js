@@ -7,7 +7,9 @@ const GUNS = [
   { id: 'a150', name: 'Roller 150 Big Game', len: 1.5, range: 10, bands: 3, power: 75, speed: 30, price: 6500, load: 1.6, wood: true, desc: 'Arma de caça grande no azul. Tiro longo e muita força.' },
   { id: 'a130', name: 'Roller 130 cm', len: 1.3, range: 8.5, bands: 3, power: 42, speed: 27, price: 3400, load: 1.4, wood: true, desc: 'Sistema roller, alcance de azul. Para olho-de-boi.' },
 ];
-const FINS = [{ name: 'Nadadeira plástica', k: 1.0, price: 0 }, { name: 'Nadadeira de fibra', k: 1.18, price: 700 }, { name: 'Nadadeira de carbono', k: 1.35, price: 1700 }];
+const FINS = [{ name: 'Nadadeira plástica', k: 1.0, price: 0 }, { name: 'Nadadeira de fibra', k: 1.18, price: 700 }, { name: 'Nadadeira de carbono', k: 1.35, price: 1700 },
+  { name: 'Nadadeira de fibra azul', k: 1.2, price: 900 }, { name: 'Nadadeira de fibra vermelha', k: 1.2, price: 900 }, { name: 'Nadadeira de fibra camuflada', k: 1.22, price: 1200, shy: 0.94 },
+  { name: 'Nadadeira de carbono camuflada azul', k: 1.38, price: 2600, shy: 0.94 }, { name: 'Nadadeira de carbono pro longa', k: 1.48, price: 3800 }];
 const gunById = id => GUNS.find(g => g.id === id);
 
 // ================= estado salvo =================

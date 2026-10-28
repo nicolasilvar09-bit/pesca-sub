@@ -1416,7 +1416,7 @@ class Fish {
     const dP = p.distanceTo(P.pos);
     if (this.state !== 'hooked') {
       const vis = P.mode === 'swim';
-      let fearR = (1.6 + sp.shy * suitNow().shy * 12 * (0.2 + P.noise * 1.15)) * (P.under ? 1 : 0.4);
+      let fearR = (1.6 + sp.shy * gearShy() * 12 * (0.2 + P.noise * 1.15)) * (P.under ? 1 : 0.4);
       if (P.still > 2 && P.under) fearR *= 0.55; // espera: peixe se aproxima mais
       fearR *= 0.6 + 0.4 * DAY.amb; // no escuro o peixe enxerga menos
       if (P.hide) fearR *= 0.6; // agachon
@@ -1587,7 +1587,9 @@ const GUNS = [
   { id: 'a150', name: 'Roller 150 Big Game', len: 1.5, range: 10, bands: 3, power: 75, speed: 30, price: 6500, load: 1.6, wood: true, desc: 'Arma de caça grande no azul. Tiro longo e muita força.' },
   { id: 'a130', name: 'Roller 130 cm', len: 1.3, range: 8.5, bands: 3, power: 42, speed: 27, price: 3400, load: 1.4, wood: true, desc: 'Sistema roller, alcance de azul. Para olho-de-boi.' },
 ];
-const FINS = [{ name: 'Nadadeira plástica', k: 1.0, price: 0 }, { name: 'Nadadeira de fibra', k: 1.18, price: 700 }, { name: 'Nadadeira de carbono', k: 1.35, price: 1700 }];
+const FINS = [{ name: 'Nadadeira plástica', k: 1.0, price: 0 }, { name: 'Nadadeira de fibra', k: 1.18, price: 700 }, { name: 'Nadadeira de carbono', k: 1.35, price: 1700 },
+  { name: 'Nadadeira de fibra azul', k: 1.2, price: 900 }, { name: 'Nadadeira de fibra vermelha', k: 1.2, price: 900 }, { name: 'Nadadeira de fibra camuflada', k: 1.22, price: 1200, shy: 0.94 },
+  { name: 'Nadadeira de carbono camuflada azul', k: 1.38, price: 2600, shy: 0.94 }, { name: 'Nadadeira de carbono pro longa', k: 1.48, price: 3800 }];
 const gunById = id => GUNS.find(g => g.id === id);
 
 // ================= estado salvo =================
@@ -2542,7 +2544,7 @@ function buildFPArm() {
   gtex();
   const a = new THREE.Group();
   const glove = new THREE.MeshStandardMaterial({ color: 0x111214, roughness: 0.7 });
-  const sleeve = new THREE.MeshStandardMaterial({ map: _camoT, roughness: 0.85 });
+  const sleeve = FP_SLEEVE = new THREE.MeshStandardMaterial({ map: _camoT, roughness: 0.85 }); suitMat(sleeve, SV.suit || 0);
   const hand = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.05, 4, 10), glove); hand.scale.set(1.25, 1, 0.95); hand.position.set(0, -0.06, 0.035); hand.rotation.x = -0.35; a.add(hand);
   for (let i = 0; i < 4; i++) { const f = new THREE.Mesh(new THREE.CapsuleGeometry(0.0095, 0.028, 3, 6), glove); f.position.set(-0.018, -0.03 - i * 0.02, 0.012); f.rotation.z = Math.PI / 2; a.add(f); }
   const th = new THREE.Mesh(new THREE.CapsuleGeometry(0.01, 0.035, 3, 6), glove); th.position.set(0.02, -0.012, 0.02); th.rotation.x = 0.9; a.add(th);
@@ -2658,9 +2660,10 @@ function buildDiver(withGun) {
   const head = mesh(new THREE.SphereGeometry(0.104, 22, 18), neo, neck, 0, 0.115, 0.006); head.scale.set(0.9, 1.12, 1.02);
   mesh(new THREE.CylinderGeometry(0.06, 0.068, 0.09, 16), neo, neck, 0, 0.0, 0.004);
   const face = mesh(new THREE.SphereGeometry(0.07, 16, 12), skin, neck, 0, 0.075, -0.064); face.scale.set(0.78, 0.92, 0.5);
-  const mask = mesh(new THREE.CylinderGeometry(0.036, 0.04, 0.034, 20), rub, neck, 0, 0.128, -0.098); mask.rotation.x = Math.PI / 2; mask.scale.set(2.05, 1, 0.92);
+  const maskM = uwify(new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.55 }), { key: 'dv' }), lensM = new THREE.MeshStandardMaterial({ color: 0x0a1418, metalness: 0.9, roughness: 0.05 });
+  const mask = mesh(new THREE.CylinderGeometry(0.036, 0.04, 0.034, 20), maskM, neck, 0, 0.128, -0.098); mask.rotation.x = Math.PI / 2; mask.scale.set(2.05, 1, 0.92);
   mesh(new THREE.ConeGeometry(0.022, 0.034, 10), rub, neck, 0, 0.088, -0.108).rotation.x = Math.PI;
-  for (const sx of [-1, 1]) { const l = mesh(new THREE.CircleGeometry(0.026, 18), new THREE.MeshStandardMaterial({ color: 0x0a1418, metalness: 0.9, roughness: 0.05 }), neck, sx * 0.034, 0.132, -0.1162); l.rotation.y = Math.PI; l.scale.set(1.08, 0.9, 1); }
+  for (const sx of [-1, 1]) { const l = mesh(new THREE.CircleGeometry(0.026, 18), lensM, neck, sx * 0.034, 0.132, -0.1162); l.rotation.y = Math.PI; l.scale.set(1.08, 0.9, 1); }
   const strap = mesh(new THREE.TorusGeometry(0.1, 0.007, 6, 28), rub, neck, 0, 0.13, 0.006); strap.scale.set(0.95, 1, 1.05); strap.rotation.x = Math.PI / 2 + 0.25;
   const snk = new THREE.CatmullRomCurve3([new V3(0.0, 0.05, -0.1), new V3(0.06, 0.06, -0.09), new V3(0.1, 0.12, -0.04), new V3(0.105, 0.26, 0.0), new V3(0.09, 0.33, 0.04)]);
   mesh(new THREE.TubeGeometry(snk, 20, 0.011, 8), rub, neck);
@@ -2711,7 +2714,7 @@ function buildDiver(withGun) {
   };
   const lL = leg(-1), lR = leg(1);
   scene.add(root);
-  const rig = { root, torso, neck, aL, aR, lL, lR, handR: aR.wr, suitMat: suit, finM, mask, leads };
+  const rig = { root, torso, neck, aL, aR, lL, lR, handR: aR.wr, suitMat: suit, finM, mask, maskM, lensM, leads };
   return rig;
 }
 // poses
@@ -2835,10 +2838,22 @@ const SUITS = [
   { name: 'Roupa 3 mm lisa', o2: 1, shy: 1, price: 0, desc: 'Básica, preta. O peixe vê você de longe.' },
   { name: 'Roupa 5 mm camuflada', o2: 0.93, shy: 0.85, price: 900, desc: 'Camuflagem de costão: o peixe estranha menos. Mais quente, gasta menos fôlego.' },
   { name: 'Roupa 7 mm camuflada pro', o2: 0.86, shy: 0.72, price: 2400, desc: 'Corte de apneia, aberta por dentro. A melhor para fazer espera.' },
+  { name: 'Roupa 3 mm azul oceano', o2: 1, shy: 0.95, price: 500, env: 'azul', desc: 'Azul liso: some na água azul de meia-água.' },
+  { name: 'Roupa 5 mm camuflada azul', o2: 0.93, shy: 0.82, price: 1400, env: 'azul', desc: 'Camuflagem de água azul, para parcel e pesca de meia-água.' },
+  { name: 'Roupa 5 mm camuflada marrom', o2: 0.93, shy: 0.82, price: 1300, env: 'pedra', desc: 'Marrom de pedra e casco: rende mais encostado no costão e no naufrágio.' },
+  { name: 'Roupa 5 mm camuflada areia', o2: 0.93, shy: 0.82, price: 1400, env: 'areia', desc: 'Bege claro: some no fundo de areia, longe das pedras.' },
+  { name: 'Roupa 5 mm camuflada igapó', o2: 0.92, shy: 0.8, price: 1600, env: 'rio', desc: 'Verde e marrom de galhada, feita para o rio. Rende mais no Amazonas.' },
+  { name: 'Roupa 3 mm vermelha', o2: 1, shy: 1.08, price: 350, desc: 'Estilosa, mas o peixe vê você de longe.' },
+  { name: 'Roupa 7 mm carbono pro', o2: 0.83, shy: 0.76, price: 3200, desc: 'Neoprene premium com reforço de carbono: a mais quente, rende mais fôlego.' },
 ];
 const MASKS = [
   { name: 'Máscara padrão', o2: 1, fov: 0, price: 0, desc: 'Vem com o kit.' },
   { name: 'Máscara baixo volume', o2: 0.95, fov: 6, price: 450, desc: 'Menos ar para compensar e campo de visão maior.' },
+  { name: 'Máscara lente única', o2: 0.96, fov: 9, price: 650, frame: 0x1a1c20, single: true, desc: 'Uma lente só, sem divisória no meio: a visão mais aberta.' },
+  { name: 'Máscara espelhada', o2: 0.95, fov: 6, price: 900, shy: 0.93, lens: 0x9ab4cc, mirror: true, desc: 'Lente espelhada: o peixe não vê seus olhos e estranha menos.' },
+  { name: 'Máscara de silicone azul', o2: 0.95, fov: 6, price: 500, frame: 0x1f4f8a, desc: 'Baixo volume, silicone azul translúcido.' },
+  { name: 'Máscara de silicone vermelha', o2: 0.95, fov: 6, price: 500, frame: 0x9a2228, desc: 'Baixo volume, silicone vermelho.' },
+  { name: 'Máscara pro de carbono', o2: 0.92, fov: 8, price: 1500, frame: 'carb', desc: 'Armação de carbono e volume mínimo: o menor gasto de ar para compensar.' },
 ];
 const BOATS = [
   { name: 'Lancha 21 pés', max: 30, tank: 100, scale: 1, price: 0, desc: 'Console central aberto com bimini de lona. Motor de popa 150 hp.' },
@@ -2926,7 +2941,8 @@ function initExtra() {
 function applyGear() {
   if (BOAT.mesh && (BOAT.meshIdx !== curBoatIdx() || BOAT.meshPaint !== JSON.stringify(SV.boatPaint || {}))) rebuildBoat();
   SV.fuel = Math.min(SV.fuel, tankMax());
-  if (DIVER && DIVER.suitMat) { const m = DIVER.suitMat; if ((SV.suit || 0) === 0) { m.map = null; m.color.set(0x1b1e22); } else { m.map = _camoT; m.color.set(SV.suit === 2 ? 0xd8e0c8 : 0xffffff); } m.needsUpdate = true; applyDiverLook(DIVER); }
+  if (DIVER && DIVER.suitMat) { const m = DIVER.suitMat; if ((SV.suit || 0) === 0) { m.map = null; m.color.set(0x1b1e22); } else { m.map = _camoT; m.color.set(SV.suit === 2 ? 0xd8e0c8 : 0xffffff); } suitMat(m, SV.suit || 0); applyDiverLook(DIVER); }
+  if (FP_SLEEVE) suitMat(FP_SLEEVE, SV.suit || 0);
 }
 function updateLight() {
   if (!DLIGHT) return;
@@ -2990,7 +3006,8 @@ function renderShop() {
   on('[data-bboat]', b => { const i = +b.dataset.bboat; if (pay(BOATS[i].price)) { SV.boats = [...new Set([...(SV.boats || [0]), i])]; SV.boat = i; SV.voad = false; applyGear(); } });
   on('[data-boat]', b => { SV.boat = +b.dataset.boat; SV.voad = false; applyGear(); AU.click(); });
   on('[data-voad]', () => { SV.voad = true; applyGear(); AU.click(); });
-  on('[data-fin]', b => { const i = +b.dataset.fin; if (pay(FINS[i].price)) SV.fins = i; });
+  on('[data-fin]', b => { const i = +b.dataset.fin; if (pay(FINS[i].price)) { SV.finsOwn = [...new Set([...finsOwned(), i])]; SV.fins = i; applyGear(); } });
+  on('[data-finu]', b => { SV.fins = +b.dataset.finu; applyGear(); AU.click(); });
   on('[data-comp]', b => { closePanels(); startComp(b.dataset.comp); });
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
@@ -3697,12 +3714,15 @@ function prepHUD() {
 }
 
 // ---------- visual no mergulhador: nadadeira, máscara e chumbos do cinto ----------
-const FIN_LOOK = [{ color: 0x1b1f25, map: false, rough: 0.6, metal: 0 }, { color: 0x3c7d78, map: false, rough: 0.3, metal: 0.15 }, { color: 0xffffff, map: true, rough: 0.3, metal: 0.35 }];
-function lookFin(m, i) { const L = FIN_LOOK[i] || FIN_LOOK[2]; m.map = L.map ? _carbT : null; m.color.set(L.color); m.roughness = L.rough; m.metalness = L.metal; m.needsUpdate = true; }
+const FIN_LOOK = [{ color: 0x1b1f25, map: false, rough: 0.6, metal: 0 }, { color: 0x3c7d78, map: false, rough: 0.3, metal: 0.15 }, { color: 0xffffff, map: true, rough: 0.3, metal: 0.35 },
+  { color: 0x1f5fa8, map: false, rough: 0.3, metal: 0.15 }, { color: 0xa02828, map: false, rough: 0.3, metal: 0.15 }, { color: 0xffffff, map: 'camo', rough: 0.35, metal: 0.1 },
+  { color: 0xffffff, map: 'camoAzul', rough: 0.3, metal: 0.3 }, { color: 0xffe2a0, map: true, rough: 0.25, metal: 0.45 }];
+function lookFin(m, i) { const L = FIN_LOOK[i] || FIN_LOOK[2]; m.map = L.map === 'camo' ? _camoT : L.map === 'camoAzul' ? suitTex(4) : L.map ? _carbT : null; m.color.set(L.color); m.roughness = L.rough; m.metalness = L.metal; m.needsUpdate = true; }
 function applyDiverLook(r) {
   if (!r || !r.finM) return;
   lookFin(r.finM, SV.fins || 0);
   r.mask.scale.set((SV.mask || 0) === 0 ? 2.3 : 2.05, 1, (SV.mask || 0) === 0 ? 1.05 : 0.92);
+  lookMask(r.maskM, r.lensM, SV.mask || 0);
   r.leads.forEach((w, i) => w.visible = i < beltNow().kg);
 }
 
@@ -3739,6 +3759,7 @@ function maskObj(i) {
   const fr = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.04, 0.034, 24), rub); fr.rotation.x = Math.PI / 2; fr.scale.set(2.1 * w, 1, 0.95 * w); g.add(fr);
   for (const sx of [-1, 1]) { const l = new THREE.Mesh(new THREE.CircleGeometry(0.027 * w, 20), glass); l.position.set(sx * 0.035 * w, 0.004, 0.0175); l.scale.set(1.1, 0.9, 1); g.add(l); }
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.034, 10), rub); nose.position.set(0, -0.035, 0.01); nose.rotation.x = Math.PI; g.add(nose);
+  lookMask(rub, glass, i);
   const strap = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.007, 6, 28, Math.PI), rub); strap.rotation.y = Math.PI / 2; strap.position.z = -0.1; strap.scale.set(1, 0.6, 1); g.add(strap);
   return g;
 }
@@ -3774,8 +3795,8 @@ function compObj() {
   const strap = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.008, 6, 24), stdM(0x111111)); strap.scale.set(1, 1.3, 1); strap.rotation.y = Math.PI / 2; g.add(strap);
   return g;
 }
-function diverObj(color, map) {
-  const r = buildDiver(false); r.suitMat.map = map || null; r.suitMat.color.set(color); r.suitMat.needsUpdate = true; poseDiver(r, 'drive', 0);
+function diverObj(color, map, rig, si) {
+  const r = rig || buildDiver(false); if (si == null) { r.suitMat.map = map || null; r.suitMat.color.set(color); r.suitMat.needsUpdate = true; } poseDiver(r, 'drive', 0);
   r.aL.sh.rotation.set(0.1, 0, -0.15); r.aR.sh.rotation.set(0.1, 0, 0.15); r.aL.el.rotation.set(0.2, 0, 0); r.aR.el.rotation.set(0.2, 0, 0);
   r.lL.th.rotation.set(0, 0, 0.04); r.lR.th.rotation.set(0, 0, -0.04); r.lL.kn.rotation.set(0, 0, 0); r.lR.kn.rotation.set(0, 0, 0);
   return r.root;
@@ -3784,19 +3805,19 @@ function diverObj(color, map) {
 // ---------- aba Equipamentos ----------
 let eqTab = 'guns';
 const EQ_TABS = [['guns', 'Arbaletes'], ['suits', 'Roupas'], ['masks', 'Máscaras'], ['fins', 'Nadadeiras'], ['belts', 'Cintos'], ['acc', 'Acessórios']];
-const FIN_DESC = ['Pá curta de plástico. Vem com o kit.', 'Pá de fibra de vidro: mais longa e com mais resposta.', 'Pá de carbono: leve e nervosa, a mais eficiente.'];
+const FIN_DESC = ['Pá curta de plástico. Vem com o kit.', 'Pá de fibra de vidro: mais longa e com mais resposta.', 'Pá de carbono: leve e nervosa.', 'Fibra de vidro azul.', 'Fibra de vidro vermelha.', 'Fibra com camuflagem de costão: o peixe estranha menos o movimento.', 'Carbono com camuflagem azul: rápida e discreta na meia-água.', 'Pá longa de carbono de competição: a mais rápida de todas.'];
 function card(img, name, desc, btn) { return `<div class="it eq"><img class="thumb" src="${img}" alt=""><div style="flex:1"><div class="n">${name}</div><div class="d">${desc}</div></div>${btn}</div>`; }
 const owned = (eq, own, attrEq, attrBuy, price) => eq ? '<span class="d">EM USO</span>' : own ? `<button class="btn alt" ${attrEq}>USAR</button>` : buyBtn(attrBuy, price);
 function equipHTML() {
   let h = `<div class="tabs sub">${EQ_TABS.map(([k, n]) => `<div class="tab ${k === eqTab ? 'on' : ''}" data-eqtab="${k}">${n}</div>`).join('')}</div><div class="list">`;
   if (eqTab === 'guns') h += GUNS.map(g => card(thumb('g' + g.id, () => { const m = buildGunMesh(g, false); placeBands(m, m.bands.length, -1, 1); return m.g; }, [1, 0.3, -0.08], 1.9), g.name, `Alcance ${fmtKg(g.range)} m · ${g.pneu ? 'pneumático' : g.bands + ' elástico(s)'} · segura peixe de até ~${g.power} kg. ${g.desc}`,
     owned(SV.gun === g.id, SV.guns.includes(g.id), `data-eq="${g.id}"`, `data-buy="${g.id}"`, g.price))).join('');
-  if (eqTab === 'suits') h += SUITS.map((s, i) => card(thumb('s' + i, () => (gtex(), diverObj(i === 0 ? 0x1b1e22 : i === 2 ? 0xd8e0c8 : 0xffffff, i ? _camoT : null)), [0.2, 0.05, -1], 1.6), s.name, `${s.desc} Fôlego ×${s.o2.toFixed(2)}.`,
+  if (eqTab === 'suits') h += SUITS.map((s, i) => card(thumb('s' + i, () => suitDiverObj(i), [0.2, 0.05, -1], 1.6), s.name, `${s.desc} Fôlego ×${s.o2.toFixed(2)} · discrição ${Math.round((2 - s.shy) * 50)}%.`,
     owned((SV.suit || 0) === i, (SV.suits || [0]).includes(i), `data-suit="${i}"`, `data-bsuit="${i}"`, s.price))).join('');
   if (eqTab === 'masks') h += MASKS.map((s, i) => card(thumb('m' + i, () => maskObj(i), [0.45, 0.25, 1]), s.name, `${s.desc}${s.fov ? ` Campo de visão +${s.fov}°.` : ''} Fôlego ×${s.o2.toFixed(2)}.`,
     owned((SV.mask || 0) === i, (SV.masks || [0]).includes(i), `data-mask="${i}"`, `data-bmask="${i}"`, s.price))).join('');
   if (eqTab === 'fins') h += FINS.map((f, i) => card(thumb('f' + i, () => finObj(i), [1, 0.9, -0.2]), f.name, `${FIN_DESC[i]} Velocidade ×${f.k.toFixed(2)}.`,
-    i <= SV.fins ? `<span class="d">${i === SV.fins ? 'EM USO' : 'TEM'}</span>` : `<button class="btn" data-fin="${i}" ${SV.money < f.price || i !== SV.fins + 1 ? 'disabled' : ''}>${fmtR(f.price)}</button>`)).join('');
+    owned((SV.fins || 0) === i, finsOwned().includes(i), `data-finu="${i}"`, `data-fin="${i}"`, f.price))).join('');
   if (eqTab === 'belts') h += `<div class="it"><div class="d">Com o cinto certo você fica neutro na profundidade onde vai pescar: nem afunda, nem sobe. Hoje: neutro a ~${Math.round(neutralDepth())} m.</div></div>` + BELTS.map((b, i) => card(thumb('b' + i, () => beltObj(b), [0.3, 1, 0.9]), b.name, `${b.desc} Neutro a ~${Math.round(2 + b.kg * 1.7)} m.${b.o2 < 1 ? ' Fôlego ×0,97.' : ''}`,
     owned((SV.belt || 0) === i, (SV.belts || [0]).includes(i), `data-belt="${i}"`, `data-bbelt="${i}"`, b.price))).join('');
   if (eqTab === 'acc') {
@@ -5558,6 +5579,66 @@ function tunnelLook() {
   const inner = Math.round(45 - 33 * m);
   vigEl.style.background = `radial-gradient(ellipse at 50% ${35 + 10 * m}%,rgba(0,0,0,0) ${inner}%,rgba(0,${Math.round(8 * (1 - m))},${Math.round(14 * (1 - m))},${(0.85 + 0.15 * m).toFixed(2)}) 100%)`;
   if (m > 0) vigEl.style.opacity = Math.max(+vigEl.style.opacity || 0, 0.35 + 0.6 * m).toFixed(2);
+}
+
+// ================= guarda-roupa: estampas das roupas, cores de máscara, nadadeiras e discrição conforme o ambiente =================
+let FP_SLEEVE = null; // manga do braço em primeira pessoa
+// estampa de cada roupa (mesma ordem de SUITS)
+const SUIT_LOOK = [
+  { solid: 0x1b1e22 }, { tex: 'camo' }, { tex: 'camo', tint: 0xd8e0c8 }, { solid: 0x1d3f66 },
+  { camo: ['#244a66', '#1d3a52', '#2c5a78', '#0e2234', '#3d6f8a', '#16324a'] },
+  { camo: ['#5a4a36', '#3b2f22', '#6e5c44', '#2a221a', '#7a6a50', '#4a3c2c'] },
+  { camo: ['#b8a888', '#9a8a6c', '#cbbd9e', '#867658', '#d8ccb0', '#a89878'] },
+  { camo: ['#3e4a2a', '#2a3020', '#5a5232', '#4a3a24', '#6a6a3a', '#1e2418'] },
+  { solid: 0x8a1f22 }, { tex: 'carb', tint: 0x6a6e74 },
+];
+const SUIT_TEX = {};
+function suitTex(i) {
+  if (SUIT_TEX[i]) return SUIT_TEX[i];
+  const L = SUIT_LOOK[i]; if (!L || !L.camo) return null;
+  const [base, ...cols] = L.camo, r = mulberry(i * 131 + 7);
+  const t = canvasTex(256, 256, g => {
+    g.fillStyle = base; g.fillRect(0, 0, 256, 256);
+    for (let n = 0; n < 95; n++) {
+      const x = r() * 256, y = r() * 256, rr = 8 + r() * 20, c = cols[Math.floor(r() * cols.length)], k = 5 + Math.floor(r() * 4);
+      // borda a borda: a estampa se repete sem emenda
+      for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) { g.fillStyle = c; g.beginPath(); for (let j = 0; j < k; j++) { const a = j / k * TAU, q = rr * (0.5 + r() * 0.7); g.lineTo(x + ox + Math.cos(a) * q, y + oy + Math.sin(a) * q); } g.fill(); }
+    }
+    for (let n = 0; n < 3000; n++) { g.fillStyle = `rgba(0,0,0,${r() * 0.08})`; g.fillRect(r() * 256, r() * 256, 1, 1); }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; return SUIT_TEX[i] = t;
+}
+// aplica a estampa da roupa i num material (corpo do mergulhador, manga do braço, miniatura)
+function suitMat(m, i) {
+  gtex(); const L = SUIT_LOOK[i] || SUIT_LOOK[0];
+  if (L.solid != null) { m.map = null; m.color.set(L.solid); }
+  else if (L.tex === 'camo') { m.map = _camoT; m.color.set(L.tint || 0xffffff); }
+  else if (L.tex === 'carb') { m.map = _carbT; m.color.set(L.tint); }
+  else { m.map = suitTex(i); m.color.set(0xffffff); }
+  m.needsUpdate = true;
+}
+function suitDiverObj(i) { const r = buildDiver(false); suitMat(r.suitMat, i); return diverObj(0xffffff, r.suitMat.map, r, i); }
+// cor da armação e da lente da máscara
+function lookMask(frame, lens, i) {
+  const M = MASKS[i] || MASKS[0];
+  if (M.frame === 'carb') { gtex(); frame.map = _carbT; frame.color.set(0x8a8e94); } else { frame.map = null; frame.color.set(M.frame != null ? M.frame : 0x0c0d0f); }
+  frame.needsUpdate = true;
+  if (lens) { lens.color.set(M.lens || 0x0a1418); lens.metalness = M.mirror ? 1 : 0.9; lens.roughness = M.mirror ? 0.02 : 0.05; }
+}
+// nadadeiras: agora dá para ter várias e trocar (saves antigos: tinha todas até a atual)
+const finsOwned = () => SV.finsOwn || (SV.finsOwn = Array.from({ length: (SV.fins || 0) + 1 }, (_, k) => k));
+// discrição: roupa (com bônus quando a estampa combina com o lugar) × máscara × nadadeira; calculada uma vez por quadro
+const _gs = { t: -1, v: 1 };
+function gearShy() {
+  if (_gs.t === T) return _gs.v;
+  const s = suitNow(), env = s.env; let k = s.shy;
+  if (env) {
+    const near = r => rocksNear(P.pos.x, P.pos.z).some(R => Math.hypot(R.x - P.pos.x, R.z - P.pos.z) < R.r + r);
+    const ok = env === 'rio' ? AMZ : env === 'azul' ? H(P.pos.x, P.pos.z) < -12 && !near(8) : env === 'pedra' ? near(6) : env === 'areia' ? !near(10) : false;
+    if (ok) k *= 0.88;
+  }
+  k *= (maskNow().shy || 1) * ((FINS[SV.fins || 0] || FINS[0]).shy || 1);
+  _gs.t = T; _gs.v = k; return k;
 }
 
 init();

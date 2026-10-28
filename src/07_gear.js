@@ -123,7 +123,7 @@ function buildFPArm() {
   gtex();
   const a = new THREE.Group();
   const glove = new THREE.MeshStandardMaterial({ color: 0x111214, roughness: 0.7 });
-  const sleeve = new THREE.MeshStandardMaterial({ map: _camoT, roughness: 0.85 });
+  const sleeve = FP_SLEEVE = new THREE.MeshStandardMaterial({ map: _camoT, roughness: 0.85 }); suitMat(sleeve, SV.suit || 0);
   const hand = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.05, 4, 10), glove); hand.scale.set(1.25, 1, 0.95); hand.position.set(0, -0.06, 0.035); hand.rotation.x = -0.35; a.add(hand);
   for (let i = 0; i < 4; i++) { const f = new THREE.Mesh(new THREE.CapsuleGeometry(0.0095, 0.028, 3, 6), glove); f.position.set(-0.018, -0.03 - i * 0.02, 0.012); f.rotation.z = Math.PI / 2; a.add(f); }
   const th = new THREE.Mesh(new THREE.CapsuleGeometry(0.01, 0.035, 3, 6), glove); th.position.set(0.02, -0.012, 0.02); th.rotation.x = 0.9; a.add(th);
@@ -239,9 +239,10 @@ function buildDiver(withGun) {
   const head = mesh(new THREE.SphereGeometry(0.104, 22, 18), neo, neck, 0, 0.115, 0.006); head.scale.set(0.9, 1.12, 1.02);
   mesh(new THREE.CylinderGeometry(0.06, 0.068, 0.09, 16), neo, neck, 0, 0.0, 0.004);
   const face = mesh(new THREE.SphereGeometry(0.07, 16, 12), skin, neck, 0, 0.075, -0.064); face.scale.set(0.78, 0.92, 0.5);
-  const mask = mesh(new THREE.CylinderGeometry(0.036, 0.04, 0.034, 20), rub, neck, 0, 0.128, -0.098); mask.rotation.x = Math.PI / 2; mask.scale.set(2.05, 1, 0.92);
+  const maskM = uwify(new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.55 }), { key: 'dv' }), lensM = new THREE.MeshStandardMaterial({ color: 0x0a1418, metalness: 0.9, roughness: 0.05 });
+  const mask = mesh(new THREE.CylinderGeometry(0.036, 0.04, 0.034, 20), maskM, neck, 0, 0.128, -0.098); mask.rotation.x = Math.PI / 2; mask.scale.set(2.05, 1, 0.92);
   mesh(new THREE.ConeGeometry(0.022, 0.034, 10), rub, neck, 0, 0.088, -0.108).rotation.x = Math.PI;
-  for (const sx of [-1, 1]) { const l = mesh(new THREE.CircleGeometry(0.026, 18), new THREE.MeshStandardMaterial({ color: 0x0a1418, metalness: 0.9, roughness: 0.05 }), neck, sx * 0.034, 0.132, -0.1162); l.rotation.y = Math.PI; l.scale.set(1.08, 0.9, 1); }
+  for (const sx of [-1, 1]) { const l = mesh(new THREE.CircleGeometry(0.026, 18), lensM, neck, sx * 0.034, 0.132, -0.1162); l.rotation.y = Math.PI; l.scale.set(1.08, 0.9, 1); }
   const strap = mesh(new THREE.TorusGeometry(0.1, 0.007, 6, 28), rub, neck, 0, 0.13, 0.006); strap.scale.set(0.95, 1, 1.05); strap.rotation.x = Math.PI / 2 + 0.25;
   const snk = new THREE.CatmullRomCurve3([new V3(0.0, 0.05, -0.1), new V3(0.06, 0.06, -0.09), new V3(0.1, 0.12, -0.04), new V3(0.105, 0.26, 0.0), new V3(0.09, 0.33, 0.04)]);
   mesh(new THREE.TubeGeometry(snk, 20, 0.011, 8), rub, neck);
@@ -292,7 +293,7 @@ function buildDiver(withGun) {
   };
   const lL = leg(-1), lR = leg(1);
   scene.add(root);
-  const rig = { root, torso, neck, aL, aR, lL, lR, handR: aR.wr, suitMat: suit, finM, mask, leads };
+  const rig = { root, torso, neck, aL, aR, lL, lR, handR: aR.wr, suitMat: suit, finM, mask, maskM, lensM, leads };
   return rig;
 }
 // poses
@@ -416,10 +417,22 @@ const SUITS = [
   { name: 'Roupa 3 mm lisa', o2: 1, shy: 1, price: 0, desc: 'Básica, preta. O peixe vê você de longe.' },
   { name: 'Roupa 5 mm camuflada', o2: 0.93, shy: 0.85, price: 900, desc: 'Camuflagem de costão: o peixe estranha menos. Mais quente, gasta menos fôlego.' },
   { name: 'Roupa 7 mm camuflada pro', o2: 0.86, shy: 0.72, price: 2400, desc: 'Corte de apneia, aberta por dentro. A melhor para fazer espera.' },
+  { name: 'Roupa 3 mm azul oceano', o2: 1, shy: 0.95, price: 500, env: 'azul', desc: 'Azul liso: some na água azul de meia-água.' },
+  { name: 'Roupa 5 mm camuflada azul', o2: 0.93, shy: 0.82, price: 1400, env: 'azul', desc: 'Camuflagem de água azul, para parcel e pesca de meia-água.' },
+  { name: 'Roupa 5 mm camuflada marrom', o2: 0.93, shy: 0.82, price: 1300, env: 'pedra', desc: 'Marrom de pedra e casco: rende mais encostado no costão e no naufrágio.' },
+  { name: 'Roupa 5 mm camuflada areia', o2: 0.93, shy: 0.82, price: 1400, env: 'areia', desc: 'Bege claro: some no fundo de areia, longe das pedras.' },
+  { name: 'Roupa 5 mm camuflada igapó', o2: 0.92, shy: 0.8, price: 1600, env: 'rio', desc: 'Verde e marrom de galhada, feita para o rio. Rende mais no Amazonas.' },
+  { name: 'Roupa 3 mm vermelha', o2: 1, shy: 1.08, price: 350, desc: 'Estilosa, mas o peixe vê você de longe.' },
+  { name: 'Roupa 7 mm carbono pro', o2: 0.83, shy: 0.76, price: 3200, desc: 'Neoprene premium com reforço de carbono: a mais quente, rende mais fôlego.' },
 ];
 const MASKS = [
   { name: 'Máscara padrão', o2: 1, fov: 0, price: 0, desc: 'Vem com o kit.' },
   { name: 'Máscara baixo volume', o2: 0.95, fov: 6, price: 450, desc: 'Menos ar para compensar e campo de visão maior.' },
+  { name: 'Máscara lente única', o2: 0.96, fov: 9, price: 650, frame: 0x1a1c20, single: true, desc: 'Uma lente só, sem divisória no meio: a visão mais aberta.' },
+  { name: 'Máscara espelhada', o2: 0.95, fov: 6, price: 900, shy: 0.93, lens: 0x9ab4cc, mirror: true, desc: 'Lente espelhada: o peixe não vê seus olhos e estranha menos.' },
+  { name: 'Máscara de silicone azul', o2: 0.95, fov: 6, price: 500, frame: 0x1f4f8a, desc: 'Baixo volume, silicone azul translúcido.' },
+  { name: 'Máscara de silicone vermelha', o2: 0.95, fov: 6, price: 500, frame: 0x9a2228, desc: 'Baixo volume, silicone vermelho.' },
+  { name: 'Máscara pro de carbono', o2: 0.92, fov: 8, price: 1500, frame: 'carb', desc: 'Armação de carbono e volume mínimo: o menor gasto de ar para compensar.' },
 ];
 const BOATS = [
   { name: 'Lancha 21 pés', max: 30, tank: 100, scale: 1, price: 0, desc: 'Console central aberto com bimini de lona. Motor de popa 150 hp.' },
@@ -507,7 +520,8 @@ function initExtra() {
 function applyGear() {
   if (BOAT.mesh && (BOAT.meshIdx !== curBoatIdx() || BOAT.meshPaint !== JSON.stringify(SV.boatPaint || {}))) rebuildBoat();
   SV.fuel = Math.min(SV.fuel, tankMax());
-  if (DIVER && DIVER.suitMat) { const m = DIVER.suitMat; if ((SV.suit || 0) === 0) { m.map = null; m.color.set(0x1b1e22); } else { m.map = _camoT; m.color.set(SV.suit === 2 ? 0xd8e0c8 : 0xffffff); } m.needsUpdate = true; applyDiverLook(DIVER); }
+  if (DIVER && DIVER.suitMat) { const m = DIVER.suitMat; if ((SV.suit || 0) === 0) { m.map = null; m.color.set(0x1b1e22); } else { m.map = _camoT; m.color.set(SV.suit === 2 ? 0xd8e0c8 : 0xffffff); } suitMat(m, SV.suit || 0); applyDiverLook(DIVER); }
+  if (FP_SLEEVE) suitMat(FP_SLEEVE, SV.suit || 0);
 }
 function updateLight() {
   if (!DLIGHT) return;
@@ -571,7 +585,8 @@ function renderShop() {
   on('[data-bboat]', b => { const i = +b.dataset.bboat; if (pay(BOATS[i].price)) { SV.boats = [...new Set([...(SV.boats || [0]), i])]; SV.boat = i; SV.voad = false; applyGear(); } });
   on('[data-boat]', b => { SV.boat = +b.dataset.boat; SV.voad = false; applyGear(); AU.click(); });
   on('[data-voad]', () => { SV.voad = true; applyGear(); AU.click(); });
-  on('[data-fin]', b => { const i = +b.dataset.fin; if (pay(FINS[i].price)) SV.fins = i; });
+  on('[data-fin]', b => { const i = +b.dataset.fin; if (pay(FINS[i].price)) { SV.finsOwn = [...new Set([...finsOwned(), i])]; SV.fins = i; applyGear(); } });
+  on('[data-finu]', b => { SV.fins = +b.dataset.finu; applyGear(); AU.click(); });
   on('[data-comp]', b => { closePanels(); startComp(b.dataset.comp); });
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });

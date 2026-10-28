@@ -265,7 +265,7 @@ class Fish {
     const dP = p.distanceTo(P.pos);
     if (this.state !== 'hooked') {
       const vis = P.mode === 'swim';
-      let fearR = (1.6 + sp.shy * suitNow().shy * 12 * (0.2 + P.noise * 1.15)) * (P.under ? 1 : 0.4);
+      let fearR = (1.6 + sp.shy * gearShy() * 12 * (0.2 + P.noise * 1.15)) * (P.under ? 1 : 0.4);
       if (P.still > 2 && P.under) fearR *= 0.55; // espera: peixe se aproxima mais
       fearR *= 0.6 + 0.4 * DAY.amb; // no escuro o peixe enxerga menos
       if (P.hide) fearR *= 0.6; // agachon
