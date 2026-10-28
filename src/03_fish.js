@@ -287,7 +287,7 @@ class Fish {
           if (L.state === 'curious') { this.state = 'curious'; this.t = L.t; }
         }
         else if (this.t <= 0 || p.distanceTo(this.target) < 1.2) { this.pickWander(); this.t = rand(5, 12); }
-        if (!L && P.mode === 'swim' && P.under && P.still > 1.4 && dP < 24 && Math.random() < sp.curious * fishAct(this.key) * (P.hide ? 2 : 1) * dt * 0.45) { this.state = 'curious'; this.t = rand(6, 11); }
+        if (!L && P.mode === 'swim' && P.under && P.still > 1.4 && dP < 24 && Math.random() < sp.curious * fishAct(this.key) * (P.hide ? 2 : 1) * (SV.flasher ? 1.4 : 1) * dt * 0.45) { this.state = 'curious'; this.t = rand(6, 11); }
         break;
       case 'curious': {
         this.speed = sp.cruise * 0.9;

@@ -483,7 +483,7 @@ const SPOTS = AMZ ? spotsAmz() : [
 ];
 // zonas: pedaços de costão e lajes fora dos pontos do mapa, com peixe próprio (não aparecem na carta)
 const ZONES = [];
-const spotById = id => SPOTS.find(s => s.id === id) || ZONES.find(s => s.id === id);
+const spotById = id => SPOTS.find(s => s.id === id) || ZONES.find(s => s.id === id) || wpById(id);
 // lajes submersas espalhadas pela baía
 const LAJES2 = [{ x: 40, z: 130 }, { x: 1000, z: 300 }, { x: 1250, z: -60 }, { x: 1720, z: -540 }, { x: -470, z: -520 }];
 

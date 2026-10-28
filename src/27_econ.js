@@ -9,7 +9,7 @@ const nowH = () => (SV.day || 1) * 24 + (SV.tod || 7);
 const iceOn = () => SV.iceDay === SV.day;
 // com gelo: segura bem por 12 h e depois perde pouco; sem gelo: depois de 4 h perde rápido
 function freshK(f) {
-  if (f.at == null) return 1;
+  if (f.at == null || f.frozen) return 1;
   const h = nowH() - f.at;
   return f.ice ? clamp(1 - Math.max(0, h - 12) / 6 * 0.03, 0.5, 1) : clamp(1 - Math.max(0, h - 4) / 6 * 0.12, 0.35, 1);
 }

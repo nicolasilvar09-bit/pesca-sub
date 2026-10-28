@@ -20,7 +20,7 @@ function setupInput() {
   window.__resetTouch = () => { JOY.id = null; JOY.x = JOY.y = 0; knob.style.transform = ''; LOOK.id = null; for (const k in IN.held) IN.held[k] = false; document.querySelectorAll('.b.on').forEach(b => b.classList.remove('on')); };
   addEventListener('blur', () => window.__resetTouch());
   renderer.domElement.addEventListener('pointerdown', e => { if (LOOK.id === null) { LOOK.id = e.pointerId; LOOK.x = e.clientX; LOOK.y = e.clientY; } AU.init(); });
-  const BTN = { bFire: ['p', 'fire'], bArm: ['p', 'arm'], bPull: ['h', 'pull'], bUp: ['h', 'up'], bDive: ['p', 'dive'], bCtx: ['p', 'ctx'], bAnchor: ['p', 'anchor'], bJump: ['p', 'jump'], bMarina: ['p', 'marina'], bMap: ['p', 'map'], bView: ['p', 'view'], bShop: ['p', 'shop'], bPhoto: ['p', 'photo'], bCall: ['p', 'call'], bEq: ['p', 'eq'] };
+  const BTN = { bFire: ['p', 'fire'], bArm: ['p', 'arm'], bPull: ['h', 'pull'], bUp: ['h', 'up'], bDive: ['p', 'dive'], bCtx: ['p', 'ctx'], bAnchor: ['p', 'anchor'], bJump: ['p', 'jump'], bMarina: ['p', 'marina'], bMap: ['p', 'map'], bView: ['p', 'view'], bShop: ['p', 'shop'], bPhoto: ['p', 'photo'], bWp: ['p', 'wp'], bChum: ['p', 'chum'], bCall: ['p', 'call'], bEq: ['p', 'eq'] };
   for (const [id, [kind, name]] of Object.entries(BTN)) {
     const el = $(id);
     el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); AU.init(); if (kind === 'p') IN.pressed[name] = true; else IN.held[name] = true; el.classList.add('on'); try { el.setPointerCapture(e.pointerId); } catch (_) { } });
@@ -29,7 +29,7 @@ function setupInput() {
   }
   addEventListener('keydown', e => {
     if (e.repeat) return; IN.keys[e.code] = true;
-    const m = { Space: 'fire', KeyR: 'arm', KeyQ: 'dive', KeyE: 'ctx', KeyM: 'map', KeyT: 'anchor', KeyV: 'view', KeyL: 'shop', KeyP: 'photo', KeyC: 'call', KeyG: 'eq' }; if (m[e.code]) IN.pressed[m[e.code]] = true;
+    const m = { Space: 'fire', KeyR: 'arm', KeyQ: 'dive', KeyE: 'ctx', KeyM: 'map', KeyT: 'anchor', KeyV: 'view', KeyL: 'shop', KeyP: 'photo', KeyC: 'call', KeyG: 'eq', KeyK: 'wp', KeyB: 'chum' }; if (m[e.code]) IN.pressed[m[e.code]] = true;
     if (e.code === 'KeyF') IN.held.pull = true; if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') IN.held.up = true;
     if (e.code === 'Space') e.preventDefault();
   });
@@ -73,6 +73,7 @@ function drawMap() {
 function setDest(id) { SV.dest = id; save(); AU.click(); toast('Rota traçada: ' + spotById(id).name); closePanels(); }
 function openMap() {
   if (!mapDrawn) drawMap();
+  drawWps();
   document.querySelectorAll('.mk').forEach(m => m.classList.toggle('sel', m.dataset.id === SV.dest));
   const b = $('meBoat'), ref = P.mode === 'boat' ? BOAT.pos : P.pos;
   b.style.zIndex = 3; b.style.left = `calc(${mapU(ref.x)}% - 7px)`; b.style.top = `calc(${mapV(ref.z)}% - 9px)`;
@@ -171,7 +172,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateOnline(dt, T);
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateOnline(dt, T); updateExtras(dt, T);
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -219,11 +220,11 @@ function startGame() {
   const D = ensureDaily(); if (D.list.some(m => !m.done)) toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5);
 }
 function init() {
-  loadSave(); if (!SPOTS.some(s => s.id === SV.dest)) SV.dest = SPOTS[1].id;
+  loadSave(); if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
   initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); buildFX();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupOnline();
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupOnline(); setupExtras();
   $('playBtn').onclick = startGame;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
   loop();

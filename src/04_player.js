@@ -24,7 +24,7 @@ const P = { mode: 'boat', pos: new V3(), vel: new V3(), yaw: 0, pitch: -0.1, und
 const BOAT = { pos: new V3(PIER.x + 8, 0, PIER.z1 - 8), heading: Math.PI, speed: 0, throttle: 0, anchored: false, mesh: null, camYaw: 0, camPitch: 0.28, roll: 0, pitch: 0 };
 // apneia estática: ganho de fôlego por nível (cada nível rende um pouco menos)
 const STATIC_STEPS = [10, 10, 8, 8, 6, 6, 5, 5];
-const maxBreath = () => 45 + STATIC_STEPS.slice(0, SV.apnea || 0).reduce((a, b) => a + b, 0);
+const maxBreath = () => 45 + STATIC_STEPS.slice(0, SV.apnea || 0).reduce((a, b) => a + b, 0) + (SV.restDay === SV.day ? 5 : 0);
 let camUnder = false, camMurk = 0;
 
 function buildBoat() {
