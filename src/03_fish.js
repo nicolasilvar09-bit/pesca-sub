@@ -248,7 +248,8 @@ class Fish {
     _t1.subVectors(this.pos, P.pos); _t1.y *= 0.3; if (_t1.lengthSq() < 0.01) _t1.set(1, 0, 0); _t1.normalize();
     if (this.sp.habit === 'hole' && this.home) { this.state = 'tohole'; this.t = 12; }
     else this.target.copy(this.pos).addScaledVector(_t1, 25).add(_t2.set(rand(-6, 6), rand(-2, 2), rand(-6, 6)));
-    if (spread) for (const f of FISHES) if (f !== this && f.alive && f.state !== 'flee' && (f.leader === this || this.leader === f || (this.leader && f.leader === this.leader))) f.startFlee(false);
+    // o susto corre pelo grupo como uma onda: quem está mais longe foge um pouco depois
+    if (spread) for (const f of FISHES) if (f !== this && f.alive && f.state !== 'flee' && !f.fleeIn && (f.leader === this || this.leader === f || (this.leader && f.leader === this.leader))) f.fleeIn = 0.05 + f.pos.distanceTo(this.pos) * 0.07;
   }
   update(dt) {
     const sp = this.sp, p = this.pos;
@@ -258,6 +259,9 @@ class Fish {
       return;
     }
     this.t -= dt;
+    if (this.fleeIn > 0 && (this.fleeIn -= dt) <= 0) { this.fleeIn = 0; this.startFlee(false); }
+    // ferido: procura a toca mais perto e fica escondido mais tempo
+    if (this.hurt > 0) { this.hurt -= dt; if (!this.home && (this.state === 'wander' || this.state === 'flee')) { let best = null, bd = 35; for (const hl of HOLES) { const d = Math.hypot(hl.x - p.x, hl.z - p.z); if (d < bd) { bd = d; best = hl; } } if (best) { this.home = best; this.state = 'tohole'; this.t = 15; } } }
     const dP = p.distanceTo(P.pos);
     if (this.state !== 'hooked') {
       const vis = P.mode === 'swim';
@@ -267,13 +271,16 @@ class Fish {
       if (P.hide) fearR *= 0.6; // agachon
       if (FEAR.t > 0 && p.distanceTo(FEAR.pos) < FEAR.r) fearR = 999;
       if (vis && dP < fearR && this.state !== 'flee' && this.state !== 'tohole' && this.state !== 'hidden') this.startFlee();
+      // desconfiado: um pouco além da distância de fuga, para, vira para o mergulhador e fica alerta
+      else if (vis && P.under && this.state === 'wander' && !this.leader && dP < fearR * 1.8 && P.still < 1.4 && Math.random() < dt * 2.5) { this.state = 'alert'; this.t = rand(1.6, 3.4); }
       if (this.state === 'hidden' && vis && dP < 1.6 + P.noise * 3) { this.state = 'flee'; this.t = 3; this.speed = sp.burst; this.target.copy(p).addScaledVector(_t1.subVectors(p, P.pos).normalize(), 15); }
     }
     let L = this.leader; if (L && !L.alive) L = this.leader = null;
     switch (this.state) {
       case 'wander':
         this.speed = sp.cruise * (L ? 1.15 : 1) * fishAct(this.key);
-        if (L) {
+        if (L && L.state === 'alert') { this.state = 'alert'; this.t = L.t; }
+        else if (L) {
           // cardume vivo: cada peixe deriva em torno do seu lugar no grupo
           const tn = performance.now() * 0.001; _t1.copy(this.off).applyAxisAngle(_t2.set(0, 1, 0), L.yaw); this.target.copy(L.pos).add(_t1);
           this.target.x += Math.sin(tn * 0.37 + this.wob) * 0.45; this.target.z += Math.cos(tn * 0.29 + this.wob * 1.7) * 0.45; this.target.y += Math.sin(tn + this.wob) * 0.3;
@@ -289,12 +296,18 @@ class Fish {
         if (this.t <= 0 || !P.under) { this.state = 'wander'; this.t = 0; }
         break;
       }
+      case 'alert':
+        // quase parado, recuando devagar e de olho no mergulhador
+        this.speed = sp.cruise * 0.22; _t1.subVectors(p, P.pos); _t1.y = 0; if (_t1.lengthSq() < 1e-4) _t1.set(1, 0, 0); this.target.copy(p).addScaledVector(_t1.normalize(), 1.2);
+        if (L) { _t1.copy(this.off).applyAxisAngle(_t2.set(0, 1, 0), L.yaw); this.target.copy(L.pos).add(_t1); }
+        if (this.t <= 0) { if (P.vel.length() > 0.45 && dP < 9) this.startFlee(); else { this.state = P.still > 1 && Math.random() < sp.curious ? 'curious' : 'wander'; this.t = this.state === 'curious' ? rand(5, 9) : 0; } }
+        break;
       case 'flee':
         if (this.t <= 0) { this.state = 'wander'; this.t = 0; this.speed = sp.cruise; }
         break;
       case 'tohole':
         this.speed = sp.burst * 0.8; this.target.set(this.home.x, this.home.y, this.home.z);
-        if (p.distanceTo(this.target) < 0.6 || this.t <= 0) { this.state = 'hidden'; this.t = rand(12, 26); }
+        if (p.distanceTo(this.target) < 0.6 || this.t <= 0) { this.state = 'hidden'; this.t = this.hurt > 0 ? rand(40, 70) : rand(12, 26); }
         break;
       case 'hidden': {
         // espia da toca com o mergulhador parado; recolhe para dentro se ele chega nadando
@@ -330,14 +343,16 @@ class Fish {
       const ty = Math.atan2(-this.vel.z, this.vel.x), tp = clamp(Math.atan2(this.vel.y, Math.hypot(this.vel.x, this.vel.z)), -0.6, 0.6);
       const dy = angDiff(this.yaw, ty); this.yaw += dy * clamp(dt * 4, 0, 1); this.pitch = lerp(this.pitch, tp, clamp(dt * 3, 0, 1)); this.roll = lerp(this.roll, clamp(-dy * 0.6, -0.5, 0.5), clamp(dt * 3, 0, 1));
     }
+    if (this.state === 'alert') { const ty = Math.atan2(-(P.pos.z - p.z), P.pos.x - p.x); this.yaw += angDiff(this.yaw, ty) * clamp(dt * 2.2, 0, 1); }
     if (this.state === 'curious' && !L) { const ty = Math.atan2(-(P.pos.z - p.z), P.pos.x - p.x); this.yaw += angDiff(this.yaw, ty) * clamp(dt * 1.2, 0, 1); }
     // corpo curva para dentro da virada
     this.bend = lerp(this.bend, clamp(angDiff(y0, this.yaw) / Math.max(dt, 1e-3) * 0.12, -0.45, 0.45), clamp(dt * 6, 0, 1));
     // nado de cruzeiro em ciclos de bater e planar; fuga e briga sempre a todo vapor
-    const calm = this.state === 'wander' || this.state === 'curious' || this.state === 'hidden';
+    const calm = this.state === 'wander' || this.state === 'curious' || this.state === 'hidden' || this.state === 'alert';
     this.gl += dt * this.glR; const gk = calm ? 0.3 + 0.7 * smooth(-0.4, 0.4, Math.sin(this.gl)) : 1;
     const beat = this.state === 'hooked' && this.fight > 0 ? 18 : (3 + v / this.len * 2.4) * (0.45 + 0.55 * gk);
     this.ph += dt * beat;
+    if (this.hurt > 0) this.roll = lerp(this.roll, 0.5 * Math.sin(performance.now() * 0.003 + this.wob), clamp(dt * 2, 0, 1));
     this.amp = lerp(this.amp, this.state === 'hooked' && this.fight > 0 ? 0.13 : (0.035 + Math.min(0.07, v * 0.02 / this.len)) * gk, clamp(dt * 3, 0, 1));
   }
   draw() { poolPut(this.key, this.pos.x, this.pos.y, this.pos.z, this.yaw, this.pitch, this.roll, this.len, this.ph, this.amp, this.bend); }

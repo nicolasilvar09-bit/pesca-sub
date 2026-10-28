@@ -240,7 +240,23 @@ function updatePeixeBoi(dt, t) {
 }
 // piranhas: fieira com peixe ferido perto de cardume de piranha → elas roubam um peixe
 let piraT = 15;
+// peixe ferido no rio: piranhas por perto sentem o sangue, cercam e acabam com ele
+let frenzyT = 0;
+function piranhaFrenzy(dt) {
+  if ((frenzyT -= dt) > 0) return; frenzyT = 0.5;
+  for (const v of FISHES) {
+    if (!(v.hurt > 0) || !v.alive || v.state === 'hooked' || v.key === 'piranha') continue;
+    let near = 0;
+    for (const f of FISHES) { if (f.key !== 'piranha' || !f.alive || f.state === 'hooked') continue; const d = f.pos.distanceTo(v.pos); if (d < 30) { f.state = 'flee'; f.t = 1; f.speed = f.sp.burst; f.target.copy(v.pos); if (d < 1.6) near++; } }
+    v.eaten = near >= 3 ? (v.eaten || 0) + 0.5 : 0;
+    if (v.eaten >= 4) {
+      if (v.vis) { spawnScales(v.pos, 30); if (camera.position.distanceTo(v.pos) < 20) toast(`As piranhas pegaram o ${v.sp.name.toLowerCase()} ferido!`, 3, 'bad'); }
+      v.remove();
+    }
+  }
+}
 function updatePiranhas(dt) {
+  piranhaFrenzy(dt);
   if ((piraT -= dt) > 0) return; piraT = 12;
   if (P.mode !== 'swim' || !P.under || !P.stringer.length) return;
   const n = FISHES.filter(f => f.key === 'piranha' && f.alive && f.pos.distanceTo(P.pos) < 14).length;

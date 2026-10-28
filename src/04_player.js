@@ -143,7 +143,7 @@ function updateGun(dt) {
           const ratio = f.kg * f.sp.str / def.power, qf = GUN.q === 'tail' ? 1.7 : 0.6;
           const p = (clamp(ratio - 0.55, 0, 1.5) * 0.22 * qf + (pulling && f.fight > 0 ? 0.03 : 0)) * (0.35 + (GUN.tension || 0) * 2.2) + (GUN.tension >= 0.99 ? 0.25 : 0);
           if (Math.random() < p) {
-            f.state = 'wander'; f.fight = 0; f.startFlee(); GUN.fish = null; GUN.state = 'spent';
+            f.state = 'wander'; f.fight = 0; f.hurt = 60; f.startFlee(); GUN.fish = null; GUN.state = 'spent';
             toast(`Rasgou! ${f.sp.name} de ~${fmtKg(f.kg)} kg escapou.${GUN.tension > 0.6 ? ' Puxou na arrancada.' : ''}`, 3, 'bad'); AU.bad(); buzz(150);
           }
         }

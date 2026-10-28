@@ -147,18 +147,23 @@ function updateLife(dt, t) {
       for (let k = 0; k < 10; k++) { const a = rand(0, TAU), r = Math.sqrt(Math.random()) * sc.spot.r * 1.6, x = sc.spot.x + Math.cos(a) * r, z = sc.spot.z + Math.sin(a) * r, h = H(x, z); if (h < -3) { sc.tgt.set(x, rand(h + 1.5, -1.5), z); break; } }
       sc.t = rand(10, 20); sc.spd = 1.2;
     }
+    // ameaça: o cardume aperta numa bola e um clarão prateado corre por ele (cada sardinha vira de lado, as mais perto primeiro)
+    const scared = pu && (dp < 14 || (dp < 22 && P.noise > 0.5));
+    if (scared && !sc.scared) sc.flash0 = t; sc.scared = scared; sc.tight = lerp(sc.tight || 1, scared ? 0.55 : 1, clamp(dt * 1.5, 0, 1));
     if (pu && dp < 9) { sc.tgt.copy(sc.c).addScaledVector(_t1.subVectors(sc.c, P.pos).normalize(), 20); sc.tgt.y = clamp(sc.tgt.y, H(sc.tgt.x, sc.tgt.z) + 1.5, -1.5); sc.spd = 3; sc.t = 4; }
     _t1.subVectors(sc.tgt, sc.c).normalize().multiplyScalar(sc.spd);
     sc.v.lerp(_t1, clamp(dt * 0.8, 0, 1)); sc.c.addScaledVector(sc.v, dt);
     const hc = H(sc.c.x, sc.c.z); sc.c.y = clamp(sc.c.y, hc + 1.5, -1.2);
     const yaw = Math.atan2(-sc.v.z, sc.v.x), cy = Math.cos(yaw), sy = Math.sin(yaw), spv = sc.v.length();
     for (const f of sc.fish) {
-      const ox = f.o.x * cy + f.o.z * sy, oz = -f.o.x * sy + f.o.z * cy;
-      let x = sc.c.x + ox + f.d.x, y = sc.c.y + f.o.y + f.d.y + Math.sin(t * 1.3 + f.w) * 0.15, z = sc.c.z + oz + f.d.z;
+      const ox = (f.o.x * cy + f.o.z * sy) * sc.tight, oz = (-f.o.x * sy + f.o.z * cy) * sc.tight;
+      let x = sc.c.x + ox + f.d.x, y = sc.c.y + f.o.y * sc.tight + f.d.y + Math.sin(t * 1.3 + f.w) * 0.15, z = sc.c.z + oz + f.d.z;
       if (pu) { const dx = x - P.pos.x, dy = y - P.pos.y, dz = z - P.pos.z, dd = Math.hypot(dx, dy, dz); if (dd < 3.5 && dd > 0.01) { const k = (3.5 - dd) * dt * 5 / dd; f.d.x += dx * k; f.d.y += dy * k; f.d.z += dz * k; } }
       f.d.multiplyScalar(Math.exp(-dt * 0.7));
       f.ph += dt * (6 + spv * 9);
-      poolPut('sardinha', x, y, z, yaw + Math.sin(t * 2 + f.w) * 0.15, 0, 0, f.len, f.ph, 0.07);
+      let roll = 0;
+      if (sc.flash0 != null) { const e = t - sc.flash0 - Math.hypot(x - P.pos.x, y - P.pos.y, z - P.pos.z) * 0.045; if (e > 0 && e < 0.5) roll = Math.sin(e / 0.5 * Math.PI) * 1.2 * (f.w % 2 > 1 ? 1 : -1); }
+      poolPut('sardinha', x, y, z, yaw + Math.sin(t * 2 + f.w) * 0.15, 0, roll, f.len, f.ph, sc.scared ? 0.1 : 0.07);
     }
   }
   for (const sw of SWARMS) {
