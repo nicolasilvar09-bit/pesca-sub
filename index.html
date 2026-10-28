@@ -4202,11 +4202,15 @@ function duoRows() {
 // ================= mais vida no mar (golfinhos, raias, mar fervendo) e eventos (torneio, frente fria, peixe de condição) =================
 const _sl = new V3();
 
+// perfil do corpo (raio, comprimento): testa (melão) arredondada e bico curto e grosso
+const DOLPH_PROF = [[0, -0.95], [0.06, -0.8], [0.13, -0.5], [0.19, -0.1], [0.2, 0.15], [0.185, 0.4], [0.16, 0.56], [0.125, 0.68], [0.085, 0.76], [0.07, 0.8], [0.062, 0.87], [0.05, 0.93], [0.028, 0.975], [0, 0.99]];
+const dolphR = z => { const P = DOLPH_PROF; for (let i = 1; i < P.length; i++) if (z <= P[i][1]) { const u = (z - P[i - 1][1]) / (P[i][1] - P[i - 1][1]); return P[i - 1][0] + (P[i][0] - P[i - 1][0]) * u; } return 0; };
 // ---------- golfinhos: acompanham a proa da lancha e às vezes passam pelo mergulhador ----------
 const DOLPH = { pod: [], t: 70, mode: null, life: 0 };
 function dolphinGeo() {
-  const prof = [[0, -0.95], [0.06, -0.8], [0.13, -0.5], [0.19, -0.1], [0.2, 0.15], [0.17, 0.42], [0.11, 0.62], [0.05, 0.78], [0.035, 0.92], [0, 0.95]];
-  const body = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 14); body.rotateX(Math.PI / 2); body.scale(1, 0.92, 1);
+  // corpo com testa (melão) e bico curto e grosso de ponta arredondada
+  const prof = DOLPH_PROF;
+  const body = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 18); body.rotateX(Math.PI / 2); body.scale(1, 0.92, 1);
   const tri = (pts, th = 0.02) => { const sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach(p => sh.lineTo(p[0], p[1])); const g = new THREE.ExtrudeGeometry(sh, { depth: th, bevelEnabled: false }); g.translate(0, 0, -th / 2); return g; };
   const dors = tri([[0, 0], [0.26, 0], [0.02, 0.24]]); dors.rotateY(-Math.PI / 2); dors.translate(0, 0.16, -0.05);
   const fl = tri([[0, 0], [0.22, 0.05], [0.16, 0.12]], 0.03); fl.rotateX(Math.PI / 2); fl.translate(-0.11, 0, -0.95);
@@ -4225,10 +4229,13 @@ function dolphinGeo() {
 function dolphinEyes() {
   const g = new THREE.Group(), eye = new THREE.SphereGeometry(0.024, 10, 8), shine = new THREE.SphereGeometry(0.008, 6, 4);
   const em = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.15, metalness: 0.2 }), sm = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  for (const sx of [-1, 1]) { const e = new THREE.Mesh(eye, em); e.position.set(sx * 0.118, 0.035, 0.56); e.scale.set(0.6, 1, 1.15); g.add(e); const h = new THREE.Mesh(shine, sm); h.position.set(sx * 0.13, 0.045, 0.575); g.add(h); }
-  // linha da boca
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.006, 4, 12, Math.PI * 0.6), new THREE.MeshBasicMaterial({ color: 0x2a2f36 }));
-  mouth.rotation.set(Math.PI / 2, 0, -Math.PI * 0.8); mouth.position.set(0, -0.02, 0.74); mouth.scale.set(1.6, 1, 1); g.add(mouth);
+  for (const sx of [-1, 1]) { const e = new THREE.Mesh(eye, em); e.position.set(sx * dolphR(0.6) * 0.95, 0.025, 0.6); e.scale.set(0.6, 1, 1.15); g.add(e); const h = new THREE.Mesh(shine, sm); h.position.set(sx * (dolphR(0.6) * 0.95 + 0.012), 0.035, 0.612); g.add(h); }
+  // boca: linha escura ao longo de cada lado do bico, subindo em curva (o "sorriso") até perto do olho
+  const mm = new THREE.MeshBasicMaterial({ color: 0x1c2026 });
+  for (const sx of [-1, 1]) {
+    const pts = [[0.97, -0.006], [0.92, -0.014], [0.85, -0.016], [0.79, -0.014], [0.74, -0.006], [0.69, 0.006]].map(([z, y]) => new V3(sx * Math.sqrt(Math.max(0, (dolphR(z) * 1.01) ** 2 - (y / 0.92) ** 2)), y, z));
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.0045, 5), mm));
+  }
   return g;
 }
 function spawnPod(mode) {
