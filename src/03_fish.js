@@ -242,6 +242,7 @@ class Fish {
   startFlee(spread = true) {
     if (this.state === 'hooked' || this.state === 'dead') return;
     this.state = 'flee'; this.t = rand(2.5, 5); this.speed = this.sp.burst;
+    if (this.vis && this.pos.y - H(this.pos.x, this.pos.z) < 1.2) sandPuff(this.pos, 4 + Math.min(6, this.len * 6 | 0), 0.8);
     _t1.subVectors(this.pos, P.pos); _t1.y *= 0.3; if (_t1.lengthSq() < 0.01) _t1.set(1, 0, 0); _t1.normalize();
     if (this.sp.habit === 'hole' && this.home) { this.state = 'tohole'; this.t = 12; }
     else this.target.copy(this.pos).addScaledVector(_t1, 25).add(_t2.set(rand(-6, 6), rand(-2, 2), rand(-6, 6)));

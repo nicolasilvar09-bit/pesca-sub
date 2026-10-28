@@ -118,7 +118,7 @@ function updateGun(dt) {
       if (Math.abs(along) < 0.47 && perp < f.radius * 1.15) { hitFish(f, along); return; }
     }
     if (insideRock(GUN.pos)) { GUN.state = 'stuck'; GUN.rock = true; GUN.freeT = 1.0; AU.tink(); toast('Arpão bateu na pedra!'); missed(); }
-    else if (GUN.pos.y < H(GUN.pos.x, GUN.pos.z) + 0.05) { GUN.state = 'stuck'; GUN.rock = false; GUN.freeT = 0.2; AU.thud(); missed(); }
+    else if (GUN.pos.y < H(GUN.pos.x, GUN.pos.z) + 0.05) { GUN.state = 'stuck'; GUN.rock = false; GUN.freeT = 0.2; AU.thud(); missed(); sandPuff(GUN.pos, 7, 1); }
     else if (GUN.trav > GUN.range * 1.5 || GUN.vel.length() < 0.5) { GUN.state = 'spent'; missed(); }
   } else if (GUN.state === 'spent') {
     if (!pulling) { GUN.pos.y = Math.max(GUN.pos.y - dt * 0.4, H(GUN.pos.x, GUN.pos.z) + 0.05); }

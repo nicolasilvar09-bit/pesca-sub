@@ -14,7 +14,8 @@ function dolphinGeo() {
   const dors = tri([[0, 0], [0.26, 0], [0.02, 0.24]]); dors.rotateY(-Math.PI / 2); dors.translate(0, 0.16, -0.05);
   const fl = tri([[0, 0], [0.22, 0.05], [0.16, 0.12]], 0.03); fl.rotateX(Math.PI / 2); fl.translate(-0.11, 0, -0.95);
   const fr = fl.clone(); fr.scale(-1, 1, 1);
-  const pec = tri([[0, 0], [0.2, -0.06], [0.05, -0.04]], 0.02); pec.rotateX(Math.PI / 2); pec.rotateZ(0.5); pec.translate(0.15, -0.1, 0.35);
+  // peitoral em foice: base larga, borda de ataque curva e ponta fina voltada para trás
+  const pec = tri([[0, 0.045], [0.07, 0.03], [0.14, -0.01], [0.2, -0.07], [0.215, -0.1], [0.17, -0.08], [0.1, -0.06], [0.03, -0.035], [0, -0.03]], 0.018); pec.rotateX(Math.PI / 2); pec.rotateZ(-0.55); pec.translate(0.15, -0.1, 0.38);
   const pec2 = pec.clone(); pec2.scale(-1, 1, 1);
   const g = mergeGeos([body, dors, fl, fr, pec, pec2]);
   // contra-sombra: dorso cinza-escuro, barriga clara rosada
