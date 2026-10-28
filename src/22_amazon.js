@@ -62,15 +62,15 @@ function popAmz() {
   const s = season() === 'cheia', ig = s ? 1.5 : 0.5, lk = s ? 0.8 : 1.4;
   const m = (arr, k) => arr.map(e => [e[0], Math.max(1, Math.round(e[1] * k)), e[2], e[3], e[4]]);
   return {
-    praia: [['tucunare', 4, [1, 2]], ['pacu', 4, [3, 6]], ['piranha', 3, [4, 8]], ['jaraqui', 3, [6, 12]], ['aruana', 1, [1, 2]], ['matrinxa', 2, [2, 4]]],
-    igapo: m([['tucunare', 6, [1, 3]], ['traira', 4, [1, 1]], ['aruana', 3, [1, 2]], ['piranha', 3, [4, 8]], ['pacu', 2, [2, 4]], ['tambaqui', 2, [1, 2]], ['surubim', 1, [1, 1], 0.6]], ig),
-    canal: m([['surubim', 4, [1, 1]], ['cachorra', 4, [1, 3]], ['douradorio', 4, [2, 4]], ['matrinxa', 3, [3, 6]], ['tambaqui', 2, [1, 2]], ['pirarucu', 1, [1, 1], 0.5], ['jaraqui', 3, [6, 12]]], lk),
-    lago: m([['tambaqui', 4, [2, 4]], ['pacu', 4, [3, 6]], ['tucunare', 5, [1, 3]], ['aruana', 3, [1, 2]], ['pirarucu', 2, [1, 1], 0.7], ['piranha', 2, [4, 8]]], lk),
-    pedral: [['douradorio', 5, [2, 4]], ['cachorra', 4, [1, 3]], ['matrinxa', 4, [3, 6]], ['surubim', 3, [1, 1]], ['tucunare', 2, [1, 2]]],
+    praia: [['aracu', 3, [4, 8]], ['bicudario', 2, [1, 2]], ['tucunare', 4, [1, 2]], ['pacu', 4, [3, 6]], ['piranha', 3, [4, 8]], ['jaraqui', 3, [6, 12]], ['aruana', 1, [1, 2]], ['matrinxa', 2, [2, 4]]],
+    igapo: m([['aracu', 3, [4, 8]], ['bicudario', 2, [1, 2]], ['tucunare', 6, [1, 3]], ['traira', 4, [1, 1]], ['aruana', 3, [1, 2]], ['piranha', 3, [4, 8]], ['pacu', 2, [2, 4]], ['tambaqui', 2, [1, 2]], ['surubim', 1, [1, 1], 0.6]], ig),
+    canal: m([['pescada', 4, [3, 6]], ['apapa', 3, [3, 6]], ['surubim', 4, [1, 1]], ['cachorra', 4, [1, 3]], ['douradorio', 4, [2, 4]], ['matrinxa', 3, [3, 6]], ['tambaqui', 2, [1, 2]], ['pirarucu', 1, [1, 1], 0.5], ['jaraqui', 3, [6, 12]]], lk),
+    lago: m([['pescada', 3, [3, 6]], ['aracu', 2, [4, 8]], ['tambaqui', 4, [2, 4]], ['pacu', 4, [3, 6]], ['tucunare', 5, [1, 3]], ['aruana', 3, [1, 2]], ['pirarucu', 2, [1, 1], 0.7], ['piranha', 2, [4, 8]]], lk),
+    pedral: [['apapa', 3, [3, 6]], ['bicudario', 2, [1, 2]], ['douradorio', 5, [2, 4]], ['cachorra', 4, [1, 3]], ['matrinxa', 4, [3, 6]], ['surubim', 3, [1, 1]], ['tucunare', 2, [1, 2]]],
     negro: [['traira', 5, [1, 1]], ['tucunare', 4, [1, 2]], ['piranha', 4, [4, 8]], ['aruana', 2, [1, 2]], ['surubim', 1, [1, 1]]],
   };
 }
-const POP_ZONE_AMZ = [['tucunare', 2, [1, 2]], ['piranha', 1, [4, 7]], ['pacu', 1, [3, 5], 0.8], ['jaraqui', 1, [5, 9], 0.7], ['traira', 1, [1, 1], 0.6], ['matrinxa', 1, [2, 4], 0.5], ['aruana', 1, [1, 1], 0.4]];
+const POP_ZONE_AMZ = [['aracu', 1, [4, 7], 0.7], ['pescada', 1, [3, 5], 0.5], ['bicudario', 1, [1, 2], 0.4], ['tucunare', 2, [1, 2]], ['piranha', 1, [4, 7]], ['pacu', 1, [3, 5], 0.8], ['jaraqui', 1, [5, 9], 0.7], ['traira', 1, [1, 1], 0.6], ['matrinxa', 1, [2, 4], 0.5], ['aruana', 1, [1, 1], 0.4]];
 
 // cheia e seca alternam a cada 7 dias de jogo
 const season = () => Math.floor(((SV.day || 1) - 1) / 7) % 2 ? 'seca' : 'cheia';
@@ -206,13 +206,26 @@ function updateJacares(dt, t) {
 // peixe-boi: lento, no lago, sobe para respirar; protegido (só foto)
 const PBOI = { list: [] };
 function buildPeixeBoi() {
-  const prof = [[0, -1.2], [0.25, -1.0], [0.42, -0.5], [0.48, 0], [0.44, 0.5], [0.32, 0.9], [0.22, 1.1], [0, 1.18]];
-  const body = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 14); body.rotateX(Math.PI / 2); body.scale(1, 0.85, 1);
-  const tail = new THREE.CylinderGeometry(0.55, 0.55, 0.06, 16); tail.translate(0, 0, 0); tail.scale(1, 1, 0.8); const tl = tail.clone(); tl.translate(0, 0, -1.55);
-  const fl = new THREE.BoxGeometry(0.5, 0.05, 0.22); fl.translate(0.48, -0.15, 0.6); const fr = fl.clone(); fr.scale(-1, 1, 1);
-  const g = mergeGeos([body, tl, fl, fr]), mat = uwify(new THREE.MeshLambertMaterial({ color: 0x3e3a34 }), { key: 'pboi' });
+  // corpo roliço que afina num pescoço curto, cabeça arredondada com focinho largo; cauda em remo e nadadeiras em pá
+  const prof = [[0, -1.2], [0.14, -1.12], [0.3, -0.85], [0.45, -0.4], [0.5, 0], [0.46, 0.45], [0.36, 0.76], [0.28, 0.88], [0.29, 1.0], [0.26, 1.14], [0.2, 1.24], [0.08, 1.3], [0, 1.31]];
+  const body = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 18); body.rotateX(Math.PI / 2); body.scale(1, 0.82, 1);
+  const tex = canvasTex(128, 64, g => { g.fillStyle = '#5d564c'; g.fillRect(0, 0, 128, 64); for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '30,26,22' : '140,130,115'},${rand(0.12, 0.3)})`; g.beginPath(); g.ellipse(rand(0, 128), rand(0, 64), rand(2, 9), rand(1, 4), rand(0, 3), 0, TAU); g.fill(); } });
+  const skin = uwify(new THREE.MeshLambertMaterial({ map: tex }), { key: 'pboi' }), dark = new THREE.MeshLambertMaterial({ color: 0x14110e });
+  const tailG = new THREE.SphereGeometry(1, 16, 6); tailG.scale(0.5, 0.05, 0.42); tailG.translate(0, 0, -0.38);
+  const finG = new THREE.SphereGeometry(1, 10, 6); finG.scale(0.24, 0.035, 0.12); finG.translate(0.2, 0, 0);
   const S = spotById('lago'); if (!S) return;
-  for (let i = 0; i < 2; i++) { const m = new THREE.Mesh(g, mat); m.scale.setScalar(1.3); m.visible = false; scene.add(m); PBOI.list.push({ m, S, a: rand(0, TAU), pos: new V3(S.x, -3, S.z), breathe: rand(20, 60), key: 'peixeboi' }); }
+  for (let i = 0; i < 2; i++) {
+    const m = new THREE.Group(); m.add(new THREE.Mesh(body, skin));
+    const tail = new THREE.Group(); tail.position.set(0, 0, -1.12); tail.add(new THREE.Mesh(tailG, skin)); m.add(tail);
+    const fins = [];
+    for (const sx of [-1, 1]) {
+      const f = new THREE.Group(); f.position.set(sx * 0.4, -0.18, 0.62); const fm = new THREE.Mesh(finG, skin); fm.scale.x = sx; f.add(fm); f.rotation.z = sx * -0.5; m.add(f); fins.push(f);
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 4), dark); e.position.set(sx * 0.2, 0.08, 1.08); m.add(e);
+      const n = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 4), dark); n.position.set(sx * 0.06, 0.12, 1.27); m.add(n);
+    }
+    m.scale.setScalar(1.3); m.visible = false; scene.add(m);
+    PBOI.list.push({ m, tail, fins, S, a: rand(0, TAU), pos: new V3(S.x, -3, S.z), breathe: rand(20, 60), key: 'peixeboi' });
+  }
 }
 function updatePeixeBoi(dt, t) {
   for (const B of PBOI.list) {
@@ -222,6 +235,7 @@ function updatePeixeBoi(dt, t) {
     const ty = B.breathe < 0 ? -0.4 : Math.max(h + 1.2, -4); if (B.breathe < -6) B.breathe = rand(40, 80);
     B.pos.x = lerp(B.pos.x, tx, dt * 0.05); B.pos.z = lerp(B.pos.z, tz, dt * 0.05); B.pos.y = lerp(B.pos.y, ty, dt * 0.3);
     B.m.position.copy(B.pos); B.m.rotation.set(Math.sin(t * 0.3) * 0.08, Math.atan2(tx - B.pos.x, tz - B.pos.z), 0, 'YXZ');
+    B.tail.rotation.x = Math.sin(t * 1.1 + B.a) * 0.25; B.fins.forEach((f, k) => f.rotation.x = Math.sin(t * 0.7 + k) * 0.3);
   }
 }
 // piranhas: fieira com peixe ferido perto de cardume de piranha → elas roubam um peixe
@@ -302,6 +316,14 @@ const AMZ_SPECIES = {
     col: { back: '#4a5866', side: '#c8d0d4', belly: '#f0f2f2', fin: '#d4a040', iris: '#e0d080' } },
   pirarucu: { name: 'Pirarucu', shape: 'arapaima', len: [1.4, 2.6], k: 9, price: 0, min: 9, cruise: 0.35, burst: 2.2, shy: 0.2, curious: 0.5, habit: 'mid', str: 3.5, protected: true,
     col: { back: '#363628', side: '#786e56', belly: '#d8c8a0', fin: '#a03020', iris: '#c0a050' } },
+  pescada: { name: 'Pescada-branca', shape: 'snap', len: [0.3, 0.65], k: 11, price: 22, min: 0.3, cruise: 0.6, burst: 3.8, shy: 0.55, curious: 0.4, habit: 'mid', str: 1.1, school: true,
+    col: { back: '#6a7078', side: '#d2d6da', belly: '#f4f4f2', fin: '#c8b890', iris: '#d8d0a0' } },
+  apapa: { name: 'Apapá', shape: 'jack', len: [0.35, 0.75], k: 12, price: 14, min: 0.35, cruise: 1.0, burst: 5.0, shy: 0.6, curious: 0.45, habit: 'mid', str: 1.3, school: true,
+    col: { back: '#6a6040', side: '#e2d494', belly: '#f6f0d4', fin: '#c8a850', iris: '#e0d080' } },
+  aracu: { name: 'Aracu', shape: 'slim', len: [0.2, 0.45], k: 13, price: 12, min: 0.2, cruise: 0.7, burst: 3.6, shy: 0.45, curious: 0.5, habit: 'reef', str: 0.8, school: true,
+    col: { back: '#5a5a40', side: '#cac2a2', belly: '#eee8d2', fin: '#c89040', iris: '#e0b060' } },
+  bicudario: { name: 'Bicuda-de-rio', shape: 'barra', len: [0.4, 0.85], k: 3.4, price: 16, min: 0.4, cruise: 0.8, burst: 6.0, shy: 0.4, curious: 0.7, habit: 'mid', str: 1.1,
+    col: { back: '#4a5a50', side: '#c8ccc0', belly: '#f2f2ea', fin: '#c86030', iris: '#e0c070' } },
 };
 for (const k in AMZ_SPECIES) AMZ_SPECIES[k].amz = true;
 Object.assign(SPECIES, AMZ_SPECIES);
@@ -318,6 +340,10 @@ Object.assign(SP_INFO, {
   piranha: ['Pygocentrus nattereri', 'Lagos e remansos, em cardume.', 'Mais medrosa do que parece: ataca peixe ferido e sangue na água, raramente gente.'],
   douradorio: ['Salminus brasiliensis', 'Corredeiras e pedrais com água rápida.', 'O "rei do rio": dourado brilhante que salta alto e caça em água rápida.'],
   cachorra: ['Hydrolycus scomberoides', 'Canal e corredeiras, meia-água.', 'Tem dois caninos enormes na mandíbula de baixo que encaixam em buracos no céu da boca.'],
+  pescada: ['Plagioscion squamosissimus', 'Canal e lagos, meia-água, em grupo.', 'Parente das corvinas do mar: ronca com a bexiga natatória e tem pedrinhas no ouvido (otólitos) usadas como amuleto.'],
+  apapa: ['Pellona castelnaeana', 'Canal e corredeiras, de passagem.', 'Prateado-dourado e de escama solta: salta muito e briga como um peixe de mar.'],
+  aracu: ['Leporinus friderici', 'Praias e beira do igapó, em cardume.', 'As três manchas escuras no flanco e a boca pequena virada para a frente entregam o aracu.'],
+  bicudario: ['Boulengerella cuvieri', 'Logo abaixo da superfície, perto de galhos e pedras.', 'Focinho longo e fino como o da bicuda do mar, mas é parente das piabas: caça peixinhos na superfície.'],
   pirarucu: ['Arapaima gigas', 'Lagos de várzea, sobe para respirar.', 'Um dos maiores peixes de água doce do mundo: respira ar e pode passar de 2,5 m. Protegido: só foto!'],
 });
 GUIDE_EXTRA.push(
@@ -342,6 +368,10 @@ function amzTex(key, g, blob, bars, R) {
   if (key === 'piranha') { for (let i = 0; i < 90; i++) blob(R() * 200, 10 + R() * 50, 1.6, 1.6, 'rgba(230,235,240,.5)'); g.fillStyle = 'rgba(200,40,20,.4)'; g.fillRect(150, 60, 106, 40); }
   if (key === 'douradorio') { g.strokeStyle = 'rgba(70,40,5,.55)'; g.lineWidth = 1.4; for (let y = 6; y < 100; y += 7) { g.beginPath(); g.moveTo(0, y); g.lineTo(210, y); g.stroke(); } g.fillStyle = 'rgba(10,10,8,.85)'; g.fillRect(0, 46, 40, 8); }
   if (key === 'cachorra') { blob(190, 22, 9, 7, 'rgba(10,10,10,.75)'); blob(190, 78, 9, 7, 'rgba(10,10,10,.75)'); g.fillStyle = 'rgba(10,10,10,.6)'; g.fillRect(0, 45, 20, 10); }
+  if (key === 'pescada') { g.fillStyle = 'rgba(80,90,100,.08)'; for (let y = 10; y < 30; y += 6) g.fillRect(0, y, 210, 1.2); }
+  if (key === 'apapa') { g.fillStyle = 'rgba(240,210,90,.35)'; g.fillRect(0, 30, 256, 40); }
+  if (key === 'aracu') for (const x of [70, 120, 170]) for (const y of [30, 70]) blob(x, y, 8, 7, 'rgba(15,15,10,.7)');
+  if (key === 'bicudario') { for (let i = 0; i < 70; i++) blob(R() * 220, 5 + R() * 40, 1.6, 1.6, 'rgba(20,20,15,.55)'); g.fillStyle = 'rgba(20,20,15,.4)'; g.fillRect(0, 47, 210, 5); }
   if (key === 'pirarucu') { for (let y = 4; y < 100; y += 8) for (let x = 0; x < 200; x += 9) { const a = smooth(160, 20, x) * 0.75; g.strokeStyle = `rgba(200,40,20,${a})`; g.lineWidth = 1.6; g.beginPath(); g.arc(x + (y % 16 ? 4 : 0), y, 4, 0.2, Math.PI - 0.2); g.stroke(); } }
 }
 // arraia-de-fogo: disco marrom com ocelos amarelos
@@ -385,3 +415,35 @@ function bulletinAmz() {
     <div class="it"><div><div class="n">Rio</div><div class="d">${s === 'cheia' ? 'Cheia: o peixe entra na floresta alagada. Igapó cheio de tucunaré e tambaqui comendo frutos.' : 'Seca: o igapó fica raso e o peixe desce para o canal e para o Lago Verde.'} Correnteza forte no canal e no pedral.</div></div></div>
     <div class="it"><div><div class="n">Perigos</div><div class="d">Arraia na areia rasa (olhe antes de encostar no fundo), poraquê nas galhadas, piranha cercando quem nada com peixe na fieira e jacaré no igapó à noite.</div></div></div>`;
 }
+
+// ---------- voadeira: barco de alumínio da pousada, raso e leve ----------
+const VOAD = { name: 'Voadeira 6 m', max: 26, tank: 60, scale: 1, price: 0, desc: 'Barco de alumínio da pousada, raso e leve: entra em qualquer igarapé. Motor de popa 40 hp com cana de leme.' };
+const useVoad = () => AMZ && SV.voad !== false;
+const curBoatIdx = () => useVoad() ? 'v' : SV.boat || 0;
+function buildVoadeira() {
+  const look = { len: 0.78, beam: 0.62, bottom: [0.62, 0.64, 0.66] }, paint = { top: [0.74, 0.76, 0.78], stripe: [0.12, 0.42, 0.26] };
+  const g = new THREE.Group(), [hg, deckG] = boatHull(look, paint);
+  hg.scale(1, 0.7, 1); hg.translate(0, 0.12, 0);
+  g.add(new THREE.Mesh(hg, uwify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.55 }), { key: 'bv' })));
+  const wood = new THREE.MeshStandardMaterial({ color: 0x8a6440, roughness: 0.85 }), alu = new THREE.MeshStandardMaterial({ color: 0xb8bcc0, roughness: 0.4, metalness: 0.6 });
+  const deck = new THREE.Mesh(deckG, alu); deck.position.y = 0.42; g.add(deck);
+  const box = (w, h, d, x, y, z, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
+  // bancos de madeira atravessados, assoalho e borda reforçada
+  for (const z of [-2.2, -0.6, 0.9]) box(1.4, 0.06, 0.34, 0, 0.72, z, wood);
+  for (const sx of [-1, 1]) box(0.06, 0.08, 4.9, sx * 0.74, 0.86, -0.3, alu);
+  box(1.3, 0.08, 0.8, 0, 0.62, 2.3, alu); // proa coberta
+  // motor de popa com cana de leme
+  outboard(g, 0, -2.85, 0.75, new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 }), new THREE.MeshStandardMaterial({ color: 0x1f5a8a, roughness: 0.4 }));
+  const tiller = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.8, 6), alu); tiller.rotation.x = Math.PI / 2 - 0.25; tiller.position.set(0, 1.15, -2.45); g.add(tiller);
+  // piloto sentado no banco de trás, mão na cana
+  const pilot = buildDiver(false); scene.remove(pilot.root); g.add(pilot.root); pilot.root.position.set(0.1, 0.72 + 0.62, -2.15); pilot.root.rotation.y = Math.PI;
+  poseDiver(pilot, 'drive', 0); g.userData.pilot = [pilot.root]; g.userData.rig = pilot;
+  return g;
+}
+function voadHTML() {
+  const use = useVoad(), img = thumb('voadeira', () => buildVoadeira(), [1, 0.45, 0.8], 1.15);
+  return `<div class="it eq"><img class="thumb" src="${img}" alt=""><div style="flex:1"><div class="n">${VOAD.name} · da pousada</div><div class="d">${VOAD.desc} Velocidade máx. ${Math.round(VOAD.max * 1.94)} nós · tanque ${VOAD.tank} L. Grátis enquanto estiver no Amazonas.</div></div>${use ? '<span class="d">EM USO</span>' : '<button class="btn" data-voad="1">USAR</button>'}</div>`;
+}
+
+// torneio do rio: tucunaré e dourado valem mais (grandes valem 3)
+function compPts(f) { if (!AMZ || (f.key !== 'tucunare' && f.key !== 'douradorio')) return 1; return f.len >= f.sp.len[1] * 0.8 ? 3 : 2; }

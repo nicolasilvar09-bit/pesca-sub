@@ -29,7 +29,7 @@ function boatHull(look, paint) {
     let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
     const dn = clamp((0.62 - y) / 1.25, 0, 1); x *= lerp(1, 0.28, dn * dn); if (dn > 0.5) y += Math.max(0, z - 0.8) * 0.18 * dn;
     p.setXYZ(i, x * look.beam, y, z * look.len);
-    let c = paint.top; if (y < 0.3 && y > 0.05) c = paint.stripe; if (y <= -0.12) c = [0.45, 0.08, 0.06];
+    let c = paint.top; if (y < 0.3 && y > 0.05) c = paint.stripe; if (y <= -0.12) c = look.bottom || [0.45, 0.08, 0.06];
     col.set(c, i * 3);
   }
   hg.setAttribute('color', new THREE.BufferAttribute(col, 3)); hg.computeVertexNormals();
@@ -43,6 +43,7 @@ function outboard(g, x, z, h, m, cowl) {
   b(0.16, 1.1, 0.24, 0.1, m).position.z = z - 0.04;
 }
 function buildBoatModel(idx, paintOverride) {
+  if (idx === 'v') return buildVoadeira();
   const look = BOAT_LOOK[idx] || BOAT_LOOK[0], paint = paintOverride || boatPaint(idx), L = look.len, Bm = look.beam;
   const g = new THREE.Group();
   const [hg, deckG] = boatHull(look, paint);
@@ -107,13 +108,13 @@ function buildBoatModel(idx, paintOverride) {
 }
 // troca o modelo da lancha mantendo posição e rumo
 function rebuildBoat() {
-  const old = BOAT.mesh, g = buildBoatModel(SV.boat || 0);
+  const old = BOAT.mesh, g = buildBoatModel(curBoatIdx());
   if (old) { g.position.copy(old.position); g.quaternion.copy(old.quaternion); scene.remove(old); old.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-  scene.add(g); BOAT.mesh = g; BOAT.meshIdx = SV.boat || 0; BOAT.meshPaint = JSON.stringify(SV.boatPaint || {});
+  scene.add(g); BOAT.mesh = g; BOAT.meshIdx = curBoatIdx(); BOAT.meshPaint = JSON.stringify(SV.boatPaint || {});
 }
 function boatsHTML() {
-  return '<div class="list">' + BOATS.map((b, i) => {
-    const own = (SV.boats || [0]).includes(i), use = (SV.boat || 0) === i, pi = (SV.boatPaint || {})[i] ?? BOAT_LOOK[i].paint;
+  return '<div class="list">' + (AMZ ? voadHTML() : '') + BOATS.map((b, i) => {
+    const own = (SV.boats || [0]).includes(i), use = !useVoad() && (SV.boat || 0) === i, pi = (SV.boatPaint || {})[i] ?? BOAT_LOOK[i].paint;
     const img = thumb('boat' + i + '_' + pi, () => buildBoatModel(i), [1, 0.45, 0.8], 1.15);
     const paints = own ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${PAINTS.map((p, k) => `<button class="sw ${k === pi ? 'on' : ''}" title="${p.name}" data-paint="${i}:${k}" style="background:linear-gradient(180deg,rgb(${p.top.map(v => v * 255 | 0)}) 60%,rgb(${p.stripe.map(v => v * 255 | 0)}) 60%)"></button>`).join('')}<span class="d" style="align-self:center">Pintura ${fmtR(PAINT_PRICE)}</span></div>` : '';
     return `<div class="it eq"><img class="thumb" src="${img}" alt=""><div style="flex:1"><div class="n">${b.name}</div><div class="d">${b.desc} Velocidade máx. ${Math.round(b.max * 1.94)} nós · tanque ${b.tank} L.</div>${paints}</div>${use ? '<span class="d">EM USO</span>' : own ? `<button class="btn alt" data-boat="${i}">USAR</button>` : buyBtn(`data-bboat="${i}"`, b.price)}</div>`;

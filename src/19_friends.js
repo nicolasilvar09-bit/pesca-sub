@@ -122,7 +122,7 @@ function startDuo(id) {
   toast(`Dupla com ${f.name}! 10 minutos na ${s.name}.`, 4, 'gold');
 }
 // parceiro de dupla: conta para a equipe e o peixe vai para a caixa
-function duoPartnerCatch(b, f) { b.n++; b.kg += f.kg; friendCatch(b, f); }
+function duoPartnerCatch(b, f) { b.n += compPts(f); b.kg += f.kg; friendCatch(b, f); }
 // placar por equipe
 function duoRows() {
   const T = [{ name: COMP.duo.names[0], n: COMP.me.n, kg: COMP.me.kg, me: true }, { name: COMP.duo.names[1], n: 0, kg: 0 }, { name: COMP.duo.names[2], n: 0, kg: 0 }];

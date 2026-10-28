@@ -3,7 +3,7 @@
 // ---------- missões do dia (3 por dia de jogo) ----------
 const today = () => 'dia-' + (SV.day || 1) + (AMZ ? '-amz' : ''); // missões trocam a cada dia de jogo
 const MISSION_POOL = [
-  r => { const k = r.pick(AMZ ? ['tucunare', 'pacu', 'tambaqui', 'aruana', 'matrinxa', 'surubim', 'traira', 'jaraqui', 'douradorio', 'cachorra'] : ['sargo', 'marimba', 'salema', 'garoupa', 'robalo', 'xareu', 'pampo', 'badejo', 'caranha', 'cocoroca', 'cioba', 'olhete', 'cangulo']), n = SPECIES[k].school ? 3 : 1; return { t: `Pegue ${n} ${SPECIES[k].name} dentro da medida`, ev: 'catch', key: k, goal: n, rew: 200 + n * 90 }; },
+  r => { const k = r.pick(AMZ ? ['tucunare', 'pacu', 'tambaqui', 'aruana', 'matrinxa', 'surubim', 'traira', 'jaraqui', 'douradorio', 'cachorra', 'pescada', 'apapa', 'aracu', 'bicudario'] : ['sargo', 'marimba', 'salema', 'garoupa', 'robalo', 'xareu', 'pampo', 'badejo', 'caranha', 'cocoroca', 'cioba', 'olhete', 'cangulo']), n = SPECIES[k].school ? 3 : 1; return { t: `Pegue ${n} ${SPECIES[k].name} dentro da medida`, ev: 'catch', key: k, goal: n, rew: 200 + n * 90 }; },
   r => { const kg = r.pick([3, 5, 8]); return { t: `Pegue um peixe de ${kg} kg ou mais`, ev: 'catchkg', kg, goal: 1, rew: kg * 90 }; },
   r => { const d = r.pick(AMZ ? [6, 10, 14] : [10, 14, 18]); return { t: `Mergulhe até ${d} m de profundidade`, ev: 'depth', d, goal: 1, rew: d * 25 }; },
   () => ({ t: 'Acerte 2 tiros na cabeça', ev: 'head', goal: 2, rew: 400 }),
