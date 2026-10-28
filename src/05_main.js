@@ -89,7 +89,7 @@ const show = (id, v) => $(id).classList.toggle('hide', !v);
 function nearMarina() { return Math.hypot(BOAT.pos.x - PIER.x, BOAT.pos.z - PIER.z1) < 42 && Math.abs(BOAT.speed) < 3; }
 function aimOnFish() {
   if (P.mode !== 'swim' || !P.under || GUN.state !== 'ready' || !GUN.bands) return null;
-  const o = camera.position, d = camFwd(_a), R = GUN.def.range * Math.sqrt(GUN.bands / GUN.def.bands);
+  const o = camera.position, d = camFwd(_a), R = GUN.def.range * Math.sqrt(GUN.bands / GUN.def.bands) * gunWearK();
   for (const f of FISHES) { if (!f.vis || f.state === 'dead') continue; _b.subVectors(f.pos, o); const t = _b.dot(d); if (t < 0 || t > R * 1.6) continue; if (_b.addScaledVector(d, -t).length() < f.radius + 0.05) return { f, ok: t <= R }; }
   return null;
 }
@@ -104,7 +104,7 @@ function updateHUD(dt) {
   if (swim && !P.under && P.boatDist < 6) { ctx.textContent = 'SUBIR NO BARCO'; show('bCtx', true); }
   else if (!swim && SV.fuel <= 0 && !nearMarina()) { ctx.textContent = 'REBOQUE (R$ 150)'; show('bCtx', true); }
   else show('bCtx', false);
-  show('cross', swim); show('bands', swim); show('bView', swim); show('bPhoto', swim && P.under && !!SV.cam); show('bCall', swim && P.under); show('bEq', swim && P.under && !OPT.autoEq); $('bCall').style.opacity = callCD > 0 ? 0.45 : ''; show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
+  show('cross', swim); show('bands', swim); show('bView', swim || P.mode === 'boat'); document.body.classList.toggle('inboat', P.mode === 'boat'); show('bPhoto', swim && P.under && !!SV.cam); show('bCall', swim && P.under); show('bEq', swim && P.under && !OPT.autoEq); $('bCall').style.opacity = callCD > 0 ? 0.45 : ''; show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
   const aim = aimOnFish(); $('cross').classList.toggle('ok', !!(aim && aim.ok));
   const al = $('aimLbl'); if (aim) { al.textContent = `${aim.f.sp.rare ? '★ RARO · ' : isTrophy(aim.f) ? '★ TROFÉU · ' : ''}${aim.f.sp.name} · ~${Math.round(aim.f.len * 100 / 5) * 5} cm${aim.ok ? '' : ' · longe'}`; al.classList.remove('hide'); } else al.classList.add('hide');
   const fighting = GUN.state === 'hooked' && GUN.fish && GUN.fish.fight > 0;
@@ -158,7 +158,7 @@ function step(dt) {
   if (took('ctx')) ctxAction();
   if (took('anchor') && P.mode === 'boat') toggleAnchor();
   if (took('jump') && P.mode === 'boat') jumpIn();
-  if (took('view')) { THIRD = !THIRD; toast(THIRD ? 'Vista em 3ª pessoa' : 'Vista em 1ª pessoa (mira de precisão)'); }
+  if (took('view')) { if (P.mode === 'boat') { SV.boatFP = !SV.boatFP; BOAT.camYaw = 0; toast(SV.boatFP ? 'Lancha: vista do piloto (1ª pessoa)' : 'Lancha: vista de fora (3ª pessoa)'); } else { THIRD = !THIRD; toast(THIRD ? 'Vista em 3ª pessoa' : 'Vista em 1ª pessoa (mira de precisão)'); } }
   if (took('fire')) gunFire();
   if (took('arm')) gunArm();
   if (took('photo')) takePhoto();
@@ -171,7 +171,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateOnline(dt, T);
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateOnline(dt, T);
   applyShake(dt);
 }
 function updateEnv(dt) {

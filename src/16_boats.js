@@ -102,7 +102,7 @@ function buildBoatModel(idx, paintOverride) {
   }
   // piloto
   const pilot = buildDiver(false); scene.remove(pilot.root); g.add(pilot.root); pilot.root.position.set(0.15, pilotY, pilotZ); pilot.root.rotation.y = Math.PI;
-  poseDiver(pilot, 'drive', 0); g.userData.pilot = [pilot.root]; g.userData.rig = pilot;
+  poseDiver(pilot, 'drive', 0); g.userData.pilot = [pilot.root]; g.userData.rig = pilot; g.userData.eye = new V3(0.15, pilotY + 0.8, pilotZ + 0.12);
   g.scale.setScalar(BOATS[idx] ? BOATS[idx].scale : 1);
   return g;
 }

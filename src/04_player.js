@@ -72,7 +72,7 @@ function gunFire() {
   GUN.aimF = (aimOnFish() || {}).f || null; GUN.waitShot = P.under && P.still > 2;
   gunTipWorld(GUN.pos); aimDir(GUN.dir, GUN.pos);
   GUN.vel.copy(GUN.dir).multiplyScalar(GUN.def.speed * f);
-  GUN.range = GUN.def.range * f; GUN.trav = 0; GUN.state = 'flying'; GUN.bands = 0; GUN.loadT = 0; GUN.rock = false;
+  GUN.range = GUN.def.range * f * gunWearK(); gunShot(); GUN.trav = 0; GUN.state = 'flying'; GUN.bands = 0; GUN.loadT = 0; GUN.rock = false;
   setSpearInGun(false); GUN.spear.visible = true; GUN.line.visible = true; GUN.recoil = 1;
   AU.shot(); FEAR.pos.copy(P.pos); FEAR.r = 7; FEAR.t = 0.8; P.noise = 1; updateBands();
   if (P.under) spawnBubbles(GUN.pos, 8, 0.1);
@@ -83,7 +83,7 @@ function catchFish(f) {
   RESPAWN.push({ key: f.key, spot: f.spot.id, n: sp.school ? Math.round(rand(3, 6)) : 1, t: performance.now() / 1000 + rand(90, 160) });
   if (sp.protected) { SV.money -= 1000; toast(`${sp.name.toUpperCase()}, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
   if (f.len < sp.min) { SV.money -= 200; toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
-  P.stringer.push({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len });
+  P.stringer.push(tagCatch({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len }));
   if (!sp.ornamental) addXP(15 + f.kg * 12);
   if ((SV.tod || 12) >= 19 || (SV.tod || 12) < 5) SV.nightCatch = true;
   compOnCatch(f);
@@ -189,7 +189,7 @@ function updateBoat(dt, t) {
   if (driving && !B.anchored) {
     const thIn = clamp(IN.jy, -0.35, 1);
     B.throttle = lerp(B.throttle, SV.fuel > 0 ? thIn : 0, clamp(dt * 2, 0, 1));
-    const maxS = boatNow().max;
+    const maxS = boatNow().max * engineK();
     B.speed += (B.throttle * maxS - B.speed) * clamp(dt * (B.throttle > Math.abs(B.speed) / maxS ? 0.55 : 0.8), 0, 1);
     B.heading -= IN.jx * dt * (0.35 + 0.75 * Math.min(1, Math.abs(B.speed) / 6)) * (B.speed < -0.2 ? -1 : 1);
     SV.fuel = Math.max(0, SV.fuel - Math.abs(B.throttle) * dt * FUEL_RATE);
@@ -214,7 +214,7 @@ function updateBoat(dt, t) {
   B.pitch = lerp(B.pitch, -Math.atan2(wf - wb, 6) - plane * 0.08 * Math.min(1, B.throttle * 1.5) + Math.sin(t * 6.5) * 0.018 * plane, clamp(dt * 3, 0, 1));
   B.roll = lerp(B.roll, Math.atan2(wl - wr, 2.4) + IN.jx * plane * 0.18 * (driving ? 1 : 0), clamp(dt * 3, 0, 1));
   B.mesh.position.copy(B.pos); B.mesh.rotation.set(B.pitch, B.heading, B.roll, 'YXZ');
-  B.mesh.userData.pilot.forEach(o => o.visible = driving); if (driving) poseDiver(B.mesh.userData.rig, 'drive', t);
+  B.mesh.userData.pilot.forEach(o => o.visible = driving && !SV.boatFP); if (driving) poseDiver(B.mesh.userData.rig, 'drive', t);
   // corda da âncora
   B.rope.visible = B.anchored;
   if (B.anchored) { const bow = B.mesh.localToWorld(_b.set(0, 0.7, 3.6)); const a = B.rope.geometry.attributes.position; a.setXYZ(0, bow.x, bow.y, bow.z); const ax = B.anchorP; a.setXYZ(1, ax.x, ax.y, ax.z); a.needsUpdate = true; }
@@ -225,7 +225,13 @@ function updateBoat(dt, t) {
   B.wake.forEach((w, i) => { w.a = Math.max(0, w.a - dt * 0.25); w.x += (w.vx || 0) * dt; w.z += (w.vz || 0) * dt; B.wakeArr[i * 3] = w.x; B.wakeArr[i * 3 + 1] = waveH(w.x, w.z, t) + 0.08; B.wakeArr[i * 3 + 2] = w.z; B.wakeCol[i * 3] = B.wakeCol[i * 3 + 1] = B.wakeCol[i * 3 + 2] = w.a * 0.7; });
   B.wakePts.geometry.attributes.position.needsUpdate = true; B.wakePts.geometry.attributes.color.needsUpdate = true;
   AU.setEngine(Math.abs(B.throttle), !B.anchored && (driving || Math.abs(B.speed) > 0.3), camUnder);
-  if (driving) {
+  if (driving && SV.boatFP && B.mesh.userData.eye) {
+    // 1ª pessoa: olhos do piloto, balançando junto com o casco; arrastar olha em volta
+    B.camYaw -= IN.lookX * 0.005 * OPT.sens; B.fpPitch = clamp((B.fpPitch || -0.06) - IN.lookY * 0.004 * OPT.sens * (OPT.inv ? -1 : 1), -0.6, 0.45);
+    if (!IN.lookX && Math.abs(B.speed) > 4) B.camYaw *= Math.exp(-dt * 0.8);
+    B.mesh.updateMatrixWorld(); camera.position.copy(B.mesh.localToWorld(_c.copy(B.mesh.userData.eye)));
+    camera.quaternion.copy(B.mesh.quaternion).multiply(_fpq.setFromEuler(_fpe.set(B.fpPitch, Math.PI + B.camYaw, 0, 'YXZ')));
+  } else if (driving) {
     B.camYaw -= IN.lookX * 0.005 * OPT.sens; B.camPitch = clamp(B.camPitch + IN.lookY * 0.004 * OPT.sens * (OPT.inv ? -1 : 1), 0.05, 1.1);
     if (!IN.lookX && Math.abs(B.speed) > 4) B.camYaw *= Math.exp(-dt * 0.8);
     const cy = B.heading + Math.PI + B.camYaw, R = (12 + Math.abs(B.speed) * 0.2) * (camera.aspect < 1 ? 1.5 : 1);
@@ -235,6 +241,7 @@ function updateBoat(dt, t) {
     camera.lookAt(B.pos.x, B.pos.y + 1.8, B.pos.z);
   }
 }
+const _fpq = new THREE.Quaternion(), _fpe = new THREE.Euler();
 function toggleAnchor() {
   const B = BOAT;
   if (B.anchored) { B.anchored = false; toast('Âncora recolhida.'); AU.click(); return; }

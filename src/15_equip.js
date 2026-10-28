@@ -154,8 +154,8 @@ function card(img, name, desc, btn) { return `<div class="it eq"><img class="thu
 const owned = (eq, own, attrEq, attrBuy, price) => eq ? '<span class="d">EM USO</span>' : own ? `<button class="btn alt" ${attrEq}>USAR</button>` : buyBtn(attrBuy, price);
 function equipHTML() {
   let h = `<div class="tabs sub">${EQ_TABS.map(([k, n]) => `<div class="tab ${k === eqTab ? 'on' : ''}" data-eqtab="${k}">${n}</div>`).join('')}</div><div class="list">`;
-  if (eqTab === 'guns') h += GUNS.map(g => card(thumb('g' + g.id, () => { const m = buildGunMesh(g, false); placeBands(m, m.bands.length, -1, 1); return m.g; }, [1, 0.3, -0.08], 1.9), g.name, `Alcance ${fmtKg(g.range)} m · ${g.pneu ? 'pneumático' : g.bands + ' elástico(s)'} · segura peixe de até ~${g.power} kg. ${g.desc}`,
-    owned(SV.gun === g.id, SV.guns.includes(g.id), `data-eq="${g.id}"`, `data-buy="${g.id}"`, g.price))).join('');
+  if (eqTab === 'guns') h += GUNS.map(g => card(thumb('g' + g.id, () => { const m = buildGunMesh(g, false); placeBands(m, m.bands.length, -1, 1); return m.g; }, [1, 0.3, -0.08], 1.9), g.name, `${wearTxt(g)} Alcance ${fmtKg(g.range)} m · ${g.pneu ? 'pneumático' : g.bands + ' elástico(s)'} · segura peixe de até ~${g.power} kg. ${g.desc}`,
+    `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">${owned(SV.gun === g.id, SV.guns.includes(g.id), `data-eq="${g.id}"`, `data-buy="${g.id}"`, g.price)}${wearBtn(g)}</div>`)).join('');
   if (eqTab === 'suits') h += SUITS.map((s, i) => card(thumb('s' + i, () => suitDiverObj(i), [0.2, 0.05, -1], 1.6), s.name, `${s.desc} Fôlego ×${s.o2.toFixed(2)} · discrição ${Math.round((2 - s.shy) * 50)}%.`,
     owned((SV.suit || 0) === i, (SV.suits || [0]).includes(i), `data-suit="${i}"`, `data-bsuit="${i}"`, s.price))).join('');
   if (eqTab === 'masks') h += MASKS.map((s, i) => card(thumb('m' + i, () => maskObj(i), [0.45, 0.25, 1]), s.name, `${s.desc}${s.fov ? ` Campo de visão +${s.fov}°.` : ''} Fôlego ×${s.o2.toFixed(2)}.`,

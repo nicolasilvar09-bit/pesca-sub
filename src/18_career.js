@@ -9,7 +9,7 @@ function addXP(n, why) {
   if (!n || n < 1) return;
   const l0 = level(); SV.xp = (SV.xp || 0) + Math.round(n); const l1 = level();
   if (l1 > l0) {
-    const prize = 250 * l1; SV.money += prize; AU.coin(); buzz([40, 60, 40, 60, 80]);
+    const prize = 120 * l1; SV.money += prize; AU.coin(); buzz([40, 60, 40, 60, 80]);
     toast(`NÍVEL ${l1}! ${rankName(l1)} · prêmio ${fmtR(prize)}`, 5, 'gold');
   }
   careerHUD();

@@ -34,7 +34,7 @@ function makeBot(f, pos) {
 function clearFriendBots() { for (const b of FR.bots) scene.remove(b.rig.root); FR.bots = []; }
 // amigo pegou: o peixe vai para a caixa térmica do barco (pescaria em grupo)
 function friendCatch(b, f) {
-  SV.cooler.push({ key: f.key, name: f.sp.name, cm: Math.round(f.len * 100), kg: f.kg, len: f.len, by: b.name });
+  SV.cooler.push(tagCatch({ key: f.key, name: f.sp.name, cm: Math.round(f.len * 100), kg: f.kg, len: f.len, by: b.name }));
   b.f.xp = (b.f.xp || 0) + 10 + f.kg * 4;
   toast(`${b.name} pegou ${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg · vai para a caixa`, 2.5); save();
 }

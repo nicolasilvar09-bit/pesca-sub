@@ -60,7 +60,7 @@ function takePhoto() {
   const calm = o.turtle || o.moreia || o.state === 'wander' || o.state === 'curious' || o.state === 'hidden' ? 1.25 : 0.8;
   const D = SV.photoDay && SV.photoDay.day === SV.day ? SV.photoDay : (SV.photoDay = { day: SV.day, n: {} });
   const rep = D.n[key] || 0; D.n[key] = rep + 1;
-  const score = Math.round(base * size * dist * cen * calm), pay = Math.round(score / (1 + rep * 0.8));
+  const score = Math.round(base * size * dist * cen * calm), pay = Math.round(score * 0.55 / (1 + rep * 0.8));
   SV.photos = SV.photos || {}; const first = !SV.photos[key];
   SV.photos[key] = Math.max(SV.photos[key] || 0, score);
   SV.money += pay + (first ? 150 : 0); addXP(pay / 4 + (first ? 40 : 0));

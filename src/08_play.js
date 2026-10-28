@@ -17,7 +17,7 @@ function ensureDaily() {
   const seed = [...day].reduce((s, c) => s * 31 + c.charCodeAt(0), 7) >>> 0, m = mulberry(seed);
   const r = { pick: a => a[Math.floor(m() * a.length)] }, idx = [...MISSION_POOL.keys()];
   for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(m() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
-  SV.daily = { day, list: idx.slice(0, 3).map(i => Object.assign(MISSION_POOL[i](r), { prog: 0, done: false })) };
+  SV.daily = { day, list: idx.slice(0, 3).map(i => { const m = Object.assign(MISSION_POOL[i](r), { prog: 0, done: false }); m.rew = Math.round(m.rew * 0.55 / 10) * 10; return m; }) };
   save(); return SV.daily;
 }
 function mission(ev, data = {}) {
