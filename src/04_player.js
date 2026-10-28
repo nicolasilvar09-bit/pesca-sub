@@ -274,6 +274,7 @@ function blackout() {
 
 // ================= nado / apneia =================
 function updateSwim(dt, t) {
+  sambaInput();
   const sens = 0.0042 * OPT.sens;
   P.yaw -= IN.lookX * sens; P.pitch = clamp(P.pitch - IN.lookY * sens * (OPT.inv ? -1 : 1), -1.5, 1.4);
   const surfY = waveH(P.pos.x, P.pos.z, t);
@@ -295,7 +296,7 @@ function updateSwim(dt, t) {
       if (P.o2 < 0.6) toast('Pouco fôlego! Respire mais na superfície antes de descer.', 3, 'bad');
       if (DAY.amb < 0.35 && !P.nightTip) { P.nightTip = true; toast('Na vida real, confira as regras locais: em muitos lugares a pesca sub noturna é proibida.', 5); }
     }
-    P.o2 = Math.min(1, P.o2 + dt / (maxBreath() * 0.85) * recMult()); P.surfT += dt;
+    P.o2 = Math.min(o2Cap(), P.o2 + dt / (maxBreath() * 0.85) * recMult() * (APN.sambaT > 0 ? 0.3 : 1)); P.surfT += dt;
     P.still = 0;
   } else {
     const des = new V3().addScaledVector(fwd, IN.jy * 2.1 * finK).addScaledVector(right, IN.jx * 0.9);
@@ -326,7 +327,7 @@ function updateSwim(dt, t) {
     }
     P.diveT += dt; P.maxD = Math.max(P.maxD, -P.pos.y);
     // consumo de oxigênio
-    P.o2 -= dt / maxBreath() * (0.7 + 0.65 * P.effort * kickEff() + depth / 45) * eqPenalty(depth) * (P.stringer.length > 6 ? 1.1 : 1) * suitNow().o2 * maskNow().o2 * beltNow().o2 / (1 + (P.diveBonus || 0));
+    P.o2 -= dt / maxBreath() * (0.7 + 0.65 * P.effort * kickEff() + depth / 45) * eqPenalty(depth) * (P.stringer.length > 6 ? 1.1 : 1) * suitNow().o2 * maskNow().o2 * beltNow().o2 * apneaDrain(depth) / (1 + (P.diveBonus || 0));
     if (P.pos.y > surfY - 0.45 && P.vel.y > -0.05) {
       P.under = false; P.grip = false; AU.breath(); P.surfT = 0; P.lastDiveT = P.diveT;
       const d = P.maxD; if (d > 2) toast(`Mergulho: ${fmtKg(d)} m · ${Math.floor(P.diveT)} s`, 2.2);

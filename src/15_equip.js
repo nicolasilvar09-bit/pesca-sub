@@ -36,7 +36,7 @@ function eqPenalty(depth) {
 function updateApnea(dt) {
   if (P.mode !== 'swim') { P.relax = 0; return; }
   if (!P.under) {
-    const calm = Math.hypot(IN.jx, IN.jy) < 0.05 && P.o2 > 0.97;
+    const calm = Math.hypot(IN.jx, IN.jy) < 0.05 && P.o2 > o2Cap() - 0.03;
     const was = P.relax || 0;
     P.relax = clamp(was + (calm ? dt / 25 : -dt / 4), 0, 1);
     if (was < 1 && P.relax >= 1) toast(`Respiração calma: +${Math.round(relaxMax() * 100)}% de fôlego no próximo mergulho. Nunca hiperventile!`, 4);

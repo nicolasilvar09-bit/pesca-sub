@@ -93,4 +93,4 @@ function updateAtmosSound(dt) {
   }
 }
 
-function updateAtmos(dt, t) { updateDepthLook(dt); updateAtmosSound(dt); }
+function updateAtmos(dt, t) { updateDepthLook(dt); tunnelLook(); updateAtmosSound(dt); }
