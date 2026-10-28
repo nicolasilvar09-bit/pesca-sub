@@ -284,8 +284,17 @@ function bindOnline(B, on) {
   });
 }
 
+// volta do link de confirmação do e-mail: avisa e limpa o endereço
+function emailReturn() {
+  const h = location.hash; if (!h || h.length < 3) return;
+  const q = new URLSearchParams(h.slice(1));
+  if (q.get('error')) setTimeout(() => toast(/expired|invalid/i.test(q.get('error_description') || '') ? 'O link do e-mail expirou ou já foi usado. Peça outro na aba Online.' : 'Não deu para confirmar o e-mail: ' + (q.get('error_description') || q.get('error')), 6, 'bad'), 1500);
+  else if (q.get('access_token') || /email|signup/.test(q.get('type') || '')) setTimeout(() => toast('E-mail confirmado! Sua conta está protegida.', 5, 'gold'), 1500);
+  else return;
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }
+}
 function setupOnline() {
-  onlineStart();
+  emailReturn(); onlineStart();
   addEventListener('pagehide', () => cloudPush());
   document.addEventListener('visibilitychange', () => { if (document.hidden) cloudPush(); });
   setInterval(() => cloudPush(), 60000);
