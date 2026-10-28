@@ -12,13 +12,29 @@ function dolphinGeo() {
   const fr = fl.clone(); fr.scale(-1, 1, 1);
   const pec = tri([[0, 0], [0.2, -0.06], [0.05, -0.04]], 0.02); pec.rotateX(Math.PI / 2); pec.rotateZ(0.5); pec.translate(0.15, -0.1, 0.35);
   const pec2 = pec.clone(); pec2.scale(-1, 1, 1);
-  return mergeGeos([body, dors, fl, fr, pec, pec2]);
+  const g = mergeGeos([body, dors, fl, fr, pec, pec2]);
+  // contra-sombra: dorso cinza-escuro, barriga clara rosada
+  const nr = g.attributes.normal, col = new Float32Array(nr.count * 3), c = new THREE.Color(), dark = new THREE.Color(0x262c33), light = new THREE.Color(0xf4ebe8);
+  const ps = g.attributes.position;
+  for (let i = 0; i < nr.count; i++) { c.copy(dark).lerp(light, smooth(0.03, -0.09, ps.getY(i))); col.set([c.r, c.g, c.b], i * 3); }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return g;
+}
+// olhos: globo escuro com brilho, logo atrás do bico, dos dois lados da cabeça
+function dolphinEyes() {
+  const g = new THREE.Group(), eye = new THREE.SphereGeometry(0.024, 10, 8), shine = new THREE.SphereGeometry(0.008, 6, 4);
+  const em = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.15, metalness: 0.2 }), sm = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  for (const sx of [-1, 1]) { const e = new THREE.Mesh(eye, em); e.position.set(sx * 0.118, 0.035, 0.56); e.scale.set(0.6, 1, 1.15); g.add(e); const h = new THREE.Mesh(shine, sm); h.position.set(sx * 0.13, 0.045, 0.575); g.add(h); }
+  // linha da boca
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.006, 4, 12, Math.PI * 0.6), new THREE.MeshBasicMaterial({ color: 0x2a2f36 }));
+  mouth.rotation.set(Math.PI / 2, 0, -Math.PI * 0.8); mouth.position.set(0, -0.02, 0.74); mouth.scale.set(1.6, 1, 1); g.add(mouth);
+  return g;
 }
 function spawnPod(mode) {
-  if (!DOLPH.geo) { DOLPH.geo = dolphinGeo(); DOLPH.mat = uwify(new THREE.MeshStandardMaterial({ color: 0x6d7a86, roughness: 0.35, metalness: 0.1 }), { key: 'dol' }); }
+  if (!DOLPH.geo) { DOLPH.geo = dolphinGeo(); DOLPH.mat = uwify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.1 }), { key: 'dol' }); }
   for (const d of DOLPH.pod) scene.remove(d.m);
   const n = Math.floor(rand(3, 6)); DOLPH.pod = []; DOLPH.mode = mode; DOLPH.life = rand(30, 45);
-  for (let i = 0; i < n; i++) { const m = new THREE.Mesh(DOLPH.geo, DOLPH.mat); m.scale.setScalar(rand(1.6, 2.2)); scene.add(m); DOLPH.pod.push({ m, side: i % 2 ? 1 : -1, off: rand(2, 7), ph: rand(0, TAU), sp: rand(0.9, 1.1), pos: new V3(), yaw: 0 }); }
+  for (let i = 0; i < n; i++) { const m = new THREE.Mesh(DOLPH.geo, DOLPH.mat); m.add(dolphinEyes()); m.scale.setScalar(rand(1.6, 2.2)); scene.add(m); DOLPH.pod.push({ m, side: i % 2 ? 1 : -1, off: rand(2, 7), ph: rand(0, TAU), sp: rand(0.9, 1.1), pos: new V3(), yaw: 0 }); }
   toast(mode === 'bow' ? 'Golfinhos acompanhando a proa! 🐬' : 'Golfinhos passando perto! 🐬', 3.5, 'gold');
   if (mode === 'pass') { const a = rand(0, TAU); DOLPH.dir = new V3(Math.cos(a), 0, Math.sin(a)); DOLPH.c = P.pos.clone().addScaledVector(DOLPH.dir, -40); }
 }
