@@ -525,7 +525,7 @@ function renderShop() {
   $('marinaPanel').querySelector('h2').textContent = at ? marinaName() : 'Loja Deep Spear';
   $('mSub').textContent = `Saldo: ${fmtR(SV.money)} · Combustível: ${Math.round(SV.fuel)}/${tankMax()} L · Fôlego: ${maxBreath()} s`;
   if (shopTab === 'guns' || shopTab === 'gear') shopTab = 'equip';
-  const tabs = [['sell', 'Vender pescado'], ['equip', 'Equipamentos'], ['apneia', 'Apneia'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['mar', AMZ ? 'Boletim do rio' : 'Boletim do mar'], ['viagem', 'Viagem'], ['miss', 'Missões'], ['amigos', 'Amigos'], ['guia', 'Guia de espécies'], ['car', 'Carreira'], ['rec', 'Recordes']];
+  const tabs = [['sell', 'Vender pescado'], ['equip', 'Equipamentos'], ['apneia', 'Apneia'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['mar', AMZ ? 'Boletim do rio' : 'Boletim do mar'], ['viagem', 'Viagem'], ['online', '🌐 Online'], ['miss', 'Missões'], ['amigos', 'Amigos'], ['guia', 'Guia de espécies'], ['car', 'Carreira'], ['rec', 'Recordes']];
   $('mTabs').innerHTML = tabs.map(([k, n]) => `<div class="tab ${k === shopTab ? 'on' : ''}" data-k="${k}">${n}</div>`).join('');
   $('mTabs').querySelectorAll('.tab').forEach(t => t.onclick = () => { shopTab = t.dataset.k; AU.click(); renderShop(); });
   let h = '';
@@ -553,6 +553,7 @@ function renderShop() {
   if (shopTab === 'miss') h = missionsHTML();
   if (shopTab === 'mar') h = bulletinHTML();
   if (shopTab === 'guia') h = guideHTML();
+  if (shopTab === 'online') h = onlineHTML();
   if (shopTab === 'viagem') h = travelHTML(at);
   if (shopTab === 'car') h = careerHTML();
   if (shopTab === 'amigos') h = friendsHTML();
@@ -575,7 +576,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
-  bindEquip(B, on, pay); bindBoats(on, pay); bindTravel(on); bindFriends(B, on); bindDuo(on);
+  bindEquip(B, on, pay); bindBoats(on, pay); bindTravel(on); bindOnline(B, on); bindFriends(B, on); bindDuo(on);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
@@ -595,26 +596,26 @@ function placeRig(r, pos, yaw, pitch, under, mv, kick) {
 const COMP = { on: false, t: 0, spot: null, bots: [], me: { n: 0, kg: 0 } };
 const BOT_DEF = AMZ ? [['Raimundo', 0x1b1e22], ['Jacira', 0x23304a], ['Seu Bené', 0x3b2b1e]] : [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
 const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && f.state !== 'hooked' && f.state !== 'dead';
-function startComp(id, duo) {
+function startComp(id, duo, live) {
   const s = spotById(id); if (!s || COMP.on) return;
-  const fee = duo ? 200 : 100;
+  const fee = live ? 0 : duo ? 200 : 100;
   if (SV.money < fee) { toast(`Inscrição custa ${fmtR(fee)}.`); return; }
-  SV.money -= fee; save(); COMP.duo = null; COMP.mult = compMult();
+  SV.money -= fee; save(); COMP.duo = null; COMP.mult = live ? 1 : compMult(); COMP.live = live ? { ...live, n: 0, kg: 0 } : null;
   if (P.mode === 'swim') climbBoat();
   let bx = s.x + 18, bz = s.z + 18; for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; const x = s.x + Math.cos(a) * 20, z = s.z + Math.sin(a) * 20; if (H(x, z) < -4) { bx = x; bz = z; break; } }
   BOAT.pos.set(bx, 0, bz); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
   jumpIn(); P.o2 = 1;
   COMP.on = true; COMP.t = 600; COMP.spot = s; COMP.me = { n: 0, kg: 0 };
-  COMP.bots = BOT_DEF.map(([name, col], i) => {
+  COMP.bots = live ? [] : BOT_DEF.map(([name, col], i) => {
     const rig = buildDiver(false); rig.suitMat.map = null; rig.suitMat.color.set(col); rig.suitMat.needsUpdate = true;
     const gm = buildGunMesh(gunById(i === 0 ? 'a110' : 'a90'), true); gm.g.rotation.set(-Math.PI / 2, 0, 0); gm.g.position.set(0, -0.09, 0); rig.handR.add(gm.g);
     const a = rand(0, TAU), pos = new V3(s.x + Math.cos(a) * 12, -0.2, s.z + Math.sin(a) * 12);
     return { name, rig, pos, vel: new V3(), yaw: rand(0, TAU), pitch: 0, state: 'surf', t: rand(4, 10), target: null, aimT: 0, n: 0, kg: 0, kick: 0, skill: [0.24, 0.2, 0.16][i] };
   });
   $('compHud').classList.remove('hide');
-  toast(`${AMZ ? 'Torneio do Tucunaré valendo! Tucunaré e dourado valem mais pontos. ' : ''}Valendo! 10 minutos na ${s.name}. Peixe abaixo da medida não conta.${COMP.mult > 1 ? ' Torneio do fim de semana: prêmio em dobro!' : ''}`, 5, 'gold'); AU.coin();
+  if (!live) toast(`${AMZ ? 'Torneio do Tucunaré valendo! Tucunaré e dourado valem mais pontos. ' : ''}Valendo! 10 minutos na ${s.name}. Peixe abaixo da medida não conta.${COMP.mult > 1 ? ' Torneio do fim de semana: prêmio em dobro!' : ''}`, 5, 'gold'); AU.coin();
 }
-function compOnCatch(f) { if (!COMP.on) return; const pt = compPts(f); COMP.me.n += pt; COMP.me.kg += f.kg; if (pt > 1) toast(`+${pt} pontos no torneio!`, 2.5, 'gold'); }
+function compOnCatch(f) { if (!COMP.on) return; const pt = compPts(f); COMP.me.n += pt; COMP.me.kg += f.kg; if (pt > 1) toast(`+${pt} pontos no torneio!`, 2.5, 'gold'); liveCatch(f); }
 // ---------- pescador bot (campeonato e amigos) ----------
 // c: centro que ele patrulha {x, z, r}; onCatch(b, f) é chamado quando ele pega um peixe
 function stepBot(b, dt, t, c, onCatch) {
@@ -667,7 +668,7 @@ function updateComp(dt, t) {
   const s = COMP.spot;
   for (const b of COMP.bots) stepBot(b, dt, t, s, COMP.duo && b.team === 0 ? duoPartnerCatch : compBotCatch);
   // placar
-  const rows = COMP.duo ? duoRows() : [{ name: 'Você', n: COMP.me.n, kg: COMP.me.kg, me: true }, ...COMP.bots.map(b => ({ name: b.name, n: b.n, kg: b.kg }))].sort((a, b) => b.n - a.n || b.kg - a.kg);
+  const rows = COMP.duo ? duoRows() : [{ name: 'Você', n: COMP.me.n, kg: COMP.me.kg, me: true }, ...(COMP.live ? [{ name: COMP.live.name, n: COMP.live.n, kg: COMP.live.kg }] : []), ...COMP.bots.map(b => ({ name: b.name, n: b.n, kg: b.kg }))].sort((a, b) => b.n - a.n || b.kg - a.kg);
   const mm = Math.max(0, Math.ceil(COMP.t)), tt = `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}`;
   $('compHud').innerHTML = `<div class="ct ${COMP.t < 60 ? 'low' : ''}">⏱ ${tt}</div>` + rows.map((r, i) => `<div class="cr ${r.me ? 'me' : ''}"><span>${i + 1}º ${r.name}</span><b>${r.n}${AMZ ? ' pts' : ''} · ${fmtKg(r.kg)} kg</b></div>`).join('');
   if (COMP.t <= 0) endComp(rows);
@@ -675,7 +676,7 @@ function updateComp(dt, t) {
 function endComp(rows) {
   COMP.on = false; $('compHud').classList.add('hide');
   for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
-  const duo = COMP.duo, PR = (duo ? [3000, 1200, 0] : [1500, 600, 250, 0]).map(v => v * COMP.mult), pos = rows.findIndex(r => r.me), prize = PR[pos];
+  const duo = COMP.duo, PR = (COMP.live ? [800, 300] : duo ? [3000, 1200, 0] : [1500, 600, 250, 0]).map(v => v * COMP.mult), pos = rows.findIndex(r => r.me), prize = PR[pos];
   if (duo) duo.friend.xp = (duo.friend.xp || 0) + (pos === 0 ? 150 : 60);
   COMP.duo = null;
   SV.money += prize; if (pos === 0) SV.wins = (SV.wins || 0) + 1; addXP([600, 300, 150, 50][pos]); save();
