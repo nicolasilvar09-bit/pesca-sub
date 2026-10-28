@@ -199,9 +199,8 @@ function updateBoat(dt, t) {
   B.vel.lerp(_b.copy(dir).multiplyScalar(B.speed), clamp(dt * 1.6, 0, 1)); // deriva lateral nas curvas
   const nx = B.pos.x + B.vel.x * dt, nz = B.pos.z + B.vel.z * dt;
   const bowH = H(nx + dir.x * 3.6, nz + dir.z * 3.6), midH = H(nx, nz);
-  const onPier = Math.abs(nx - PIER.x) < 3.2 && nz > PIER.z1 - 3.5 && nz < PIER.z0;
-  const onTee = Math.abs(nx - PIER.x) < 10 && Math.abs(nz - PIER.z1) < 3.5;
-  if (bowH > -0.8 || midH > -0.9 || onPier || onTee) {
+  const onPier = pierHit(nx, nz) || pierHit(nx + dir.x * 3.2, nz + dir.z * 3.2, 0.6);
+  if (bowH > -0.8 || midH > -0.9 || onPier) {
     if (Math.abs(B.speed) > 2) { toast('Cuidado! Encostou no raso/píer.', 2, 'bad'); AU.thud(); }
     B.speed *= -0.25; B.vel.multiplyScalar(-0.25);
   } else { B.pos.x = clamp(nx, WB.x0, WB.x1); B.pos.z = clamp(nz, WB.z0, WB.z1); }

@@ -661,18 +661,8 @@ function buildLand() {
   houses.forEach((t, i) => { const k = rand(0.8, 1.4); s.set(k, k, k); pp.set(t[0], t[1] - 0.3, t[2]); q.setFromAxisAngle(new V3(0, 1, 0), rand(-0.3, 0.3)); m4.compose(pp, q, s); hIM.setMatrixAt(i, m4); rIM.setMatrixAt(i, m4); });
   scene.add(hIM, rIM);
   }
-  // píer da marina
-  const wood = uwify(new THREE.MeshStandardMaterial({ color: 0x8a6a48, roughness: 0.9 }), { key: 'w' });
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, PIER.z0 - PIER.z1), wood);
-  deck.position.set(PIER.x, 1.3, (PIER.z0 + PIER.z1) / 2); scene.add(deck);
-  const tdeck = new THREE.Mesh(new THREE.BoxGeometry(16, 0.3, 3.2), wood); tdeck.position.set(PIER.x, 1.3, PIER.z1); scene.add(tdeck);
-  for (let z = PIER.z1; z <= PIER.z0; z += 6) for (const sx of [-1.4, 1.4]) {
-    const h = H(PIER.x + sx, z); const post = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.5 - h, 6), wood);
-    post.position.set(PIER.x + sx, (1.5 + h) / 2, z); scene.add(post);
-  }
-  const shed = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 8), new THREE.MeshLambertMaterial({ color: 0xe8f0f2 }));
-  const hz = PIER.z0 + 10; shed.position.set(PIER.x + 12, H(PIER.x + 12, hz) + 2, hz); scene.add(shed);
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(11, 0.4, 9), new THREE.MeshLambertMaterial({ color: 0x1f6f8b })); roof.position.copy(shed.position).add(new V3(0, 2.2, 0)); scene.add(roof);
+  // píer da marina, cabine, barcos atracados e gente (ver 29_marina)
+  buildMarina();
   // bóias de sinalização dos pontos
   const bG = new THREE.SphereGeometry(0.6, 12, 8), bM = new THREE.MeshStandardMaterial({ color: 0xff6a00, roughness: 0.5 });
   const pole = new THREE.CylinderGeometry(0.05, 0.05, 2.2, 5), poleM = new THREE.MeshStandardMaterial({ color: 0x222222 });

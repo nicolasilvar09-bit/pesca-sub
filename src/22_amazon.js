@@ -43,7 +43,7 @@ function uwMurkAmz() {
   vec3 ab=vec3(exp(-dp*0.15),exp(-dp*0.065),exp(-dp*0.11));
   gl_FragColor.rgb*=mix(ab,ab*vec3(0.72,0.48,0.26),murk);`;
 }
-function pierAmz() { for (let z = 420; z > 0; z -= 2) if (Hamz(0, z) < -1.9) return { x: 0, z0: z + 95, z1: z }; return { x: 0, z0: 320, z1: 230 }; }
+function pierAmz() { let zs = null; for (let z = 420; z > 0; z -= 2) { const h = Hamz(0, z); if (zs == null && h < 0.6) zs = z; if (h < -4.5) return { x: 0, z0: Math.max(z + 60, zs + 6), z1: z }; } return { x: 0, z0: 320, z1: 230 }; }
 
 // ---------- pontos de pesca ----------
 function spotsAmz() {
@@ -148,7 +148,7 @@ function buildForestAmz() {
   const trees = [], houses = [], m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new V3(), pp = new V3();
   // mata fechada na beira do rio e dos lagos (onde se vê do barco), mais rala para o interior
   for (let i = 0; i < 90000 && trees.length < 8000; i++) {
-    const x = rand(WB.x0 - 300, WB.x1 + 300), z = rand(WB.z0 - 300, WB.z1 + 300), h = H(x, z); if (h < 2.2) continue;
+    const x = rand(WB.x0 - 300, WB.x1 + 300), z = rand(WB.z0 - 300, WB.z1 + 300), h = H(x, z); if (h < 2.2 || (Math.abs(x - PIER.x) < 18 && z > PIER.z1 - 8 && z < PIER.z0 + 10)) continue;
     const bank = Math.abs(z - rivC(x)) - rivW(x), lake = Math.min(Math.hypot(x - 900, z - 560) - 300, Math.hypot(x + 600, z + 980) - 260);
     if (Math.min(bank, lake) < 380 || Math.random() < 0.15) trees.push([x, h, z]);
   }
