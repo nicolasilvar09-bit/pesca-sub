@@ -40,9 +40,10 @@ function photoTarget() {
   const o = camera.position, d = camFwd(_a); let best = null, bt = 8;
   const test = (pos, rad, obj) => { _b.subVectors(pos, o); const t = _b.dot(d); if (t < 0.4 || t > bt) return; const off = _b.addScaledVector(d, -t).length(); if (off < rad + 0.2) { best = { obj, t, off: off / (rad + 0.2) }; bt = t; } };
   for (const f of FISHES) if (f.vis && f.state !== 'dead' && f.state !== 'hooked') test(f.pos, f.radius, f);
-  for (const T of TURTLES) test(T.pos, 0.55, { turtle: true, key: 'tartaruga', pos: T.pos });
-  for (const R of RAYS) if (R.g.visible) test(R.pos, 0.4 * R.s, { turtle: true, key: 'raia', pos: R.pos });
-  for (const d of DOLPH.pod) test(d.pos, 0.6, { turtle: true, key: 'golfinho', pos: d.pos });
+  for (const T of TURTLES) test(T.pos, 0.55, { turtle: true, key: AMZ ? 'tracaja' : 'tartaruga', pos: T.pos });
+  for (const R of RAYS) if (R.g.visible) test(R.pos, 0.4 * R.s, { turtle: true, key: R.key, pos: R.pos });
+  for (const d of DOLPH.pod) test(d.pos, 0.6, { turtle: true, key: AMZ ? 'boto' : 'golfinho', pos: d.pos });
+  amzTargets(test);
   moreiaTargets(test);
   return best;
 }
@@ -54,7 +55,7 @@ function takePhoto() {
   if (!tg) { toast('Foto de água azul. Mire num peixe ou numa tartaruga.', 2); return; }
   const o = tg.obj, key = o.key, sp = SPECIES[key], name = sp ? sp.name : (GUIDE_EXTRA.find(g => g[0] === key) || [0, 'Tartaruga-verde'])[1];
   // valor: espécie (raro/protegido valem mais), tamanho, distância, centralizado e peixe calmo
-  let base = o.moreia ? 150 : key === 'golfinho' ? 320 : key === 'raia' ? 180 : o.turtle ? 260 : sp.protected ? 380 : sp.rare ? 300 : sp.ornamental ? 110 : 40 + sp.price * 1.4;
+  let base = o.moreia ? 150 : key === 'golfinho' || key === 'boto' || key === 'peixeboi' ? 320 : key === 'jacare' ? 280 : key === 'raia' || key === 'arraiario' ? 180 : o.turtle ? 260 : sp.protected ? 380 : sp.rare ? 300 : sp.ornamental ? 110 : 40 + sp.price * 1.4;
   const size = o.turtle || o.moreia ? 1 : clamp(o.len / sp.len[1], 0.4, 1.5), dist = 1 - smooth(2.2, 8, tg.t) * 0.6, cen = 1 - tg.off * 0.4;
   const calm = o.turtle || o.moreia || o.state === 'wander' || o.state === 'curious' || o.state === 'hidden' ? 1.25 : 0.8;
   const D = SV.photoDay && SV.photoDay.day === SV.day ? SV.photoDay : (SV.photoDay = { day: SV.day, n: {} });
@@ -75,7 +76,7 @@ function guideHTML() {
   const n = rows.filter(r => seen(r[0])).length;
   return `<div class="it" style="margin-bottom:8px"><div class="d">${n} de ${rows.length} espécies registradas. Pesque ou fotografe para liberar a ficha.${SV.cam ? '' : ' A câmera submarina está na aba Roupa e acessórios.'}</div></div><div class="list">` +
     rows.map(([k, name, sci, hab, fact]) => {
-      const sp = SPECIES[k], tag = k === 'tartaruga' || (sp && sp.protected) ? ' · <b style="color:var(--bad)">PROTEGIDO</b>' : sp && sp.rare ? ' · <b style="color:var(--acc)">RARO</b>' : sp && sp.ornamental ? ' · ornamental' : '';
+      const sp = SPECIES[k], tag = k === 'tartaruga' || k === 'peixeboi' || k === 'boto' || k === 'tracaja' || (sp && sp.protected) ? ' · <b style="color:var(--bad)">PROTEGIDO</b>' : sp && sp.rare ? ' · <b style="color:var(--acc)">RARO</b>' : sp && sp.ornamental ? ' · ornamental' : '';
       if (!seen(k)) return `<div class="it"><div><div class="n" style="opacity:.55">??? ${sp ? '· ' + ({ reef: 'costão', hole: 'toca', mid: 'meia-água', pelagic: 'água aberta' }[sp.habit]) : ''}</div><div class="d">Ainda não registrado.</div></div></div>`;
       const sw = sp ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${sp.col.side};border:2px solid ${sp.col.back};margin-right:6px"></span>` : '';
       return `<div class="it"><div><div class="n">${sw}${name} <i style="opacity:.6;font-weight:400">${sci}</i>${tag}</div><div class="d">${hab} ${fact}${sp && !sp.protected && !sp.ornamental ? ` Medida mínima ${Math.round(sp.min * 100)} cm.` : ''}</div>

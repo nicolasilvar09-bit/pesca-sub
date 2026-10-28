@@ -50,13 +50,14 @@ function drawMap() {
     const x = WB.x0 + (i + 0.5) / N * (WB.x1 - WB.x0), z = WB.z0 + (j + 0.5) / N * (WB.z1 - WB.z0), h = H(x, z), o = (j * N + i) * 4;
     let c;
     if (h > 0) { const k = clamp(h / 60, 0, 1); c = [lerp(120, 60, k), lerp(150, 100, k), lerp(90, 70, k)]; if (h < 2) c = [215, 200, 160]; }
+    else if (AMZ) { const k = clamp(-h / 18, 0, 1); c = [lerp(150, 50, k), lerp(170, 90, k), lerp(120, 70, k)]; const m = murkAt(x, z); c = c.map((v, n) => lerp(v, [70, 45, 25][n], m * 0.8)); }
     else { const k = clamp(-h / 32, 0, 1); c = [lerp(150, 20, k), lerp(215, 80, k), lerp(225, 140, k)]; const m = murkAt(x, z); c = c.map((v, n) => lerp(v, [140, 130, 90][n], m * 0.6)); }
     img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
   }
   const tmp = document.createElement('canvas'); tmp.width = tmp.height = N; tmp.getContext('2d').putImageData(img, 0, 0);
   g.imageSmoothingEnabled = true; g.drawImage(tmp, 0, 0, cv.width, cv.height);
   g.strokeStyle = 'rgba(255,255,255,.08)'; for (let i = 1; i < 8; i++) { g.beginPath(); g.moveTo(i * 45, 0); g.lineTo(i * 45, 360); g.moveTo(0, i * 45); g.lineTo(360, i * 45); g.stroke(); }
-  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = 'bold 11px system-ui'; g.fillText('N ↑', 8, 16); g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ILHA GRANDE', 70, 160); g.fillText('ANGRA DOS REIS', 215, 352);
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = 'bold 11px system-ui'; g.fillText('N ↑', 8, 16); if (AMZ) { g.fillText('RIO TAPAJÓS →', 140, 150); g.fillText('FLORESTA', 40, 30); g.fillText('ALTER DO CHÃO', 120, 352); } else { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ILHA GRANDE', 70, 160); g.fillText('ANGRA DOS REIS', 215, 352); }
   const box = $('mapBox');
   SPOTS.forEach(s => {
     const m = document.createElement('div'); m.className = 'mk' + (s.type === 'marina' ? ' m' : '') + (mapU(s.x) > 70 ? ' l' : ''); m.dataset.id = s.id;
@@ -141,7 +142,7 @@ function updateHUD(dt) {
 }
 
 // ================= loop principal =================
-const MURKC = new THREE.Color(0.25, 0.28, 0.15), _col = new THREE.Color();
+const MURKC = AMZ ? new THREE.Color(0.24, 0.14, 0.06) : new THREE.Color(0.25, 0.28, 0.15), _col = new THREE.Color();
 let lastUnder = null;
 function ctxAction() {
   if (P.mode === 'swim') { if (!P.under && P.boatDist < 6) climbBoat(); return; }
@@ -170,7 +171,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt);
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T);
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -178,8 +179,9 @@ function updateEnv(dt) {
   camUnder = c.y < sY - 0.02; camMurk = murkAt(c.x, c.z); updateTerrain(c); updateClock(started && !paused ? dt : 0);
   if (camUnder) {
     const k = clamp(-c.y / 28, 0, 1);
-    _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k)).lerp(MURKC, camMurk).multiplyScalar(0.06 + 0.94 * DAY.amb);
-    scene.fog.color.copy(_col); scene.fog.density = lerp(0.042, 0.15, camMurk) / COND.vis;
+    if (AMZ) _col.setRGB(lerp(0.15, 0.03, k), lerp(0.30, 0.08, k), lerp(0.19, 0.05, k)); else _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k));
+    _col.lerp(MURKC, camMurk).multiplyScalar(0.06 + 0.94 * DAY.amb);
+    scene.fog.color.copy(_col); scene.fog.density = lerp(AMZ ? 0.075 : 0.042, AMZ ? 0.16 : 0.15, camMurk) / COND.vis;
     scene.background = scene.fog.color; sky.visible = false; sun.intensity = lerp(1.3, 0.7, k) * (1 - camMurk * 0.4) * DAY.sun + 0.12 * DAY.moon; hemi.intensity = 0.65 * DAY.amb;
   } else { scene.fog.color.copy(HAZE); scene.fog.density = 0.0006 * (1 + COND.cloud * 0.8); scene.background = null; sky.visible = true; sun.intensity = 1.7 * DAY.sun + 0.13 * DAY.moon; hemi.intensity = 0.75 * DAY.amb; }
   waterMat.uniforms.uUnder.value = camUnder ? 1 : 0; waterMat.uniforms.uFogC.value.copy(scene.fog.color); waterMat.uniforms.uFogD.value = scene.fog.density;
@@ -217,11 +219,11 @@ function startGame() {
   const D = ensureDaily(); if (D.list.some(m => !m.done)) toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5);
 }
 function init() {
-  loadSave();
+  loadSave(); if (!SPOTS.some(s => s.id === SV.dest)) SV.dest = SPOTS[1].id;
   initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); buildFX();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); buildBottoms();
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon();
   $('playBtn').onclick = startGame;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
   loop();

@@ -31,12 +31,13 @@ function callFish() {
 const MOR = { holes: [], rigs: [], t: 0 };
 function moreiaTex() {
   return canvasTex(128, 64, g => {
-    g.fillStyle = '#c8b878'; g.fillRect(0, 0, 128, 64);
+    g.fillStyle = AMZ ? '#3a3a2a' : '#c8b878'; g.fillRect(0, 0, 128, 64);
+    if (AMZ) { g.fillStyle = '#c87a30'; g.fillRect(0, 44, 128, 20); return; } // poraquê: dorso escuro, garganta alaranjada
     for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${50 + rand(0, 30) | 0},${38 + rand(0, 20) | 0},20,${rand(0.55, 0.9)})`; g.beginPath(); g.arc(rand(0, 128), rand(0, 64), rand(1.5, 4), 0, TAU); g.fill(); }
   });
 }
 function buildMoreias() {
-  for (const h of HOLES) if (Math.random() < 0.28 && !/naufragio|cargueiro/.test(h.spot || '') || Math.random() < 0.5 && /naufragio|cargueiro/.test(h.spot || '')) MOR.holes.push({ h, out: 0, bite: 0, ph: rand(0, TAU), seen: false });
+  for (const h of HOLES) if (Math.random() < (AMZ ? 0.18 : 0.28) && !/naufragio|cargueiro/.test(h.spot || '') || Math.random() < 0.5 && /naufragio|cargueiro/.test(h.spot || '')) MOR.holes.push({ h, out: 0, bite: 0, ph: rand(0, TAU), seen: false });
   const skin = uwify(new THREE.MeshStandardMaterial({ map: moreiaTex(), roughness: 0.55 }), { key: 'mo' });
   const mouth = uwify(new THREE.MeshStandardMaterial({ color: 0x5a2a2a, roughness: 0.8 }), { key: 'mm' });
   const eye = new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.2 });
@@ -74,11 +75,11 @@ function updateMoreias(dt, t) {
     m.out = lerp(m.out, m.bite > 0 ? 0.85 : want, clamp(dt * (m.bite > 0 ? 8 : 1.2), 0, 1));
     m.bite = Math.max(0, m.bite - dt);
     if (P.mode === 'swim' && P.under && dP < 0.95 && m.bite <= 0 && !m.cool) {
-      m.bite = 0.35; m.cool = true; P.o2 = Math.max(0, P.o2 - 0.08); AU.thud(); buzz([60, 30, 60]); FX.shake = 0.8;
-      toast('A moreia deu o bote! Nunca enfie a mão na toca sem olhar.', 3.5, 'bad');
+      m.bite = 0.35; m.cool = true; P.o2 = Math.max(0, P.o2 - (AMZ ? 0.16 : 0.08)); AU.thud(); buzz(AMZ ? [30, 20, 30, 20, 30, 20, 120] : [60, 30, 60]); FX.shake = AMZ ? 1.2 : 0.8;
+      toast(AMZ ? 'Choque do poraquê! A descarga tira o fôlego: afaste-se das galhadas onde ele se esconde.' : 'A moreia deu o bote! Nunca enfie a mão na toca sem olhar.', 3.5, 'bad');
       setTimeout(() => { m.cool = false; }, 6000);
     }
-    if (!m.seen && P.under && dP < 6) { m.seen = true; if (!SV.tipMor) { SV.tipMor = true; toast('Moreia na toca. Olhe de longe: ela só morde se você chegar perto demais.', 4); } }
+    if (!m.seen && P.under && dP < 6) { m.seen = true; if (!SV.tipMor) { SV.tipMor = true; toast(AMZ ? 'Poraquê na galhada! Ele dá choque se você chegar perto demais.' : 'Moreia na toca. Olhe de longe: ela só morde se você chegar perto demais.', 4); } }
     // corpo: segmentos saindo da toca em S
     const L = m.out * 1.05, sway = Math.sin(t * 1.3 + m.ph) * 0.06;
     r.segs.forEach((s, i) => {
@@ -91,4 +92,4 @@ function updateMoreias(dt, t) {
   }
 }
 // moreia como alvo de foto
-function moreiaTargets(test) { for (const r of MOR.rigs) if (r.m && r.m.out > 0.3) test(r.head.position, 0.18, { moreia: true, key: 'moreia', pos: r.head.position }); }
+function moreiaTargets(test) { for (const r of MOR.rigs) if (r.m && r.m.out > 0.3) test(r.head.position, 0.18, { moreia: true, key: AMZ ? 'poraque' : 'moreia', pos: r.head.position }); }

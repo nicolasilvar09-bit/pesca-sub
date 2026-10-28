@@ -15,8 +15,8 @@ function rollCond() {
   SWELL.k = COND.swell; CU.uSwell.value = COND.swell; CU.uCloud.value = COND.cloud;
   rollFront();
 }
-const visM = () => Math.round(0.83 / (0.042 / COND.vis));
-const condTxt = () => `Visibilidade ~${visM()} m · ondas ${(0.55 * COND.swell).toFixed(1).replace('.', ',')} m · correnteza ${COND.cur < 0.85 ? 'fraca' : COND.cur < 1.2 ? 'moderada' : 'forte'} · ${COND.cloud > 0.5 ? 'nublado' : COND.cloud > 0.2 ? 'poucas nuvens' : 'céu limpo'}`;
+const visM = () => Math.round(0.83 / ((AMZ ? 0.075 : 0.042) / COND.vis));
+const condTxt = () => `Visibilidade ~${visM()} m · ${AMZ ? `rio na ${season()}` : `ondas ${(0.55 * COND.swell).toFixed(1).replace('.', ',')} m`} · correnteza ${COND.cur < 0.85 ? 'fraca' : COND.cur < 1.2 ? 'moderada' : 'forte'} · ${COND.cloud > 0.5 ? 'nublado' : COND.cloud > 0.2 ? 'poucas nuvens' : 'céu limpo'}`;
 
 function updateClock(dt) {
   if (SV.tod == null) { SV.tod = 7; SV.day = SV.day || 1; }
@@ -25,9 +25,9 @@ function updateClock(dt) {
   if (SV.tod >= 24) newDay(SV.tod - 24);
   if (dt > 0 && Math.floor(SV.tod - dt / HOUR_S) !== Math.floor(SV.tod)) {
     const h = Math.floor(SV.tod);
-    if (h === 17) toast('O sol está baixando. Fim de tarde: robalo e caranha mais ativos.', 4);
+    if (h === 17) toast(AMZ ? 'O sol está baixando. Fim de tarde: traíra e surubim começam a caçar.' : 'O sol está baixando. Fim de tarde: robalo e caranha mais ativos.', 4);
     if (h === 19) toast(SV.light ? 'Anoiteceu. A lanterna acende sozinha embaixo d\'água.' : 'Anoiteceu. Sem lanterna, o fundo fica escuro: compre uma na loja.', 4, SV.light ? '' : 'bad');
-    if (h === 6) toast('Amanhecendo. Garoupas saindo da toca.', 4);
+    if (h === 6) toast(AMZ ? 'Amanhecendo. Hora do tucunaré caçar na beira do igapó.' : 'Amanhecendo. Garoupas saindo da toca.', 4);
   }
   applyDay();
 }
@@ -62,10 +62,10 @@ function fishAct(key) { const k = smooth(-0.1, 0.35, DAY.el); return NOCT[key] ?
 // aba "Boletim do mar" na loja/marina
 function bulletinHTML() {
   return eventsHTML() + `<div class="it" style="margin-bottom:8px"><div><div class="n">Dia ${SV.day || 1} · ${hhmm(SV.tod || 7)}</div><div class="d">${condTxt()}</div></div></div>
-    <div class="list">
+    <div class="list">${AMZ ? bulletinAmz() : `
     <div class="it"><div><div class="n">Visibilidade</div><div class="d">${COND.vis > 1.25 ? 'Água azul: dia de procurar peixe longe, no Parcel de Fora ou em Castelhanos.' : COND.vis < 0.8 ? 'Água turva: fique nos pontos rasos e abrigados, e leve lanterna.' : 'Água normal na baía.'}</div></div></div>
-    <div class="it"><div><div class="n">Mar</div><div class="d">${COND.swell > 1.25 ? 'Ondulação grande: o lado de fora da Ilha Grande fica perigoso. Prefira a baía.' : 'Mar tranquilo para atravessar.'}</div></div></div>
-    <div class="it"><div><div class="n">Esperar</div><div class="d">O peixe muda com a hora: de manhã a garoupa sai da toca, no fim da tarde o robalo caça.</div></div>
+    <div class="it"><div><div class="n">Mar</div><div class="d">${COND.swell > 1.25 ? 'Ondulação grande: o lado de fora da Ilha Grande fica perigoso. Prefira a baía.' : 'Mar tranquilo para atravessar.'}</div></div></div>`}
+    <div class="it"><div><div class="n">Esperar</div><div class="d">O peixe muda com a hora: ${AMZ ? 'de manhã o tucunaré caça na beira, à noite a traíra e o surubim saem.' : 'de manhã a garoupa sai da toca, no fim da tarde o robalo caça.'}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn" data-wait="3">+3 h</button><button class="btn" data-until="17">ATÉ 17h</button><button class="btn gold" data-until="6">DORMIR ATÉ 6h</button></div></div>
     </div>`;
 }

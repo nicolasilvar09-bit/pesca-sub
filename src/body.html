@@ -52,8 +52,8 @@
 <div id="menu">
   <div>
     <img src="%%ICON180%%" alt="" style="width:clamp(64px,14vh,110px);height:auto;border-radius:50%;box-shadow:0 8px 30px rgba(0,0,0,.5);margin-bottom:10px">
-    <h1>DEEP <em>SPEAR</em><br><span style="font-size:.36em;letter-spacing:5px;color:#cfe">PESCA SUB · COSTA VERDE</span></h1>
-    <div class="tag">Apneia, arbalete e lajes da baía de Angra dos Reis</div>
+    <h1>DEEP <em>SPEAR</em><br><span style="font-size:.36em;letter-spacing:5px;color:#cfe" id="menuReg">PESCA SUB · COSTA VERDE</span></h1>
+    <div class="tag" id="menuTag">Apneia, arbalete e lajes da baía de Angra dos Reis</div>
     <button class="btn play" id="playBtn">JOGAR</button>
     <div><button class="btn alt" id="optBtn" style="margin-top:8px">OPÇÕES</button></div>
     <div class="tips">
@@ -61,13 +61,13 @@
       Fique parado no fundo para fazer <b>espera</b>, que os peixes curiosos chegam perto. Respeite o seu fôlego e a medida mínima. O <b>mero é protegido</b>.<br>
       <span style="opacity:.7">PC: WASD move · arraste o mouse para olhar · Espaço atira · R arma · F puxa · Shift sobe · Q mergulha · E interage · M mapa</span>
     </div>
-    <div style="margin-top:14px;font-size:11px;opacity:.5">Protótipo v0.6</div>
+    <div style="margin-top:14px;font-size:11px;opacity:.5">Protótipo v0.7</div>
   </div>
 </div>
 
 <div id="mapPanel" class="panel hide">
   <div class="card">
-    <h2>Carta náutica · Baía de Angra</h2>
+    <h2 id="mapTitle">Carta náutica · Baía de Angra</h2>
     <div class="sub">Toque num ponto para traçar a rota. A seta laranja no topo da tela aponta o destino.</div>
     <div id="mapWrap">
       <div id="mapBox"><canvas id="mapCv" width="360" height="360"></canvas><div id="meBoat"></div></div>

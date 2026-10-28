@@ -522,10 +522,10 @@ function openMarina() { openShop(true); }
 function buyBtn(attr, price, label) { return `<button class="btn" ${attr} ${SV.money < price ? 'disabled' : ''}>${label || fmtR(price)}</button>`; }
 function renderShop() {
   const at = shopAtMarina;
-  $('marinaPanel').querySelector('h2').textContent = at ? 'Marina Balneário' : 'Loja Deep Spear';
+  $('marinaPanel').querySelector('h2').textContent = at ? marinaName() : 'Loja Deep Spear';
   $('mSub').textContent = `Saldo: ${fmtR(SV.money)} · Combustível: ${Math.round(SV.fuel)}/${tankMax()} L · Fôlego: ${maxBreath()} s`;
   if (shopTab === 'guns' || shopTab === 'gear') shopTab = 'equip';
-  const tabs = [['sell', 'Vender pescado'], ['equip', 'Equipamentos'], ['apneia', 'Apneia'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['mar', 'Boletim do mar'], ['miss', 'Missões'], ['amigos', 'Amigos'], ['guia', 'Guia de espécies'], ['car', 'Carreira'], ['rec', 'Recordes']];
+  const tabs = [['sell', 'Vender pescado'], ['equip', 'Equipamentos'], ['apneia', 'Apneia'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['mar', AMZ ? 'Boletim do rio' : 'Boletim do mar'], ['viagem', 'Viagem'], ['miss', 'Missões'], ['amigos', 'Amigos'], ['guia', 'Guia de espécies'], ['car', 'Carreira'], ['rec', 'Recordes']];
   $('mTabs').innerHTML = tabs.map(([k, n]) => `<div class="tab ${k === shopTab ? 'on' : ''}" data-k="${k}">${n}</div>`).join('');
   $('mTabs').querySelectorAll('.tab').forEach(t => t.onclick = () => { shopTab = t.dataset.k; AU.click(); renderShop(); });
   let h = '';
@@ -544,7 +544,7 @@ function renderShop() {
   if (shopTab === 'fuel') {
     const need = tankMax() - SV.fuel, cost = need * 6.5;
     h = at ? `<div class="list"><div class="it"><div><div class="n">Gasolina · ${Math.round(SV.fuel)}/${tankMax()} L</div><div class="d">R$ 6,50 por litro.</div></div><button class="btn" id="fill" ${need < 1 || SV.money < 7 ? 'disabled' : ''}>ENCHER ${fmtR(Math.min(cost, Math.max(0, SV.money)))}</button></div></div>`
-      : `<div class="it"><div><div class="n">Gasolina · ${Math.round(SV.fuel)}/${tankMax()} L</div><div class="d">Só dá para abastecer no posto da Marina Balneário.</div></div></div>`;
+      : `<div class="it"><div><div class="n">Gasolina · ${Math.round(SV.fuel)}/${tankMax()} L</div><div class="d">Só dá para abastecer no posto ${AMZ ? 'do porto da vila' : 'da Marina Balneário'}.</div></div></div>`;
   }
   if (shopTab === 'comp') {
     h = `<div class="it" style="margin-bottom:8px"><div><div class="n">Campeonato de pesca sub · 10 minutos${weekend() ? ' · <b style="color:var(--acc)">TORNEIO DO FIM DE SEMANA: PRÊMIOS EM DOBRO</b>' : ''}</div><div class="d">Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso. Inscrição R$ 100. Prêmios: 1º R$ 1.500 · 2º R$ 600 · 3º R$ 250.</div></div></div><div class="list">` +
@@ -553,6 +553,7 @@ function renderShop() {
   if (shopTab === 'miss') h = missionsHTML();
   if (shopTab === 'mar') h = bulletinHTML();
   if (shopTab === 'guia') h = guideHTML();
+  if (shopTab === 'viagem') h = travelHTML(at);
   if (shopTab === 'car') h = careerHTML();
   if (shopTab === 'amigos') h = friendsHTML();
   if (shopTab === 'rec') h = '<div class="list">' + Object.keys(SPECIES).filter(k => !SPECIES[k].protected && !SPECIES[k].ornamental).map(k => `<div class="it"><div><div class="n">${SPECIES[k].name}</div><div class="d">Medida mínima ${Math.round(SPECIES[k].min * 100)} cm · ${fmtR(SPECIES[k].price)}/kg</div></div><b>${SV.best[k] ? fmtKg(SV.best[k]) + ' kg' : '—'}</b></div>`).join('') + `<div class="it"><div class="n">Campeonatos vencidos</div><b>${SV.wins || 0}</b></div></div>`;
@@ -573,7 +574,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
-  bindEquip(B, on, pay); bindBoats(on, pay); bindFriends(B, on); bindDuo(on);
+  bindEquip(B, on, pay); bindBoats(on, pay); bindTravel(on); bindFriends(B, on); bindDuo(on);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };

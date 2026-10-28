@@ -1,6 +1,9 @@
 'use strict';
 // ================= utilidades =================
 const TAU = Math.PI * 2;
+// destino atual (lido direto do save, antes de montar o mundo): 'cv' Costa Verde, 'amz' Amazonas
+const REGION = (() => { try { return JSON.parse(localStorage.getItem('pescasub_costaverde_v1') || '{}').region || 'cv'; } catch (e) { return 'cv'; } })();
+const AMZ = REGION === 'amz';
 const V3 = THREE.Vector3;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;

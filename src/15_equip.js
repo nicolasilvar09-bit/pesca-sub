@@ -8,7 +8,7 @@ const BELTS = [
   { name: 'Cinto marselhês 6 kg', kg: 6, o2: 0.97, price: 420, desc: 'Muito lastro: desce fácil e sobe pesado. Para costão fundo e naufrágio.' },
 ];
 const beltNow = () => BELTS[SV.belt || 0];
-const neutralDepth = () => 2 + beltNow().kg * 1.7;
+const neutralDepth = () => (2 + beltNow().kg * 1.7) * (AMZ ? 0.65 : 1); // água doce: o mesmo lastro afunda mais
 
 // ---------- acessórios ----------
 const COMP_PRICE = 1200;

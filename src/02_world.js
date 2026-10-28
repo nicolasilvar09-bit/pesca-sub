@@ -16,13 +16,14 @@ const ISLANDS = [
 ];
 const LAJE = { x: -330, z: -180 };
 const FOZ = { x: -615, z: 560 };
-const PIER = { x: 0, z0: 790, z1: 700 };
+const PIER = AMZ ? pierAmz() : { x: 0, z0: 790, z1: 700 };
 // área jogável: 3,2 km de lado; a baía original fica no canto sudoeste
-const WB = { x0: -780, x1: 2420, z0: -2420, z1: 780 };
+const WB = AMZ ? { x0: -900, x1: 1500, z0: -1300, z1: 1100 } : { x0: -780, x1: 2420, z0: -2420, z1: 780 };
 const IG = { e: 1480, o: -1640 }; // Ilha Grande: ponta leste (x) e costa de fora (z)
 const FORA = { x: 1960, z: -2060 }, CARG = { x: 2080, z: -720 }, LAGOA = { x: 1050, z: -655 };
 
 function H(x, z) {
+  if (AMZ) return Hamz(x, z);
   let h = -16 + 3.5 * fbm(x * 0.004 + 7, z * 0.004 - 3, 3) + 0.9 * fbm(x * 0.03, z * 0.03, 2);
   // fora da baía o fundo cai: lado de fora da Ilha Grande e canal leste
   h -= 20 * smooth(IG.o + 60, IG.o - 420, z) + 7 * smooth(900, 2200, x) * (1 - smooth(500, 760, z));
@@ -66,7 +67,7 @@ function H(x, z) {
   if (h < 0 && df < 220) h = lerp(h, Math.max(h, -5.5 + df * 0.018), 1 - smooth(40, 210, df));
   return Hextra(x, z, h);
 }
-const murkAt = (x, z) => Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z - FOZ.z)), smooth(-600, -650, x) * (1 - smooth(40, 80, Math.abs(z - FOZ.z))));
+const murkAt = (x, z) => AMZ ? murkAmz(x, z) : Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z - FOZ.z)), smooth(-600, -650, x) * (1 - smooth(40, 80, Math.abs(z - FOZ.z))));
 
 // ================= renderer / cena =================
 let renderer, scene, camera, hemi, sun;
@@ -114,10 +115,10 @@ float causF(vec2 uv){ vec2 p=mod(uv*6.28318,6.28318)-250.0; vec2 i=p; float c=1.
 `;
 const UW_FRAG_BODY = `
  if(vWP.y<0.05){ float dp=max(-vWP.y,0.0);
-  float murk=1.0-smoothstep(110.0,240.0,distance(vWP.xz,vec2(${FOZ.x}.0,${FOZ.z}.0)));
+${AMZ ? uwMurkAmz() : `  float murk=1.0-smoothstep(110.0,240.0,distance(vWP.xz,vec2(${FOZ.x}.0,${FOZ.z}.0)));
   murk=max(murk,smoothstep(-600.0,-650.0,vWP.x)*(1.0-smoothstep(40.0,80.0,abs(vWP.z-(${FOZ.z}.0)))));
   vec3 ab=vec3(exp(-dp*0.13),exp(-dp*0.035),exp(-dp*0.028));
-  gl_FragColor.rgb*=mix(ab,ab*vec3(0.55,0.6,0.32),murk);
+  gl_FragColor.rgb*=mix(ab,ab*vec3(0.55,0.6,0.32),murk);`}
   vec3 upV=normalize((viewMatrix*vec4(0.0,1.0,0.0,0.0)).xyz);
   float facing=clamp(dot(normal,upV),0.0,1.0);
   float cs=causF(vWP.xz/8.5+vec2(vWP.y*0.02));
@@ -187,6 +188,7 @@ function terrColor(x, y, z, ny, c) {
     const deep = smooth(-8, -24, y); c.lerp(_tc.setRGB(0.55, 0.53, 0.45), deep * 0.6);
     c.lerp(_tc.setRGB(0.32, 0.30, 0.26), smooth(0.9, 0.65, ny));
     const m = murkAt(x, z); c.lerp(_tc.setRGB(0.36, 0.31, 0.22), m * 0.85);
+    if (AMZ) { c.lerp(_tc.setRGB(0.42, 0.34, 0.24), smooth(-1.5, -6, y) * 0.55); return c; } // rio: fundo de areia e lodo marrom
     if (fbm(x * 0.02 + 40, z * 0.02, 2) > 0.25 && y > -14) c.lerp(_tc.setRGB(0.30, 0.38, 0.22), 0.35); // manchas de alga
     if (y > -10 && y < -1.5 && meadowAt(x, z) > 0.42) c.lerp(_tc.setRGB(0.2, 0.3, 0.14), smooth(0.42, 0.5, meadowAt(x, z)) * 0.8); // prado de capim-marinho
     if (y < -3 && gravelAt(x, z) > 0.34) c.lerp(_tc.setRGB(0.42, 0.4, 0.36), smooth(0.34, 0.44, gravelAt(x, z)) * 0.6); // cascalho
@@ -271,7 +273,7 @@ function buildWater() {
           float fr=0.02+0.98*pow(1.0-max(dot(N,V),0.0),5.0);
           vec3 R=reflect(-V,N); R.y=abs(R.y);
           vec3 refl=sky(R)+vec3(1.0,0.9,0.72)*pow(max(dot(R,uSun),0.0),600.0)*7.0*smoothstep(-0.05,0.05,uSun.y);
-          vec3 deep=vec3(0.03,0.19,0.24)*(0.1+0.9*uDay);
+          vec3 deep=${AMZ ? 'vec3(0.07,0.11,0.07)' : 'vec3(0.03,0.19,0.24)'}*(0.1+0.9*uDay);
           col=mix(deep,refl,fr);
           col+=vec3(0.0,0.10,0.08)*clamp(waveH(p,t)+0.3,0.0,1.0);
           a=mix(0.5,1.0,max(fr,smoothstep(6.0,80.0,dist)));
@@ -462,7 +464,7 @@ function rayTex() {
 function dotTex() { return canvasTex(32, 32, (g) => { const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }, false); }
 
 // ======= pontos de pesca =======
-const SPOTS = [
+const SPOTS = AMZ ? spotsAmz() : [
   { id: 'marina', name: 'Marina Balneário', x: 0, z: 690, type: 'marina', desc: 'Venda do pescado, loja e combustível.' },
   { id: 'botinas', name: 'Ilhas Botinas', x: 300, z: 196, r: 40, depth: '2–10 m', desc: 'Parcel raso e água clara. Muito sargo, garoupas pequenas e robalo de passagem.' },
   { id: 'laje', name: 'Laje Branca', x: LAJE.x, z: LAJE.z, r: 42, depth: '5–23 m', desc: 'Laje isolada no meio da baía, cheia de tocas. Garoupa, badejo, cardume de xaréu. Dizem que tem mero.' },
@@ -519,6 +521,7 @@ function addHole(R, a, spot) {
 
 function buildRocksAndDecor() {
   const r = mulberry(42);
+  if (AMZ) buildRiverRocks(r); else {
   // Laje Branca
   for (let i = 0; i < 90; i++) {
     const a = r() * TAU, d = Math.pow(r(), 0.75) * 44, x = LAJE.x + Math.cos(a) * d, z = LAJE.z + Math.sin(a) * d;
@@ -575,6 +578,7 @@ function buildRocksAndDecor() {
   for (let i = 0; i < 25; i++) { const x = FOZ.x + rand(-60, 90), z = FOZ.z + rand(-70, 70); const h = H(x, z); if (h < -1.5) addRock(x, h + 0.3, z, rand(0.8, 2.0), 'foz'); }
 
   extraRocks();
+  }
   // instancia as pedras em 6 variações
   const geos = [1, 2, 3, 4, 5, 6].map(s => rockGeo(s * 17));
   const rtex = rockTex(); rtex.wrapS = rtex.wrapT = THREE.RepeatWrapping; rtex.repeat.set(3, 2);
@@ -586,6 +590,7 @@ function buildRocksAndDecor() {
   groups.forEach((list, gi) => {
     chunked(geos[gi], mat, list.map(R => { const it = [R.x, R.y, R.z]; it.R = R; return it; }), (it, k, im) => { const R = it.R; e.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15)); q.setFromEuler(e); R.q = q.clone(); R.gi = gi; s.set(R.r, R.r * R.sy, R.r); pp.set(R.x, R.y, R.z); m4.compose(pp, q, s); im.setMatrixAt(k, m4); }, 300);
   });
+  if (AMZ) buildRiverWorld(); else {
   buildWreck({ x: NAUF.x, z: NAUF.z, ry: 0.6, L: 34, spot: 'naufragio' });
   buildWreck({ x: CARG.x, z: CARG.z, ry: -0.45, L: 48, spot: 'cargueiro' });
 
@@ -596,6 +601,7 @@ function buildRocksAndDecor() {
     const l = rand(3, 8); const m = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, l, 7), logMat);
     m.position.set(x, h + 0.2, z); m.rotation.set(Math.PI / 2 + rand(-0.2, 0.2), 0, rand(0, TAU)); m.rotation.order = 'ZXY'; scene.add(m);
     addRock(x, h + 0.2, z, 0.6, 'foz');
+  }
   }
 
   // decoração: gorgônias, sargaço, ouriços
@@ -612,7 +618,7 @@ function buildRocksAndDecor() {
   const fans = [], algs = [], urs = [];
   ROCKS.forEach(R => {
     if (R.noDecor) return;
-    if (R.spot === 'foz' || !R.spot) { if (Math.random() < 0.5) algs.push([R.x + rand(-1, 1), R.y + R.r * R.sy * 0.75, R.z + rand(-1, 1), rand(0.6, 1.2)]); return; }
+    if (AMZ || R.spot === 'foz' || !R.spot) { if (Math.random() < 0.5) algs.push([R.x + rand(-1, 1), R.y + R.r * R.sy * 0.75, R.z + rand(-1, 1), rand(0.6, 1.2)]); return; }
     const n = Math.floor(rand(0, 4.5));
     for (let k = 0; k < n; k++) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * 1.05, z = R.z + Math.sin(a) * R.r * 1.05; fans.push([x, H(x, z), z, rand(0.5, 1.4), a]); }
     for (let k = 0; k < 4; k++) algs.push([R.x + rand(-R.r, R.r) * 0.5, R.y + R.r * R.sy * rand(0.55, 0.85), R.z + rand(-R.r, R.r) * 0.5, rand(0.5, 1.1)]);
@@ -632,6 +638,7 @@ function buildRocksAndDecor() {
 
 // ================= terra: árvores, casas, píer, bóias =================
 function buildLand() {
+  if (AMZ) buildForestAmz(); else {
   const trees = [], houses = [];
   for (let i = 0; i < 26000 && trees.length < 5200; i++) {
     const x = rand(-1500, 3000), z = rand(-2600, 1300), h = H(x, z);
@@ -653,6 +660,7 @@ function buildLand() {
   const rIM = new THREE.InstancedMesh(rG, new THREE.MeshLambertMaterial({ color: 0xb4532a }), houses.length);
   houses.forEach((t, i) => { const k = rand(0.8, 1.4); s.set(k, k, k); pp.set(t[0], t[1] - 0.3, t[2]); q.setFromAxisAngle(new V3(0, 1, 0), rand(-0.3, 0.3)); m4.compose(pp, q, s); hIM.setMatrixAt(i, m4); rIM.setMatrixAt(i, m4); });
   scene.add(hIM, rIM);
+  }
   // píer da marina
   const wood = uwify(new THREE.MeshStandardMaterial({ color: 0x8a6a48, roughness: 0.9 }), { key: 'w' });
   const deck = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, PIER.z0 - PIER.z1), wood);

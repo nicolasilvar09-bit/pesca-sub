@@ -79,7 +79,7 @@ function catchFish(f) {
   const sp = f.sp, cm = Math.round(f.len * 100);
   GUN.fish = null; f.remove();
   RESPAWN.push({ key: f.key, spot: f.spot.id, n: sp.school ? Math.round(rand(3, 6)) : 1, t: performance.now() / 1000 + rand(90, 160) });
-  if (sp.protected) { SV.money -= 1000; toast(`MERO, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
+  if (sp.protected) { SV.money -= 1000; toast(`${sp.name.toUpperCase()}, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
   if (f.len < sp.min) { SV.money -= 200; toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
   P.stringer.push({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len });
   if (!sp.ornamental) addXP(15 + f.kg * 12);

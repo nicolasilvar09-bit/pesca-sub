@@ -36,8 +36,9 @@ function buildTurtle() {
 }
 const STR = { nodes: [], prev: [], line: null };
 function buildLife() {
-  makePool('sardinha', 'mack', fishTex('sardinha', { back: '#2c5a78', side: '#c8d6de', belly: '#f4f6f8', fin: '#7a8a96', iris: '#e0e0e0' }), 1600, true);
-  makePool('sargentinho', 'deep', fishTex('sargentinho', { back: '#3a5a40', side: '#e8e070', belly: '#f4f0d0', fin: '#9a9a60', iris: '#e0d070' }), 1200, true);
+  // no rio: sardinha-de-água-doce e piabas no lugar da sardinha e do sargentinho
+  makePool('sardinha', 'mack', AMZ ? fishTex('sardinhaamz', { back: '#4a5a50', side: '#d0d4c8', belly: '#f4f2e8', fin: '#c0a050', iris: '#e0d080' }) : fishTex('sardinha', { back: '#2c5a78', side: '#c8d6de', belly: '#f4f6f8', fin: '#7a8a96', iris: '#e0e0e0' }), 1600, true);
+  makePool('sargentinho', 'deep', AMZ ? fishTex('piaba', { back: '#3a4a40', side: '#c8c8b0', belly: '#f0ecd8', fin: '#d04030', iris: '#e0c060' }) : fishTex('sargentinho', { back: '#3a5a40', side: '#e8e070', belly: '#f4f0d0', fin: '#9a9a60', iris: '#e0d070' }), 1200, true);
   for (const s of SPOTS) if (s.r) { const n = s.id === 'foz' ? 1 : 2 + (s.id === 'laje' || s.id === 'jorge' ? 1 : 0); for (let i = 0; i < n; i++) SCHOOLS.push(newSchool(s)); }
   for (const s of SPOTS) {
     if (!s.r || s.id === 'foz') continue;
@@ -49,10 +50,10 @@ function buildLife() {
       SWARMS.push(sw);
     }
   }
-  for (const id of ['jorge', 'laje', 'gipoia', 'lagoa', 'lagoa', 'castelhanos', 'cataguases']) { const s = spotById(id); const m = buildTurtle(); TURTLES.push({ m, spot: s, pos: new V3(s.x, H(s.x, s.z) + 3, s.z), vel: new V3(), tgt: new V3(), t: 0, yaw: 0, flap: 0, breathe: rand(30, 80) }); }
+  for (const id of AMZ ? ['praia', 'lago', 'lago', 'igapo', 'canal'] : ['jorge', 'laje', 'gipoia', 'lagoa', 'lagoa', 'castelhanos', 'cataguases']) { const s = spotById(id); const m = buildTurtle(); TURTLES.push({ m, spot: s, pos: new V3(s.x, H(s.x, s.z) + 3, s.z), vel: new V3(), tgt: new V3(), t: 0, yaw: 0, flap: 0, breathe: rand(30, 80) }); }
   STR.line = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(40 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xd8d0a0 }));
   STR.line.frustumCulled = false; scene.add(STR.line);
-  buildDecor2();
+  if (!AMZ) buildDecor2();
 }
 function buildDecor2() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3(), up = new V3(0, 1, 0), d = new V3();
