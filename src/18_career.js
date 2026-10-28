@@ -64,7 +64,7 @@ const TUT = [
   { t: 'Siga a seta laranja no topo até o ponto de pesca. Joystick: acelera e vira a lancha.', btn: null, ok: () => { const d = spotById(SV.dest); return d && Math.hypot(BOAT.pos.x - d.x, BOAT.pos.z - d.z) < 70; } },
   { t: 'Chegou! Toque ANCORAR para parar a lancha.', btn: 'bAnchor', ok: () => BOAT.anchored },
   { t: 'Toque PULAR NA ÁGUA.', btn: 'bJump', ok: () => P.mode === 'swim' },
-  { t: 'Respire parado uns segundos (o Preparo enche) e toque MERGULHAR.', btn: 'bDive', ok: () => P.under },
+  { t: 'Respire parado uns segundos (o Preparo enche) e toque MERGULHAR. Na descida, toque COMPENSAR quando o ouvido apertar.', btn: 'bDive', ok: () => P.under },
   { t: 'Toque ARMAR para esticar o elástico do arbalete.', btn: 'bArm', ok: () => GUN.bands > 0 },
   { t: 'Mire num peixe: a mira fica verde quando ele está ao alcance. Toque ATIRAR.', btn: 'bFire', ok: () => GUN.state !== 'ready' },
   { t: 'Acertou? Segure PUXAR LINHA para trazer o peixe (ou o arpão de volta).', btn: 'bPull', ok: () => P.stringer.length > 0 || (GUN.state === 'ready' && GUN.bands === 0 && P.tutShots > 1) },

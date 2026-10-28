@@ -350,7 +350,12 @@ function updateDiver(dt, t) {
   P.kickAnim = (P.kickAnim || 0) + dt * (P.under ? 2 + mv * 5 : 1.2 + mv * 4);
   // deitado na pedra e parado: corpo reto, apoiado; nadando: acompanha a mira
   DIVER.lay = lerp(DIVER.lay || 0, P.under && P.onRock && P.still > 0.4 ? 1 : 0, clamp(dt * 3, 0, 1));
-  const bodyP = (P.under ? clamp(P.pitch, -1.3, 1.2) * 0.85 : 0) * (1 - DIVER.lay);
+  let bodyP = (P.under ? clamp(P.pitch, -1.3, 1.2) * 0.85 : 0) * (1 - DIVER.lay);
+  // pato: corpo vertical de cabeça para baixo com as pernas fora d'água, depois volta à pose de nado
+  if (P.duckT > 0) {
+    const dk = smooth(0, 0.5, P.duckT); bodyP = lerp(bodyP, -1.5, dk); P.duckT -= dt;
+    if (P.duckT < 0.55 && P.duckT + dt >= 0.55) spawnSpray(_b.set(P.pos.x + Math.sin(P.yaw) * 0.3, waveH(P.pos.x, P.pos.z, t), P.pos.z + Math.cos(P.yaw) * 0.3), 10);
+  }
   // velocidade de giro → inclinação e curva do corpo
   const yr = angDiff(DIVER.lastYaw ?? P.yaw, P.yaw) / Math.max(dt, 1e-3); DIVER.lastYaw = P.yaw;
   DIVER.turn = lerp(DIVER.turn || 0, clamp(yr * 0.5, -1, 1), clamp(dt * 5, 0, 1));
@@ -361,7 +366,7 @@ function updateDiver(dt, t) {
   const def = GUN.def, ld = GUN.loadT > 0 && def ? 1 - GUN.loadT / (def.load * (P.under ? 1.35 : 1)) : -1;
   // respiração: forte logo após emergir, depois ritmo calmo
   const br = P.under ? 0 : Math.sin(t * (P.surfT < 8 ? 3.2 : 1.6)) * (P.surfT < 8 ? 1 : 0.5);
-  poseDiver(DIVER, 'swim', t, P.kickAnim, P.under ? 0.25 + mv * 0.75 : 0.15 + mv * 0.5, {
+  poseDiver(DIVER, 'swim', t, P.kickAnim, P.duckT > 0.5 ? 0 : P.under ? 0.25 + mv * 0.75 : 0.15 + mv * 0.5, {
     turn: DIVER.turn, load: ld, recoil: GUN.recoil, surf: !P.under, still: P.under ? P.still : 0, breath: br,
     pull: IN.held.pull && GUN.state !== 'ready', look: P.under ? P.pitch * 0.85 - bodyP : P.pitch + 0.3,
   });
@@ -447,6 +452,7 @@ function Hextra(x, z, h) {
 }
 // ---------- pedras do parcel (antes de instanciar as pedras) ----------
 function extraRocks() {
+  buildArches();
   const r = mulberry(77);
   for (let i = 0; i < 110; i++) {
     const a = r() * TAU, d = Math.pow(r(), 0.7) * 52, x = AVENT.x + Math.cos(a) * d, z = AVENT.z + Math.sin(a) * d;

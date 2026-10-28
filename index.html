@@ -84,6 +84,10 @@ html,body{margin:0;height:100%;height:100dvh;position:fixed;inset:0;width:100%;o
 #bPhoto{position:absolute;left:calc(130px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px;background:rgba(110,190,255,.42)}
 #bCall{position:absolute;left:calc(190px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px;background:rgba(150,220,140,.38)}
 body.short #bCall{left:calc(166px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}
+#bEq{position:absolute;left:calc(250px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:9px;background:rgba(120,170,255,.35)}
+#bEq.warn{background:rgba(255,90,78,.75);animation:pulse 0.8s infinite}#bEq.ok{background:rgba(124,240,168,.7)}
+body.short #bEq{left:calc(218px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}
+body.portrait #bEq{bottom:calc(166px + env(safe-area-inset-bottom));left:240px;width:48px;height:48px}
 body.portrait #bCall{bottom:calc(166px + env(safe-area-inset-bottom));left:184px;width:48px;height:48px}
 #hideTag{position:absolute;left:50%;top:calc(50% + 40px);transform:translateX(-50%);font-size:11px;letter-spacing:2px;color:#7cf0a8;background:rgba(4,16,20,.55);padding:2px 8px;border-radius:8px}
 #optPanel{z-index:40}
@@ -221,6 +225,7 @@ body.portrait #mapBox{width:min(88vw,360px)}
   <div class="b" id="bShop">LOJA</div>
   <div class="b hide" id="bPhoto">FOTO</div>
   <div class="b hide" id="bCall">CHA&shy;MAR</div>
+  <div class="b hide" id="bEq">COM&shy;PEN&shy;SAR</div>
   <div id="hideTag" class="hide">AGACHON</div>
   <div id="compHud" class="hide"></div>
   <div id="btns">
@@ -583,6 +588,8 @@ function terrColor(x, y, z, ny, c) {
     c.lerp(_tc.setRGB(0.32, 0.30, 0.26), smooth(0.9, 0.65, ny));
     const m = murkAt(x, z); c.lerp(_tc.setRGB(0.36, 0.31, 0.22), m * 0.85);
     if (fbm(x * 0.02 + 40, z * 0.02, 2) > 0.25 && y > -14) c.lerp(_tc.setRGB(0.30, 0.38, 0.22), 0.35); // manchas de alga
+    if (y > -10 && y < -1.5 && meadowAt(x, z) > 0.42) c.lerp(_tc.setRGB(0.2, 0.3, 0.14), smooth(0.42, 0.5, meadowAt(x, z)) * 0.8); // prado de capim-marinho
+    if (y < -3 && gravelAt(x, z) > 0.34) c.lerp(_tc.setRGB(0.42, 0.4, 0.36), smooth(0.34, 0.44, gravelAt(x, z)) * 0.6); // cascalho
   }
   return c;
 }
@@ -1433,10 +1440,14 @@ class Fish {
         this.speed = sp.burst * 0.8; this.target.set(this.home.x, this.home.y, this.home.z);
         if (p.distanceTo(this.target) < 0.6 || this.t <= 0) { this.state = 'hidden'; this.t = rand(12, 26); }
         break;
-      case 'hidden':
-        this.target.set(this.home.x, this.home.y, this.home.z); this.speed = 0.3;
+      case 'hidden': {
+        // espia da toca com o mergulhador parado; recolhe para dentro se ele chega nadando
+        const near = P.mode === 'swim' && P.under && dP < 5 && P.vel.length() > 0.35, peek = near ? -0.6 : P.still > 1.5 && dP < 10 ? 0.35 : 0;
+        this.peek = lerp(this.peek || 0, peek, clamp(dt * (near ? 5 : 0.8), 0, 1));
+        this.target.set(this.home.x + Math.cos(this.home.dir) * this.peek, this.home.y, this.home.z + Math.sin(this.home.dir) * this.peek); this.speed = near ? 1.2 : 0.3;
         if (this.t <= 0) { this.state = 'wander'; this.t = 0; }
         break;
+      }
       case 'hooked':
         this.fight -= dt;
         _t1.subVectors(p, P.pos); _t1.y = rand(-0.5, 0.3); _t1.normalize();
@@ -1671,7 +1682,7 @@ function updateGun(dt) {
     const f = GUN.fish;
     if (!f || !f.alive) { GUN.state = 'spent'; GUN.fish = null; }
     else {
-      GUN.pos.copy(f.pos).addScaledVector(GUN.dir, -0.05);
+      GUN.pos.copy(f.pos).addScaledVector(GUN.dir, f.radius * 1.25 + 0.06); // a ponta sai do outro lado do peixe
       // tensão da linha
       const d = f.pos.distanceTo(tip), maxL = def.range * 2.0;
       if (f.fight > 0) GUN.lineLen = Math.min(maxL, Math.max(GUN.lineLen, d));
@@ -1723,7 +1734,7 @@ function hitFish(f, along) {
   else { GUN.q = 'tail'; f.fight = 3 + f.kg * 0.45 * f.sp.str; toast('Tiro no rabo, cuidado que pode rasgar!', 2.5, 'bad'); }
   GUN.fight0 = Math.max(f.fight, 0.01);
   hitFX(GUN.q); if (GUN.q === 'head') mission('head');
-  spawnBubbles(f.pos, 10, 0.2);
+  spawnBubbles(f.pos, 10, 0.2); spawnScales(f.pos, 18);
 }
 
 // ================= controle do barco =================
@@ -1833,7 +1844,8 @@ function updateSwim(dt, t) {
     P.vel.lerp(des, clamp(dt * 2, 0, 1)); P.pos.addScaledVector(P.vel, dt);
     P.pos.y = surfY - 0.15;
     if (took('dive') || (IN.jy > 0.5 && P.pitch < -0.75)) {
-      P.under = true; P.pos.y = surfY - 0.8; P.vel.set(fwd.x * 0.6, -1.4, fwd.z * 0.6); P.pitch = Math.min(P.pitch, -0.9);
+      // pato: dobra o corpo, joga as pernas para fora d'água e afunda reto, sem gastar pernada
+      P.under = true; P.pos.y = surfY - 0.8; P.vel.set(fwd.x * 0.4, -2.0, fwd.z * 0.4); P.pitch = Math.min(P.pitch, -0.9); P.duckT = 1.2; P.eqD = 0;
       P.diveT = 0; P.maxD = 0; AU.splash(); spawnBubbles(_c.set(P.pos.x, P.pos.y + 0.3, P.pos.z), 20, 0.4);
       P.startO2 = P.o2; buddyDiveTip(); onDiveStart();
       if (P.o2 < 0.6) toast('Pouco fôlego! Respire mais na superfície antes de descer.', 3, 'bad');
@@ -1932,7 +1944,7 @@ function setupInput() {
   window.__resetTouch = () => { JOY.id = null; JOY.x = JOY.y = 0; knob.style.transform = ''; LOOK.id = null; for (const k in IN.held) IN.held[k] = false; document.querySelectorAll('.b.on').forEach(b => b.classList.remove('on')); };
   addEventListener('blur', () => window.__resetTouch());
   renderer.domElement.addEventListener('pointerdown', e => { if (LOOK.id === null) { LOOK.id = e.pointerId; LOOK.x = e.clientX; LOOK.y = e.clientY; } AU.init(); });
-  const BTN = { bFire: ['p', 'fire'], bArm: ['p', 'arm'], bPull: ['h', 'pull'], bUp: ['h', 'up'], bDive: ['p', 'dive'], bCtx: ['p', 'ctx'], bAnchor: ['p', 'anchor'], bJump: ['p', 'jump'], bMarina: ['p', 'marina'], bMap: ['p', 'map'], bView: ['p', 'view'], bShop: ['p', 'shop'], bPhoto: ['p', 'photo'], bCall: ['p', 'call'] };
+  const BTN = { bFire: ['p', 'fire'], bArm: ['p', 'arm'], bPull: ['h', 'pull'], bUp: ['h', 'up'], bDive: ['p', 'dive'], bCtx: ['p', 'ctx'], bAnchor: ['p', 'anchor'], bJump: ['p', 'jump'], bMarina: ['p', 'marina'], bMap: ['p', 'map'], bView: ['p', 'view'], bShop: ['p', 'shop'], bPhoto: ['p', 'photo'], bCall: ['p', 'call'], bEq: ['p', 'eq'] };
   for (const [id, [kind, name]] of Object.entries(BTN)) {
     const el = $(id);
     el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); AU.init(); if (kind === 'p') IN.pressed[name] = true; else IN.held[name] = true; el.classList.add('on'); try { el.setPointerCapture(e.pointerId); } catch (_) { } });
@@ -1941,7 +1953,7 @@ function setupInput() {
   }
   addEventListener('keydown', e => {
     if (e.repeat) return; IN.keys[e.code] = true;
-    const m = { Space: 'fire', KeyR: 'arm', KeyQ: 'dive', KeyE: 'ctx', KeyM: 'map', KeyT: 'anchor', KeyV: 'view', KeyL: 'shop', KeyP: 'photo', KeyC: 'call' }; if (m[e.code]) IN.pressed[m[e.code]] = true;
+    const m = { Space: 'fire', KeyR: 'arm', KeyQ: 'dive', KeyE: 'ctx', KeyM: 'map', KeyT: 'anchor', KeyV: 'view', KeyL: 'shop', KeyP: 'photo', KeyC: 'call', KeyG: 'eq' }; if (m[e.code]) IN.pressed[m[e.code]] = true;
     if (e.code === 'KeyF') IN.held.pull = true; if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') IN.held.up = true;
     if (e.code === 'Space') e.preventDefault();
   });
@@ -2015,7 +2027,7 @@ function updateHUD(dt) {
   if (swim && !P.under && P.boatDist < 6) { ctx.textContent = 'SUBIR NO BARCO'; show('bCtx', true); }
   else if (!swim && SV.fuel <= 0 && !nearMarina()) { ctx.textContent = 'REBOQUE (R$ 150)'; show('bCtx', true); }
   else show('bCtx', false);
-  show('cross', swim); show('bands', swim); show('bView', swim); show('bPhoto', swim && P.under && !!SV.cam); show('bCall', swim && P.under); $('bCall').style.opacity = callCD > 0 ? 0.45 : ''; show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
+  show('cross', swim); show('bands', swim); show('bView', swim); show('bPhoto', swim && P.under && !!SV.cam); show('bCall', swim && P.under); show('bEq', swim && P.under && !OPT.autoEq); $('bCall').style.opacity = callCD > 0 ? 0.45 : ''; show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
   const aim = aimOnFish(); $('cross').classList.toggle('ok', !!(aim && aim.ok));
   const al = $('aimLbl'); if (aim) { al.textContent = `${aim.f.sp.rare ? '★ RARO · ' : isTrophy(aim.f) ? '★ TROFÉU · ' : ''}${aim.f.sp.name} · ~${Math.round(aim.f.len * 100 / 5) * 5} cm${aim.ok ? '' : ' · longe'}`; al.classList.remove('hide'); } else al.classList.add('hide');
   const fighting = GUN.state === 'hooked' && GUN.fish && GUN.fish.fight > 0;
@@ -2074,6 +2086,7 @@ function step(dt) {
   if (took('arm')) gunArm();
   if (took('photo')) takePhoto();
   if (took('call')) callFish();
+  if (took('eq')) equalize();
   callCD = Math.max(0, callCD - dt);
   updateBoat(dt, T);
   if (P.mode === 'swim') { updateSwim(dt, T); if (THIRD) thirdPersonCam(T); }
@@ -2081,7 +2094,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T);
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt);
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -2132,7 +2145,7 @@ function init() {
   initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); buildFX();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand();
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); buildBottoms();
   $('playBtn').onclick = startGame;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
   loop();
@@ -2723,7 +2736,12 @@ function updateDiver(dt, t) {
   P.kickAnim = (P.kickAnim || 0) + dt * (P.under ? 2 + mv * 5 : 1.2 + mv * 4);
   // deitado na pedra e parado: corpo reto, apoiado; nadando: acompanha a mira
   DIVER.lay = lerp(DIVER.lay || 0, P.under && P.onRock && P.still > 0.4 ? 1 : 0, clamp(dt * 3, 0, 1));
-  const bodyP = (P.under ? clamp(P.pitch, -1.3, 1.2) * 0.85 : 0) * (1 - DIVER.lay);
+  let bodyP = (P.under ? clamp(P.pitch, -1.3, 1.2) * 0.85 : 0) * (1 - DIVER.lay);
+  // pato: corpo vertical de cabeça para baixo com as pernas fora d'água, depois volta à pose de nado
+  if (P.duckT > 0) {
+    const dk = smooth(0, 0.5, P.duckT); bodyP = lerp(bodyP, -1.5, dk); P.duckT -= dt;
+    if (P.duckT < 0.55 && P.duckT + dt >= 0.55) spawnSpray(_b.set(P.pos.x + Math.sin(P.yaw) * 0.3, waveH(P.pos.x, P.pos.z, t), P.pos.z + Math.cos(P.yaw) * 0.3), 10);
+  }
   // velocidade de giro → inclinação e curva do corpo
   const yr = angDiff(DIVER.lastYaw ?? P.yaw, P.yaw) / Math.max(dt, 1e-3); DIVER.lastYaw = P.yaw;
   DIVER.turn = lerp(DIVER.turn || 0, clamp(yr * 0.5, -1, 1), clamp(dt * 5, 0, 1));
@@ -2734,7 +2752,7 @@ function updateDiver(dt, t) {
   const def = GUN.def, ld = GUN.loadT > 0 && def ? 1 - GUN.loadT / (def.load * (P.under ? 1.35 : 1)) : -1;
   // respiração: forte logo após emergir, depois ritmo calmo
   const br = P.under ? 0 : Math.sin(t * (P.surfT < 8 ? 3.2 : 1.6)) * (P.surfT < 8 ? 1 : 0.5);
-  poseDiver(DIVER, 'swim', t, P.kickAnim, P.under ? 0.25 + mv * 0.75 : 0.15 + mv * 0.5, {
+  poseDiver(DIVER, 'swim', t, P.kickAnim, P.duckT > 0.5 ? 0 : P.under ? 0.25 + mv * 0.75 : 0.15 + mv * 0.5, {
     turn: DIVER.turn, load: ld, recoil: GUN.recoil, surf: !P.under, still: P.under ? P.still : 0, breath: br,
     pull: IN.held.pull && GUN.state !== 'ready', look: P.under ? P.pitch * 0.85 - bodyP : P.pitch + 0.3,
   });
@@ -2820,6 +2838,7 @@ function Hextra(x, z, h) {
 }
 // ---------- pedras do parcel (antes de instanciar as pedras) ----------
 function extraRocks() {
+  buildArches();
   const r = mulberry(77);
   for (let i = 0; i < 110; i++) {
     const a = r() * TAU, d = Math.pow(r(), 0.7) * 52, x = AVENT.x + Math.cos(a) * d, z = AVENT.z + Math.sin(a) * d;
@@ -3269,6 +3288,7 @@ function renderOpt() {
     optRow('Volume', `<input type="range" min="0" max="1" step="0.05" value="${OPT.vol}" data-range="vol"><b>${Math.round(OPT.vol * 100)}%</b>`) +
     optRow('Música', seg('mus', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
     optRow('Vibração', seg('vib', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
+    optRow('Compensar ouvidos', seg('autoEq', [[false, 'MANUAL'], [true, 'AUTOMÁTICO']])) +
     optRow('Vista ao nadar', seg('third', [[true, '3ª PESSOA'], [false, '1ª PESSOA']])) +
     optRow('Backup em arquivo' + (SV.backupAt ? `<div class="d">Último: ${new Date(SV.backupAt).toLocaleDateString('pt-BR')}</div>` : '<div class="d">Nunca feito</div>'), `<button class="btn gold" id="optFile">SALVAR ARQUIVO</button><button class="btn alt" id="optOpen">ABRIR ARQUIVO</button>`) +
     optRow('Backup por código', `<button class="btn alt" id="optExp">COPIAR CÓDIGO</button><button class="btn alt" id="optImp">COLAR CÓDIGO</button>`) +
@@ -4018,7 +4038,7 @@ const TUT = [
   { t: 'Siga a seta laranja no topo até o ponto de pesca. Joystick: acelera e vira a lancha.', btn: null, ok: () => { const d = spotById(SV.dest); return d && Math.hypot(BOAT.pos.x - d.x, BOAT.pos.z - d.z) < 70; } },
   { t: 'Chegou! Toque ANCORAR para parar a lancha.', btn: 'bAnchor', ok: () => BOAT.anchored },
   { t: 'Toque PULAR NA ÁGUA.', btn: 'bJump', ok: () => P.mode === 'swim' },
-  { t: 'Respire parado uns segundos (o Preparo enche) e toque MERGULHAR.', btn: 'bDive', ok: () => P.under },
+  { t: 'Respire parado uns segundos (o Preparo enche) e toque MERGULHAR. Na descida, toque COMPENSAR quando o ouvido apertar.', btn: 'bDive', ok: () => P.under },
   { t: 'Toque ARMAR para esticar o elástico do arbalete.', btn: 'bArm', ok: () => GUN.bands > 0 },
   { t: 'Mire num peixe: a mira fica verde quando ele está ao alcance. Toque ATIRAR.', btn: 'bFire', ok: () => GUN.state !== 'ready' },
   { t: 'Acertou? Segure PUXAR LINHA para trazer o peixe (ou o arpão de volta).', btn: 'bPull', ok: () => P.stringer.length > 0 || (GUN.state === 'ready' && GUN.bands === 0 && P.tutShots > 1) },
@@ -4470,6 +4490,107 @@ function updateBirds(dt, t) {
     b.m.scale.x = (diving ? 0.35 : 1 + Math.sin(t * 9 + b.a) * 0.05) * b.m.scale.y;
     b.m.visible = y > -0.35;
   }
+}
+
+// ---------- escamas brilhando quando o arpão acerta ----------
+const SCALES = { list: [], pts: null };
+function setupScales() {
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(90 * 3).fill(9999), 3));
+  SCALES.pts = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.045, map: dotTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xe8f4ff }));
+  SCALES.pts.frustumCulled = false; scene.add(SCALES.pts);
+}
+function spawnScales(p, n = 16) {
+  for (let i = 0; i < n; i++) { if (SCALES.list.length >= 90) SCALES.list.shift(); SCALES.list.push({ x: p.x, y: p.y, z: p.z, vx: rand(-0.5, 0.5), vy: rand(-0.1, 0.4), vz: rand(-0.5, 0.5), t: rand(1.5, 3), ph: rand(0, TAU) }); }
+}
+function updateScales(dt, t) {
+  if (!SCALES.pts) return;
+  const a = SCALES.pts.geometry.attributes.position.array; a.fill(9999);
+  for (let i = SCALES.list.length - 1; i >= 0; i--) { const s = SCALES.list[i]; s.t -= dt; if (s.t <= 0) { SCALES.list.splice(i, 1); continue; } s.vx *= Math.exp(-dt * 2); s.vz *= Math.exp(-dt * 2); s.vy = lerp(s.vy, -0.12, dt); s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt; }
+  // pisca como escama virando contra a luz
+  SCALES.list.forEach((s, i) => { const on = Math.sin(t * 14 + s.ph) > -0.2; a[i * 3] = on ? s.x : 9999; a[i * 3 + 1] = s.y; a[i * 3 + 2] = s.z; });
+  SCALES.pts.geometry.attributes.position.needsUpdate = true;
+}
+
+// ---------- fundos novos: prado de algas e cascalho ----------
+const meadowAt = (x, z) => fbm(x * 0.012 + 300, z * 0.012 - 70, 3);
+const gravelAt = (x, z) => fbm(x * 0.03 + 500, z * 0.03 + 120, 2);
+function buildBottoms() {
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3(), r = mulberry(77);
+  // tufo de capim-marinho: 7 folhas finas em leque
+  const blades = []; for (let k = 0; k < 7; k++) { const b = new THREE.PlaneGeometry(0.035, rand(0.35, 0.6), 1, 3); b.translate(0, b.parameters.height / 2, 0); b.rotateY(k / 7 * Math.PI + rand(-0.2, 0.2)); b.rotateZ(rand(-0.25, 0.25)); b.translate(rand(-0.08, 0.08), 0, rand(-0.08, 0.08)); blades.push(b); }
+  const grassG = mergeGeos(blades);
+  const grassM = uwify(new THREE.MeshLambertMaterial({ color: 0x4f7a32, side: THREE.DoubleSide }), {
+    key: 'sg', vBody: SURGE_GLSL + ' float sw=max(position.y,0.0); sw*=sw; transformed.x+=(surge.x*0.35+sin(uTime*1.6+instanceMatrix[3].x)*0.06)*sw; transformed.z+=(surge.y*0.35+cos(uTime*1.3+instanceMatrix[3].z)*0.06)*sw;'
+  });
+  const grass = [], peb = [];
+  // manchas densas: em cada ponto do prado, um tapete de tufos a ~0,5 m um do outro
+  for (let i = 0; i < 90000 && grass.length < 30000; i++) {
+    const x = lerp(WB.x0, WB.x1, r()), z = lerp(WB.z0, WB.z1, r()), h = H(x, z);
+    if (h > -1.5 || h < -10 || meadowAt(x, z) < 0.47 || murkAt(x, z) > 0.5) continue;
+    for (let k = 0; k < 14; k++) { const it = [x + rand(-2.2, 2.2), 0, z + rand(-2.2, 2.2)]; if (meadowAt(it[0], it[2]) < 0.45) continue; it[1] = H(it[0], it[2]); grass.push(it); }
+  }
+  for (let i = 0; i < 60000 && peb.length < 9000; i++) {
+    const x = lerp(WB.x0, WB.x1, r()), z = lerp(WB.z0, WB.z1, r()), h = H(x, z);
+    if (h > -3 || h < -26 || gravelAt(x, z) < 0.38) continue;
+    for (let k = 0; k < 6; k++) { const it = [x + rand(-1.5, 1.5), 0, z + rand(-1.5, 1.5)]; it[1] = H(it[0], it[2]); peb.push(it); }
+  }
+  chunked(grassG, grassM, grass, (f, i, im) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); const k = rand(1.0, 1.8); s.set(k, k * rand(0.9, 1.5), k); pp.set(f[0], f[1], f[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); im.setColorAt(i, new THREE.Color().setHSL(rand(0.22, 0.3), 0.45, rand(0.25, 0.4))); }, 60);
+  const pebG = new THREE.IcosahedronGeometry(0.1, 0); pebG.scale(1, 0.55, 1);
+  chunked(pebG, uwify(new THREE.MeshStandardMaterial({ roughness: 0.9 }), { key: 'pb' }), peb, (f, i, im) => { e.set(rand(0, 3), rand(0, TAU), rand(0, 3)); q.setFromEuler(e); s.setScalar(rand(0.4, 1.4)); pp.set(f[0], f[1] + 0.02, f[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); im.setColorAt(i, new THREE.Color().setHSL(rand(0.06, 0.12), rand(0.05, 0.2), rand(0.25, 0.55))); }, 30);
+}
+
+// ---------- arcos de pedra: passagens para atravessar nadando ----------
+const ARCHES = [];
+function buildArches() {
+  for (const id of ['jorge', 'cataguases', 'castelhanos', 'porcos', 'laje', 'gipoia']) {
+    const S = spotById(id); if (!S) continue;
+    for (let k = 0; k < 40; k++) {
+      const a = k * 0.9, d = 12 + k * 0.8, x = S.x + Math.cos(a) * d, z = S.z + Math.sin(a) * d, h = H(x, z);
+      if (h > -7 || h < -16) continue;
+      const ry = rand(0, TAU), rx = Math.cos(ry), rz = Math.sin(ry);
+      if (Math.abs(H(x + rx * 4.5, z + rz * 4.5) - H(x - rx * 4.5, z - rz * 4.5)) > 1.6) continue;
+      if (rocksNear(x, z).some(R => Math.hypot(R.x - x, R.z - z) < R.r + 4)) continue;
+      const Rr = 4.5;
+      for (let i = 0; i <= 12; i++) {
+        const th = i / 12 * Math.PI, px = x + rx * Math.cos(th) * Rr, pz = z + rz * Math.cos(th) * Rr, py = H(px, pz) * (1 - Math.sin(th)) + (h + Math.sin(th) * Rr * 1.05) * Math.sin(th);
+        const R = addRock(px, py, pz, i === 0 || i === 12 ? 1.9 : 1.3, id); R.sy = 1;
+      }
+      ARCHES.push({ x, z, y: h + 2, n: x * rz - z * rx, rx, rz, spot: S.name }); break;
+    }
+  }
+}
+function updateArches() {
+  if (P.mode !== 'swim' || !P.under) return;
+  for (const A of ARCHES) {
+    const dx = P.pos.x - A.x, dz = P.pos.z - A.z, side = dx * -A.rz + dz * A.rx, along = dx * A.rx + dz * A.rz;
+    if (Math.abs(along) < 3.2 && P.pos.y - (A.y - 2) < 4.3 && Math.abs(side) < 1.5) {
+      if (A.last != null && Math.sign(side) !== Math.sign(A.last) && A.day !== SV.day) { A.day = SV.day; toast(`Você atravessou o arco de pedra da ${A.spot}!`, 3, 'gold'); addXP(30); }
+      A.last = side;
+    } else if (Math.hypot(dx, dz) > 10) A.last = null;
+  }
+}
+
+// ---------- compensar os ouvidos ----------
+// a cada poucos metros de descida a pressão aperta; COMPENSAR (G) alivia. Subindo, alivia sozinho.
+function equalize() {
+  if (!P.under) return;
+  const d = -P.pos.y; if (d - (P.eqD || 0) < 0.4) return;
+  P.eqD = d; AU.tone(700, 1100, 0.05, 0.05, 'sine'); P.eqFlash = 0.4;
+  if (d > comfortDepth()) P.o2 -= 0.01; // abaixo do limite treinado, compensar custa ar
+}
+function updateEars(dt) {
+  if (P.mode !== 'swim' || !P.under) { P.ear = 0; P.eqD = 0; P.earWarn = false; return; }
+  const d = -P.pos.y, step = 2.6 + lvl('trEq') * 0.7;
+  P.eqD = Math.min(P.eqD || 0, d); // subindo, o ar expande e alivia
+  P.ear = clamp((d - P.eqD) / step, 0, 2);
+  if (OPT.autoEq && P.ear > 0.8) equalize();
+  P.eqFlash = Math.max(0, (P.eqFlash || 0) - dt);
+  if (P.ear > 1) {
+    P.o2 -= dt * 0.012 * (P.ear - 1) * 2;
+    if (P.ear > 1.5) P.vel.y = Math.max(P.vel.y, 0.25); // a dor não deixa descer mais
+    if (!P.earWarn) { P.earWarn = true; toast('Ouvido doendo! Toque COMPENSAR (G) para equalizar.', 3, 'bad'); buzz([50, 40, 50]); }
+  } else if (P.ear < 0.6) P.earWarn = false;
+  const b = $('bEq'); b.classList.toggle('warn', P.ear > 0.8); b.classList.toggle('ok', P.eqFlash > 0);
 }
 
 init();

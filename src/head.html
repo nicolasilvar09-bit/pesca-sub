@@ -82,6 +82,10 @@ html,body{margin:0;height:100%;height:100dvh;position:fixed;inset:0;width:100%;o
 #bPhoto{position:absolute;left:calc(130px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px;background:rgba(110,190,255,.42)}
 #bCall{position:absolute;left:calc(190px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px;background:rgba(150,220,140,.38)}
 body.short #bCall{left:calc(166px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}
+#bEq{position:absolute;left:calc(250px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:9px;background:rgba(120,170,255,.35)}
+#bEq.warn{background:rgba(255,90,78,.75);animation:pulse 0.8s infinite}#bEq.ok{background:rgba(124,240,168,.7)}
+body.short #bEq{left:calc(218px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}
+body.portrait #bEq{bottom:calc(166px + env(safe-area-inset-bottom));left:240px;width:48px;height:48px}
 body.portrait #bCall{bottom:calc(166px + env(safe-area-inset-bottom));left:184px;width:48px;height:48px}
 #hideTag{position:absolute;left:50%;top:calc(50% + 40px);transform:translateX(-50%);font-size:11px;letter-spacing:2px;color:#7cf0a8;background:rgba(4,16,20,.55);padding:2px 8px;border-radius:8px}
 #optPanel{z-index:40}

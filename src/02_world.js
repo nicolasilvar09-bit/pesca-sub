@@ -188,6 +188,8 @@ function terrColor(x, y, z, ny, c) {
     c.lerp(_tc.setRGB(0.32, 0.30, 0.26), smooth(0.9, 0.65, ny));
     const m = murkAt(x, z); c.lerp(_tc.setRGB(0.36, 0.31, 0.22), m * 0.85);
     if (fbm(x * 0.02 + 40, z * 0.02, 2) > 0.25 && y > -14) c.lerp(_tc.setRGB(0.30, 0.38, 0.22), 0.35); // manchas de alga
+    if (y > -10 && y < -1.5 && meadowAt(x, z) > 0.42) c.lerp(_tc.setRGB(0.2, 0.3, 0.14), smooth(0.42, 0.5, meadowAt(x, z)) * 0.8); // prado de capim-marinho
+    if (y < -3 && gravelAt(x, z) > 0.34) c.lerp(_tc.setRGB(0.42, 0.4, 0.36), smooth(0.34, 0.44, gravelAt(x, z)) * 0.6); // cascalho
   }
   return c;
 }

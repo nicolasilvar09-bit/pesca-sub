@@ -23,6 +23,7 @@ function renderOpt() {
     optRow('Volume', `<input type="range" min="0" max="1" step="0.05" value="${OPT.vol}" data-range="vol"><b>${Math.round(OPT.vol * 100)}%</b>`) +
     optRow('Música', seg('mus', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
     optRow('Vibração', seg('vib', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
+    optRow('Compensar ouvidos', seg('autoEq', [[false, 'MANUAL'], [true, 'AUTOMÁTICO']])) +
     optRow('Vista ao nadar', seg('third', [[true, '3ª PESSOA'], [false, '1ª PESSOA']])) +
     optRow('Backup em arquivo' + (SV.backupAt ? `<div class="d">Último: ${new Date(SV.backupAt).toLocaleDateString('pt-BR')}</div>` : '<div class="d">Nunca feito</div>'), `<button class="btn gold" id="optFile">SALVAR ARQUIVO</button><button class="btn alt" id="optOpen">ABRIR ARQUIVO</button>`) +
     optRow('Backup por código', `<button class="btn alt" id="optExp">COPIAR CÓDIGO</button><button class="btn alt" id="optImp">COLAR CÓDIGO</button>`) +

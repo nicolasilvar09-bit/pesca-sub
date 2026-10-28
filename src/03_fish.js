@@ -294,10 +294,14 @@ class Fish {
         this.speed = sp.burst * 0.8; this.target.set(this.home.x, this.home.y, this.home.z);
         if (p.distanceTo(this.target) < 0.6 || this.t <= 0) { this.state = 'hidden'; this.t = rand(12, 26); }
         break;
-      case 'hidden':
-        this.target.set(this.home.x, this.home.y, this.home.z); this.speed = 0.3;
+      case 'hidden': {
+        // espia da toca com o mergulhador parado; recolhe para dentro se ele chega nadando
+        const near = P.mode === 'swim' && P.under && dP < 5 && P.vel.length() > 0.35, peek = near ? -0.6 : P.still > 1.5 && dP < 10 ? 0.35 : 0;
+        this.peek = lerp(this.peek || 0, peek, clamp(dt * (near ? 5 : 0.8), 0, 1));
+        this.target.set(this.home.x + Math.cos(this.home.dir) * this.peek, this.home.y, this.home.z + Math.sin(this.home.dir) * this.peek); this.speed = near ? 1.2 : 0.3;
         if (this.t <= 0) { this.state = 'wander'; this.t = 0; }
         break;
+      }
       case 'hooked':
         this.fight -= dt;
         _t1.subVectors(p, P.pos); _t1.y = rand(-0.5, 0.3); _t1.normalize();

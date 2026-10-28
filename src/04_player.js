@@ -126,7 +126,7 @@ function updateGun(dt) {
     const f = GUN.fish;
     if (!f || !f.alive) { GUN.state = 'spent'; GUN.fish = null; }
     else {
-      GUN.pos.copy(f.pos).addScaledVector(GUN.dir, -0.05);
+      GUN.pos.copy(f.pos).addScaledVector(GUN.dir, f.radius * 1.25 + 0.06); // a ponta sai do outro lado do peixe
       // tensão da linha
       const d = f.pos.distanceTo(tip), maxL = def.range * 2.0;
       if (f.fight > 0) GUN.lineLen = Math.min(maxL, Math.max(GUN.lineLen, d));
@@ -178,7 +178,7 @@ function hitFish(f, along) {
   else { GUN.q = 'tail'; f.fight = 3 + f.kg * 0.45 * f.sp.str; toast('Tiro no rabo, cuidado que pode rasgar!', 2.5, 'bad'); }
   GUN.fight0 = Math.max(f.fight, 0.01);
   hitFX(GUN.q); if (GUN.q === 'head') mission('head');
-  spawnBubbles(f.pos, 10, 0.2);
+  spawnBubbles(f.pos, 10, 0.2); spawnScales(f.pos, 18);
 }
 
 // ================= controle do barco =================
@@ -288,7 +288,8 @@ function updateSwim(dt, t) {
     P.vel.lerp(des, clamp(dt * 2, 0, 1)); P.pos.addScaledVector(P.vel, dt);
     P.pos.y = surfY - 0.15;
     if (took('dive') || (IN.jy > 0.5 && P.pitch < -0.75)) {
-      P.under = true; P.pos.y = surfY - 0.8; P.vel.set(fwd.x * 0.6, -1.4, fwd.z * 0.6); P.pitch = Math.min(P.pitch, -0.9);
+      // pato: dobra o corpo, joga as pernas para fora d'água e afunda reto, sem gastar pernada
+      P.under = true; P.pos.y = surfY - 0.8; P.vel.set(fwd.x * 0.4, -2.0, fwd.z * 0.4); P.pitch = Math.min(P.pitch, -0.9); P.duckT = 1.2; P.eqD = 0;
       P.diveT = 0; P.maxD = 0; AU.splash(); spawnBubbles(_c.set(P.pos.x, P.pos.y + 0.3, P.pos.z), 20, 0.4);
       P.startO2 = P.o2; buddyDiveTip(); onDiveStart();
       if (P.o2 < 0.6) toast('Pouco fôlego! Respire mais na superfície antes de descer.', 3, 'bad');
