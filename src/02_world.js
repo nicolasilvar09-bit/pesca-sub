@@ -609,6 +609,7 @@ function buildRocksAndDecor() {
   const urM = uwify(new THREE.MeshStandardMaterial({ color: 0x1a0d1c, roughness: 0.6 }), { key: 'u' });
   const fans = [], algs = [], urs = [];
   ROCKS.forEach(R => {
+    if (R.noDecor) return;
     if (R.spot === 'foz' || !R.spot) { if (Math.random() < 0.5) algs.push([R.x + rand(-1, 1), R.y + R.r * R.sy * 0.75, R.z + rand(-1, 1), rand(0.6, 1.2)]); return; }
     const n = Math.floor(rand(0, 4.5));
     for (let k = 0; k < n; k++) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * 1.05, z = R.z + Math.sin(a) * R.r * 1.05; fans.push([x, H(x, z), z, rand(0.5, 1.4), a]); }

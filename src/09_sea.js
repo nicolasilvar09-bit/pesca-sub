@@ -13,6 +13,7 @@ function rollCond() {
   COND.vis = lerp(0.6, 1.6, r()); COND.swell = lerp(0.55, 1.7, Math.pow(r(), 1.3)); COND.cur = lerp(0.6, 1.5, r());
   COND.cloud = r() < 0.28 ? lerp(0.55, 1, r()) : r() * 0.3;
   SWELL.k = COND.swell; CU.uSwell.value = COND.swell; CU.uCloud.value = COND.cloud;
+  rollFront();
 }
 const visM = () => Math.round(0.83 / (0.042 / COND.vis));
 const condTxt = () => `Visibilidade ~${visM()} m · ondas ${(0.55 * COND.swell).toFixed(1).replace('.', ',')} m · correnteza ${COND.cur < 0.85 ? 'fraca' : COND.cur < 1.2 ? 'moderada' : 'forte'} · ${COND.cloud > 0.5 ? 'nublado' : COND.cloud > 0.2 ? 'poucas nuvens' : 'céu limpo'}`;
@@ -60,7 +61,7 @@ function fishAct(key) { const k = smooth(-0.1, 0.35, DAY.el); return NOCT[key] ?
 
 // aba "Boletim do mar" na loja/marina
 function bulletinHTML() {
-  return `<div class="it" style="margin-bottom:8px"><div><div class="n">Dia ${SV.day || 1} · ${hhmm(SV.tod || 7)}</div><div class="d">${condTxt()}</div></div></div>
+  return eventsHTML() + `<div class="it" style="margin-bottom:8px"><div><div class="n">Dia ${SV.day || 1} · ${hhmm(SV.tod || 7)}</div><div class="d">${condTxt()}</div></div></div>
     <div class="list">
     <div class="it"><div><div class="n">Visibilidade</div><div class="d">${COND.vis > 1.25 ? 'Água azul: dia de procurar peixe longe, no Parcel de Fora ou em Castelhanos.' : COND.vis < 0.8 ? 'Água turva: fique nos pontos rasos e abrigados, e leve lanterna.' : 'Água normal na baía.'}</div></div></div>
     <div class="it"><div><div class="n">Mar</div><div class="d">${COND.swell > 1.25 ? 'Ondulação grande: o lado de fora da Ilha Grande fica perigoso. Prefira a baía.' : 'Mar tranquilo para atravessar.'}</div></div></div>

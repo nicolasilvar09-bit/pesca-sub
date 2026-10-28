@@ -49,7 +49,7 @@ const SPECIES = {
     col: { back: '#5f5a46', side: '#c0906e', belly: '#ecd2bc', fin: '#c46a50', iris: '#e06040' } },
   olhete: { name: 'Olhete', shape: 'amber', len: [0.6, 1.4], k: 11, price: 36, min: 0.6, cruise: 1.2, burst: 5.4, shy: 0.45, curious: 0.8, habit: 'pelagic', str: 2.0, school: true,
     col: { back: '#3b5470', side: '#c4ccd2', belly: '#eff1f1', fin: '#d6b43a', iris: '#d8c060' } },
-  albacora: { name: 'Albacora', shape: 'tuna', len: [0.7, 1.8], k: 16, price: 60, min: 0.6, cruise: 1.5, burst: 6.8, shy: 0.55, curious: 0.5, habit: 'pelagic', str: 2.6, school: true,
+  albacora: { name: 'Albacora', shape: 'tuna', len: [0.7, 1.8], k: 16, price: 24, min: 0.6, cruise: 1.5, burst: 6.8, shy: 0.55, curious: 0.5, habit: 'pelagic', str: 2.6, school: true,
     col: { back: '#1d2c52', side: '#9eb0c4', belly: '#eef1f4', fin: '#f0c81e', iris: '#d0d0d0' } },
   // raros: aparecem só às vezes nos pontos de pedra funda
   dentao: { name: 'Dentão', shape: 'snap', len: [0.45, 0.95], k: 15, price: 85, min: 0.4, cruise: 0.5, burst: 3.8, shy: 0.95, curious: 0.15, habit: 'reef', str: 1.5, rare: true,

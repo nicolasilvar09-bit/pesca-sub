@@ -58,7 +58,7 @@ function buildDecor2() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3(), up = new V3(0, 1, 0), d = new V3();
   const coral = [], sponge = [], star = [];
   for (const R of ROCKS) {
-    if (!R.spot || R.spot === 'foz') continue;
+    if (!R.spot || R.spot === 'foz' || R.noDecor) continue;
     if (Math.random() < 0.35) {
       // coral-sol em colônia: pólipos colados na face lateral/inferior da pedra
       const d0 = new V3(rand(-1, 1), rand(-0.3, 0.5), rand(-1, 1)).normalize();
@@ -111,7 +111,7 @@ function buildReef3() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3(), up = new V3(0, 1, 0), d = new V3();
   const brain = [], paly = [], shell = [], fire = [];
   for (const R of ROCKS) {
-    if (!R.spot || R.spot === 'foz') continue;
+    if (!R.spot || R.spot === 'foz' || R.noDecor) continue;
     if (R.q === undefined) continue;
     const tag = it => { it.spot = R.spot; return it; };
     const onRock = (minY, k, sz) => { d.set(rand(-1, 1), rand(minY, 1), rand(-1, 1)).normalize(); const w = rockSurf(R, d, new V3(), _nr, k); return tag([w.x, w.y, w.z, _nr.clone(), sz]); };

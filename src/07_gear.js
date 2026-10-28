@@ -480,6 +480,10 @@ function buildWreck(W) {
   scene.add(g); g.updateMatrixWorld(true);
   const v = new V3();
   for (let s = -L / 2 + 3; s <= L / 2 - 3; s += 3.2) { v.set(0, 0.6, s); g.localToWorld(v); const R = addRock(v.x, v.y, v.z, B / 2 + 0.6, W.spot); R.sy = 0.75; }
+  // cabine e mastro também são sólidos (colisores invisíveis ao longo de cada peça)
+  for (const z of [-7.6, -4.4]) { v.set(0, D / 2 + 1.6, z); g.localToWorld(v); const R = addRock(v.x, v.y, v.z, 3.0, W.spot); R.sy = 0.62; R.noDecor = true; }
+  const md = new V3(0, 1, 0).applyEuler(mast.rotation);
+  for (let k = -6.5; k <= 6.5; k += 1.3) { v.copy(mast.position).addScaledVector(md, k); g.localToWorld(v); const R = addRock(v.x, v.y, v.z, 0.55, W.spot); R.sy = 1; R.noDecor = true; }
   for (const s of [-12, -1, 9].map(k => k * L / 34)) for (const sx of [-1, 1]) {
     v.set(sx * (B / 2 + 1.3), 0.2, s); g.localToWorld(v);
     const a = Math.atan2(v.z - g.position.z, v.x - g.position.x);
@@ -537,7 +541,7 @@ function renderShop() {
       : `<div class="it"><div><div class="n">Gasolina · ${Math.round(SV.fuel)}/${tankMax()} L</div><div class="d">Só dá para abastecer no posto da Marina Balneário.</div></div></div>`;
   }
   if (shopTab === 'comp') {
-    h = `<div class="it" style="margin-bottom:8px"><div><div class="n">Campeonato de pesca sub · 10 minutos</div><div class="d">Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso. Inscrição R$ 100. Prêmios: 1º R$ 1.500 · 2º R$ 600 · 3º R$ 250.</div></div></div><div class="list">` +
+    h = `<div class="it" style="margin-bottom:8px"><div><div class="n">Campeonato de pesca sub · 10 minutos${weekend() ? ' · <b style="color:var(--acc)">TORNEIO DO FIM DE SEMANA: PRÊMIOS EM DOBRO</b>' : ''}</div><div class="d">Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso. Inscrição R$ 100. Prêmios: 1º R$ 1.500 · 2º R$ 600 · 3º R$ 250.</div></div></div><div class="list">` +
       SPOTS.filter(s => s.r).map(s => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.depth}</div></div><button class="btn gold" data-comp="${s.id}" ${COMP.on || SV.money < 100 ? 'disabled' : ''}>COMPETIR</button></div>`).join('') + '</div>' + duoHTML();
   }
   if (shopTab === 'miss') h = missionsHTML();
@@ -587,7 +591,7 @@ function startComp(id, duo) {
   const s = spotById(id); if (!s || COMP.on) return;
   const fee = duo ? 200 : 100;
   if (SV.money < fee) { toast(`Inscrição custa ${fmtR(fee)}.`); return; }
-  SV.money -= fee; save(); COMP.duo = null;
+  SV.money -= fee; save(); COMP.duo = null; COMP.mult = compMult();
   if (P.mode === 'swim') climbBoat();
   let bx = s.x + 18, bz = s.z + 18; for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; const x = s.x + Math.cos(a) * 20, z = s.z + Math.sin(a) * 20; if (H(x, z) < -4) { bx = x; bz = z; break; } }
   BOAT.pos.set(bx, 0, bz); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
@@ -600,7 +604,7 @@ function startComp(id, duo) {
     return { name, rig, pos, vel: new V3(), yaw: rand(0, TAU), pitch: 0, state: 'surf', t: rand(4, 10), target: null, aimT: 0, n: 0, kg: 0, kick: 0, skill: [0.24, 0.2, 0.16][i] };
   });
   $('compHud').classList.remove('hide');
-  toast(`Valendo! 10 minutos na ${s.name}. Peixe abaixo da medida não conta.`, 5, 'gold'); AU.coin();
+  toast(`Valendo! 10 minutos na ${s.name}. Peixe abaixo da medida não conta.${COMP.mult > 1 ? ' Torneio do fim de semana: prêmio em dobro!' : ''}`, 5, 'gold'); AU.coin();
 }
 function compOnCatch(f) { if (!COMP.on) return; COMP.me.n++; COMP.me.kg += f.kg; }
 // ---------- pescador bot (campeonato e amigos) ----------
@@ -663,7 +667,7 @@ function updateComp(dt, t) {
 function endComp(rows) {
   COMP.on = false; $('compHud').classList.add('hide');
   for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
-  const duo = COMP.duo, PR = duo ? [3000, 1200, 0] : [1500, 600, 250, 0], pos = rows.findIndex(r => r.me), prize = PR[pos];
+  const duo = COMP.duo, PR = (duo ? [3000, 1200, 0] : [1500, 600, 250, 0]).map(v => v * COMP.mult), pos = rows.findIndex(r => r.me), prize = PR[pos];
   if (duo) duo.friend.xp = (duo.friend.xp || 0) + (pos === 0 ? 150 : 60);
   COMP.duo = null;
   SV.money += prize; if (pos === 0) SV.wins = (SV.wins || 0) + 1; addXP([600, 300, 150, 50][pos]); save();

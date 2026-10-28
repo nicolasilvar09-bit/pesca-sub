@@ -1004,6 +1004,7 @@ function buildRocksAndDecor() {
   const urM = uwify(new THREE.MeshStandardMaterial({ color: 0x1a0d1c, roughness: 0.6 }), { key: 'u' });
   const fans = [], algs = [], urs = [];
   ROCKS.forEach(R => {
+    if (R.noDecor) return;
     if (R.spot === 'foz' || !R.spot) { if (Math.random() < 0.5) algs.push([R.x + rand(-1, 1), R.y + R.r * R.sy * 0.75, R.z + rand(-1, 1), rand(0.6, 1.2)]); return; }
     const n = Math.floor(rand(0, 4.5));
     for (let k = 0; k < n; k++) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * 1.05, z = R.z + Math.sin(a) * R.r * 1.05; fans.push([x, H(x, z), z, rand(0.5, 1.4), a]); }
@@ -1187,7 +1188,7 @@ const SPECIES = {
     col: { back: '#5f5a46', side: '#c0906e', belly: '#ecd2bc', fin: '#c46a50', iris: '#e06040' } },
   olhete: { name: 'Olhete', shape: 'amber', len: [0.6, 1.4], k: 11, price: 36, min: 0.6, cruise: 1.2, burst: 5.4, shy: 0.45, curious: 0.8, habit: 'pelagic', str: 2.0, school: true,
     col: { back: '#3b5470', side: '#c4ccd2', belly: '#eff1f1', fin: '#d6b43a', iris: '#d8c060' } },
-  albacora: { name: 'Albacora', shape: 'tuna', len: [0.7, 1.8], k: 16, price: 60, min: 0.6, cruise: 1.5, burst: 6.8, shy: 0.55, curious: 0.5, habit: 'pelagic', str: 2.6, school: true,
+  albacora: { name: 'Albacora', shape: 'tuna', len: [0.7, 1.8], k: 16, price: 24, min: 0.6, cruise: 1.5, burst: 6.8, shy: 0.55, curious: 0.5, habit: 'pelagic', str: 2.6, school: true,
     col: { back: '#1d2c52', side: '#9eb0c4', belly: '#eef1f4', fin: '#f0c81e', iris: '#d0d0d0' } },
   // raros: aparecem só às vezes nos pontos de pedra funda
   dentao: { name: 'Dentão', shape: 'snap', len: [0.45, 0.95], k: 15, price: 85, min: 0.4, cruise: 0.5, burst: 3.8, shy: 0.95, curious: 0.15, habit: 'reef', str: 1.5, rare: true,
@@ -2036,7 +2037,7 @@ function updateHUD(dt) {
   $('hClock').textContent = hhmm(SV.tod || 7); $('clockChip').firstChild.textContent = 'Dia ' + (SV.day || 1);
   $('hFuel').textContent = Math.round(SV.fuel) + ' L'; $('hFuel').style.color = SV.fuel < 15 ? 'var(--bad)' : '';
   // bússola
-  const d = spotById(SV.dest);
+  const d = !swim && BOIL.on ? { x: BOIL.x, z: BOIL.z, name: 'Mar fervendo' } : spotById(SV.dest);
   if (d) {
     const ref = swim ? P.pos : BOAT.pos, dx = d.x - ref.x, dz = d.z - ref.z, dist = Math.hypot(dx, dz);
     const f = camFwd(_a); const rel = Math.atan2(dx, -dz) - Math.atan2(f.x, -f.z);
@@ -2079,7 +2080,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt);
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt);
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -2130,7 +2131,7 @@ function init() {
   initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); buildFX();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave();
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife();
   $('playBtn').onclick = startGame;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
   loop();
@@ -2196,7 +2197,7 @@ function buildDecor2() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3(), up = new V3(0, 1, 0), d = new V3();
   const coral = [], sponge = [], star = [];
   for (const R of ROCKS) {
-    if (!R.spot || R.spot === 'foz') continue;
+    if (!R.spot || R.spot === 'foz' || R.noDecor) continue;
     if (Math.random() < 0.35) {
       // coral-sol em colônia: pólipos colados na face lateral/inferior da pedra
       const d0 = new V3(rand(-1, 1), rand(-0.3, 0.5), rand(-1, 1)).normalize();
@@ -2249,7 +2250,7 @@ function buildReef3() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3(), up = new V3(0, 1, 0), d = new V3();
   const brain = [], paly = [], shell = [], fire = [];
   for (const R of ROCKS) {
-    if (!R.spot || R.spot === 'foz') continue;
+    if (!R.spot || R.spot === 'foz' || R.noDecor) continue;
     if (R.q === undefined) continue;
     const tag = it => { it.spot = R.spot; return it; };
     const onRock = (minY, k, sz) => { d.set(rand(-1, 1), rand(minY, 1), rand(-1, 1)).normalize(); const w = rockSurf(R, d, new V3(), _nr, k); return tag([w.x, w.y, w.z, _nr.clone(), sz]); };
@@ -2851,6 +2852,10 @@ function buildWreck(W) {
   scene.add(g); g.updateMatrixWorld(true);
   const v = new V3();
   for (let s = -L / 2 + 3; s <= L / 2 - 3; s += 3.2) { v.set(0, 0.6, s); g.localToWorld(v); const R = addRock(v.x, v.y, v.z, B / 2 + 0.6, W.spot); R.sy = 0.75; }
+  // cabine e mastro também são sólidos (colisores invisíveis ao longo de cada peça)
+  for (const z of [-7.6, -4.4]) { v.set(0, D / 2 + 1.6, z); g.localToWorld(v); const R = addRock(v.x, v.y, v.z, 3.0, W.spot); R.sy = 0.62; R.noDecor = true; }
+  const md = new V3(0, 1, 0).applyEuler(mast.rotation);
+  for (let k = -6.5; k <= 6.5; k += 1.3) { v.copy(mast.position).addScaledVector(md, k); g.localToWorld(v); const R = addRock(v.x, v.y, v.z, 0.55, W.spot); R.sy = 1; R.noDecor = true; }
   for (const s of [-12, -1, 9].map(k => k * L / 34)) for (const sx of [-1, 1]) {
     v.set(sx * (B / 2 + 1.3), 0.2, s); g.localToWorld(v);
     const a = Math.atan2(v.z - g.position.z, v.x - g.position.x);
@@ -2908,7 +2913,7 @@ function renderShop() {
       : `<div class="it"><div><div class="n">Gasolina · ${Math.round(SV.fuel)}/${tankMax()} L</div><div class="d">Só dá para abastecer no posto da Marina Balneário.</div></div></div>`;
   }
   if (shopTab === 'comp') {
-    h = `<div class="it" style="margin-bottom:8px"><div><div class="n">Campeonato de pesca sub · 10 minutos</div><div class="d">Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso. Inscrição R$ 100. Prêmios: 1º R$ 1.500 · 2º R$ 600 · 3º R$ 250.</div></div></div><div class="list">` +
+    h = `<div class="it" style="margin-bottom:8px"><div><div class="n">Campeonato de pesca sub · 10 minutos${weekend() ? ' · <b style="color:var(--acc)">TORNEIO DO FIM DE SEMANA: PRÊMIOS EM DOBRO</b>' : ''}</div><div class="d">Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso. Inscrição R$ 100. Prêmios: 1º R$ 1.500 · 2º R$ 600 · 3º R$ 250.</div></div></div><div class="list">` +
       SPOTS.filter(s => s.r).map(s => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.depth}</div></div><button class="btn gold" data-comp="${s.id}" ${COMP.on || SV.money < 100 ? 'disabled' : ''}>COMPETIR</button></div>`).join('') + '</div>' + duoHTML();
   }
   if (shopTab === 'miss') h = missionsHTML();
@@ -2958,7 +2963,7 @@ function startComp(id, duo) {
   const s = spotById(id); if (!s || COMP.on) return;
   const fee = duo ? 200 : 100;
   if (SV.money < fee) { toast(`Inscrição custa ${fmtR(fee)}.`); return; }
-  SV.money -= fee; save(); COMP.duo = null;
+  SV.money -= fee; save(); COMP.duo = null; COMP.mult = compMult();
   if (P.mode === 'swim') climbBoat();
   let bx = s.x + 18, bz = s.z + 18; for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; const x = s.x + Math.cos(a) * 20, z = s.z + Math.sin(a) * 20; if (H(x, z) < -4) { bx = x; bz = z; break; } }
   BOAT.pos.set(bx, 0, bz); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
@@ -2971,7 +2976,7 @@ function startComp(id, duo) {
     return { name, rig, pos, vel: new V3(), yaw: rand(0, TAU), pitch: 0, state: 'surf', t: rand(4, 10), target: null, aimT: 0, n: 0, kg: 0, kick: 0, skill: [0.24, 0.2, 0.16][i] };
   });
   $('compHud').classList.remove('hide');
-  toast(`Valendo! 10 minutos na ${s.name}. Peixe abaixo da medida não conta.`, 5, 'gold'); AU.coin();
+  toast(`Valendo! 10 minutos na ${s.name}. Peixe abaixo da medida não conta.${COMP.mult > 1 ? ' Torneio do fim de semana: prêmio em dobro!' : ''}`, 5, 'gold'); AU.coin();
 }
 function compOnCatch(f) { if (!COMP.on) return; COMP.me.n++; COMP.me.kg += f.kg; }
 // ---------- pescador bot (campeonato e amigos) ----------
@@ -3034,7 +3039,7 @@ function updateComp(dt, t) {
 function endComp(rows) {
   COMP.on = false; $('compHud').classList.add('hide');
   for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
-  const duo = COMP.duo, PR = duo ? [3000, 1200, 0] : [1500, 600, 250, 0], pos = rows.findIndex(r => r.me), prize = PR[pos];
+  const duo = COMP.duo, PR = (duo ? [3000, 1200, 0] : [1500, 600, 250, 0]).map(v => v * COMP.mult), pos = rows.findIndex(r => r.me), prize = PR[pos];
   if (duo) duo.friend.xp = (duo.friend.xp || 0) + (pos === 0 ? 150 : 60);
   COMP.duo = null;
   SV.money += prize; if (pos === 0) SV.wins = (SV.wins || 0) + 1; addXP([600, 300, 150, 50][pos]); save();
@@ -3181,6 +3186,7 @@ function rollCond() {
   COND.vis = lerp(0.6, 1.6, r()); COND.swell = lerp(0.55, 1.7, Math.pow(r(), 1.3)); COND.cur = lerp(0.6, 1.5, r());
   COND.cloud = r() < 0.28 ? lerp(0.55, 1, r()) : r() * 0.3;
   SWELL.k = COND.swell; CU.uSwell.value = COND.swell; CU.uCloud.value = COND.cloud;
+  rollFront();
 }
 const visM = () => Math.round(0.83 / (0.042 / COND.vis));
 const condTxt = () => `Visibilidade ~${visM()} m · ondas ${(0.55 * COND.swell).toFixed(1).replace('.', ',')} m · correnteza ${COND.cur < 0.85 ? 'fraca' : COND.cur < 1.2 ? 'moderada' : 'forte'} · ${COND.cloud > 0.5 ? 'nublado' : COND.cloud > 0.2 ? 'poucas nuvens' : 'céu limpo'}`;
@@ -3228,7 +3234,7 @@ function fishAct(key) { const k = smooth(-0.1, 0.35, DAY.el); return NOCT[key] ?
 
 // aba "Boletim do mar" na loja/marina
 function bulletinHTML() {
-  return `<div class="it" style="margin-bottom:8px"><div><div class="n">Dia ${SV.day || 1} · ${hhmm(SV.tod || 7)}</div><div class="d">${condTxt()}</div></div></div>
+  return eventsHTML() + `<div class="it" style="margin-bottom:8px"><div><div class="n">Dia ${SV.day || 1} · ${hhmm(SV.tod || 7)}</div><div class="d">${condTxt()}</div></div></div>
     <div class="list">
     <div class="it"><div><div class="n">Visibilidade</div><div class="d">${COND.vis > 1.25 ? 'Água azul: dia de procurar peixe longe, no Parcel de Fora ou em Castelhanos.' : COND.vis < 0.8 ? 'Água turva: fique nos pontos rasos e abrigados, e leve lanterna.' : 'Água normal na baía.'}</div></div></div>
     <div class="it"><div><div class="n">Mar</div><div class="d">${COND.swell > 1.25 ? 'Ondulação grande: o lado de fora da Ilha Grande fica perigoso. Prefira a baía.' : 'Mar tranquilo para atravessar.'}</div></div></div>
@@ -3344,6 +3350,8 @@ const SP_INFO = {
   mero: ['Epinephelus itajara', 'Naufrágios e tocas grandes.', 'Protegido por lei no Brasil: pode passar de 2 m e 300 kg. Só foto!'],
 };
 const GUIDE_EXTRA = [['tartaruga', 'Tartaruga-verde', 'Chelonia mydas', 'Costões com algas, sobe para respirar.', 'Ameaçada de extinção e protegida. Só foto!'],
+  ['raia', 'Raia-manteiga', 'Dasyatis hypostigma', 'Fundo de areia perto das pedras.', 'Passa o dia meio enterrada na areia. O ferrão na cauda é só defesa: nunca pise ou encoste.'],
+  ['golfinho', 'Boto-cinza', 'Sotalia guianensis', 'Baías e estuários, em grupos.', 'Símbolo da Baía da Ilha Grande. Protegido: só olhe e fotografe.'],
   ['moreia', 'Moreia-pintada', 'Gymnothorax moringa', 'Tocas de costão e naufrágio.', 'Abre e fecha a boca o tempo todo para respirar, não é ameaça. Mas morde se você enfiar a mão na toca.']];
 
 // alvo no centro da tela: peixe ou tartaruga até 8 m
@@ -3352,6 +3360,8 @@ function photoTarget() {
   const test = (pos, rad, obj) => { _b.subVectors(pos, o); const t = _b.dot(d); if (t < 0.4 || t > bt) return; const off = _b.addScaledVector(d, -t).length(); if (off < rad + 0.2) { best = { obj, t, off: off / (rad + 0.2) }; bt = t; } };
   for (const f of FISHES) if (f.vis && f.state !== 'dead' && f.state !== 'hooked') test(f.pos, f.radius, f);
   for (const T of TURTLES) test(T.pos, 0.55, { turtle: true, key: 'tartaruga', pos: T.pos });
+  for (const R of RAYS) if (R.g.visible) test(R.pos, 0.4 * R.s, { turtle: true, key: 'raia', pos: R.pos });
+  for (const d of DOLPH.pod) test(d.pos, 0.6, { turtle: true, key: 'golfinho', pos: d.pos });
   moreiaTargets(test);
   return best;
 }
@@ -3361,9 +3371,9 @@ function takePhoto() {
   AU.tone(2400, 1800, 0.04, 0.05, 'square'); AU.tone(900, 700, 0.06, 0.04, 'square', 0.05); P.noise = Math.max(P.noise, 0.45);
   const tg = photoTarget();
   if (!tg) { toast('Foto de água azul. Mire num peixe ou numa tartaruga.', 2); return; }
-  const o = tg.obj, key = o.key, sp = SPECIES[key], name = sp ? sp.name : o.moreia ? 'Moreia-pintada' : 'Tartaruga-verde';
+  const o = tg.obj, key = o.key, sp = SPECIES[key], name = sp ? sp.name : (GUIDE_EXTRA.find(g => g[0] === key) || [0, 'Tartaruga-verde'])[1];
   // valor: espécie (raro/protegido valem mais), tamanho, distância, centralizado e peixe calmo
-  let base = o.moreia ? 150 : o.turtle ? 260 : sp.protected ? 380 : sp.rare ? 300 : sp.ornamental ? 110 : 40 + sp.price * 1.4;
+  let base = o.moreia ? 150 : key === 'golfinho' ? 320 : key === 'raia' ? 180 : o.turtle ? 260 : sp.protected ? 380 : sp.rare ? 300 : sp.ornamental ? 110 : 40 + sp.price * 1.4;
   const size = o.turtle || o.moreia ? 1 : clamp(o.len / sp.len[1], 0.4, 1.5), dist = 1 - smooth(2.2, 8, tg.t) * 0.6, cen = 1 - tg.off * 0.4;
   const calm = o.turtle || o.moreia || o.state === 'wander' || o.state === 'curious' || o.state === 'hidden' ? 1.25 : 0.8;
   const D = SV.photoDay && SV.photoDay.day === SV.day ? SV.photoDay : (SV.photoDay = { day: SV.day, n: {} });
@@ -4188,6 +4198,170 @@ function duoRows() {
   for (const b of COMP.bots) { T[b.team].n += b.n; T[b.team].kg += b.kg; }
   return T.sort((a, b) => b.n - a.n || b.kg - a.kg);
 }
+
+// ================= mais vida no mar (golfinhos, raias, mar fervendo) e eventos (torneio, frente fria, peixe de condição) =================
+const _sl = new V3();
+
+// ---------- golfinhos: acompanham a proa da lancha e às vezes passam pelo mergulhador ----------
+const DOLPH = { pod: [], t: 70, mode: null, life: 0 };
+function dolphinGeo() {
+  const prof = [[0, -0.95], [0.06, -0.8], [0.13, -0.5], [0.19, -0.1], [0.2, 0.15], [0.17, 0.42], [0.11, 0.62], [0.05, 0.78], [0.035, 0.92], [0, 0.95]];
+  const body = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), 14); body.rotateX(Math.PI / 2); body.scale(1, 0.92, 1);
+  const tri = (pts, th = 0.02) => { const sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach(p => sh.lineTo(p[0], p[1])); const g = new THREE.ExtrudeGeometry(sh, { depth: th, bevelEnabled: false }); g.translate(0, 0, -th / 2); return g; };
+  const dors = tri([[0, 0], [0.26, 0], [0.02, 0.24]]); dors.rotateY(-Math.PI / 2); dors.translate(0, 0.16, -0.05);
+  const fl = tri([[0, 0], [0.22, 0.05], [0.16, 0.12]], 0.03); fl.rotateX(Math.PI / 2); fl.translate(-0.11, 0, -0.95);
+  const fr = fl.clone(); fr.scale(-1, 1, 1);
+  const pec = tri([[0, 0], [0.2, -0.06], [0.05, -0.04]], 0.02); pec.rotateX(Math.PI / 2); pec.rotateZ(0.5); pec.translate(0.15, -0.1, 0.35);
+  const pec2 = pec.clone(); pec2.scale(-1, 1, 1);
+  return mergeGeos([body, dors, fl, fr, pec, pec2]);
+}
+function spawnPod(mode) {
+  if (!DOLPH.geo) { DOLPH.geo = dolphinGeo(); DOLPH.mat = uwify(new THREE.MeshStandardMaterial({ color: 0x6d7a86, roughness: 0.35, metalness: 0.1 }), { key: 'dol' }); }
+  for (const d of DOLPH.pod) scene.remove(d.m);
+  const n = Math.floor(rand(3, 6)); DOLPH.pod = []; DOLPH.mode = mode; DOLPH.life = rand(30, 45);
+  for (let i = 0; i < n; i++) { const m = new THREE.Mesh(DOLPH.geo, DOLPH.mat); m.scale.setScalar(rand(1.6, 2.2)); scene.add(m); DOLPH.pod.push({ m, side: i % 2 ? 1 : -1, off: rand(2, 7), ph: rand(0, TAU), sp: rand(0.9, 1.1), pos: new V3(), yaw: 0 }); }
+  toast(mode === 'bow' ? 'Golfinhos acompanhando a proa! 🐬' : 'Golfinhos passando perto! 🐬', 3.5, 'gold');
+  if (mode === 'pass') { const a = rand(0, TAU); DOLPH.dir = new V3(Math.cos(a), 0, Math.sin(a)); DOLPH.c = P.pos.clone().addScaledVector(DOLPH.dir, -40); }
+}
+function updateDolphins(dt, t) {
+  DOLPH.t -= dt;
+  const driving = P.mode === 'boat' && Math.abs(BOAT.speed) > 7, deep = H(BOAT.pos.x, BOAT.pos.z) < -10;
+  if (!DOLPH.pod.length && DOLPH.t <= 0) {
+    if (driving && deep && Math.random() < 0.5) spawnPod('bow');
+    else if (P.mode === 'swim' && P.under && H(P.pos.x, P.pos.z) < -8 && Math.random() < 0.35) spawnPod('pass');
+    DOLPH.t = rand(90, 180);
+  }
+  if (!DOLPH.pod.length) return;
+  DOLPH.life -= dt;
+  const gone = DOLPH.life <= 0 || (DOLPH.mode === 'bow' && P.mode !== 'boat');
+  for (const d of DOLPH.pod) {
+    let x, y, z, yaw;
+    if (DOLPH.mode === 'bow') {
+      const fw = _sl.set(Math.sin(BOAT.heading), 0, Math.cos(BOAT.heading)), rx = fw.z, rz = -fw.x, sp = Math.abs(BOAT.speed);
+      const ahead = 6 + d.off * 0.6 + Math.sin(t * 0.7 + d.ph) * 1.5 + (gone ? (DOLPH.life) * 4 : 0);
+      x = BOAT.pos.x + fw.x * ahead + rx * d.side * (1.6 + d.off * 0.4); z = BOAT.pos.z + fw.z * ahead + rz * d.side * (1.6 + d.off * 0.4);
+      // saltos em arco: sobe, passa pela superfície e mergulha de novo
+      const ph = (t * (0.5 + sp * 0.01) * d.sp + d.ph) % 3, jump = ph < 1 ? Math.sin(ph * Math.PI) : 0;
+      y = -1.2 + jump * 2.0 - (gone ? 3 : 0); yaw = BOAT.heading; d.pitch = ph < 1 ? Math.cos(ph * Math.PI) * 0.7 : 0;
+    } else {
+      DOLPH.c.addScaledVector(DOLPH.dir, dt * 4.5);
+      x = DOLPH.c.x + DOLPH.dir.z * d.side * d.off; z = DOLPH.c.z - DOLPH.dir.x * d.side * d.off;
+      y = Math.min(-1.5, P.pos.y + 1 + Math.sin(t * 1.3 + d.ph) * 1.2); yaw = Math.atan2(DOLPH.dir.x, DOLPH.dir.z); d.pitch = Math.cos(t * 1.3 + d.ph) * 0.3;
+    }
+    d.pos.lerp(_sl.set(x, y, z), d.pos.lengthSq() ? clamp(dt * 3, 0, 1) : 1);
+    d.m.position.copy(d.pos); d.m.rotation.set(-d.pitch, yaw, Math.sin(t * 6 + d.ph) * 0.05, 'YXZ');
+    if (d.pos.y > -0.3 && d.pos.y < 0.3 && Math.random() < dt * 3) spawnSpray(d.pos, 3);
+  }
+  if (gone && DOLPH.life < -4 || (DOLPH.mode === 'pass' && DOLPH.c.distanceTo(P.pos) > 70 && DOLPH.life < 25)) { for (const d of DOLPH.pod) scene.remove(d.m); DOLPH.pod = []; }
+}
+
+// ---------- raias: planam rente ao fundo de areia, batendo as asas ----------
+const RAYS = [];
+function buildRays() {
+  const body = new THREE.SphereGeometry(0.22, 12, 6); body.scale(1, 0.18, 1.2);
+  const wingSh = new THREE.Shape(); wingSh.moveTo(0, 0.22); wingSh.quadraticCurveTo(0.45, 0.05, 0.62, -0.08); wingSh.quadraticCurveTo(0.3, -0.18, 0, -0.26); wingSh.closePath();
+  const wg = new THREE.ShapeGeometry(wingSh, 6); wg.rotateX(-Math.PI / 2);
+  const tail = new THREE.CylinderGeometry(0.008, 0.02, 0.9, 5); tail.rotateX(Math.PI / 2); tail.translate(0, 0, 0.7);
+  const mat = uwify(new THREE.MeshStandardMaterial({ color: 0x26221e, roughness: 0.7, side: THREE.DoubleSide }), { key: 'ray' });
+  const r = mulberry(31);
+  for (let i = 0; i < 4000 && RAYS.length < 55; i++) {
+    const x = lerp(WB.x0, WB.x1, r()), z = lerp(WB.z0, WB.z1, r()), h = H(x, z);
+    if (h > -4 || h < -22 || rocksNear(x, z).some(R => Math.hypot(R.x - x, R.z - z) < R.r + 6)) continue;
+    const g = new THREE.Group(), b = new THREE.Mesh(body, mat); g.add(b, new THREE.Mesh(tail, mat));
+    const wl = new THREE.Mesh(wg, mat), wr = new THREE.Mesh(wg, mat); wr.scale.x = -1; g.add(wl, wr);
+    const s = rand(0.8, 1.9); g.scale.setScalar(s); g.visible = false; scene.add(g);
+    RAYS.push({ g, wl, wr, home: new V3(x, h, z), pos: new V3(x, h + 0.25, z), tgt: new V3(x, h, z), yaw: rand(0, TAU), ph: rand(0, TAU), t: 0, flee: 0, s, key: 'raia' });
+  }
+}
+function updateRays(dt, t) {
+  const c = camera.position;
+  for (const R of RAYS) {
+    const near = (R.pos.x - c.x) ** 2 + (R.pos.z - c.z) ** 2 < 70 * 70; R.g.visible = near && camUnder; if (!near) continue;
+    R.t -= dt; R.flee = Math.max(0, R.flee - dt);
+    if (P.mode === 'swim' && P.under && R.pos.distanceTo(P.pos) < 3.2 && !R.flee) { R.flee = 3; R.tgt.copy(R.pos).addScaledVector(_sl.subVectors(R.pos, P.pos).setY(0).normalize(), 14); }
+    if (R.t <= 0 && !R.flee) { R.t = rand(6, 14); const a = rand(0, TAU), d = rand(3, 18); R.tgt.set(R.home.x + Math.cos(a) * d, 0, R.home.z + Math.sin(a) * d); }
+    const dx = R.tgt.x - R.pos.x, dz = R.tgt.z - R.pos.z, dist = Math.hypot(dx, dz), sp = R.flee ? 1.8 : 0.45;
+    if (dist > 0.4) { R.yaw += angDiff(R.yaw, Math.atan2(-dx, -dz)) * clamp(dt * 1.5, 0, 1); R.pos.x -= Math.sin(R.yaw) * sp * dt; R.pos.z -= Math.cos(R.yaw) * sp * dt; }
+    R.pos.y = lerp(R.pos.y, H(R.pos.x, R.pos.z) + 0.45 * R.s + (R.flee ? 0.6 : 0), clamp(dt * 2, 0, 1));
+    R.ph += dt * (R.flee ? 7 : 2.4); const f = Math.sin(R.ph) * (R.flee ? 0.45 : 0.25);
+    R.wl.rotation.z = f; R.wr.rotation.z = -f;
+    R.g.position.copy(R.pos); R.g.rotation.set(0, R.yaw, 0);
+  }
+}
+
+// ---------- mar fervendo: predadores atacando um cardume de sardinha na superfície ----------
+const BOIL = { on: false, t: 150, n: 0 };
+function startBoil() {
+  // perto do jogador, em água com mais de 8 m
+  for (let k = 0; k < 30; k++) {
+    const a = rand(0, TAU), d = rand(90, 320), x = P.pos.x + Math.cos(a) * d, z = P.pos.z + Math.sin(a) * d;
+    if (x < WB.x0 + 50 || x > WB.x1 - 50 || z < WB.z0 + 50 || z > WB.z1 - 50 || H(x, z) > -8) continue;
+    const spot = { id: 'boil' + (++BOIL.n), x, z, r: 25, zone: 'boil' }; ZONES.push(spot);
+    const sc = newSchool(spot); sc.c.set(x, -1.2, z); sc.boil = true; SCHOOLS.push(sc);
+    const preds = ['xareu', 'xareu', 'olhete', 'sororoca', 'enchova', 'bicuda'];
+    for (let i = 0; i < 3; i++) spawnGroup(spot, pick(preds), Math.round(rand(3, 6)));
+    Object.assign(BOIL, { on: true, x, z, t: rand(110, 160), sc, spot });
+    const dir = ['norte', 'nordeste', 'leste', 'sudeste', 'sul', 'sudoeste', 'oeste', 'noroeste'][Math.round(((Math.atan2(x - P.pos.x, -(z - P.pos.z)) + TAU) % TAU) / (TAU / 8)) % 8];
+    toast(`Mar fervendo a ~${Math.round(d)} m para o ${dir}! Predador atacando sardinha.`, 5, 'gold'); buzz([30, 30, 30]);
+    return;
+  }
+}
+function updateBoil(dt) {
+  BOIL.t -= dt;
+  if (!BOIL.on) { if (BOIL.t <= 0) { BOIL.t = rand(160, 300); if (DAY.amb > 0.3 && Math.random() < 0.6) startBoil(); } return; }
+  const sc = BOIL.sc;
+  sc.c.y = lerp(sc.c.y, -0.9, clamp(dt, 0, 1)); sc.tgt.set(BOIL.x + rand(-6, 6), -0.9, BOIL.z + rand(-6, 6)); sc.spd = 2.6; sc.t = 1;
+  if (Math.random() < dt * 9) spawnSpray(_sl.set(sc.c.x + rand(-4, 4), waveH(sc.c.x, sc.c.z, T), sc.c.z + rand(-4, 4)), 4);
+  // predadores circulam o cardume
+  for (const f of FISHES) if (f.spot === BOIL.spot && f.state === 'wander') f.target.set(sc.c.x + rand(-5, 5), rand(-4, -1), sc.c.z + rand(-5, 5));
+  if (BOIL.t <= 0) { BOIL.on = false; sc.boil = false; SCHOOLS.splice(SCHOOLS.indexOf(sc), 1); BOIL.t = rand(200, 360); }
+}
+// seta da bússola aponta para o mar fervendo quando ele está acontecendo
+function boilTarget() { return BOIL.on ? BOIL : null; }
+
+// ---------- eventos do calendário ----------
+const WEEK = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+const weekday = () => WEEK[((SV.day || 1) - 1) % 7];
+const weekend = () => ((SV.day || 1) - 1) % 7 >= 5;
+const fullMoon = () => (SV.day || 1) % 7 === 4; // a cada 7 dias
+const compMult = () => weekend() ? 2 : 1;
+// frente fria: sorteada no dia, chega à tarde e piora o mar
+function rollFront() { const r = mulberry((SV.day || 1) * 131 + 7); COND.front = r() < 0.22 ? lerp(11, 16, r()) : null; COND.frontOn = false; }
+function updateFront() {
+  if (COND.front == null || COND.frontOn || (SV.tod || 0) < COND.front) return;
+  COND.frontOn = true; COND.cloud = Math.max(COND.cloud, 0.85); COND.swell = Math.min(2.2, COND.swell * 1.5); COND.vis *= 0.7; COND.cur = Math.min(2, COND.cur * 1.4);
+  SWELL.k = COND.swell; CU.uSwell.value = COND.swell; CU.uCloud.value = COND.cloud;
+  toast('Frente fria chegando: o céu fechou, o mar cresceu e a água turvou. Cuidado no lado de fora!', 6, 'bad'); buzz([80, 60, 80]);
+}
+// peixes que só aparecem em certas condições
+const EVSPAWN = [
+  { id: 'azul', when: () => COND.vis > 1.3, spot: 'fora', key: 'albacora', n: [4, 7], msg: 'Água azul no Parcel de Fora: cardume de albacora subiu!' },
+  { id: 'azul2', when: () => COND.vis > 1.3, spot: 'aventureiro', key: 'dourado', n: [3, 6], msg: 'Água azul: dourados passando no Aventureiro!' },
+  { id: 'lua', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'laje', key: 'cherne', n: [1, 2], msg: 'Lua cheia: chernes saíram da toca na Laje Branca.' },
+  { id: 'lua2', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'jorge', key: 'dentao', n: [1, 2], msg: 'Lua cheia: dentão caçando no costão da Jorge Grego.' },
+  { id: 'frente', when: () => COND.frontOn, spot: 'foz', key: 'robalo', n: [3, 5], msg: 'Água mexida da frente fria: robalo entrou na foz!' },
+];
+let evT = 0;
+function updateEvents(dt) {
+  updateFront();
+  if ((evT -= dt) > 0) return; evT = 2;
+  const done = SV.evDone && SV.evDone.day === SV.day ? SV.evDone : (SV.evDone = { day: SV.day, ids: [] });
+  for (const e of EVSPAWN) {
+    if (done.ids.includes(e.id) || !e.when()) continue;
+    const s = spotById(e.spot); if (Math.hypot(P.pos.x - s.x, P.pos.z - s.z) > 420) continue;
+    done.ids.push(e.id); for (let i = 0; i < (e.key === 'albacora' || e.key === 'dourado' ? 1 : e.n[1]); i++) spawnGroup(s, e.key, Math.round(rand(e.n[0], e.n[1])), 1.1);
+    toast(e.msg, 5, 'gold');
+  }
+}
+function eventsHTML() {
+  const ev = [];
+  if (weekend()) ev.push(['Torneio do fim de semana', 'Campeonatos pagam o dobro hoje.']);
+  if (fullMoon()) ev.push(['Lua cheia', 'À noite, chernes e dentões saem para caçar na Laje Branca e na Jorge Grego.']);
+  if (COND.vis > 1.3) ev.push(['Água azul', 'Albacora e dourado subindo no Parcel de Fora e no Aventureiro.']);
+  if (COND.front != null) ev.push(['Frente fria', COND.frontOn ? 'Chegou: mar grande e água turva. Robalo entra na foz.' : `Previsão de chegar por volta das ${Math.floor(COND.front)}h.`]);
+  return `<div class="it" style="margin-bottom:8px"><div><div class="n">${weekday()} · eventos do dia</div><div class="d">${ev.length ? ev.map(([n, d]) => `<b>${n}:</b> ${d}`).join('<br>') : 'Nenhum evento especial hoje.'}</div></div></div>`;
+}
+function setupSealife() { buildRays(); }
 
 init();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
