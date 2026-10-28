@@ -455,7 +455,7 @@ function algaeTex() {
 }
 function rayTex() {
   return canvasTex(32, 128, (g, w, h) => {
-    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.07, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     g.fillStyle = gr; g.fillRect(0, 0, w, h);
     const gx = g.createLinearGradient(0, 0, w, 0); gx.addColorStop(0, 'rgba(0,0,0,1)'); gx.addColorStop(0.5, 'rgba(0,0,0,0)'); gx.addColorStop(1, 'rgba(0,0,0,1)');
     g.globalCompositeOperation = 'destination-out'; g.fillStyle = gx; g.fillRect(0, 0, w, h);
@@ -701,10 +701,10 @@ function buildFX() {
   plank = new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.11, map: dotTex(), transparent: true, opacity: 0.4, depthWrite: false, color: 0xe8f4e0 }));
   plank.frustumCulled = false; scene.add(plank);
   rays = new THREE.Group(); const rt = rayTex();
-  for (let i = 0; i < 22; i++) {
-    const w = rand(1.2, 4), pg = new THREE.PlaneGeometry(w, 40); pg.translate(0, -20, 0);
+  for (let i = 0; i < 34; i++) {
+    const w = rand(0.8, 3.6), pg = new THREE.PlaneGeometry(w, 55); pg.translate(0, -27.5, 0);
     const m = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ map: rt, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false, color: 0x9fe8ff }));
-    m.userData = { ox: rand(-18, 18), oz: rand(-18, 18), ph: rand(0, TAU) }; rays.add(m);
+    m.userData = { ox: rand(-22, 22), oz: rand(-22, 22), ph: rand(0, TAU), sp: rand(0.4, 1.1) }; rays.add(m);
   }
   scene.add(rays);
   // bolhas
@@ -737,15 +737,8 @@ function updateFX(dt, camUnder, murk, t) {
     snow.geometry.attributes.position.needsUpdate = true;
     snow.material.opacity = 0.45 + murk * 0.4; snow.material.size = 0.045 + murk * 0.03;
   }
-  rays.visible = camUnder && murk < 0.6;
-  if (rays.visible) {
-    const c = camera.position;
-    rays.children.forEach(m => {
-      const u = m.userData; m.position.set(c.x + u.ox, waveH(c.x + u.ox, c.z + u.oz, t), c.z + u.oz);
-      m.rotation.set(0, Math.atan2(c.x - m.position.x, c.z - m.position.z), 0);
-      m.rotateZ(0.25 + Math.sin(t * 0.13 + u.ph) * 0.06); m.material.opacity = (0.045 + 0.035 * Math.sin(t * 0.7 + u.ph)) * (1 - murk) * DAY.sun;
-    });
-  }
+  rays.visible = camUnder && murk < 0.6 && DAY.sun > 0.02;
+  if (rays.visible) updateSunRays(camera.position, t, murk);
   const L = bubbles.userData.list, arr = bubbles.userData.arr;
   for (let i = L.length - 1; i >= 0; i--) { const b = L[i]; b.t += dt; b.y += b.vy * dt; b.x += Math.sin(b.t * 7) * 0.003; if (b.y > waveH(b.x, b.z, t)) L.splice(i, 1); }
   for (let i = 0; i < arr.length / 3; i++) { const b = L[i]; if (b) { arr[i * 3] = b.x; arr[i * 3 + 1] = b.y; arr[i * 3 + 2] = b.z; } else arr[i * 3 + 1] = 9999; }
