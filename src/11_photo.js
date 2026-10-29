@@ -43,7 +43,7 @@ function photoTarget() {
   for (const T of TURTLES) test(T.pos, 0.55, { turtle: true, key: AMZ ? 'tracaja' : 'tartaruga', pos: T.pos });
   for (const R of RAYS) if (R.g.visible) test(R.pos, 0.4 * R.s, { turtle: true, key: R.key, pos: R.pos });
   for (const d of DOLPH.pod) test(d.pos, 0.6, { turtle: true, key: AMZ ? 'boto' : 'golfinho', pos: d.pos });
-  amzTargets(test);
+  amzTargets(test); rareTargets(test);
   moreiaTargets(test);
   return best;
 }
@@ -55,7 +55,7 @@ function takePhoto() {
   if (!tg) { toast('Foto de água azul. Mire num peixe ou numa tartaruga.', 2); return; }
   const o = tg.obj, key = o.key, sp = SPECIES[key], name = sp ? sp.name : (GUIDE_EXTRA.find(g => g[0] === key) || [0, 'Tartaruga-verde'])[1];
   // valor: espécie (raro/protegido valem mais), tamanho, distância, centralizado e peixe calmo
-  let base = o.moreia ? 150 : key === 'golfinho' || key === 'boto' || key === 'peixeboi' ? 320 : key === 'jacare' ? 280 : key === 'raia' || key === 'arraiario' ? 180 : o.turtle ? 260 : sp.protected ? 380 : sp.rare ? 300 : sp.ornamental ? 110 : 40 + sp.price * 1.4;
+  let base = o.rareBig || o.giant ? 700 : o.moreia ? 150 : key === 'golfinho' || key === 'boto' || key === 'peixeboi' ? 320 : key === 'jacare' ? 280 : key === 'raia' || key === 'arraiario' ? 180 : o.turtle ? 260 : sp.protected ? 380 : sp.rare ? 300 : sp.ornamental ? 110 : 40 + sp.price * 1.4;
   const size = o.turtle || o.moreia ? 1 : clamp(o.len / sp.len[1], 0.4, 1.5), dist = 1 - smooth(2.2, 8, tg.t) * 0.6, cen = 1 - tg.off * 0.4;
   const calm = o.turtle || o.moreia || o.state === 'wander' || o.state === 'curious' || o.state === 'hidden' ? 1.25 : 0.8;
   const D = SV.photoDay && SV.photoDay.day === SV.day ? SV.photoDay : (SV.photoDay = { day: SV.day, n: {} });
