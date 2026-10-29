@@ -136,8 +136,8 @@ function wsMsg(m) {
   if (m.event === 'phx_reply' && m.ref === '1') { if (m.payload && m.payload.status === 'ok') { ON.joined = true; ON.tJoin = performance.now() - ON.t0; wsTrack(); if (ON.ready) lbResync(); } return; }
   if (m.event === 'presence_state') { ON.online = {}; presenceMeta(m.payload, (k, v) => { if (k !== ON.s.uid) ON.online[k] = v; }); return; }
   if (m.event === 'presence_diff') {
-    presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
-    presenceMeta(m.payload.leaves || {}, k => { if (ON.online[k] && isFriend(k)) toast(`${ON.online[k].name} saiu do jogo.`, 2.5); delete ON.online[k]; dropRemote(k); });
+    presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; lbFriendOnline(k); if (LB.open) lbRender(); if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
+    presenceMeta(m.payload.leaves || {}, k => { if (ON.online[k] && isFriend(k)) toast(`${ON.online[k].name} saiu do jogo.`, 2.5); delete ON.online[k]; dropRemote(k); }); if (LB.open) lbRender();
     if (shopTab === 'online' && !$('marinaPanel').classList.contains('hide')) renderShop();
     return;
   }

@@ -1,7 +1,7 @@
 // ================= grupo (lobby): chamar amigos, escolher destino e modo, sair todo mundo junto =================
 // tudo pelo canal ao vivo (broadcast) com o id do grupo; o líder é a fonte da verdade e manda o estado para todos
 const LB_MAX = 4, LB_KEY = 'pescasub_lb';
-const LB = { pid: null, lead: null, members: [], dest: 'cv', spot: null, mode: 'livre', chat: [], open: false, here: {}, phase: 'lobby', invites: {} };
+const LB = { pid: null, lead: null, members: [], dest: 'cv', spot: null, mode: 'livre', chat: [], open: false, here: {}, phase: 'lobby', invites: {}, pending: {} };
 // pontos de cada destino (nomes fixos: os pontos dos outros destinos não estão carregados)
 const LB_SPOTS = {
   cv: [['botinas', 'Ilhas Botinas'], ['laje', 'Laje Branca'], ['jorge', 'Jorge Grego'], ['naufragio', 'Naufrágio'], ['aventureiro', 'Aventureiro'], ['cargueiro', 'Cargueiro'], ['fora', 'Parcel de Fora'], ['pedrameio', 'Pedra do Meio'], ['lajefunda', 'Laje Funda'], ['plataforma', 'Plataforma de Fora']],
@@ -164,13 +164,15 @@ const lbEsc = s => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 const LB_COLS = ['#2a8a7a', '#8a5a2a', '#5a3a8a', '#8a2a4a'];
 function lbRender() {
   const el = $('lobbyBody'); if (!el || !LB.open) return;
+  const typed = $('lbCode') ? $('lbCode').value : ''; // não apaga o código que está sendo digitado
   const lead = lbIsLead(), me = ON.s && ON.s.uid, mine = LB.members.find(m => m.uid === me);
   if (!lead && !mine) { el.innerHTML = `<div class="it" style="justify-content:center;padding:28px"><div style="text-align:center"><div class="n">Esperando o líder do grupo responder...</div><div class="d">Se ele estiver no WhatsApp, é só voltar para o jogo: você entra sozinho.</div></div></div><div class="row2"><button class="btn alt" id="lbLeave">CANCELAR</button></div>`; $('lbLeave').onclick = () => { lbLeave(true); lbClose(); }; return; }
   const slot = (m, i) => m ? `<div class="lbs ${m.ready || m.uid === LB.lead ? 'ok' : ''}"><span class="av" style="background:${LB_COLS[i]}">${lbEsc(m.name[0])}</span><div style="flex:1;min-width:0"><div class="n">${m.uid === LB.lead ? '👑 ' : ''}${lbEsc(m.name)}${m.uid === me ? ' <span class="d">(você)</span>' : ''}</div><div class="d">Nv ${m.lvl || 1} · ${LB_DEST[m.region] || ''}</div></div><b class="st">${m.uid === LB.lead ? 'LÍDER' : m.ready ? 'PRONTO' : 'ESPERANDO'}</b></div>`
     : `<div class="lbs empty"><span class="av" style="background:rgba(255,255,255,.06)">+</span><div class="d">Vaga livre: convide um amigo</div></div>`;
   const slots = [0, 1, 2, 3].map(i => slot(LB.members[i], i)).join('');
   const seg = (k, opts, dis) => opts.map(([v, n]) => `<button class="btn ${LB[k] === v ? 'gold' : 'alt'}" data-lb="${k}" data-v="${v}" ${dis ? 'disabled' : ''}>${n}</button>`).join('');
-  const online = ON.friends.filter(f => ON.online[f.id] && !LB.members.some(m => m.uid === f.id));
+  // todos os amigos adicionados: online primeiro
+  const friends = ON.friends.filter(f => !LB.members.some(m => m.uid === f.id)).sort((a, b) => (ON.online[b.id] ? 1 : 0) - (ON.online[a.id] ? 1 : 0) || a.name.localeCompare(b.name));
   const modeInfo = (LB_MODES.find(m => m[0] === LB.mode) || LB_MODES[0])[2];
   el.innerHTML = `
     <div class="lbgrid">${slots}</div>
@@ -187,7 +189,9 @@ function lbRender() {
       <div class="lbcol">
         <div class="lbh">Convidar</div>
         <button class="btn gold" id="lbShare" style="width:100%">📲 MANDAR LINK DO GRUPO (WhatsApp)</button>
-        <div class="list" style="margin-top:6px">${online.length ? online.map(f => `<div class="it"><div><div class="n">${lbEsc(f.name)}</div><div class="d">🟢 online · Nv ${f.level || 1}</div></div><button class="btn" data-lbinv="${f.id}" ${LB.invites[f.id] && Date.now() - LB.invites[f.id] < 30000 ? 'disabled' : ''}>${LB.invites[f.id] && Date.now() - LB.invites[f.id] < 30000 ? 'ENVIADO' : 'CONVIDAR'}</button></div>`).join('') : '<div class="it"><div class="d">Nenhum amigo online agora. Mande o link: quem tocar entra direto no grupo.</div></div>'}</div>
+        <div style="display:flex;gap:6px;margin-top:6px"><input id="lbCode" maxlength="6" placeholder="CÓDIGO DO AMIGO" style="flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--line);background:#031018;color:#cfe;text-transform:uppercase;letter-spacing:2px"><button class="btn alt" id="lbAdd">ADICIONAR</button></div>
+        <div class="list lbfr" style="margin-top:6px">${friends.length ? friends.map(f => { const on = !!ON.online[f.id], sent = LB.invites[f.id] && Date.now() - LB.invites[f.id] < 30000, wait = LB.pending[f.id];
+          return `<div class="it"><div><div class="n">${lbEsc(f.name)}</div><div class="d">${on ? '🟢 online' : wait ? '⏳ chamado: o convite sai quando ele entrar' : '⚪ offline'} · Nv ${f.level || 1}</div></div>${on ? `<button class="btn" data-lbinv="${f.id}" ${sent ? 'disabled' : ''}>${sent ? 'ENVIADO' : 'CONVIDAR'}</button>` : `<button class="btn ${wait ? 'alt' : ''}" data-lbwait="${f.id}">${wait ? 'CANCELAR' : 'CHAMAR QUANDO ENTRAR'}</button>`}</div>`; }).join('') : '<div class="it"><div class="d">Você ainda não tem amigos adicionados. Coloque o código de um amigo acima ou mande o link do grupo.</div></div>'}</div>
         <div class="lbh">Conversa</div>
         <div class="lbchat">${LB.chat.length ? LB.chat.map(c => `<div>${c.name ? `<b>${lbEsc(c.name)}:</b> ` : '<i>'}${lbEsc(c.msg)}${c.name ? '' : '</i>'}</div>`).join('') : '<div class="d">Mensagens rápidas aparecem aqui.</div>'}</div>
         <div class="lbseg" style="margin-top:6px">${LB_CHAT.map(t => `<button class="btn alt" data-lbchat="${t}">${t}</button>`).join('')}</div>
@@ -202,6 +206,9 @@ function lbRender() {
   el.querySelectorAll('[data-lb]').forEach(b => b.onclick = () => { const k = b.dataset.lb; LB[k] = b.dataset.v; if (k === 'dest') LB.spot = LB_SPOTS[LB.dest][0][0]; AU.click(); lbState(); lbRender(); });
   const sp = $('lbSpot'); if (sp) sp.onchange = () => { LB.spot = sp.value; lbState(); lbRender(); };
   el.querySelectorAll('[data-lbinv]').forEach(b => b.onclick = () => lbInvite(b.dataset.lbinv));
+  el.querySelectorAll('[data-lbwait]').forEach(b => b.onclick = () => { const id = b.dataset.lbwait; if (LB.pending[id]) delete LB.pending[id]; else { LB.pending[id] = 1; toast('Quando ele abrir o jogo, o convite chega na hora.', 3); } AU.click(); lbRender(); });
+  if (typed && $('lbCode')) $('lbCode').value = typed;
+  const ad = $('lbAdd'); if (ad) ad.onclick = () => { const c = $('lbCode').value; $('lbCode').value = ''; addFriendCode(c).then(() => lbRender()); };
   el.querySelectorAll('[data-lbchat]').forEach(b => b.onclick = () => { bcast('lb_chat', { pid: LB.pid, msg: b.dataset.lbchat }); lbChatAdd(myName(), b.dataset.lbchat); AU.click(); });
   $('lbShare').onclick = lbShare;
   $('lbLeave').onclick = () => { if (LB.members.length > 1) lbLeave(); lbClose(); };
@@ -234,4 +241,11 @@ function setupLobby() {
       } catch (e) { toast('Não deu para entrar no grupo: ' + e.message, 3, 'bad'); lbClose(); }
     });
   }
+}
+
+// amigo chamado entrou no jogo: manda o convite do grupo na hora
+function lbFriendOnline(uid) {
+  if (!LB.pending[uid] || !LB.pid || LB.members.some(m => m.uid === uid)) return;
+  delete LB.pending[uid]; lbInvite(uid);
+  const f = ON.friends.find(f => f.id === uid); toast(`${f ? f.name : 'Seu amigo'} entrou: convite do grupo enviado!`, 3, 'gold');
 }
