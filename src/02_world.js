@@ -16,14 +16,15 @@ const ISLANDS = [
 ];
 const LAJE = { x: -330, z: -180 };
 const FOZ = { x: -615, z: 560 };
-const PIER = AMZ ? pierAmz() : { x: 0, z0: 790, z1: 700 };
+const PIER = AMZ ? pierAmz() : NE ? pierNe() : { x: 0, z0: 790, z1: 700 };
 // área jogável: 3,2 km de lado; a baía original fica no canto sudoeste
-const WB = AMZ ? { x0: -900, x1: 1500, z0: -1300, z1: 1100 } : { x0: -780, x1: 2420, z0: -2420, z1: 780 };
+const WB = AMZ || NE ? { x0: -900, x1: 1500, z0: -1300, z1: 1100 } : { x0: -780, x1: 2420, z0: -2420, z1: 780 };
 const IG = { e: 1480, o: -1640 }; // Ilha Grande: ponta leste (x) e costa de fora (z)
 const FORA = { x: 1960, z: -2060 }, CARG = { x: 2080, z: -720 }, LAGOA = { x: 1050, z: -655 };
 
 function H(x, z) {
   if (AMZ) return Hamz(x, z);
+  if (NE) return Hne(x, z);
   let h = -16 + 3.5 * fbm(x * 0.004 + 7, z * 0.004 - 3, 3) + 0.9 * fbm(x * 0.03, z * 0.03, 2);
   // fora da baía o fundo cai: lado de fora da Ilha Grande e canal leste
   h -= 20 * smooth(IG.o + 60, IG.o - 420, z) + 7 * smooth(900, 2200, x) * (1 - smooth(500, 760, z));
@@ -67,7 +68,7 @@ function H(x, z) {
   if (h < 0 && df < 220) h = lerp(h, Math.max(h, -5.5 + df * 0.018), 1 - smooth(40, 210, df));
   return Hextra(x, z, h);
 }
-const murkAt = (x, z) => AMZ ? murkAmz(x, z) : Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z - FOZ.z)), smooth(-600, -650, x) * (1 - smooth(40, 80, Math.abs(z - FOZ.z))));
+const murkAt = (x, z) => AMZ ? murkAmz(x, z) : NE ? 0 : Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z - FOZ.z)), smooth(-600, -650, x) * (1 - smooth(40, 80, Math.abs(z - FOZ.z))));
 
 // ================= renderer / cena =================
 let renderer, scene, camera, hemi, sun;
@@ -115,7 +116,7 @@ float causF(vec2 uv){ vec2 p=mod(uv*6.28318,6.28318)-250.0; vec2 i=p; float c=1.
 `;
 const UW_FRAG_BODY = `
  if(vWP.y<0.05){ float dp=max(-vWP.y,0.0);
-${AMZ ? uwMurkAmz() : `  float murk=1.0-smoothstep(110.0,240.0,distance(vWP.xz,vec2(${FOZ.x}.0,${FOZ.z}.0)));
+${AMZ ? uwMurkAmz() : NE ? uwNe() : `  float murk=1.0-smoothstep(110.0,240.0,distance(vWP.xz,vec2(${FOZ.x}.0,${FOZ.z}.0)));
   murk=max(murk,smoothstep(-600.0,-650.0,vWP.x)*(1.0-smoothstep(40.0,80.0,abs(vWP.z-(${FOZ.z}.0)))));
   vec3 ab=vec3(exp(-dp*0.13),exp(-dp*0.035),exp(-dp*0.028));
   gl_FragColor.rgb*=mix(ab,ab*vec3(0.55,0.6,0.32),murk);`}
@@ -188,7 +189,8 @@ function terrColor(x, y, z, ny, c) {
     const deep = smooth(-8, -24, y); c.lerp(_tc.setRGB(0.55, 0.53, 0.45), deep * 0.6);
     c.lerp(_tc.setRGB(0.32, 0.30, 0.26), smooth(0.9, 0.65, ny));
     const m = murkAt(x, z); c.lerp(_tc.setRGB(0.36, 0.31, 0.22), m * 0.85);
-    if (AMZ) { c.lerp(_tc.setRGB(0.42, 0.34, 0.24), smooth(-1.5, -6, y) * 0.55); return c; } // rio: fundo de areia e lodo marrom
+    if (AMZ) { c.lerp(_tc.setRGB(0.42, 0.34, 0.24), smooth(-1.5, -6, y) * 0.55); return c; }
+    if (NE) c.lerp(_tc.setRGB(0.9, 0.87, 0.76), 0.55); // areia branca de coral // rio: fundo de areia e lodo marrom
     if (fbm(x * 0.02 + 40, z * 0.02, 2) > 0.25 && y > -14) c.lerp(_tc.setRGB(0.30, 0.38, 0.22), 0.35); // manchas de alga
     if (y > -10 && y < -1.5 && meadowAt(x, z) > 0.42) c.lerp(_tc.setRGB(0.2, 0.3, 0.14), smooth(0.42, 0.5, meadowAt(x, z)) * 0.8); // prado de capim-marinho
     if (y < -3 && gravelAt(x, z) > 0.34) c.lerp(_tc.setRGB(0.42, 0.4, 0.36), smooth(0.34, 0.44, gravelAt(x, z)) * 0.6); // cascalho
@@ -273,7 +275,7 @@ function buildWater() {
           float fr=0.02+0.98*pow(1.0-max(dot(N,V),0.0),5.0);
           vec3 R=reflect(-V,N); R.y=abs(R.y);
           vec3 refl=sky(R)+vec3(1.0,0.9,0.72)*pow(max(dot(R,uSun),0.0),600.0)*7.0*smoothstep(-0.05,0.05,uSun.y);
-          vec3 deep=${AMZ ? 'vec3(0.07,0.11,0.07)' : 'vec3(0.03,0.19,0.24)'}*(0.1+0.9*uDay);
+          vec3 deep=${AMZ ? 'vec3(0.07,0.11,0.07)' : NE ? 'vec3(0.02,0.25,0.33)' : 'vec3(0.03,0.19,0.24)'}*(0.1+0.9*uDay);
           col=mix(deep,refl,fr);
           col+=vec3(0.0,0.10,0.08)*clamp(waveH(p,t)+0.3,0.0,1.0);
           a=mix(0.5,1.0,max(fr,smoothstep(6.0,80.0,dist)));
@@ -467,7 +469,7 @@ function rayTex() {
 function dotTex() { return canvasTex(32, 32, (g) => { const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }, false); }
 
 // ======= pontos de pesca =======
-const SPOTS = AMZ ? spotsAmz() : [
+const SPOTS = AMZ ? spotsAmz() : NE ? spotsNe() : [
   { id: 'marina', name: 'Marina Balneário', x: 0, z: 690, type: 'marina', desc: 'Venda do pescado, loja e combustível.' },
   { id: 'botinas', name: 'Ilhas Botinas', x: 300, z: 196, r: 40, depth: '2–10 m', desc: 'Parcel raso e água clara. Muito sargo, garoupas pequenas e robalo de passagem.' },
   { id: 'laje', name: 'Laje Branca', x: LAJE.x, z: LAJE.z, r: 42, depth: '5–23 m', desc: 'Laje isolada no meio da baía, cheia de tocas. Garoupa, badejo, cardume de xaréu. Dizem que tem mero.' },
@@ -524,7 +526,7 @@ function addHole(R, a, spot) {
 
 function buildRocksAndDecor() {
   const r = mulberry(42);
-  if (AMZ) buildRiverRocks(r); else {
+  if (AMZ) buildRiverRocks(r); else if (NE) buildReefNe(r); else {
   // Laje Branca
   for (let i = 0; i < 90; i++) {
     const a = r() * TAU, d = Math.pow(r(), 0.75) * 44, x = LAJE.x + Math.cos(a) * d, z = LAJE.z + Math.sin(a) * d;
@@ -593,7 +595,7 @@ function buildRocksAndDecor() {
   groups.forEach((list, gi) => {
     chunked(geos[gi], mat, list.map(R => { const it = [R.x, R.y, R.z]; it.R = R; return it; }), (it, k, im) => { const R = it.R; e.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15)); q.setFromEuler(e); R.q = q.clone(); R.gi = gi; s.set(R.r, R.r * R.sy, R.r); pp.set(R.x, R.y, R.z); m4.compose(pp, q, s); im.setMatrixAt(k, m4); }, 300);
   });
-  if (AMZ) buildRiverWorld(); else {
+  if (AMZ) buildRiverWorld(); else if (NE) buildWorldNe(); else {
   buildWreck({ x: NAUF.x, z: NAUF.z, ry: 0.6, L: 34, spot: 'naufragio' });
   buildWreck({ x: CARG.x, z: CARG.z, ry: -0.45, L: 48, spot: 'cargueiro' });
 
@@ -641,7 +643,7 @@ function buildRocksAndDecor() {
 
 // ================= terra: árvores, casas, píer, bóias =================
 function buildLand() {
-  if (AMZ) buildForestAmz(); else {
+  if (AMZ) buildForestAmz(); else if (NE) buildCoastNe(); else {
   const trees = [], houses = [];
   for (let i = 0; i < 26000 && trees.length < 5200; i++) {
     const x = rand(-1500, 3000), z = rand(-2600, 1300), h = H(x, z);

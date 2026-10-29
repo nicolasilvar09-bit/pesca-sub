@@ -15,7 +15,7 @@ function rollCond() {
   SWELL.k = COND.swell; CU.uSwell.value = COND.swell; CU.uCloud.value = COND.cloud;
   rollFront();
 }
-const visM = () => Math.round(0.83 / ((AMZ ? 0.075 : 0.042) / COND.vis));
+const visM = () => Math.round(0.83 / ((AMZ ? 0.075 : NE ? 0.03 : 0.042) / COND.vis));
 const condTxt = () => `Visibilidade ~${visM()} m · ${AMZ ? `rio na ${season()}` : `ondas ${(0.55 * COND.swell).toFixed(1).replace('.', ',')} m`} · correnteza ${COND.cur < 0.85 ? 'fraca' : COND.cur < 1.2 ? 'moderada' : 'forte'} · ${COND.cloud > 0.5 ? 'nublado' : COND.cloud > 0.2 ? 'poucas nuvens' : 'céu limpo'}`;
 
 function updateClock(dt) {
@@ -62,7 +62,7 @@ function fishAct(key) { const k = smooth(-0.1, 0.35, DAY.el); return NOCT[key] ?
 // aba "Boletim do mar" na loja/marina
 function bulletinHTML() {
   return eventsHTML() + `<div class="it" style="margin-bottom:8px"><div><div class="n">Dia ${SV.day || 1} · ${hhmm(SV.tod || 7)}</div><div class="d">${condTxt()}</div></div></div>
-    <div class="list">${AMZ ? bulletinAmz() : `
+    <div class="list">${AMZ ? bulletinAmz() : NE ? bulletinNe() : `
     <div class="it"><div><div class="n">Visibilidade</div><div class="d">${COND.vis > 1.25 ? 'Água azul: dia de procurar peixe longe, no Parcel de Fora ou em Castelhanos.' : COND.vis < 0.8 ? 'Água turva: fique nos pontos rasos e abrigados, e leve lanterna.' : 'Água normal na baía.'}</div></div></div>
     <div class="it"><div><div class="n">Mar</div><div class="d">${COND.swell > 1.25 ? 'Ondulação grande: o lado de fora da Ilha Grande fica perigoso. Prefira a baía.' : 'Mar tranquilo para atravessar.'}</div></div></div>`}
     <div class="it"><div><div class="n">Esperar</div><div class="d">O peixe muda com a hora: ${AMZ ? 'de manhã o tucunaré caça na beira, à noite a traíra e o surubim saem.' : 'de manhã a garoupa sai da toca, no fim da tarde o robalo caça.'}</div></div>

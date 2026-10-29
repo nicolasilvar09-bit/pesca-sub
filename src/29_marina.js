@@ -121,7 +121,7 @@ function buildMarina() {
   // placa em arco na entrada do píer
   for (const s of [-1, 1]) box(0.3, 4.4, 0.3, X + s * (W + 0.4), Y + 2.2, plazaZ - 0.3, beam);
   box(2 * W + 1.4, 0.35, 0.35, X, Y + 4.3, plazaZ - 0.3, beam);
-  const arch = new THREE.Mesh(new THREE.PlaneGeometry(2 * W + 0.6, 1.3), new THREE.MeshBasicMaterial({ map: signTex(AMZ ? 'VILA DO TAPAJÓS' : 'MARINA BALNEÁRIO', AMZ ? 'porto · Baixo Tapajós' : 'Angra dos Reis · Costa Verde'), side: THREE.DoubleSide }));
+  const arch = new THREE.Mesh(new THREE.PlaneGeometry(2 * W + 0.6, 1.3), new THREE.MeshBasicMaterial({ map: signTex(AMZ ? 'VILA DO TAPAJÓS' : NE ? 'MARINA DO PONTAL' : 'MARINA BALNEÁRIO', AMZ ? 'porto · Baixo Tapajós' : NE ? 'Costa dos Corais · Alagoas' : 'Angra dos Reis · Costa Verde'), side: THREE.DoubleSide }));
   arch.position.set(X, Y + 3.5, plazaZ - 0.5); arch.rotation.y = Math.PI; scene.add(arch);
   // pontos onde as pessoas param: beira da ponta em T, pontas dos dedos, bancos da praça
   const views = [];

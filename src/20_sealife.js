@@ -125,7 +125,7 @@ function startBoil() {
     if (x < WB.x0 + 50 || x > WB.x1 - 50 || z < WB.z0 + 50 || z > WB.z1 - 50 || H(x, z) > -8) continue;
     const spot = { id: 'boil' + (++BOIL.n), x, z, r: 25, zone: 'boil' }; ZONES.push(spot);
     const sc = newSchool(spot); sc.c.set(x, -1.2, z); sc.boil = true; SCHOOLS.push(sc);
-    const preds = AMZ ? ['tucunare', 'tucunare', 'douradorio', 'douradorio', 'cachorra'] : ['xareu', 'xareu', 'olhete', 'sororoca', 'enchova', 'bicuda'];
+    const preds = AMZ ? ['tucunare', 'tucunare', 'douradorio', 'douradorio', 'cachorra'] : NE ? ['xareu', 'cavala', 'cavala', 'bicuda', 'dourado'] : ['xareu', 'xareu', 'olhete', 'sororoca', 'enchova', 'bicuda'];
     for (let i = 0; i < 3; i++) spawnGroup(spot, pick(preds), Math.round(rand(3, 6)));
     Object.assign(BOIL, { on: true, x, z, t: rand(110, 160), sc, spot });
     const dir = ['norte', 'nordeste', 'leste', 'sudeste', 'sul', 'sudoeste', 'oeste', 'noroeste'][Math.round(((Math.atan2(x - P.pos.x, -(z - P.pos.z)) + TAU) % TAU) / (TAU / 8)) % 8];
@@ -167,7 +167,7 @@ const EVSPAWN = [
   { id: 'lua', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'laje', key: 'cherne', n: [1, 2], msg: 'Lua cheia: chernes saíram da toca na Laje Branca.' },
   { id: 'lua2', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'jorge', key: 'dentao', n: [1, 2], msg: 'Lua cheia: dentão caçando no costão da Jorge Grego.' },
   { id: 'frente', when: () => COND.frontOn, spot: 'foz', key: 'robalo', n: [3, 5], msg: 'Água mexida da frente fria: robalo entrou na foz!' },
-  ...evAmz(),
+  ...evAmz(), ...evNe(),
 ];
 let evT = 0;
 function updateEvents(dt) {
@@ -175,7 +175,7 @@ function updateEvents(dt) {
   if ((evT -= dt) > 0) return; evT = 2;
   const done = SV.evDone && SV.evDone.day === SV.day ? SV.evDone : (SV.evDone = { day: SV.day, ids: [] });
   for (const e of EVSPAWN) {
-    if (!!e.amz !== AMZ || done.ids.includes(e.id) || !e.when()) continue;
+    if ((e.reg || (e.amz ? 'amz' : 'cv')) !== REGION || done.ids.includes(e.id) || !e.when()) continue;
     const s = spotById(e.spot); if (Math.hypot(P.pos.x - s.x, P.pos.z - s.z) > 420) continue;
     done.ids.push(e.id); for (let i = 0; i < (e.key === 'albacora' || e.key === 'dourado' ? 1 : e.n[1]); i++) spawnGroup(s, e.key, Math.round(rand(e.n[0], e.n[1])), 1.1);
     toast(e.msg, 5, 'gold');
@@ -184,6 +184,7 @@ function updateEvents(dt) {
 function eventsHTML() {
   const ev = [];
   if (AMZ) return eventsAmzHTML();
+  if (NE) return eventsNeHTML();
   if (weekend()) ev.push(['Torneio do fim de semana', 'Campeonatos pagam o dobro hoje.']);
   if (fullMoon()) ev.push(['Lua cheia', 'À noite, chernes e dentões saem para caçar na Laje Branca e na Jorge Grego.']);
   if (COND.vis > 1.3) ev.push(['Água azul', 'Albacora e dourado subindo no Parcel de Fora e no Aventureiro.']);

@@ -59,7 +59,7 @@ function throwChum() {
   // os peixes em volta vêm ver
   for (const f of FISHES) if (f.alive && (f.state === 'wander' || f.state === 'alert') && f.pos.distanceTo(P.pos) < 30 && !f.sp.protected) { f.state = 'curious'; f.t = rand(10, 18); }
   // e chega um grupo novo atrás do cheiro
-  const opts = AMZ ? ['pacu', 'tambaqui', 'piranha', 'matrinxa', 'aracu'] : ['sargo', 'salema', 'cocoroca', 'marimba', 'xareu', 'canhanha'];
+  const opts = AMZ ? ['pacu', 'tambaqui', 'piranha', 'matrinxa', 'aracu'] : NE ? ['guaiuba', 'ariaco', 'saramunete', 'sargo', 'xareu'] : ['sargo', 'salema', 'cocoroca', 'marimba', 'xareu', 'canhanha'];
   const z = { id: 'chum' + (++chumN), x: P.pos.x, z: P.pos.z, r: 12, zone: 'chum' }; ZONES.push(z);
   const k = pick(opts); spawnGroup(z, k, Math.round(rand(3, 7)));
   toast(`Engodo na água! O cheiro atrai peixe${AMZ && k === 'piranha' ? '... e piranha!' : '.'} Fique parado. (${SV.chum} restante${SV.chum === 1 ? '' : 's'})`, 3.5, 'gold');
@@ -101,7 +101,7 @@ function inspect() {
 const RANCH = { g: null, wall: null };
 function ranchPos() { const x = PIER.x - 46, z = PIER.z0 + 20; return { x, z, y: H(x, z) }; }
 function buildRancho() {
-  if (AMZ || !SV.rancho) return;
+  if (REGION !== 'cv' || !SV.rancho) return;
   if (RANCH.g) scene.remove(RANCH.g);
   const p = ranchPos(), g = new THREE.Group(); g.position.set(p.x, p.y - 0.2, p.z);
   const wood = new THREE.MeshLambertMaterial({ color: 0x8a5a34 }), dark = new THREE.MeshLambertMaterial({ color: 0x5a3a22 }), roofM = new THREE.MeshLambertMaterial({ color: 0x6a3a26 }), white = new THREE.MeshLambertMaterial({ color: 0xece4d4 });
@@ -128,7 +128,7 @@ function buildRancho() {
   scene.add(RANCH.g = g);
 }
 function ranchoHTML(at) {
-  if (AMZ) return '<div class="it"><div class="d">Seu rancho fica na Costa Verde, ao lado da Marina Balneário.</div></div>';
+  if (REGION !== 'cv') return '<div class="it"><div class="d">Seu rancho fica na Costa Verde, ao lado da Marina Balneário.</div></div>';
   if (!SV.rancho) return `<div class="it"><div style="flex:1"><div class="n">🏠 Rancho do pescador</div><div class="d">Casa de madeira ao lado da marina: parede de troféus com seus maiores peixes empalhados, freezer para o pescado não estragar e cama para dormir de graça e acordar descansado (+5 s de fôlego no dia).</div></div>${buyBtn('id="buyRancho"', RANCHO_PRICE)}</div>`;
   const best = Object.keys(SV.best || {}).filter(k => SPECIES[k] && !SPECIES[k].protected && !(SV.mounted || []).some(m => m.key === k)).sort((a, b) => SV.best[b] - SV.best[a]);
   let h = `<div class="it" style="margin-bottom:8px"><div><div class="n">🏠 Seu rancho</div><div class="d">Fica ao lado da marina. ${at ? '' : 'Freezer e cama só quando você estiver na marina.'}</div></div></div><div class="list">`;

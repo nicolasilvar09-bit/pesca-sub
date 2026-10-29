@@ -271,22 +271,27 @@ const TRIP_PRICE = 3000, TRIP_DAYS = 1;
 const DESTS = [
   { id: 'cv', name: 'Costa Verde (RJ)', desc: 'Baía da Ilha Grande: costões, lajes, naufrágios e mar aberto.' },
   { id: 'amz', name: 'Amazonas · Baixo Tapajós (PA)', desc: 'Rio de água clara, igapó, lago de várzea e água preta. Tucunaré, dourado, cachorra, pirarucu.' },
+  { id: 'ne', name: 'Costa dos Corais (AL/PE)', desc: 'Água azul e quente: piscinas naturais, arrecifes, cabeços de coral, naufrágio e parcel. Guaiúba, cavala, pargo e tubarões.', price: 4000, flag: 'neUnlocked' },
 ];
-const marinaName = () => AMZ ? 'Porto da Vila do Tapajós' : 'Marina Balneário';
+const marinaName = () => AMZ ? 'Porto da Vila do Tapajós' : NE ? 'Marina do Pontal' : 'Marina Balneário';
+// preço e marca de liberação de cada destino (a Costa Verde já vem liberada)
+const destPrice = d => d.id === 'amz' ? TRIP_PRICE : d.price || 0;
+const destOwned = d => d.id === 'cv' || (d.id === 'amz' ? SV.amzUnlocked : SV[d.flag]);
 function travelHTML(at) {
-  const here = REGION, own = SV.amzUnlocked;
-  if (!at) return `<div class="it"><div class="d">As viagens saem ${AMZ ? 'do porto da vila' : 'da Marina Balneário'}. Volte lá com o barco para viajar.</div></div>`;
-  return `<div class="it" style="margin-bottom:8px"><div class="d">Viajar leva ${TRIP_DAYS} dia. Dinheiro, equipamentos, carreira, amigos e a lancha (de balsa) vão com você. O peixe da fieira vai para a caixa térmica. A primeira ida ao Amazonas custa ${fmtR(TRIP_PRICE)}; depois é só ir e voltar.</div></div><div class="list">` +
-    DESTS.map(d => { const cur = d.id === here, locked = d.id === 'amz' && !own;
-      return `<div class="it"><div style="flex:1"><div class="n">${cur ? '📍 ' : ''}${d.name}</div><div class="d">${d.desc}</div></div>${cur ? '<span class="d">VOCÊ ESTÁ AQUI</span>' : locked ? `<button class="btn gold" data-trip="${d.id}" ${SV.money < TRIP_PRICE ? 'disabled' : ''}>LIBERAR ${fmtR(TRIP_PRICE)}</button>` : `<button class="btn gold" data-trip="${d.id}">VIAJAR</button>`}</div>`; }).join('') + '</div>';
+  const here = REGION;
+  if (!at) return `<div class="it"><div class="d">As viagens saem ${AMZ ? 'do porto da vila' : 'da ' + marinaName()}. Volte lá com o barco para viajar.</div></div>`;
+  return `<div class="it" style="margin-bottom:8px"><div class="d">Viajar leva ${TRIP_DAYS} dia. Dinheiro, equipamentos, carreira, amigos e a lancha (de balsa) vão com você. O peixe da fieira vai para a caixa térmica. Cada destino novo é liberado uma vez; depois é só ir e voltar.</div></div><div class="list">` +
+    DESTS.map(d => { const cur = d.id === here, locked = !destOwned(d), pr = destPrice(d);
+      return `<div class="it"><div style="flex:1"><div class="n">${cur ? '📍 ' : ''}${d.name}</div><div class="d">${d.desc}</div></div>${cur ? '<span class="d">VOCÊ ESTÁ AQUI</span>' : locked ? `<button class="btn gold" data-trip="${d.id}" ${SV.money < pr ? 'disabled' : ''}>LIBERAR ${fmtR(pr)}</button>` : `<button class="btn gold" data-trip="${d.id}">VIAJAR</button>`}</div>`; }).join('') + '</div>';
 }
 function travelTo(id) {
   if (id === REGION) return;
-  if (id === 'amz' && !SV.amzUnlocked) { if (SV.money < TRIP_PRICE) return; SV.money -= TRIP_PRICE; SV.amzUnlocked = true; }
+  const d = DESTS.find(x => x.id === id); if (!d) return;
+  if (!destOwned(d)) { const pr = destPrice(d); if (SV.money < pr) return; SV.money -= pr; if (id === 'amz') SV.amzUnlocked = true; else SV[d.flag] = true; }
   if (P.stringer.length) { SV.cooler.push(...P.stringer); P.stringer = []; }
-  SV.region = id; SV.dest = id === 'amz' ? 'praia' : 'botinas'; SV.tod = 7; SV.day = (SV.day || 1) + TRIP_DAYS; SV.fuel = Math.max(SV.fuel, 40);
+  SV.region = id; SV.dest = { amz: 'praia', ne: 'arrecife' }[id] || 'botinas'; SV.tod = 7; SV.day = (SV.day || 1) + TRIP_DAYS; SV.fuel = Math.max(SV.fuel, 40);
   save(); SAVE_LOCK = true;
-  $('black').style.opacity = 1; toast(id === 'amz' ? 'Embarcando para Santarém e Alter do Chão...' : 'Voltando para Angra dos Reis...', 3);
+  $('black').style.opacity = 1; toast({ amz: 'Embarcando para Santarém e Alter do Chão...', ne: 'Voando para Maceió e seguindo para a Costa dos Corais...' }[id] || 'Voltando para Angra dos Reis...', 3);
   setTimeout(() => location.reload(), 900);
 }
 function bindTravel(on) { on('[data-trip]', b => travelTo(b.dataset.trip)); }

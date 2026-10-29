@@ -103,15 +103,17 @@ function fishGeo(sh, lo) {
   if (sh.barbels && !lo) for (const sz of [1, -1]) fin(4, 1, s => [X(0.97) - s * 0.01, -TOP(0.97) * 0.3, sz * SIDE(0.97) * 0.5], (s, b) => [b[0] - 0.22 * (0.3 + 0.7 * s), b[1] - 0.04 - 0.02 * s, b[2] + sz * 0.08 * (0.4 + s)], 3, 0.05);
   // caudal: bifurcada (lobos pontudos) ou arredondada
   const hp = TOP(0), tH = sh.tailH, tip = sh.fork ? 0.19 : 0.15, mid = sh.fork ? 0.075 : 0.15;
-  fin(S + 2, R, s => [x0 + 0.02, hp * (1 - 2 * s) * 0.95, 0], s => { const ys = 1 - 2 * s; return sh.fork ? [x0 - (mid + (tip - mid) * Math.pow(Math.abs(ys), 1.3)), ys * tH, 0] : [x0 - tip * (1 - 0.3 * ys * ys), ys * tH * 0.95, 0]; }, 1, 0.9);
+  fin(S + 2, R, s => [x0 + 0.02, hp * (1 - 2 * s) * 0.95, 0], s => { const ys = 1 - 2 * s; return sh.fork ? [x0 - (mid + (tip - mid) * Math.pow(Math.abs(ys), 1.3)) * (sh.hetero && ys > 0 ? 1.7 : 1), ys * tH * (sh.hetero ? (ys > 0 ? 1.5 : 0.7) : 1), 0] : [x0 - tip * (1 - 0.3 * ys * ys), ys * tH * 0.95, 0]; }, 1, 0.9);
   // dorsais e anal: perfil por nós (raia dura na frente, mole atrás)
   const dfin = (a, b, h, K, down) => { const pf = knots(K); fin(S, R, s => { const t = lerp(a, b, s); return [X(t), (down ? -0.88 : 0.94) * TOP(t), 0]; }, (s, bb) => [bb[0] - h * 0.35 * pf(s), bb[1] + (down ? -1 : 1) * h * pf(s), 0], 3, 0.5); };
   const D = sh.dors;
   if (sh.df === 'one') dfin(0.2, 0.8, D, [[0, 0], [0.1, 0.8], [0.38, 0.62], [0.48, 0.5], [0.6, 0.85], [0.8, 1], [0.95, 0.7], [1, 0]]);
   else if (sh.df === 'long') dfin(0.1, 0.97, D, [[0, 0], [0.06, 0.45], [0.6, 0.7], [0.93, 1], [1, 0]]);
   else if (sh.df === 'back') { dfin(0.05, 0.36, D, [[0, 0], [0.12, 0.7], [0.7, 1], [0.95, 0.8], [1, 0]]); dfin(0.05, 0.34, D * 0.9, [[0, 0], [0.12, 0.7], [0.7, 1], [0.95, 0.8], [1, 0]], true); }
+  else if (sh.hetero) { dfin(0.4, 0.6, D * 1.8, [[0, 0], [0.15, 0.55], [0.55, 1], [0.85, 0.55], [1, 0]]); dfin(0.13, 0.21, D * 0.45, [[0, 0], [0.5, 1], [1, 0]]); } // tubarão: 1ª dorsal grande, 2ª pequena
   else { dfin(0.56, 0.78, D * 1.2, [[0, 0], [0.15, 0.45], [0.65, 1], [0.92, 0.9], [1, 0]]); dfin(0.22, 0.44, D, [[0, 0], [0.2, 0.6], [0.75, 1], [1, 0]]); }
   if (sh.df === 'long') dfin(0.1, 0.5, D * 0.8, [[0, 0], [0.1, 0.6], [0.85, 1], [1, 0]], true);
+  else if (sh.hetero) dfin(0.13, 0.21, D * 0.4, [[0, 0], [0.5, 1], [1, 0]], true);
   else if (sh.df !== 'back') dfin(0.17, 0.42, D * 0.75, [[0, 0], [0.2, 0.7], [0.75, 1], [1, 0]], true);
   // peitorais (folha voltada para trás e para fora) e pélvicas
   const pl = sh.pec, pt = 0.69;
@@ -173,7 +175,7 @@ function fishTex(key, c) {
     if (key === 'dentao') { g.fillStyle = 'rgba(240,240,250,.75)'; for (const y of [25, 75]) { g.beginPath(); g.moveTo(222, y + (y < 50 ? 4 : -4)); g.lineTo(232, y + (y < 50 ? 4 : -4)); g.lineTo(226, y + (y < 50 ? 18 : -18)); g.fill(); } g.strokeStyle = 'rgba(90,150,230,.6)'; g.lineWidth = 1.5; for (const y of [30, 34, 66, 70]) { g.beginPath(); g.moveTo(238, y); g.lineTo(252, y + (y < 50 ? 3 : -3)); g.stroke(); } }
     if (key === 'cherne') { for (let i = 0; i < 26; i++) blob(R() * 200, 10 + R() * 80, 3 + R() * 3, 3 + R() * 3, 'rgba(230,225,210,.45)'); }
     if (key === 'olhodeboi') { g.strokeStyle = 'rgba(200,150,40,.7)'; g.lineWidth = 7; for (const y of [25, 75]) { g.beginPath(); g.moveTo(240, y - (y < 50 ? 12 : -12)); g.lineTo(20, y); g.stroke(); } }
-    amzTex(key, g, blob, bars, R);
+    amzTex(key, g, blob, bars, R); neTex(key, g, blob, bars, R);
     for (let i = 0; i < 1800; i++) { g.fillStyle = `rgba(${R() > 0.5 ? '255,255,255' : '0,0,0'},${R() * 0.07})`; g.fillRect(R() * 256, R() * 100, 2, 2); }
     g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 2; for (const [a, b] of [[6, 44], [56, 94]]) { g.beginPath(); g.moveTo(203, a); g.quadraticCurveTo(196, (a + b) / 2, 203, b); g.stroke(); }
     g.strokeStyle = 'rgba(10,8,8,.55)'; g.lineWidth = 2; for (const [y, d] of [[36, -1], [64, 1]]) { g.beginPath(); g.moveTo(256, y); g.quadraticCurveTo(247, y + d * 2, 238, y + d * 6); g.stroke(); }
@@ -407,14 +409,14 @@ const POP_LAJE = [...POP_ZONE, ['garoupa', 2, [1, 1], 1, 1.0], ['caranha', 1, [1
 const POP_FORA_COSTA = [['olhete', 1, [2, 4], 0.5], ['sororoca', 1, [3, 5], 0.5], ['enchova', 1, [3, 6], 0.5]];
 function spawnAll() {
   // só as espécies do destino atual
-  for (const k of Object.keys(SPECIES)) if (!!SPECIES[k].amz === AMZ) makePool(k, SPECIES[k].shape, fishTex(k), k === 'mero' || k === 'pirarucu' ? 8 : 260);
-  const POPR = AMZ ? popAmz() : POP;
+  for (const k of Object.keys(SPECIES)) if (spInRegion(k)) makePool(k, SPECIES[k].shape, fishTex(k), k === 'mero' || k === 'pirarucu' || SPECIES[k].shape === 'shark' ? 8 : 260);
+  const POPR = AMZ ? popAmz() : NE ? popNe() : POP;
   for (const s of SPOTS) {
     const pop = POPR[s.id]; if (!pop) continue;
     for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0; g < groups; g++) if (Math.random() < chance) spawnGroup(s, key, Math.round(rand(a, b)), big);
   }
   for (const z of ZONES) {
-    const pop = AMZ ? POP_ZONE_AMZ : z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
+    const pop = AMZ ? POP_ZONE_AMZ : NE ? POP_ZONE_NE : z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
     for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0; g < groups; g++) if (Math.random() < chance) spawnGroup(z, key, Math.round(rand(a, b)), big);
   }
 }
