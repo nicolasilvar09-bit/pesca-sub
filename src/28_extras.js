@@ -145,6 +145,7 @@ function extrasHTML(at) {
   let h = '<div class="list">';
   h += `<div class="it"><div style="flex:1"><div class="n">📡 Sonar</div><div class="d">Na lancha, mostra a profundidade e os peixes embaixo do barco (amarelo pequeno, vermelho grande, azul cardume).</div></div>${SV.sonar ? own : buyBtn('id="buySonar"', SONAR_PRICE)}</div>`;
   h += `<div class="it"><div style="flex:1"><div class="n">🛰️ GPS</div><div class="d">Botão MARCAR na lancha salva o ponto onde você está. Seus pontos aparecem no mapa para traçar rota ou ir direto.</div></div>${SV.gps ? own : buyBtn('id="buyGps"', GPS_PRICE)}</div>`;
+  h += `<div class="it"><div style="flex:1"><div class="n">🎣 Carretilha no arbalete</div><div class="d">+${REEL_LINE} m de linha. Peixe grande (atum, olho-de-boi, mero) tira linha em vez de arrastar você ou rasgar na arrancada.</div></div>${SV.reel ? own : buyBtn('id="buyReel"', REEL_PRICE)}</div>`;
   h += `<div class="it"><div style="flex:1"><div class="n">✨ Flasher</div><div class="d">Placa refletiva presa ao cinto: na espera, o peixe fica curioso com mais frequência.</div></div>${SV.flasher ? own : buyBtn('id="buyFlash"', FLASH_PRICE)}</div>`;
   h += `<div class="it"><div style="flex:1"><div class="n">🪣 Engodo ${AMZ ? '(farelo e frutas)' : '(sardinha moída)'} · você tem ${SV.chum || 0}</div><div class="d">Botão ENGODO embaixo d'água: o cheiro atrai os peixes em volta e chama um cardume novo.${AMZ ? ' Atenção: atrai piranha.' : ''}</div></div>${buyBtn('id="buyChum"', CHUM_PRICE, '+1 · ' + fmtR(CHUM_PRICE))}</div>`;
   const left = (SV.licUntil || 0) - (SV.day || 1);
@@ -155,6 +156,7 @@ function bindExtras(at, pay) {
   const B = $('mBody'), q = id => $(id), done = () => { save(); renderShop(); };
   if (q('buySonar')) q('buySonar').onclick = () => { if (pay(SONAR_PRICE)) { SV.sonar = true; toast('Sonar instalado na lancha.', 3, 'gold'); } done(); };
   if (q('buyGps')) q('buyGps').onclick = () => { if (pay(GPS_PRICE)) { SV.gps = true; toast('GPS instalado: toque MARCAR na lancha.', 3, 'gold'); } done(); };
+  if (q('buyReel')) q('buyReel').onclick = () => { if (pay(REEL_PRICE)) { SV.reel = true; toast('Carretilha montada no arbalete: +25 m de linha.', 3, 'gold'); } done(); };
   if (q('buyFlash')) q('buyFlash').onclick = () => { if (pay(FLASH_PRICE)) SV.flasher = true; done(); };
   if (q('buyChum')) q('buyChum').onclick = () => { if (pay(CHUM_PRICE)) SV.chum = (SV.chum || 0) + 1; done(); };
   if (q('buyLic')) q('buyLic').onclick = () => { if (pay(LIC_PRICE)) { SV.licUntil = Math.max(SV.licUntil || 0, (SV.day || 1) - 1) + LIC_DAYS; toast(`Licença válida até o dia ${SV.licUntil}.`, 3, 'gold'); } done(); };

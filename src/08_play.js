@@ -77,12 +77,12 @@ function fightStep(f, dt, pulling) {
     f.run = !f.run; f.runT = f.run ? rand(0.8, 1.8) * (0.7 + 0.3 * f.sp.str) : rand(0.9, 1.6);
     if (f.run) { buzz(60); spawnBubbles(f.pos, 4, 0.15); }
   }
-  GUN.tension = clamp((GUN.tension || 0) + (pulling ? (f.run ? 1.5 : -0.4) : -1.2) * dt, 0, 1);
+  GUN.tension = clamp((GUN.tension || 0) + (pulling ? (f.run ? (SV.reel ? 0.9 : 1.5) : -0.4) : -1.2) * dt, 0, 1);
   if (pulling && !f.run) { GUN.lineLen -= dt * 1.1; f.fight -= dt * 0.6; }
 }
 function fightHUD() {
   const f = GUN.fish;
-  $('fTxt').textContent = f.run ? `${f.sp.name} arrancou! Solte a linha` : `${f.sp.name} cansou. PUXE a linha!`;
+  $('fTxt').textContent = (f.run ? `${f.sp.name} arrancou! Solte a linha` : `${f.sp.name} cansou. PUXE a linha!`) + (SV.reel ? ` · ${Math.round(GUN.lineLen)} m de linha` : '');
   $('fight').classList.toggle('run', !!f.run);
   $('fTen').style.width = Math.round((GUN.tension || 0) * 100) + '%';
 }

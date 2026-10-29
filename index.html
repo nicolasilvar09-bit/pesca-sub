@@ -1683,7 +1683,7 @@ function catchFish(f) {
   P.stringer.push(tagCatch({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len }));
   if (!sp.ornamental) addXP(15 + f.kg * 12);
   if ((SV.tod || 12) >= 19 || (SV.tod || 12) < 5) SV.nightCatch = true;
-  compOnCatch(f); rankCatch(f);
+  compOnCatch(f); rankCatch(f); huntCatch(f);
   if (!sp.ornamental) { mission('catch', { key: f.key }); mission('catchkg', { kg: f.kg }); if (GUN.waitShot) mission('wait'); }
   if (sp.rare) toast(`${sp.name}! Peixe raro na fieira.`, 4, 'gold'); else if (isTrophy(f)) toast(`Troféu! ${sp.name} acima do tamanho comum.`, 4, 'gold');
   if (sp.ornamental) toast(`${sp.name} é peixe ornamental, ninguém compra. Prefira deixar no mar.`, 4, 'bad');
@@ -1706,15 +1706,15 @@ function updateGun(dt) {
   if (GUN.state === 'flying') {
     const prev = _b.copy(GUN.pos);
     GUN.pos.addScaledVector(GUN.vel, dt); const step = prev.distanceTo(GUN.pos); GUN.trav += step;
-    GUN.vel.multiplyScalar(Math.exp(-dt * (GUN.trav > GUN.range ? 5 : 0.5))); GUN.vel.y -= dt * 0.5;
+    GUN.vel.multiplyScalar(Math.exp(-dt * (GUN.trav > GUN.range ? 5 : 0.5))); spearDrift(dt);
     // acerto em peixe
     for (const f of FISHES) {
       if (!f.alive || !f.vis || f.state === 'dead') continue;
       if (f.pos.distanceToSquared(GUN.pos) > 9) continue;
       // ponto mais próximo do segmento
       _c.subVectors(GUN.pos, prev); const l2 = _c.lengthSq() || 1e-6; const tt = clamp(_c.dot(_t1.subVectors(f.pos, prev)) / l2, 0, 1);
-      const cp = _t2.copy(prev).addScaledVector(_c, tt); const fd = f.dir(new V3()); const loc = cp.sub(f.pos); const along = loc.dot(fd) / f.len; const perp = loc.addScaledVector(fd, -along * f.len).length();
-      if (Math.abs(along) < 0.47 && perp < f.radius * 1.15) { hitFish(f, along); return; }
+      const cp = _t2.copy(prev).addScaledVector(_c, tt); const fd = f.dir(new V3()); const vy = (cp.y - f.pos.y) / f.radius, loc = cp.sub(f.pos); const along = loc.dot(fd) / f.len; const perp = loc.addScaledVector(fd, -along * f.len).length();
+      if (Math.abs(along) < 0.47 && perp < f.radius * 1.15) { hitFish(f, along, vy); return; }
     }
     if (insideRock(GUN.pos)) { GUN.state = 'stuck'; GUN.rock = true; GUN.freeT = 1.0; AU.tink(); toast('Arpão bateu na pedra!'); missed(); }
     else if (GUN.pos.y < H(GUN.pos.x, GUN.pos.z) + 0.05) { GUN.state = 'stuck'; GUN.rock = false; GUN.freeT = 0.2; AU.thud(); missed(); sandPuff(GUN.pos, 7, 1); }
@@ -1727,7 +1727,7 @@ function updateGun(dt) {
     else {
       GUN.pos.copy(f.pos).addScaledVector(GUN.dir, f.radius * 1.25 + 0.06); // a ponta sai do outro lado do peixe
       // tensão da linha
-      const d = f.pos.distanceTo(tip), maxL = def.range * 2.0;
+      const d = f.pos.distanceTo(tip), maxL = def.range * 2.0 + reelLine();
       if (f.fight > 0) GUN.lineLen = Math.min(maxL, Math.max(GUN.lineLen, d));
       if (f.fight > 0) fightStep(f, dt, pulling);
       if (pulling) GUN.lineLen -= dt * (f.fight > 0 ? 0.35 : 2.0);
@@ -1740,9 +1740,10 @@ function updateGun(dt) {
         if (GUN.tearT <= 0) {
           GUN.tearT = 0.5;
           const ratio = f.kg * f.sp.str / def.power, qf = GUN.q === 'tail' ? 1.7 : 0.6;
-          const p = (clamp(ratio - 0.55, 0, 1.5) * 0.22 * qf + (pulling && f.fight > 0 ? 0.03 : 0)) * (0.35 + (GUN.tension || 0) * 2.2) + (GUN.tension >= 0.99 ? 0.25 : 0);
+          // com carretilha o peixe tira linha em vez de rasgar na arrancada
+          const p = (clamp(ratio - 0.55, 0, 1.5) * 0.22 * qf * (SV.reel ? 0.5 : 1) + (pulling && f.fight > 0 ? 0.03 : 0)) * (0.35 + (GUN.tension || 0) * 2.2) + (GUN.tension >= 0.99 && !SV.reel ? 0.25 : 0);
           if (Math.random() < p) {
-            f.state = 'wander'; f.fight = 0; f.hurt = 60; f.startFlee(); GUN.fish = null; GUN.state = 'spent';
+            f.state = 'wander'; f.fight = 0; f.hurt = 60; f.startFlee(); GUN.fish = null; GUN.state = 'spent'; huntTear(f);
             toast(`Rasgou! ${f.sp.name} de ~${fmtKg(f.kg)} kg escapou.${GUN.tension > 0.6 ? ' Puxou na arrancada.' : ''}`, 3, 'bad'); AU.bad(); buzz(150);
           }
         }
@@ -1765,7 +1766,7 @@ function updateGun(dt) {
   for (let i = 0; i < 16; i++) { const s = i / 15; _c.lerpVectors(tip, tail, s); _c.y -= Math.sin(s * Math.PI) * slack; arr[i * 3] = _c.x; arr[i * 3 + 1] = _c.y; arr[i * 3 + 2] = _c.z; }
   GUN.lineGeo.attributes.position.needsUpdate = true;
 }
-function hitFish(f, along) {
+function hitFish(f, along, vy = 0) {
   GUN.state = 'hooked'; GUN.fish = f; GUN.lineLen = f.pos.distanceTo(gunTipWorld(_a)); GUN.tearT = 0.4; GUN.aimF = null; GUN.tension = 0;
   f.run = true; f.runT = rand(0.5, 1.2);
   FEAR.pos.copy(f.pos); FEAR.r = 14; FEAR.t = 1.5;
@@ -1773,10 +1774,12 @@ function hitFish(f, along) {
   for (const o of FISHES) if (o.leader === f) o.leader = null;
   AU.thud();
   if (along > 0.27) { GUN.q = 'head'; f.fight = 0; f.state = 'dead'; toast('Tiro na cabeça! Peixe apagado.', 2.5, 'gold'); }
+  else if (vy > 0.6 && along > -0.1) { GUN.q = 'spine'; f.fight = 0; f.state = 'dead'; toast('Tiro no espinhaço! Peixe apagado na hora.', 2.5, 'gold'); }
   else if (along > -0.05) { GUN.q = 'body'; f.fight = 1.5 + f.kg * 0.25 * f.sp.str; toast('Acertou! Puxe a linha.', 2); }
   else { GUN.q = 'tail'; f.fight = 3 + f.kg * 0.45 * f.sp.str; toast('Tiro no rabo, cuidado que pode rasgar!', 2.5, 'bad'); }
   GUN.fight0 = Math.max(f.fight, 0.01);
-  hitFX(GUN.q); if (GUN.q === 'head') mission('head');
+  hitFX(GUN.q === 'spine' ? 'head' : GUN.q); if (GUN.q === 'head' || GUN.q === 'spine') mission('head');
+  huntHit(f);
   spawnBubbles(f.pos, 10, 0.2); spawnScales(f.pos, 18);
 }
 
@@ -2146,7 +2149,7 @@ function step(dt) {
   updateDiver(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T);
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt);
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -2199,7 +2202,7 @@ function init() {
   initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); buildFX();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras();
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt();
   $('playBtn').onclick = startGame;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
   loop();
@@ -3231,12 +3234,12 @@ function fightStep(f, dt, pulling) {
     f.run = !f.run; f.runT = f.run ? rand(0.8, 1.8) * (0.7 + 0.3 * f.sp.str) : rand(0.9, 1.6);
     if (f.run) { buzz(60); spawnBubbles(f.pos, 4, 0.15); }
   }
-  GUN.tension = clamp((GUN.tension || 0) + (pulling ? (f.run ? 1.5 : -0.4) : -1.2) * dt, 0, 1);
+  GUN.tension = clamp((GUN.tension || 0) + (pulling ? (f.run ? (SV.reel ? 0.9 : 1.5) : -0.4) : -1.2) * dt, 0, 1);
   if (pulling && !f.run) { GUN.lineLen -= dt * 1.1; f.fight -= dt * 0.6; }
 }
 function fightHUD() {
   const f = GUN.fish;
-  $('fTxt').textContent = f.run ? `${f.sp.name} arrancou! Solte a linha` : `${f.sp.name} cansou. PUXE a linha!`;
+  $('fTxt').textContent = (f.run ? `${f.sp.name} arrancou! Solte a linha` : `${f.sp.name} cansou. PUXE a linha!`) + (SV.reel ? ` · ${Math.round(GUN.lineLen)} m de linha` : '');
   $('fight').classList.toggle('run', !!f.run);
   $('fTen').style.width = Math.round((GUN.tension || 0) * 100) + '%';
 }
@@ -6321,6 +6324,7 @@ function extrasHTML(at) {
   let h = '<div class="list">';
   h += `<div class="it"><div style="flex:1"><div class="n">📡 Sonar</div><div class="d">Na lancha, mostra a profundidade e os peixes embaixo do barco (amarelo pequeno, vermelho grande, azul cardume).</div></div>${SV.sonar ? own : buyBtn('id="buySonar"', SONAR_PRICE)}</div>`;
   h += `<div class="it"><div style="flex:1"><div class="n">🛰️ GPS</div><div class="d">Botão MARCAR na lancha salva o ponto onde você está. Seus pontos aparecem no mapa para traçar rota ou ir direto.</div></div>${SV.gps ? own : buyBtn('id="buyGps"', GPS_PRICE)}</div>`;
+  h += `<div class="it"><div style="flex:1"><div class="n">🎣 Carretilha no arbalete</div><div class="d">+${REEL_LINE} m de linha. Peixe grande (atum, olho-de-boi, mero) tira linha em vez de arrastar você ou rasgar na arrancada.</div></div>${SV.reel ? own : buyBtn('id="buyReel"', REEL_PRICE)}</div>`;
   h += `<div class="it"><div style="flex:1"><div class="n">✨ Flasher</div><div class="d">Placa refletiva presa ao cinto: na espera, o peixe fica curioso com mais frequência.</div></div>${SV.flasher ? own : buyBtn('id="buyFlash"', FLASH_PRICE)}</div>`;
   h += `<div class="it"><div style="flex:1"><div class="n">🪣 Engodo ${AMZ ? '(farelo e frutas)' : '(sardinha moída)'} · você tem ${SV.chum || 0}</div><div class="d">Botão ENGODO embaixo d'água: o cheiro atrai os peixes em volta e chama um cardume novo.${AMZ ? ' Atenção: atrai piranha.' : ''}</div></div>${buyBtn('id="buyChum"', CHUM_PRICE, '+1 · ' + fmtR(CHUM_PRICE))}</div>`;
   const left = (SV.licUntil || 0) - (SV.day || 1);
@@ -6331,6 +6335,7 @@ function bindExtras(at, pay) {
   const B = $('mBody'), q = id => $(id), done = () => { save(); renderShop(); };
   if (q('buySonar')) q('buySonar').onclick = () => { if (pay(SONAR_PRICE)) { SV.sonar = true; toast('Sonar instalado na lancha.', 3, 'gold'); } done(); };
   if (q('buyGps')) q('buyGps').onclick = () => { if (pay(GPS_PRICE)) { SV.gps = true; toast('GPS instalado: toque MARCAR na lancha.', 3, 'gold'); } done(); };
+  if (q('buyReel')) q('buyReel').onclick = () => { if (pay(REEL_PRICE)) { SV.reel = true; toast('Carretilha montada no arbalete: +25 m de linha.', 3, 'gold'); } done(); };
   if (q('buyFlash')) q('buyFlash').onclick = () => { if (pay(FLASH_PRICE)) SV.flasher = true; done(); };
   if (q('buyChum')) q('buyChum').onclick = () => { if (pay(CHUM_PRICE)) SV.chum = (SV.chum || 0) + 1; done(); };
   if (q('buyLic')) q('buyLic').onclick = () => { if (pay(LIC_PRICE)) { SV.licUntil = Math.max(SV.licUntil || 0, (SV.day || 1) - 1) + LIC_DAYS; toast(`Licença válida até o dia ${SV.licUntil}.`, 3, 'gold'); } done(); };
@@ -6636,6 +6641,121 @@ function bindRank(B) {
   const s = $('rkSp'); if (s) s.onchange = () => { RK.sp = s.value; renderShop(); };
   const r = $('rkRetry'); if (r) r.onclick = () => { RK.key = ''; RK.err = ''; renderShop(); };
 }
+
+// ================= tiro e briga mais realistas =================
+// arpão cai com a distância e a correnteza empurra; carretilha para peixe grande;
+// peixe ferido sangra e o sangue chama predador; tiro bem colocado (cabeça/espinhaço) apaga na hora
+
+// ---------- balística do arpão ----------
+const REEL_PRICE = 1200, REEL_LINE = 25; // metros a mais de linha com a carretilha
+const _hc = new V3();
+// mesma correnteza do mergulhador, sem os avisos
+function curQuiet(p) {
+  for (const s of SPOTS) {
+    if (!s.cur) continue;
+    const k = 1 - smooth(s.r, s.r * 2.6, Math.hypot(p.x - s.x, p.z - s.z));
+    if (k > 0) return _hc.set(s.cur[0] * k * COND.cur, 0, s.cur[1] * k * COND.cur);
+  }
+  return null;
+}
+function spearDrift(dt) {
+  if (GUN.pos.y > 0) { GUN.vel.y -= dt * 9.8; return; } // tiro fora d'água
+  // perto, o arpão vai reto; perdendo velocidade no fim do alcance, afunda cada vez mais
+  const k = clamp(GUN.trav / Math.max(GUN.range, 1), 0, 1.5);
+  GUN.vel.y -= dt * (0.6 + 5 * k * k);
+  const c = curQuiet(GUN.pos); if (c) GUN.vel.addScaledVector(c, dt * 1.6);
+}
+const reelLine = () => SV.reel ? REEL_LINE : 0;
+
+// ---------- sangue ----------
+const BLOOD = { pool: [], i: 0, t: 0, srcT: 0, warnT: 0 };
+function setupHunt() {
+  const tex = canvasTex(64, 64, g => {
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(120,8,8,.75)'); gr.addColorStop(0.55, 'rgba(95,6,10,.35)'); gr.addColorStop(1, 'rgba(80,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  }, false);
+  for (let i = 0; i < 60; i++) {
+    const m = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0, color: 0xb02020 });
+    const s = new THREE.Sprite(m); s.visible = false; scene.add(s);
+    BLOOD.pool.push({ s, life: 0, max: 1, v: new V3(), r0: 0.2, r1: 1 });
+  }
+}
+function bleed(p, n = 1, k = 1) {
+  if (!BLOOD.pool.length || p.y > -0.2) return;
+  for (let j = 0; j < n; j++) {
+    const q = BLOOD.pool[BLOOD.i++ % BLOOD.pool.length];
+    q.s.position.set(p.x + rand(-0.1, 0.1), p.y + rand(-0.1, 0.1), p.z + rand(-0.1, 0.1));
+    q.v.set(rand(-0.08, 0.08), rand(0.02, 0.1), rand(-0.08, 0.08));
+    const c = curQuiet(p); if (c) q.v.addScaledVector(c, 0.5); // a nuvem vai com a correnteza
+    q.life = q.max = rand(3, 6) * k; q.r0 = rand(0.15, 0.3) * k; q.r1 = rand(0.9, 1.8) * k; q.s.visible = true;
+  }
+}
+function updateBlood(dt) {
+  for (const q of BLOOD.pool) {
+    if (q.life <= 0) continue;
+    q.life -= dt; if (q.life <= 0) { q.s.visible = false; continue; }
+    const a = 1 - q.life / q.max; q.s.position.addScaledVector(q.v, dt);
+    q.s.scale.setScalar(lerp(q.r0, q.r1, Math.sqrt(a))); q.s.material.opacity = 0.55 * Math.min(1, a * 6) * (1 - a);
+  }
+}
+
+// ---------- predadores sentem o sangue ----------
+let PRED = null;
+const predKeys = () => PRED || (PRED = Object.keys(SPECIES).filter(k => spInRegion(k) && (SPECIES[k].shape === 'shark' || ['bicuda', 'barracuda', 'xareu', 'olhodeboi', 'cavala'].includes(k))));
+const isShark = f => f.sp.shape === 'shark';
+function bloodSources() {
+  const out = [];
+  const g = GUN.fish; if (g && g.alive && GUN.state === 'hooked' && GUN.q !== 'head' && GUN.q !== 'spine') out.push({ pos: g.pos, k: 1, fish: g });
+  for (const f of FISHES) if (f.bleed > 0 && f.alive && f !== g && f.state !== 'hooked') out.push({ pos: f.pos, k: 0.7, fish: f });
+  if (P.mode === 'swim' && P.under && P.bleedT > T && P.stringer.length) out.push({ pos: P.pos, k: 0.5, fish: null });
+  return out;
+}
+function huntPredators(srcs) {
+  const keys = predKeys(); if (!keys.length || !srcs.length) return;
+  for (const f of FISHES) {
+    if (!keys.includes(f.key) || !f.alive || f.state === 'hooked' || f.state === 'dead' || f.circ || f.pcool > T) continue;
+    let best = null, bd = 1e9;
+    for (const s of srcs) { const d = f.pos.distanceTo(s.pos); if (d < 45 * s.k && d < bd) { bd = d; best = s; } }
+    if (!best) { f.chase = 0; continue; }
+    f.chase = (f.chase || 0) + 0.5;
+    if (f.chase > 25) { f.chase = 0; f.pcool = T + 60; continue; } // desiste
+    const a = T * 0.8 + f.ph;
+    f.state = 'flee'; f.t = 1; f.speed = f.sp.cruise * (bd > 8 ? 2.6 : 1.4);
+    f.target.set(best.pos.x + Math.cos(a) * 2.5, best.pos.y + 0.3, best.pos.z + Math.sin(a) * 2.5);
+    if (bd < 25 && BLOOD.warnT < T && P.mode === 'swim') {
+      BLOOD.warnT = T + 25;
+      toast(isShark(f) ? `${f.sp.name} sentiu o sangue e está vindo! Tire o peixe da água rápido.` : `Uma ${f.sp.name.toLowerCase()} sentiu o sangue e veio ver. Chance de tiro!`, 4, isShark(f) ? 'bad' : '');
+      if (isShark(f)) buzz([80, 50, 80]);
+    }
+    // tubarão chegando no peixe ferido: leva (do arpão, inclusive)
+    if (isShark(f) && best.fish && bd < 1.6) {
+      const v = best.fish; bleed(v.pos, 8, 1.6); spawnScales(v.pos, 30); FX.shake = 0.8; AU.thud();
+      if (v === GUN.fish) { GUN.fish = null; GUN.state = 'spent'; toast(`O ${f.sp.name.toLowerCase()} arrancou o ${v.sp.name.toLowerCase()} do arpão!`, 5, 'bad'); buzz([200, 80, 200]); }
+      else if (v.vis && camera.position.distanceTo(v.pos) < 25) toast(`O tubarão pegou o ${v.sp.name.toLowerCase()} ferido.`, 3, 'bad');
+      v.remove(); f.pcool = T + 90; f.chase = 0; f.state = 'flee'; f.t = 4; f.target.copy(f.pos).add(_t1.set(rand(-30, 30), -3, rand(-30, 30)));
+    }
+  }
+}
+function updateHunt(dt) {
+  updateBlood(dt);
+  // emissores: peixe no arpão, peixe ferido que escapou e fieira com peixe fresco
+  if ((BLOOD.t -= dt) <= 0) {
+    BLOOD.t = 0.18;
+    const g = GUN.fish; if (g && g.alive && GUN.state === 'hooked' && camera.position.distanceToSquared(g.pos) < 1600) bleed(g.pos, 1, 0.6 + Math.min(0.8, g.kg / 20));
+    for (const f of FISHES) if (f.bleed > 0 && f.alive && f.vis && Math.random() < 0.4 && camera.position.distanceToSquared(f.pos) < 1600) bleed(f.pos, 1, 0.6);
+    if (P.mode === 'swim' && P.under && P.bleedT > T && P.stringer.length && Math.random() < 0.25) bleed(_t1.copy(P.pos).add(_t2.set(0, -0.5, 0)), 1, 0.5);
+  }
+  for (const f of FISHES) if (f.bleed > 0) f.bleed -= dt;
+  if ((BLOOD.srcT -= dt) <= 0) { BLOOD.srcT = 0.5; if (!AMZ) huntPredators(bloodSources()); } // no rio, quem sente o sangue são as piranhas
+}
+// ganchos chamados pelo tiro e pela captura
+function huntHit(f) {
+  if (GUN.q === 'head' || GUN.q === 'spine') return;
+  f.bleed = GUN.q === 'tail' ? 70 : 50; bleed(f.pos, 4, 0.8);
+  if (f.kg > 12 && !SV.reel && !SV.reelTip) { SV.reelTip = true; toast('Peixe grande! Com uma carretilha no arbalete (Loja › Extras) dá para dar linha sem ser arrastado.', 6); }
+}
+function huntCatch(f) { if (!f.sp.ornamental) P.bleedT = T + 60; }
+function huntTear(f) { f.bleed = 45; bleed(f.pos, 5, 0.9); }
 
 init();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { });
