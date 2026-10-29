@@ -110,5 +110,8 @@ function huntHit(f) {
   f.bleed = GUN.q === 'tail' ? 70 : 50; bleed(f.pos, 4, 0.8);
   if (f.kg > 12 && !SV.reel && !SV.reelTip) { SV.reelTip = true; toast('Peixe grande! Com uma carretilha no arbalete (Loja › Extras) dá para dar linha sem ser arrastado.', 6); }
 }
-function huntCatch(f) { if (!f.sp.ornamental) P.bleedT = T + 60; }
+function huntCatch(f) {
+  if (f.sp.ornamental) return; P.bleedT = T + 60;
+  musStinger(f.sp.rare ? 'rare' : (!SV.best[f.key] || SV.best[f.key] < f.kg) && f.kg > 3 ? 'record' : isTrophy(f) ? 'catch' : '');
+}
 function huntTear(f) { f.bleed = 45; bleed(f.pos, 5, 0.9); }
