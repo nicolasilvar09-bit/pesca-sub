@@ -236,7 +236,10 @@ function updateTerrain(c, budget = 1) {
   for (const t of TERR.list) {
     const d = Math.max(Math.abs(c.x - t.cx), Math.abs(c.z - t.cz)), near = d < QF().terr;
     if (near && !t.hi && budget > 0) { t.hi = new THREE.Mesh(terrGeo(t.cx, t.cz, 50), TERR.mat); scene.add(t.hi); budget--; }
-    if (t.hi) { t.hi.visible = near; t.lo.visible = !near; if (d > QF().terr + 750) { scene.remove(t.hi); t.hi.geometry.dispose(); t.hi = null; t.lo.visible = true; } }
+    // embaixo d'água, blocos além da neblina não são desenhados
+    const far = d < (camUnder && scene.fog ? 2.6 / scene.fog.density + 220 : 1e9);
+    t.lo.visible = !near && far;
+    if (t.hi) { t.hi.visible = near; if (d > QF().terr + 750) { scene.remove(t.hi); t.hi.geometry.dispose(); t.hi = null; } }
   }
 }
 
@@ -386,7 +389,8 @@ function chunked(geo, mat, items, place, far = 90) {
     im.frustumCulled = false; CHUNKS.push({ im, c, r, fk: far / 90 }); scene.add(im);
   }
 }
-function updateChunks() { const p = camera.position, f = QF().decor; for (const k of CHUNKS) { const R = k.r + f * k.fk; k.im.visible = p.distanceToSquared(k.c) < R * R; } }
+// embaixo d'água nada além do alcance da neblina é desenhado (a água esconde mesmo)
+function updateChunks() { const p = camera.position, f = QF().decor, uw = camUnder && scene.fog ? 2.6 / scene.fog.density : 1e9; for (const k of CHUNKS) { const R = k.r + Math.min(f * k.fk, uw); k.im.visible = p.distanceToSquared(k.c) < R * R; } }
 // junta geometrias (sem índice) numa só
 function mergeGeos(list) {
   const pa = [], na = [];
@@ -395,9 +399,9 @@ function mergeGeos(list) {
 }
 // ouriço-preto: carapaça achatada com espinhos longos irradiando (mais curtos embaixo)
 function urchinGeo() {
-  const parts = [new THREE.SphereGeometry(0.07, 7, 4).scale(1, 0.7, 1)], up = new V3(0, 1, 0), d = new V3(), r = mulberry(5);
-  for (let i = 0; i < 30; i++) {
-    const y = 1 - 2 * (i + 0.5) / 30, a = i * 2.39996, rr = Math.sqrt(1 - y * y); d.set(Math.cos(a) * rr, y, Math.sin(a) * rr);
+  const parts = [new THREE.SphereGeometry(0.07, 6, 3).scale(1, 0.7, 1)], up = new V3(0, 1, 0), d = new V3(), r = mulberry(5);
+  for (let i = 0; i < 16; i++) {
+    const y = 1 - 2 * (i + 0.5) / 16, a = i * 2.39996, rr = Math.sqrt(1 - y * y); d.set(Math.cos(a) * rr, y, Math.sin(a) * rr);
     if (d.y < -0.45) continue;
     const L = (0.13 + r() * 0.07) * (d.y < 0 ? 0.55 : 1), c = new THREE.ConeGeometry(0.007, L, 3, 1, true); c.translate(0, L / 2 + 0.05, 0);
     c.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, d)); parts.push(c);
@@ -660,13 +664,13 @@ function buildLand() {
   const tIM = new THREE.InstancedMesh(tG, tM, trees.length);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new V3(), pp = new V3();
   trees.forEach((t, i) => { const k = rand(0.7, 1.6); s.set(k, k * rand(0.8, 1.3), k); pp.set(t[0], t[1] - 0.5, t[2]); q.setFromAxisAngle(new V3(0, 1, 0), rand(0, TAU)); m4.compose(pp, q, s); tIM.setMatrixAt(i, m4); tIM.setColorAt(i, new THREE.Color().setHSL(0.3 + rand(-0.04, 0.03), 0.45, rand(0.12, 0.22))); });
-  scene.add(tIM);
+  scene.add(tIM); LAND.push(tIM);
   const hG = new THREE.BoxGeometry(6, 4, 7); hG.translate(0, 2, 0);
   const rG = new THREE.ConeGeometry(5.4, 2.6, 4); rG.rotateY(Math.PI / 4); rG.translate(0, 5.3, 0);
   const hIM = new THREE.InstancedMesh(hG, new THREE.MeshLambertMaterial({ color: 0xf2efe6 }), houses.length);
   const rIM = new THREE.InstancedMesh(rG, new THREE.MeshLambertMaterial({ color: 0xb4532a }), houses.length);
   houses.forEach((t, i) => { const k = rand(0.8, 1.4); s.set(k, k, k); pp.set(t[0], t[1] - 0.3, t[2]); q.setFromAxisAngle(new V3(0, 1, 0), rand(-0.3, 0.3)); m4.compose(pp, q, s); hIM.setMatrixAt(i, m4); rIM.setMatrixAt(i, m4); });
-  scene.add(hIM, rIM);
+  scene.add(hIM, rIM); LAND.push(hIM, rIM);
   }
   // píer da marina, cabine, barcos atracados e gente (ver 29_marina)
   buildMarina();

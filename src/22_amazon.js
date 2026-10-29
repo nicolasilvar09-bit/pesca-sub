@@ -157,14 +157,14 @@ function buildForestAmz() {
   const crown = new THREE.IcosahedronGeometry(4, 0); crown.scale(1, 0.7, 1); crown.translate(0, 9, 0);
   const tIM = new THREE.InstancedMesh(trunk, new THREE.MeshLambertMaterial({ color: 0x4a3a2a }), trees.length), cIM = new THREE.InstancedMesh(crown, new THREE.MeshLambertMaterial({ color: 0x2a5a24 }), trees.length);
   trees.forEach((t, i) => { const k = rand(1.1, 2.3); s.set(k, k * rand(0.9, 1.5), k); pp.set(t[0], t[1] - 0.5, t[2]); q.setFromAxisAngle(new V3(0, 1, 0), rand(0, TAU)); m4.compose(pp, q, s); tIM.setMatrixAt(i, m4); cIM.setMatrixAt(i, m4); cIM.setColorAt(i, new THREE.Color().setHSL(0.27 + rand(-0.05, 0.04), 0.5, rand(0.12, 0.24))); });
-  scene.add(tIM, cIM);
+  scene.add(tIM, cIM); LAND.push(tIM, cIM);
   // palafitas: casa de madeira sobre estacas, telhado de palha
   const hG = new THREE.BoxGeometry(5, 3, 6); hG.translate(0, 3.2, 0); const rG = new THREE.ConeGeometry(4.8, 2.4, 4); rG.rotateY(Math.PI / 4); rG.translate(0, 5.9, 0);
   const sG = new THREE.CylinderGeometry(0.12, 0.12, 2, 4); sG.translate(0, 1, 0);
   const hIM = new THREE.InstancedMesh(hG, new THREE.MeshLambertMaterial({ color: 0x9a6a3a }), houses.length), rIM = new THREE.InstancedMesh(rG, new THREE.MeshLambertMaterial({ color: 0xb89a5a }), houses.length), sIM = new THREE.InstancedMesh(sG, new THREE.MeshLambertMaterial({ color: 0x4a3a2a }), houses.length * 4);
   houses.forEach((t, i) => { const k = rand(0.8, 1.2); q.setFromAxisAngle(new V3(0, 1, 0), rand(-0.3, 0.3)); s.set(k, k, k); pp.set(t[0], t[1] - 0.3, t[2]); m4.compose(pp, q, s); hIM.setMatrixAt(i, m4); rIM.setMatrixAt(i, m4);
     [[-2, -2.5], [2, -2.5], [-2, 2.5], [2, 2.5]].forEach(([a, b], j) => { pp.set(t[0] + a * k, t[1] - 0.3, t[2] + b * k); m4.compose(pp, q, s.set(k, k * 1.1, k)); sIM.setMatrixAt(i * 4 + j, m4); }); });
-  scene.add(hIM, rIM, sIM);
+  scene.add(hIM, rIM, sIM); LAND.push(hIM, rIM, sIM);
 }
 
 // ---------- bichos e perigos ----------

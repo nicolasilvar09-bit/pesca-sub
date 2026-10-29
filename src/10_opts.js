@@ -8,9 +8,11 @@ const QUALITY = [
 const OPT = { q: matchMedia('(pointer:coarse)').matches ? 1 : 2, sens: 1, inv: false, vol: 0.8, mus: true, vib: true, third: true };
 try { Object.assign(OPT, JSON.parse(localStorage.getItem(OPT_KEY) || '{}')); } catch (e) { }
 const QF = () => QUALITY[OPT.q] || QUALITY[1];
+// resolução dinâmica: fração da resolução da qualidade atual (baixa sozinha quando o FPS cai)
+const AQ = { t: 0, n: 0, sum: 0, scale: 1, drops: 0 };
 function saveOpt() { try { localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); } catch (e) { } }
 function applyOpt() {
-  if (renderer && !/lite/.test(location.search)) { renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QF().pr)); if (window.__fit) window.__fit(); }
+  if (renderer && !/lite/.test(location.search)) { renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, QF().pr) * AQ.scale); if (window.__fit) window.__fit(); }
   if (AU.master) AU.master.gain.value = OPT.vol;
 }
 function optRow(label, ctrl) { return `<div class="it"><div class="n">${label}</div><div style="display:flex;gap:6px;align-items:center">${ctrl}</div></div>`; }

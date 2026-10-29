@@ -103,13 +103,18 @@ function updateTut() {
   }
 }
 
-// ---------- qualidade automática: mede o FPS e baixa a qualidade se o aparelho sofrer ----------
-const AQ = { t: 0, n: 0, sum: 0, checks: 0 };
+// ---------- qualidade automática: mede o FPS o tempo todo ----------
+// primeiro mexe na resolução (suave, quase não se nota); só se não bastar baixa o nível de qualidade
 function autoQuality(dtReal) {
-  if (OPT.qManual || OPT.q === 0 || AQ.checks >= 2 || !started || paused) return;
+  if (!started || paused || dtReal > 0.5) return; // ignora travadas de carregamento
   AQ.t += dtReal; AQ.n++; AQ.sum += dtReal;
-  if (AQ.t < 12) return;
-  const fps = AQ.n / AQ.sum; AQ.t = AQ.n = AQ.sum = 0; AQ.checks++;
-  if (fps < 24) { OPT.q--; saveOpt(); applyOpt(); toast(`O aparelho estava pesado (${Math.round(fps)} FPS): qualidade ajustada para ${QF().name}. Dá para mudar em Opções.`, 5); }
-  else AQ.checks = 2; // está bom: para de medir
+  if (AQ.t < 4) return;
+  const fps = AQ.n / AQ.sum; AQ.t = AQ.n = AQ.sum = 0;
+  let s = AQ.scale;
+  if (fps < 27 && s > 0.62) s = Math.max(0.6, s - 0.12);
+  else if (fps < 22 && !OPT.qManual && OPT.q > 0 && AQ.drops < 2) {
+    OPT.q--; AQ.drops++; s = 0.85; saveOpt();
+    toast(`O aparelho estava pesado (${Math.round(fps)} FPS): qualidade ajustada para ${QF().name}. Dá para mudar em Opções.`, 5);
+  } else if (fps > 50 && s < 1) s = Math.min(1, s + 0.06);
+  if (s !== AQ.scale || OPT.q !== AQ.q) { AQ.scale = s; AQ.q = OPT.q; applyOpt(); }
 }

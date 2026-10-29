@@ -73,17 +73,14 @@ function buildDecor2() {
     if (Math.random() < 0.4) { const a = rand(0, TAU), x = R.x + Math.cos(a) * R.r * rand(1.1, 1.8), z = R.z + Math.sin(a) * R.r * rand(1.1, 1.8); star.push([x, H(x, z) + 0.02, z]); }
   }
   const cG = new THREE.CylinderGeometry(0.035, 0.03, 0.07, 6); cG.translate(0, 0.035, 0);
-  const cIM = new THREE.InstancedMesh(cG, uwify(new THREE.MeshStandardMaterial({ color: 0xff7a18, roughness: 0.5, emissive: 0x401000 }), { key: 'cs' }), coral.length);
-  coral.forEach((c, i) => { q.setFromUnitVectors(up, c[3]); s.setScalar(rand(0.7, 1.3)); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); cIM.setMatrixAt(i, m4); });
+  // em blocos por região (só os perto da câmera são desenhados)
+  chunked(cG, uwify(new THREE.MeshStandardMaterial({ color: 0xff7a18, roughness: 0.5, emissive: 0x401000 }), { key: 'cs' }), coral, (c, i, im) => { q.setFromUnitVectors(up, c[3]); s.setScalar(rand(0.7, 1.3)); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); }, 45);
   const sG = new THREE.CylinderGeometry(0.12, 0.07, 0.42, 9, 1, true); sG.translate(0, 0.21, 0);
-  const sIM = new THREE.InstancedMesh(sG, uwify(new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide }), { key: 'sp2' }), sponge.length);
   const sc = [0xe0a020, 0xd05a20, 0x7a3a8a, 0xc8c040];
-  sponge.forEach((c, i) => { e.set(rand(-0.2, 0.2), 0, rand(-0.2, 0.2)); q.setFromEuler(e); s.set(c[3], c[3] * rand(0.8, 1.5), c[3]); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); sIM.setMatrixAt(i, m4); sIM.setColorAt(i, new THREE.Color(pick(sc))); });
+  chunked(sG, uwify(new THREE.MeshStandardMaterial({ roughness: 0.9, side: THREE.DoubleSide }), { key: 'sp2' }), sponge, (c, i, im) => { e.set(rand(-0.2, 0.2), 0, rand(-0.2, 0.2)); q.setFromEuler(e); s.set(c[3], c[3] * rand(0.8, 1.5), c[3]); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); im.setColorAt(i, new THREE.Color(pick(sc))); }, 60);
   const sh = new THREE.Shape(); for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, r = k % 2 ? 0.05 : 0.14; k ? sh.lineTo(Math.cos(a) * r, Math.sin(a) * r) : sh.moveTo(r, 0); }
   const stG = new THREE.ShapeGeometry(sh); stG.rotateX(-Math.PI / 2);
-  const stIM = new THREE.InstancedMesh(stG, uwify(new THREE.MeshStandardMaterial({ roughness: 0.8, side: THREE.DoubleSide }), { key: 'st' }), star.length);
-  star.forEach((c, i) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); s.setScalar(rand(0.7, 1.4)); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); stIM.setMatrixAt(i, m4); stIM.setColorAt(i, new THREE.Color(pick([0xc8401c, 0xe08a20, 0xb03030]))); });
-  scene.add(cIM, sIM, stIM);
+  chunked(stG, uwify(new THREE.MeshStandardMaterial({ roughness: 0.8, side: THREE.DoubleSide }), { key: 'st' }), star, (c, i, im) => { e.set(0, rand(0, TAU), 0); q.setFromEuler(e); s.setScalar(rand(0.7, 1.4)); pp.set(c[0], c[1], c[2]); m4.compose(pp, q, s); im.setMatrixAt(i, m4); im.setColorAt(i, new THREE.Color(pick([0xc8401c, 0xe08a20, 0xb03030]))); }, 45);
   buildReef3();
 }
 // coral-cérebro (Mussismilia, endêmico do Brasil): sulcos em meandro

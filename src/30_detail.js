@@ -1,3 +1,5 @@
+// árvores, casas e coqueiros: escondidos com a câmera embaixo d'água (não dá para ver mesmo)
+const LAND = [];
 // ================= detalhes: cracas e mexilhões nas pedras rasas, esponjas incrustantes e textura de pedra mais rica =================
 function buildRockDetail() {
   if (AMZ) return;
@@ -21,12 +23,12 @@ function buildRockDetail() {
   }
   const place = (it, i, im, sc, rot) => { q.setFromUnitVectors(up, it[3]); if (rot) q.multiply(_rq2.setFromAxisAngle(up, rot)); s.set(sc[0], sc[1], sc[2]); m4.compose(_t2.set(it[0], it[1], it[2]), q, s); im.setMatrixAt(i, m4); };
   // craca: cone curto com boca escura (cor por vértice)
-  const bG = new THREE.CylinderGeometry(0.022, 0.055, 0.05, 7, 1); bG.translate(0, 0.025, 0);
+  const bG = new THREE.CylinderGeometry(0.022, 0.055, 0.05, 6, 1, true); bG.translate(0, 0.025, 0);
   const bc = new Float32Array(bG.attributes.position.count * 3); for (let i = 0; i < bG.attributes.position.count; i++) { const top = bG.attributes.position.getY(i) > 0.04; bc.set(top ? [0.18, 0.17, 0.16] : [0.78, 0.76, 0.7], i * 3); } bG.setAttribute('color', new THREE.BufferAttribute(bc, 3));
-  chunked(bG, uwify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }), { key: 'brn' }), barn, (it, i, im) => place(it, i, im, [it[4], it[4], it[4]]), 70);
+  chunked(bG, uwify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }), { key: 'brn' }), barn, (it, i, im) => place(it, i, im, [it[4], it[4], it[4]]), 35);
   // mexilhão: concha alongada, preto-azulado
-  const mG = new THREE.SphereGeometry(0.05, 8, 5); mG.scale(0.55, 0.45, 1.3); mG.translate(0, 0.012, 0);
-  chunked(mG, uwify(new THREE.MeshStandardMaterial({ color: 0x1c2230, roughness: 0.35, metalness: 0.2 }), { key: 'mus' }), mus, (it, i, im) => place(it, i, im, [1, 1, 1], it[4]), 70);
+  const mG = new THREE.SphereGeometry(0.05, 6, 3); mG.scale(0.55, 0.45, 1.3); mG.translate(0, 0.012, 0);
+  chunked(mG, uwify(new THREE.MeshStandardMaterial({ color: 0x1c2230, roughness: 0.35, metalness: 0.2 }), { key: 'mus' }), mus, (it, i, im) => place(it, i, im, [1, 1, 1], it[4]), 35);
   // crosta: disco achatado irregular (laranja, roxo, amarelo, vermelho)
   const cG = new THREE.CircleGeometry(1, 9); cG.rotateX(-Math.PI / 2); const cp = cG.attributes.position; for (let i = 1; i < cp.count; i++) { const k = 0.7 + 0.5 * Math.sin(i * 2.3); cp.setX(i, cp.getX(i) * k); cp.setZ(i, cp.getZ(i) * k); } cG.translate(0, 0.006, 0);
   const CC = [0xd8702a, 0x8a3a8a, 0xd8c040, 0xb83030];

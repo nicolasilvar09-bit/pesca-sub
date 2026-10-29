@@ -191,6 +191,7 @@ function updateEnv(dt) {
   const fov = (camUnder ? base * 0.84 : base) + (P.mode === 'swim' && camUnder ? maskNow().fov : 0); if (Math.abs(camera.fov - fov) > 0.1) { camera.fov = lerp(camera.fov, fov, clamp(dt * 6, 0, 1)); camera.updateProjectionMatrix(); }
   if (lastUnder !== camUnder) { AU.setEnv(camUnder); lastUnder = camUnder; }
   BUOYS.forEach((b, i) => { b.position.y = waveH(b.position.x, b.position.z, T) - 0.15; b.rotation.set(Math.sin(T * 1.2 + i) * 0.12, i, Math.cos(T + i) * 0.1); });
+  for (const m of LAND) m.visible = !camUnder;
   updateFX(dt, camUnder, camMurk, T); updateSound(dt); updateAtmos(dt, T); updateMarina(dt, T);
   poolsBegin(); drawFishes(); updateLife(dt, T); poolsEnd();
 }

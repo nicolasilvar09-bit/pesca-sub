@@ -152,12 +152,12 @@ function buildCoastNe() {
   const tIM = new THREE.InstancedMesh(tr, new THREE.MeshLambertMaterial({ color: 0x8a7458 }), palms.length), cIM = new THREE.InstancedMesh(crown, new THREE.MeshLambertMaterial({ color: 0x4f8a32, side: THREE.DoubleSide }), palms.length);
   palms.forEach((t, i) => { const hgt = rand(6, 11), lean = rand(-0.25, 0.25), yaw = rand(0, TAU); e.set(lean, yaw, 0, 'YXZ'); q.setFromEuler(e); s.set(1, hgt, 1); pp.set(t[0], t[1] - 0.2, t[2]); m4.compose(pp, q, s); tIM.setMatrixAt(i, m4);
     const top = new V3(0, hgt, 0).applyQuaternion(q).add(pp); e.set(rand(-0.2, 0.2), rand(0, TAU), 0); q.setFromEuler(e); const k = rand(0.8, 1.2); s.set(k, k, k); m4.compose(top, q, s); cIM.setMatrixAt(i, m4); cIM.setColorAt(i, new THREE.Color().setHSL(rand(0.24, 0.3), 0.55, rand(0.25, 0.38))); });
-  scene.add(tIM, cIM);
+  scene.add(tIM, cIM); LAND.push(tIM, cIM);
   const hG = new THREE.BoxGeometry(6, 3.4, 6); hG.translate(0, 1.7, 0); const rG = new THREE.ConeGeometry(4.8, 2, 4); rG.rotateY(Math.PI / 4); rG.translate(0, 4.4, 0);
   const HC = [0xf4e2a0, 0x9ad0e0, 0xf0b0a0, 0xc8e0a8, 0xffffff, 0xf8c870];
   const hIM = new THREE.InstancedMesh(hG, new THREE.MeshLambertMaterial({ color: 0xffffff }), houses.length), rIM = new THREE.InstancedMesh(rG, new THREE.MeshLambertMaterial({ color: 0xb4532a }), houses.length);
   houses.forEach((t, i) => { const k = rand(0.8, 1.3); q.setFromAxisAngle(new V3(0, 1, 0), rand(-0.3, 0.3)); s.set(k, k, k); pp.set(t[0], t[1] - 0.3, t[2]); m4.compose(pp, q, s); hIM.setMatrixAt(i, m4); rIM.setMatrixAt(i, m4); hIM.setColorAt(i, new THREE.Color(HC[i % HC.length])); });
-  scene.add(hIM, rIM);
+  scene.add(hIM, rIM); LAND.push(hIM, rIM);
   // jangadas na areia: casco de troncos e vela triangular
   const sailM = new THREE.MeshLambertMaterial({ color: 0xf2ece0, side: THREE.DoubleSide }), wood = new THREE.MeshLambertMaterial({ color: 0x9a7a52 });
   for (let k = 0; k < 7; k++) {
