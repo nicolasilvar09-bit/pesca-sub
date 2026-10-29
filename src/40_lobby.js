@@ -206,18 +206,21 @@ function setupLobby() {
   // volta de uma viagem do grupo, ou chegada por link de convite
   let saved = null; try { saved = JSON.parse(sessionStorage.getItem(LB_KEY) || 'null'); } catch (e) { }
   const q = new URLSearchParams(location.search).get('grupo');
-  const wait = fn => { const t0 = Date.now(), iv = setInterval(() => { if (ON.joined && ON.me) { clearInterval(iv); fn(); } else if (Date.now() - t0 > 120000) clearInterval(iv); }, 500); };
+  const wait = fn => { const t0 = Date.now(), iv = setInterval(() => { if (ON.joined && ON.me) { clearInterval(iv); fn(); } else if (Date.now() - t0 > 120000) clearInterval(iv); }, 150); };
   if (saved && saved.pid) { Object.assign(LB, saved); if (LB.phase === 'go') wait(() => lbArrived()); }
   if (q) {
     try { history.replaceState(null, '', location.pathname); } catch (e) { }
     const [code, pid] = q.split('.');
+    // abre a tela do grupo na hora, mostrando que está entrando, enquanto a conexão termina
+    LB.open = true; el.classList.remove('hide');
+    $('lobbyBody').innerHTML = `<div class="it" style="justify-content:center;padding:28px"><div style="text-align:center"><div class="n">Entrando no grupo do amigo...</div><div class="d">Conectando ao servidor do jogo. Leva só alguns segundos.</div></div></div>`;
     wait(async () => {
       try {
-        const p = await sbFetch(`/rest/v1/profiles?code=eq.${code}&select=id,name,code,level`); if (!p || !p.length) { toast('Convite de grupo inválido.', 3, 'bad'); return; }
-        if (p[0].id === ON.s.uid) return;
+        const p = await sbFetch(`/rest/v1/profiles?code=eq.${code}&select=id,name,code,level`); if (!p || !p.length) { toast('Convite de grupo inválido.', 3, 'bad'); lbClose(); return; }
+        if (p[0].id === ON.s.uid) { lbOpen(); return; }
         await lbBefriend({ uid: p[0].id, name: p[0].name, code: p[0].code, lvl: p[0].level }); bcast('hello', { to: p[0].id, lvl: level() });
         lbJoin(pid, p[0].id);
-      } catch (e) { toast('Não deu para entrar no grupo: ' + e.message, 3, 'bad'); }
+      } catch (e) { toast('Não deu para entrar no grupo: ' + e.message, 3, 'bad'); lbClose(); }
     });
   }
 }

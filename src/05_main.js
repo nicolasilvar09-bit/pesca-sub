@@ -222,13 +222,17 @@ function startGame() {
   backupReminder(); seedXP(); setupTut(); careerHUD(); introStart();
   const D = ensureDaily(); if (D.list.some(m => !m.done)) toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5);
 }
-function init() {
-  addDeepSpots(); loadSave(); if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
-  initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); bakeShallow(); buildFX();
-  DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
+// o mundo é montado em etapas, soltando a página entre elas: a conexão online anda junto em vez de esperar o 3D todo
+const yieldUI = () => new Promise(r => setTimeout(r, 0));
+async function init() {
+  addDeepSpots(); loadSave(); onlineStart(); // conecta enquanto o mundo 3D é montado
+  if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
+  initRenderer(); sky = buildSky(); await yieldUI(); buildTerrain(); await yieldUI(); buildWater(); buildRocksAndDecor(); await yieldUI(); buildLand(); bakeShallow(); buildFX(); await yieldUI();
+  DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); await yieldUI(); buildLife(); initExtra(); await yieldUI();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
   setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); $('menu').classList.add('live');
   $('playBtn').onclick = startGame;
+  ON.ready = true;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
   loop();
 }

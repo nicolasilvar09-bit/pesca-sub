@@ -31,9 +31,13 @@ const newCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''
 const myName = () => (ON.me && ON.me.name) || SV.onName || 'Mergulhador';
 
 async function onlineStart() {
-  if (!navigator.onLine) { ON.err = 'Sem internet.'; return; }
+  if (ON.starting) return; ON.starting = true;
+  if (!navigator.onLine) { ON.err = 'Sem internet.'; ON.starting = false; return; }
   try {
-    await sbAuth();
+    ON.t0 = performance.now();
+    await sbAuth(); ON.tAuth = performance.now() - ON.t0;
+    // canal ao vivo, amigos e save da nuvem saem em paralelo com o perfil (antes era tudo em fila)
+    wsConnect(); const fr = loadFriends();
     const p = await sbFetch(`/rest/v1/profiles?id=eq.${ON.s.uid}&select=*`);
     if (p && p.length) ON.me = p[0];
     else {
@@ -41,10 +45,10 @@ async function onlineStart() {
         try { ON.me = (await sbFetch('/rest/v1/profiles', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ id: ON.s.uid, name: SV.onName || 'Mergulhador', code: newCode(), level: level() }) }))[0]; } catch (e) { if (k === 3) throw e; }
       }
     }
-    ON.err = '';
-    await loadFriends(); await cloudCheck(); wsConnect();
+    ON.err = ''; ON.tMe = performance.now() - ON.t0;
+    await Promise.all([fr, cloudCheck()]);
     setInterval(onlineTick, 20000);
-  } catch (e) { ON.err = 'Não conectou: ' + e.message; }
+  } catch (e) { ON.err = 'Não conectou: ' + e.message; ON.starting = false; }
 }
 
 // ---------- save na nuvem ----------
@@ -129,7 +133,7 @@ function bcast(ev, data) { if (!ON.joined) return; wsSend('realtime:pesca', 'bro
 function presenceMeta(state, fn) { for (const k in state) { const m = state[k] && state[k].metas && state[k].metas[0]; if (m) fn(k, m); } }
 function wsMsg(m) {
   if (m.topic !== 'realtime:pesca') return;
-  if (m.event === 'phx_reply' && m.ref === '1') { if (m.payload && m.payload.status === 'ok') { ON.joined = true; wsTrack(); } return; }
+  if (m.event === 'phx_reply' && m.ref === '1') { if (m.payload && m.payload.status === 'ok') { ON.joined = true; ON.tJoin = performance.now() - ON.t0; wsTrack(); } return; }
   if (m.event === 'presence_state') { ON.online = {}; presenceMeta(m.payload, (k, v) => { if (k !== ON.s.uid) ON.online[k] = v; }); return; }
   if (m.event === 'presence_diff') {
     presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
@@ -137,7 +141,7 @@ function wsMsg(m) {
     if (shopTab === 'online' && !$('marinaPanel').classList.contains('hide')) renderShop();
     return;
   }
-  if (m.event === 'broadcast' && m.payload) onBcast(m.payload.event, m.payload.payload || {});
+  if (m.event === 'broadcast' && m.payload && ON.ready) onBcast(m.payload.event, m.payload.payload || {});
 }
 function onBcast(ev, d) {
   if (!d.from || d.from === ON.s.uid) return;

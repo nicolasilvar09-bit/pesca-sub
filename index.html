@@ -2220,13 +2220,17 @@ function startGame() {
   backupReminder(); seedXP(); setupTut(); careerHUD(); introStart();
   const D = ensureDaily(); if (D.list.some(m => !m.done)) toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5);
 }
-function init() {
-  addDeepSpots(); loadSave(); if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
-  initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); bakeShallow(); buildFX();
-  DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
+// o mundo é montado em etapas, soltando a página entre elas: a conexão online anda junto em vez de esperar o 3D todo
+const yieldUI = () => new Promise(r => setTimeout(r, 0));
+async function init() {
+  addDeepSpots(); loadSave(); onlineStart(); // conecta enquanto o mundo 3D é montado
+  if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
+  initRenderer(); sky = buildSky(); await yieldUI(); buildTerrain(); await yieldUI(); buildWater(); buildRocksAndDecor(); await yieldUI(); buildLand(); bakeShallow(); buildFX(); await yieldUI();
+  DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); await yieldUI(); buildLife(); initExtra(); await yieldUI();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
   setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); $('menu').classList.add('live');
   $('playBtn').onclick = startGame;
+  ON.ready = true;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
   loop();
 }
@@ -5591,9 +5595,13 @@ const newCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''
 const myName = () => (ON.me && ON.me.name) || SV.onName || 'Mergulhador';
 
 async function onlineStart() {
-  if (!navigator.onLine) { ON.err = 'Sem internet.'; return; }
+  if (ON.starting) return; ON.starting = true;
+  if (!navigator.onLine) { ON.err = 'Sem internet.'; ON.starting = false; return; }
   try {
-    await sbAuth();
+    ON.t0 = performance.now();
+    await sbAuth(); ON.tAuth = performance.now() - ON.t0;
+    // canal ao vivo, amigos e save da nuvem saem em paralelo com o perfil (antes era tudo em fila)
+    wsConnect(); const fr = loadFriends();
     const p = await sbFetch(`/rest/v1/profiles?id=eq.${ON.s.uid}&select=*`);
     if (p && p.length) ON.me = p[0];
     else {
@@ -5601,10 +5609,10 @@ async function onlineStart() {
         try { ON.me = (await sbFetch('/rest/v1/profiles', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ id: ON.s.uid, name: SV.onName || 'Mergulhador', code: newCode(), level: level() }) }))[0]; } catch (e) { if (k === 3) throw e; }
       }
     }
-    ON.err = '';
-    await loadFriends(); await cloudCheck(); wsConnect();
+    ON.err = ''; ON.tMe = performance.now() - ON.t0;
+    await Promise.all([fr, cloudCheck()]);
     setInterval(onlineTick, 20000);
-  } catch (e) { ON.err = 'Não conectou: ' + e.message; }
+  } catch (e) { ON.err = 'Não conectou: ' + e.message; ON.starting = false; }
 }
 
 // ---------- save na nuvem ----------
@@ -5689,7 +5697,7 @@ function bcast(ev, data) { if (!ON.joined) return; wsSend('realtime:pesca', 'bro
 function presenceMeta(state, fn) { for (const k in state) { const m = state[k] && state[k].metas && state[k].metas[0]; if (m) fn(k, m); } }
 function wsMsg(m) {
   if (m.topic !== 'realtime:pesca') return;
-  if (m.event === 'phx_reply' && m.ref === '1') { if (m.payload && m.payload.status === 'ok') { ON.joined = true; wsTrack(); } return; }
+  if (m.event === 'phx_reply' && m.ref === '1') { if (m.payload && m.payload.status === 'ok') { ON.joined = true; ON.tJoin = performance.now() - ON.t0; wsTrack(); } return; }
   if (m.event === 'presence_state') { ON.online = {}; presenceMeta(m.payload, (k, v) => { if (k !== ON.s.uid) ON.online[k] = v; }); return; }
   if (m.event === 'presence_diff') {
     presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
@@ -5697,7 +5705,7 @@ function wsMsg(m) {
     if (shopTab === 'online' && !$('marinaPanel').classList.contains('hide')) renderShop();
     return;
   }
-  if (m.event === 'broadcast' && m.payload) onBcast(m.payload.event, m.payload.payload || {});
+  if (m.event === 'broadcast' && m.payload && ON.ready) onBcast(m.payload.event, m.payload.payload || {});
 }
 function onBcast(ev, d) {
   if (!d.from || d.from === ON.s.uid) return;
@@ -7605,18 +7613,21 @@ function setupLobby() {
   // volta de uma viagem do grupo, ou chegada por link de convite
   let saved = null; try { saved = JSON.parse(sessionStorage.getItem(LB_KEY) || 'null'); } catch (e) { }
   const q = new URLSearchParams(location.search).get('grupo');
-  const wait = fn => { const t0 = Date.now(), iv = setInterval(() => { if (ON.joined && ON.me) { clearInterval(iv); fn(); } else if (Date.now() - t0 > 120000) clearInterval(iv); }, 500); };
+  const wait = fn => { const t0 = Date.now(), iv = setInterval(() => { if (ON.joined && ON.me) { clearInterval(iv); fn(); } else if (Date.now() - t0 > 120000) clearInterval(iv); }, 150); };
   if (saved && saved.pid) { Object.assign(LB, saved); if (LB.phase === 'go') wait(() => lbArrived()); }
   if (q) {
     try { history.replaceState(null, '', location.pathname); } catch (e) { }
     const [code, pid] = q.split('.');
+    // abre a tela do grupo na hora, mostrando que está entrando, enquanto a conexão termina
+    LB.open = true; el.classList.remove('hide');
+    $('lobbyBody').innerHTML = `<div class="it" style="justify-content:center;padding:28px"><div style="text-align:center"><div class="n">Entrando no grupo do amigo...</div><div class="d">Conectando ao servidor do jogo. Leva só alguns segundos.</div></div></div>`;
     wait(async () => {
       try {
-        const p = await sbFetch(`/rest/v1/profiles?code=eq.${code}&select=id,name,code,level`); if (!p || !p.length) { toast('Convite de grupo inválido.', 3, 'bad'); return; }
-        if (p[0].id === ON.s.uid) return;
+        const p = await sbFetch(`/rest/v1/profiles?code=eq.${code}&select=id,name,code,level`); if (!p || !p.length) { toast('Convite de grupo inválido.', 3, 'bad'); lbClose(); return; }
+        if (p[0].id === ON.s.uid) { lbOpen(); return; }
         await lbBefriend({ uid: p[0].id, name: p[0].name, code: p[0].code, lvl: p[0].level }); bcast('hello', { to: p[0].id, lvl: level() });
         lbJoin(pid, p[0].id);
-      } catch (e) { toast('Não deu para entrar no grupo: ' + e.message, 3, 'bad'); }
+      } catch (e) { toast('Não deu para entrar no grupo: ' + e.message, 3, 'bad'); lbClose(); }
     });
   }
 }
