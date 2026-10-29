@@ -1,6 +1,6 @@
-// ================= trilha por destino, fundo do mar, tensão da briga e eco embaixo d'água =================
+// ================= trilha por destino (só no menu), eco embaixo d'água e ondas =================
 // tudo sintetizado na hora (sem arquivos): sequenciador de 16 passos agendado à frente no relógio do áudio
-const MUS = { on: false, bus: null, step: 0, next: 0, bar: 0, deep: null, deepG: null, tens: 0, tensT: 0, rev: null, revSend: null, wave: 0, shoreT: 0, last: '' };
+const MUS = { on: false, bus: null, step: 0, next: 0, bar: 0, rev: null, revSend: null, wave: 0, shoreT: 0, last: '' };
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
 // estilos: acordes (MIDI), andamento e quem toca
 const STYLES = {
@@ -24,15 +24,6 @@ function musInit() {
   MUS.rev = c.createConvolver(); MUS.rev.buffer = ir; MUS.revSend = c.createGain(); MUS.revSend.gain.value = 0.08;
   AU.master.connect(MUS.revSend).connect(MUS.rev).connect(c.destination);
   const mr = c.createGain(); mr.gain.value = 0.25; MUS.bus.connect(mr).connect(MUS.rev);
-  // fundo do mar: acorde grave e lento, abre conforme a profundidade
-  MUS.deepG = c.createGain(); MUS.deepG.gain.value = 0; MUS.deepF = c.createBiquadFilter(); MUS.deepF.type = 'lowpass'; MUS.deepF.frequency.value = 500;
-  MUS.deepG.connect(MUS.deepF).connect(AU.master); MUS.deepG.connect(MUS.rev);
-  MUS.deep = [36, 43, 48, 55].map((m, i) => { const o = c.createOscillator(), g = c.createGain(), l = c.createOscillator(), lg = c.createGain();
-    o.type = i < 2 ? 'sine' : 'triangle'; o.frequency.value = mtof(m); g.gain.value = 0.12 / (1 + i * 0.4);
-    l.frequency.value = 0.05 + i * 0.03; lg.gain.value = 0.05; l.connect(lg).connect(g.gain); o.connect(g).connect(MUS.deepG); o.start(); l.start(); return o; });
-  // tensão: ostinato grave que abre o filtro com a força da briga
-  MUS.tensG = c.createGain(); MUS.tensG.gain.value = 0; MUS.tensF = c.createBiquadFilter(); MUS.tensF.type = 'lowpass'; MUS.tensF.frequency.value = 300; MUS.tensF.Q.value = 6;
-  MUS.tensG.connect(MUS.tensF).connect(AU.master);
   MUS.next = c.currentTime + 0.1; MUS.on = true;
 }
 // ---------- instrumentos (todos recebem o instante t do relógio do áudio) ----------
@@ -66,7 +57,7 @@ function musStep(S, st, t, night) {
 }
 // ---------- vinhetas ----------
 function musStinger(kind) {
-  if (!kind || !MUS.on || !OPT.mus) return; const c = AU.ctx, t = c.currentTime + 0.05;
+  if (!kind || !MUS.on || !OPT.mus || started) return; // sem vinheta no mar const c = AU.ctx, t = c.currentTime + 0.05;
   const notes = kind === 'record' ? [72, 76, 79, 84, 88] : kind === 'rare' ? [69, 73, 76, 81, 85] : [67, 71, 74, 79];
   notes.forEach((m, i) => { osc('triangle', mtof(m), t + i * 0.09, 0.005, 0.08, 0.7, AU.master); osc('sine', mtof(m) * 2, t + i * 0.09, 0.003, 0.03, 0.5, AU.master); });
 }
@@ -77,30 +68,18 @@ function shoreNear() { // costa a menos de ~40 m da câmera: onda quebrando mais
 function updateMusic(dt) {
   const c = AU.ctx; if (!c || c.state !== 'running') return;
   musInit(); if (!MUS.on) return;
-  const now = c.currentTime, under = camUnder, depth = Math.max(0, -camera.position.y), night = DAY.amb < 0.35;
+  const now = c.currentTime, under = camUnder, night = DAY.amb < 0.35;
   const S = STYLES[REGION] || STYLES.cv;
-  // tensão: briga no arpão, tubarão rondando ou predador vindo no sangue
-  const fight = GUN.state === 'hooked' && GUN.fish && GUN.fish.fight > 0;
-  let shark = false; if (under && (MUS.tensT -= dt) <= 0) { MUS.tensT = 0.5; MUS.shark = FISHES.some(f => f.alive && f.sp.shape === 'shark' && f.vis && f.pos.distanceTo(P.pos) < 18); } shark = under && MUS.shark;
-  const tens = OPT.mus && started && (fight || shark) ? (fight ? 0.6 + 0.4 * (GUN.tension || 0) : 0.55) : 0;
-  MUS.tens = lerp(MUS.tens, tens, clamp(dt * 2, 0, 1));
-  MUS.tensG.gain.setTargetAtTime(MUS.tens * 0.5, now, 0.2); MUS.tensF.frequency.setTargetAtTime(260 + MUS.tens * 900, now, 0.2);
-  // trilha com ritmo: superfície e menus; embaixo d'água dá lugar ao fundo do mar
-  const play = OPT.mus && !under && MUS.tens < 0.2;
-  MUS.bus.gain.setTargetAtTime(play ? (paused || !started ? 0.8 : 0.6) : 0, now, 0.8);
-  MUS.deepG.gain.setTargetAtTime(OPT.mus && under ? 0.25 + 0.55 * smooth(2, 25, depth) : 0, now, 1.2);
-  MUS.deepF.frequency.setTargetAtTime(700 - 450 * smooth(2, 30, depth), now, 1);
+  // trilha só com menu aberto (tela inicial, loja, pausa); no mar fica só o som ambiente
+  const play = OPT.mus && (!started || paused);
+  MUS.bus.gain.setTargetAtTime(play ? 0.8 : 0, now, play ? 0.8 : 0.3);
   MUS.revSend.gain.setTargetAtTime(under ? 0.32 : 0.06, now, 0.3);
   // agenda as semicolcheias dos próximos 400 ms
   const sp = 60 / (S.bpm * (night ? 0.8 : 1)) / 4;
   // atrasou (aparelho travou, aba em segundo plano): pula para o tempo certo sem perder o compasso
   if (MUS.next < now) { const miss = Math.ceil((now - MUS.next) / sp); for (let i = 0; i < miss; i++) { MUS.step++; if (MUS.step % 16 === 0) MUS.bar++; } MUS.next += miss * sp; }
   while (MUS.next < now + 0.4) {
-    if (play || MUS.tens > 0.05) {
-      if (play) musStep(S, MUS.step, MUS.next, night);
-      // ostinato da tensão: colcheias graves no tom do acorde
-      if (MUS.tens > 0.05 && MUS.step % 2 === 0) { const m = S.chords[MUS.bar % S.chords.length][0] - 12 + (MUS.step % 8 === 6 ? 1 : 0); osc('sawtooth', mtof(m), MUS.next, 0.005, 0.12, sp * 1.6, MUS.tensG); }
-    }
+    if (play) musStep(S, MUS.step, MUS.next, night);
     MUS.step++; if (MUS.step % 16 === 0) MUS.bar++;
     MUS.next += sp;
   }
