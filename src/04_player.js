@@ -250,7 +250,7 @@ function toggleAnchor() {
   if (B.anchored) { B.anchored = false; toast('Âncora recolhida.'); AU.click(); return; }
   if (Math.abs(B.speed) > 2.5) { toast('Reduza a velocidade para ancorar.'); return; }
   const h = H(B.pos.x, B.pos.z);
-  if (h < -40) { toast('Fundo demais para ancorar.'); return; }
+  if (h < -100) { toast('Fundo demais para ancorar: a corda tem 100 m.'); return; }
   B.anchored = true; B.anchorP = new V3(B.pos.x + Math.sin(B.heading) * 8, h, B.pos.z + Math.cos(B.heading) * 8);
   toast(`Ancorado em ${Math.round(-h)} m de fundo.`); AU.splash();
 }
