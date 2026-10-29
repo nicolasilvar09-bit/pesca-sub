@@ -9,6 +9,9 @@ const PAINTS = [
   { name: 'Grafite e dourado', top: [0.16, 0.17, 0.19], stripe: [0.82, 0.62, 0.2] },
   { name: 'Verde Costa Verde', top: [0.1, 0.33, 0.27], stripe: [0.95, 0.88, 0.62] },
   { name: 'Amarelo', top: [0.95, 0.76, 0.12], stripe: [0.1, 0.1, 0.12] },
+  { name: 'Azul-noite metálico', top: [0.05, 0.09, 0.18], stripe: [0.85, 0.86, 0.88] },
+  { name: 'Preto e prata', top: [0.06, 0.06, 0.07], stripe: [0.75, 0.76, 0.78] },
+  { name: 'Cinza grafite', top: [0.32, 0.34, 0.37], stripe: [0.08, 0.1, 0.14] },
 ];
 const PAINT_PRICE = 400;
 // pintura padrão de cada modelo
@@ -16,39 +19,78 @@ const BOAT_LOOK = [
   { paint: 0, len: 1, beam: 1, canvas: 0x1d4f7a },
   { paint: 1, len: 1.1, beam: 1.04, canvas: 0xf2f2ee },
   { paint: 3, len: 1.2, beam: 1.1, canvas: 0x24262a },
+  { paint: 6, len: 1.08, beam: 1.04, canvas: 0xf2f2ee },
 ];
 const boatPaint = i => { const p = (SV.boatPaint || {})[i]; return PAINTS[p != null ? p : BOAT_LOOK[i].paint]; };
 
+// casco por seções (loft): fundo em V com quina viva, costado abrindo para fora, proa lançada subindo e popa reta (espelho).
+// mesmas medidas do casco antigo (popa z=-3.5, proa z=3.9, boca 2,5 m, borda a 0,72 m), escaladas por look.len / look.beam
+function hullShape(t, fb = 1.2) {
+  // meia-boca na borda, altura da borda (tosado), linha da quilha
+  const bw = t < 0.42 ? lerp(1.1, 1.25, smooth(0, 0.42, t)) : 1.25 * Math.pow(Math.max(0, 1 - Math.pow((t - 0.42) / 0.58, 2.1)), 0.55);
+  const sh = fb + 0.32 * Math.pow(Math.max(0, (t - 0.45) / 0.55), 2); // borda alta: o convés (0,715) fica meio metro abaixo
+  const kd = -0.52 + 0.06 * t + (t > 0.62 ? Math.pow((t - 0.62) / 0.38, 1.7) * (sh + 0.46) : 0);
+  return { bw, sh, kd };
+}
 function boatHull(look, paint) {
-  const sh = new THREE.Shape();
-  sh.moveTo(-1.15, -3.5); sh.lineTo(1.15, -3.5); sh.lineTo(1.25, 0.8); sh.quadraticCurveTo(1.05, 2.9, 0, 3.9); sh.quadraticCurveTo(-1.05, 2.9, -1.25, 0.8); sh.closePath();
-  const hg = new THREE.ExtrudeGeometry(sh, { depth: 1.15, steps: 5, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 2, curveSegments: 10 });
-  hg.rotateX(Math.PI / 2); hg.translate(0, 0.62, 0);
-  const p = hg.attributes.position, col = new Float32Array(p.count * 3);
-  for (let i = 0; i < p.count; i++) {
-    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const dn = clamp((0.62 - y) / 1.25, 0, 1); x *= lerp(1, 0.28, dn * dn); if (dn > 0.5) y += Math.max(0, z - 0.8) * 0.18 * dn;
-    p.setXYZ(i, x * look.beam, y, z * look.len);
-    let c = paint.top; if (y < 0.3 && y > 0.05) c = paint.stripe; if (y <= -0.12) c = look.bottom || [0.45, 0.08, 0.06];
-    col.set(c, i * 3);
-  }
-  hg.setAttribute('color', new THREE.BufferAttribute(col, 3)); hg.computeVertexNormals();
-  const deckG = new THREE.ShapeGeometry(sh); deckG.rotateX(-Math.PI / 2); deckG.scale(0.9 * look.beam, 1, 0.93 * look.len);
+  const fb = look.fb || 1.2, N = 30, L0 = -3.5, L1 = 3.9, dead = Math.tan(19 * Math.PI / 180), bottom = look.bottom || [0.45, 0.08, 0.06];
+  const pos = [], col = [], idx = [];
+  const colAt = y => y <= -0.12 ? bottom : y < 0.3 && y > 0.05 ? paint.stripe : paint.top;
+  const vtx = (x, y, z) => { pos.push(x * look.beam, y, z * look.len); col.push(...colAt(y)); return pos.length / 3 - 1; };
+  // perfil de cada seção (meio casco): quilha → fundo → quina → aba da quina → costado → borda → topo da borda (por dentro)
+  const sect = t => {
+    const { bw, sh, kd } = hullShape(t, fb), cw = bw * 0.86, ch = Math.min(kd + cw * dead, sh - 0.05);
+    return { bot: [[0, kd], [cw * 0.5, kd + cw * 0.5 * dead * 0.92], [cw, ch]], side: [[cw, ch], [cw + 0.05 * bw, ch + 0.015], [bw * 0.97, lerp(ch, sh, 0.45)], [bw, sh], [Math.max(0, bw - 0.09), sh]] };
+  };
+  // faixas: cada uma com vértices próprios para a quina e a borda ficarem vivas
+  const strip = key => {
+    for (const sx of [1, -1]) {
+      const base = pos.length / 3; let M = 0;
+      for (let i = 0; i <= N; i++) {
+        const t = i / N, z = lerp(L0, L1, t), pts = sect(t)[key]; M = pts.length;
+        for (const [x, y] of pts) vtx(sx * x, y, z);
+      }
+      for (let i = 0; i < N; i++) for (let k = 0; k < M - 1; k++) {
+        const a = base + i * M + k, b = a + M;
+        if (sx > 0) idx.push(a, b, a + 1, b, b + 1, a + 1); else idx.push(a, a + 1, b, b, a + 1, b + 1);
+      }
+    }
+  };
+  strip('bot'); strip('side');
+  // espelho de popa
+  const s0 = sect(0), ring = [...s0.bot, ...s0.side.slice(1, 4)], c0 = vtx(0, (s0.bot[0][1] + s0.side[3][1]) / 2, L0);
+  const rr = [], rl = [];
+  for (const [x, y] of ring) { rr.push(vtx(x, y, L0)); rl.push(vtx(-x, y, L0)); }
+  for (let k = 0; k < ring.length - 1; k++) { idx.push(c0, rr[k + 1], rr[k]); idx.push(c0, rl[k], rl[k + 1]); }
+  idx.push(c0, rl[ring.length - 1], rr[ring.length - 1]);
+  const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); hg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); hg.setIndex(idx); hg.computeVertexNormals();
+  // convés: contorno por dentro da borda, na altura em que os barcos já colocam (0,715)
+  const shp = new THREE.Shape(), out = [];
+  for (let i = 0; i <= N; i++) { const t = i / N, { bw } = hullShape(t, fb); out.push([Math.max(0, bw - 0.12), lerp(L0, L1, t) * 0.985]); }
+  shp.moveTo(-out[0][0], out[0][1]); for (const [x, z] of out) shp.lineTo(x, z); for (let i = out.length - 1; i >= 0; i--) shp.lineTo(-out[i][0], out[i][1]);
+  const deckG = new THREE.ShapeGeometry(shp); deckG.rotateX(Math.PI / 2); deckG.scale(look.beam, 1, look.len);
+  const di = deckG.index.array; for (let k = 0; k < di.length; k += 3) { const tmp = di[k]; di[k] = di[k + 2]; di[k + 2] = tmp; } deckG.computeVertexNormals(); // virado para cima
   return [hg, deckG];
 }
+// motor de popa: capô arredondado, carenagem, rabeta afinando, quilha e hélice
 function outboard(g, x, z, h, m, cowl) {
-  const b = (w, hh, d, y, mat) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), mat); o.position.set(x, y, z); g.add(o); return o; };
-  b(0.5 * h, 0.85 * h, 0.55 * h, 1.0, m);
-  b(0.52 * h, 0.12, 0.57 * h, 1.0 + 0.36 * h, cowl);
-  b(0.16, 1.1, 0.24, 0.1, m).position.z = z - 0.04;
+  const o = new THREE.Group(); o.position.set(x, 0, z); g.add(o);
+  const cw = new THREE.Mesh(new THREE.CapsuleGeometry(0.19 * h, 0.3 * h, 6, 14), cowl); cw.scale.set(1, 1.1, 1.3); cw.position.set(0, 1.25, -0.06); o.add(cw);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.2 * h, 0.2 * h, 0.05, 16), m); band.scale.set(1, 1, 1.3); band.position.set(0, 1.02, -0.06); o.add(band);
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.13 * h, 1.1, 0.26 * h), cowl); shaft.position.set(0, 0.45, -0.02); o.add(shaft);
+  const torp = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.36, 4, 10), m); torp.rotation.x = Math.PI / 2; torp.position.set(0, -0.12, -0.04); o.add(torp);
+  const skeg = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.22, 0.14), m); skeg.position.set(0, -0.26, -0.1); o.add(skeg);
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.34 * h, 0.02, 0.32), m); plate.position.set(0, 0.04, -0.05); o.add(plate);
+  for (let k = 0; k < 3; k++) { const bl = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.24, 0.07), new THREE.MeshStandardMaterial({ color: 0xb8bcc0, metalness: 0.85, roughness: 0.25 })); bl.position.set(0, -0.12, -0.27); bl.rotation.z = k * TAU / 3; o.add(bl); }
+  return o;
 }
 function buildBoatModel(idx, paintOverride) {
   if (idx === 'v') return buildVoadeira();
   const look = BOAT_LOOK[idx] || BOAT_LOOK[0], paint = paintOverride || boatPaint(idx), L = look.len, Bm = look.beam;
   const g = new THREE.Group();
   const [hg, deckG] = boatHull(look, paint);
-  g.add(new THREE.Mesh(hg, uwify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35 }), { key: 'b' })));
-  const deck = new THREE.Mesh(deckG, new THREE.MeshStandardMaterial({ color: idx === 2 ? 0x9a9a92 : 0xb08a5a, roughness: 0.8 })); deck.position.y = 0.715; g.add(deck);
+  g.add(new THREE.Mesh(hg, uwify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, side: THREE.DoubleSide }), { key: 'b' })));
+  const deck = new THREE.Mesh(deckG, new THREE.MeshStandardMaterial({ color: idx === 2 ? 0x9a9a92 : idx === 3 ? 0xa8743e : 0xb08a5a, roughness: 0.8 })); deck.position.y = 0.715; g.add(deck);
   const white = new THREE.MeshStandardMaterial({ color: 0xf4f6f6, roughness: 0.4 }), cream = new THREE.MeshStandardMaterial({ color: 0xece2cc, roughness: 0.7 });
   const trim = new THREE.MeshStandardMaterial({ color: new THREE.Color(...paint.top).lerp(new THREE.Color(1, 1, 1), 0.15), roughness: 0.4 });
   const steel = new THREE.MeshStandardMaterial({ color: 0xc8cdd0, metalness: 0.8, roughness: 0.25 }), dark = new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.5 });
@@ -56,8 +98,8 @@ function buildBoatModel(idx, paintOverride) {
   const canvas = new THREE.MeshStandardMaterial({ color: look.canvas, roughness: 0.8 });
   const box = (w, h, d, x, y, z, m = white) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
   const pipe = (a, b, r = 0.03) => { const d = new V3().subVectors(b, a), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, d.length(), 6), steel); m.position.copy(a).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new V3(0, 1, 0), d.normalize()); g.add(m); return m; };
-  // guarda-mancebo de inox ao longo da borda da proa
-  for (const sx of [-1, 1]) { const pts = []; for (let k = 0; k <= 6; k++) { const z = lerp(0.6, 3.5, k / 6) * L, w = (1.15 - 0.95 * Math.pow(k / 6, 2)) * Bm; pts.push(new V3(sx * w, 1.05, z)); } for (let k = 0; k < 6; k++) { pipe(pts[k], pts[k + 1], 0.018); pipe(pts[k], new V3(pts[k].x, 0.75, pts[k].z), 0.015); } }
+  // guarda-mancebo de inox acompanhando o tosado da proa
+  for (const sx of [-1, 1]) { const pts = []; for (let k = 0; k <= 7; k++) { const zz = lerp(0.6, 3.55, k / 7), hs = hullShape((zz + 3.5) / 7.4); pts.push(new V3(sx * Math.max(0.05, hs.bw - 0.1) * Bm, hs.sh + 0.28, zz * L)); } for (let k = 0; k < 7; k++) { pipe(pts[k], pts[k + 1], 0.018); if (k % 2 === 0) pipe(_t1.copy(pts[k]).setY(pts[k].y - 0.28), pts[k], 0.015); } }
   let pilotZ = -0.62, pilotY = 0.715 + 1.02;
   if (idx === 0) {
     // console central + bimini
@@ -82,6 +124,44 @@ function buildBoatModel(idx, paintOverride) {
     box(2.1 * Bm, 0.4, 0.6, 0, 0.88, -2.85 * L, cream);
     outboard(g, 0, -3.82 * L, 1.2, white, new THREE.MeshStandardMaterial({ color: 0x1d2a3a, roughness: 0.4 }));
     pilotZ = -0.95;
+  } else if (idx === 3) {
+    // 38 pés sport: para-brisa envolvente, hardtop com arco de radar, posto de comando com telas, cockpit em U, solário na proa,
+    // plataforma de popa em teca, vigias da cabine no costado, friso cromado e três motores de popa
+    const teak = new THREE.MeshStandardMaterial({ color: 0xa8743e, roughness: 0.75 }), cush = new THREE.MeshStandardMaterial({ color: 0xf2ece0, roughness: 0.85 });
+    const screen = new THREE.MeshStandardMaterial({ color: 0x0a1a24, emissive: 0x2ab0d8, emissiveIntensity: 0.6, roughness: 0.2 });
+    const tint = new THREE.MeshStandardMaterial({ color: 0x1a2a34, transparent: true, opacity: 0.55, roughness: 0.05, metalness: 0.4, side: THREE.DoubleSide });
+    // friso cromado ao longo da borda
+    for (const sx of [-1, 1]) { const pts = []; for (let k = 0; k <= 16; k++) { const t = k / 16, hs = hullShape(t); pts.push(new V3(sx * hs.bw * Bm * 1.005, hs.sh - 0.03, lerp(-3.5, 3.9, t) * L)); } g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.035, 6), steel)); }
+    // vigias da cabine
+    for (const sx of [-1, 1]) for (const [zz, w] of [[1.1, 0.7], [1.95, 0.55], [2.6, 0.35]]) { const hs = hullShape((zz + 3.5) / 7.4), v = box(0.04, 0.13, w, sx * hs.bw * Bm * 0.985, hs.sh - 0.25, zz * L, dark); v.rotation.z = sx * 0.12; }
+    // plataforma de popa e escada
+    for (const sx of [-1, 1]) box(0.7, 0.08, 0.95, sx * 0.85 * Bm, 0.2, -3.5 * L - 0.45, teak);
+    for (let k = 0; k < 3; k++) pipe(new V3(1.05 * Bm, 0.2 - k * 0.22, -3.5 * L - 0.85), new V3(1.05 * Bm, 0.0 - k * 0.22, -3.5 * L - 0.85), 0.02);
+    for (const x of [-0.5, 0, 0.5]) outboard(g, x * Bm, -3.5 * L - 0.3, 1.0, dark, new THREE.MeshStandardMaterial({ color: 0x14181e, metalness: 0.4, roughness: 0.3 }));
+    // cockpit em U com almofadas e mesa
+    box(2.1 * Bm, 0.42, 0.62, 0, 0.95, -2.85 * L, cush); box(2.1 * Bm, 0.5, 0.14, 0, 1.38, -3.12 * L, cush);
+    for (const sx of [-1, 1]) { box(0.55, 0.42, 1.5, sx * 0.88 * Bm, 0.95, -2.0 * L, cush); box(0.14, 0.45, 1.5, sx * 1.1 * Bm, 1.35, -2.0 * L, cush); }
+    box(0.9, 0.06, 0.6, 0, 1.12, -2.1 * L, teak); pipe(new V3(0, 0.72, -2.1 * L), new V3(0, 1.1, -2.1 * L), 0.04);
+    // posto de comando: console com painel inclinado, duas telas, volante e manetes; bancos com encosto
+    const con = box(1.5 * Bm, 0.95, 0.95, 0.25 * Bm, 1.2, 0.15 * L, white);
+    const dash = box(1.3 * Bm, 0.05, 0.55, 0.25 * Bm, 1.72, 0.2 * L, dark); dash.rotation.x = -0.5;
+    for (const dx of [-0.25, 0.3]) { const sc = box(0.42, 0.02, 0.28, 0.25 * Bm + dx, 1.76, 0.22 * L, screen); sc.rotation.x = -0.5; }
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 8, 24), dark); wheel.position.set(0.35 * Bm, 1.72, -0.3 * L); wheel.rotation.x = -0.7; g.add(wheel);
+    pipe(new V3(0.35 * Bm, 1.62, -0.15 * L), new V3(0.35 * Bm, 1.72, -0.3 * L), 0.025);
+    for (const dx of [0.6, 0.72]) pipe(new V3(dx * Bm, 1.65, -0.1 * L), new V3(dx * Bm, 1.85, -0.25 * L), 0.02);
+    for (const sx of [-0.35, 0.45]) { box(0.6, 0.18, 0.55, sx * Bm, 1.2, -0.85 * L, cush); box(0.6, 0.55, 0.14, sx * Bm, 1.5, -1.12 * L, cush); pipe(new V3(sx * Bm, 0.72, -0.85 * L), new V3(sx * Bm, 1.1, -0.85 * L), 0.05); }
+    // para-brisa envolvente (arco de vidro fumê) e moldura
+    const ws = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.3, 0.62, 28, 1, true, -1.15, 2.3), tint); ws.scale.set(Bm, 1, 0.7); ws.position.set(0, 2.0, 0.25 * L); ws.rotation.x = 0.12; g.add(ws);
+    // hardtop sobre colunas, com arco de radar, cúpula, antenas e luzes
+    for (const [x, z] of [[-0.95, 0.75], [0.95, 0.75], [-0.95, -1.3], [0.95, -1.3]]) pipe(new V3(x * Bm, 0.72, z * L), new V3(x * Bm * 0.95, 2.7, z * L), 0.045);
+    const top = box(2.2 * Bm, 0.13, 2.7, 0, 2.75, -0.25 * L, white); top.scale.z = L;
+    box(2.0 * Bm, 0.05, 2.5, 0, 2.68, -0.25 * L, new THREE.MeshStandardMaterial({ color: 0xd8d2c4 })).scale.z = L;
+    const rad = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 10, 0, TAU, 0, Math.PI / 2), white); rad.position.set(0, 2.82, -0.2 * L); g.add(rad);
+    for (const x of [-0.75, 0.75]) pipe(new V3(x * Bm, 2.82, -1.2 * L), new V3(x * Bm, 3.9, -1.5 * L), 0.012);
+    box(1.6 * Bm, 0.06, 0.08, 0, 2.72, 1.1 * L, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff4d0, emissiveIntensity: 0.4 }));
+    // solário na proa
+    box(1.5 * Bm, 0.16, 1.4, 0, 0.98, 2.15 * L, cush); box(1.2 * Bm, 0.16, 0.6, 0, 1.0, 2.95 * L, cush);
+    pilotZ = -0.55 * L; pilotY = 0.715 + 1.02;
   } else {
     // oceânica: cabine longa com para-brisa envolvente, hardtop, torre e tangones, dois motores
     box(2.1 * Bm, 0.75, 2.6, 0, 1.1, 1.75 * L, trim);

@@ -438,6 +438,7 @@ const BOATS = [
   { name: 'Lancha 21 pés', max: 30, tank: 100, scale: 1, price: 0, desc: 'Console central aberto com bimini de lona. Motor de popa 150 hp.' },
   { name: 'Lancha 26 pés', max: 36, tank: 150, scale: 1.15, price: 9000, desc: 'Cabinada: cabine na proa com vigias, T-top com radar e porta-varas. Motor 250 hp.' },
   { name: 'Lancha 32 pés', max: 42, tank: 220, scale: 1.3, price: 24000, desc: 'Pesca oceânica: cabine longa, hardtop com torre de observação, tangones e poltrona de briga. Dois motores 300 hp, chega no parcel voando.' },
+  { name: 'Lancha 38 pés Sport', max: 48, tank: 380, scale: 1.42, price: 68000, desc: 'A mais cara: casco em V profundo, para-brisa envolvente, hardtop com radar, posto de comando com duas telas, cockpit em U, solário na proa, plataforma de popa em teca e três motores 350 hp.' },
 ];
 const LIGHT_PRICE = 600;
 const suitNow = () => SUITS[SV.suit || 0], maskNow = () => MASKS[SV.mask || 0], boatNow = () => useVoad() ? VOAD : BOATS[SV.boat || 0];

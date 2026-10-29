@@ -437,10 +437,10 @@ const VOAD = { name: 'Voadeira 6 m', max: 26, tank: 60, scale: 1, price: 0, desc
 const useVoad = () => AMZ && SV.voad !== false;
 const curBoatIdx = () => useVoad() ? 'v' : SV.boat || 0;
 function buildVoadeira() {
-  const look = { len: 0.78, beam: 0.62, bottom: [0.62, 0.64, 0.66] }, paint = { top: [0.74, 0.76, 0.78], stripe: [0.12, 0.42, 0.26] };
+  const look = { len: 0.78, beam: 0.62, bottom: [0.62, 0.64, 0.66], fb: 0.72 }, paint = { top: [0.74, 0.76, 0.78], stripe: [0.12, 0.42, 0.26] };
   const g = new THREE.Group(), [hg, deckG] = boatHull(look, paint);
   hg.scale(1, 0.7, 1); hg.translate(0, 0.12, 0);
-  g.add(new THREE.Mesh(hg, uwify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.55 }), { key: 'bv' })));
+  g.add(new THREE.Mesh(hg, uwify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.55, side: THREE.DoubleSide }), { key: 'bv' })));
   const wood = new THREE.MeshStandardMaterial({ color: 0x8a6440, roughness: 0.85 }), alu = new THREE.MeshStandardMaterial({ color: 0xb8bcc0, roughness: 0.4, metalness: 0.6 });
   const deck = new THREE.Mesh(deckG, alu); deck.position.y = 0.42; g.add(deck);
   const box = (w, h, d, x, y, z, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };

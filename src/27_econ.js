@@ -34,7 +34,7 @@ function wearTxt(g) { const k = gunWearK(g.id); return k > 0.97 ? '' : ` <b styl
 function wearBtn(g) { return SV.guns.includes(g.id) && gunShots(g.id) > 40 ? `<button class="btn alt" data-band="${g.id}" ${SV.money < (g.pneu ? PNEU_PRICE : BAND_PRICE) ? 'disabled' : ''}>${g.pneu ? 'REVISÃO' : 'ELÁSTICOS'} ${fmtR(g.pneu ? PNEU_PRICE : BAND_PRICE)}</button>` : ''; }
 
 // ---------- revisão do motor (a voadeira é da pousada: manutenção por conta dela) ----------
-const ENG_PRICE = [250, 450, 800], ENG_LIFE = 25;
+const ENG_PRICE = [250, 450, 800, 1300], ENG_LIFE = 25;
 const engineK = () => useVoad() ? 1 : 1 - 0.2 * smooth(ENG_LIFE, ENG_LIFE + 20, SV.engH || 0);
 function engineTick(dt) {
   if (useVoad() || P.mode !== 'boat' || Math.abs(BOAT.throttle) < 0.05) return;

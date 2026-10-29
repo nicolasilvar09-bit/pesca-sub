@@ -28,8 +28,8 @@ function signTex(txt, sub) {
 const FB_PAINTS = [[[0.95, 0.95, 0.93], [0.1, 0.3, 0.6]], [[0.2, 0.42, 0.7], [0.95, 0.85, 0.3]], [[0.75, 0.15, 0.12], [0.95, 0.95, 0.9]], [[0.95, 0.8, 0.2], [0.15, 0.4, 0.25]], [[0.2, 0.5, 0.35], [0.95, 0.95, 0.9]], [[0.95, 0.95, 0.93], [0.8, 0.2, 0.15]]];
 function fishingBoat(r) {
   const [top, stripe] = FB_PAINTS[Math.floor(r() * FB_PAINTS.length)], g = new THREE.Group();
-  const [hg, deckG] = boatHull({ len: 1.05, beam: 0.95, bottom: [0.25, 0.12, 0.08] }, { top, stripe });
-  g.add(new THREE.Mesh(hg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 })));
+  const [hg, deckG] = boatHull({ len: 1.05, beam: 0.95, bottom: [0.25, 0.12, 0.08], fb: 1.1 }, { top, stripe });
+  g.add(new THREE.Mesh(hg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, side: THREE.DoubleSide })));
   const deck = new THREE.Mesh(deckG, new THREE.MeshLambertMaterial({ color: 0x8a6440 })); deck.position.y = 0.715; g.add(deck);
   const wood = new THREE.MeshLambertMaterial({ color: 0xe8e2d4 }), roofM = new THREE.MeshLambertMaterial({ color: new THREE.Color(...stripe) }), dark = new THREE.MeshLambertMaterial({ color: 0x2a2a2a });
   const box = (w, h, d, x, y, z, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
