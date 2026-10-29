@@ -125,7 +125,7 @@ function wsConnect() {
     clearInterval(ON.hb); ON.hb = setInterval(() => { if (ws.readyState === 1) ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(++ON.ref) })); }, 25000);
   };
   ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } wsMsg(m); };
-  ws.onclose = () => { ON.ws = null; ON.joined = false; clearInterval(ON.hb); setTimeout(() => { if (ON.s) wsConnect(); }, 5000); };
+  ws.onclose = () => { if (ON.ws !== ws) return; ON.ws = null; ON.joined = false; clearInterval(ON.hb); setTimeout(() => { if (ON.s && !ON.ws) wsConnect(); }, 5000); };
   ws.onerror = () => { };
 }
 function wsTrack() { if (!ON.joined) return; wsSend('realtime:pesca', 'presence', { type: 'presence', event: 'track', payload: { uid: ON.s.uid, name: myName(), region: REGION, lvl: level() } }); }
@@ -133,7 +133,7 @@ function bcast(ev, data) { if (!ON.joined) return; wsSend('realtime:pesca', 'bro
 function presenceMeta(state, fn) { for (const k in state) { const m = state[k] && state[k].metas && state[k].metas[0]; if (m) fn(k, m); } }
 function wsMsg(m) {
   if (m.topic !== 'realtime:pesca') return;
-  if (m.event === 'phx_reply' && m.ref === '1') { if (m.payload && m.payload.status === 'ok') { ON.joined = true; ON.tJoin = performance.now() - ON.t0; wsTrack(); } return; }
+  if (m.event === 'phx_reply' && m.ref === '1') { if (m.payload && m.payload.status === 'ok') { ON.joined = true; ON.tJoin = performance.now() - ON.t0; wsTrack(); if (ON.ready) lbResync(); } return; }
   if (m.event === 'presence_state') { ON.online = {}; presenceMeta(m.payload, (k, v) => { if (k !== ON.s.uid) ON.online[k] = v; }); return; }
   if (m.event === 'presence_diff') {
     presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
@@ -310,7 +310,7 @@ function emailReturn() {
 function setupOnline() {
   emailReturn(); onlineStart();
   addEventListener('pagehide', () => { cloudPush(); rankFlush(); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { cloudPush(); rankFlush(); } });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { cloudPush(); rankFlush(); } else if (ON.s) { if (!ON.ws || ON.ws.readyState > 1) { ON.ws = null; wsConnect(); } else lbResync(); } }); // voltou para o jogo: reconecta na hora
   setInterval(() => cloudPush(), 60000);
 }
 function updateOnline(dt, t) { sendPos(dt); updateRemotes(dt, t); duoTick(dt); }

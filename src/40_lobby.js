@@ -41,7 +41,17 @@ function lbJoin(pid, lead) {
   if (LB.pid && LB.pid !== pid) lbLeave(true);
   LB.pid = pid; LB.lead = lead; LB.members = []; LB.phase = 'lobby'; LB.chat = [];
   bcast('lb_join', { pid, me: lbMe() }); lbSave(); lbOpen();
+  // o líder pode estar com o jogo em segundo plano (mandando o link no WhatsApp) e perder o pedido:
+  // repete a cada 3 s até ele responder
+  clearInterval(LB.joinIv); const t0 = Date.now();
+  LB.joinIv = setInterval(() => {
+    if (LB.pid !== pid || LB.members.length) { clearInterval(LB.joinIv); return; }
+    if (Date.now() - t0 > 180000) { clearInterval(LB.joinIv); toast('O líder não respondeu. Peça para ele voltar para o jogo e abrir o GRUPO.', 6, 'bad'); return; }
+    bcast('lb_join', { pid, me: lbMe() });
+  }, 3000);
 }
+// reconectou ao canal ao vivo: o líder reenvia o grupo e quem está entrando pede de novo
+function lbResync() { if (!LB.pid) return; if (lbIsLead()) lbState(); else if (!LB.members.length) bcast('lb_join', { pid: LB.pid, me: lbMe() }); }
 function lbLeave(quiet) {
   if (!LB.pid) return;
   bcast('lb_leave', { pid: LB.pid });
@@ -155,6 +165,7 @@ const LB_COLS = ['#2a8a7a', '#8a5a2a', '#5a3a8a', '#8a2a4a'];
 function lbRender() {
   const el = $('lobbyBody'); if (!el || !LB.open) return;
   const lead = lbIsLead(), me = ON.s && ON.s.uid, mine = LB.members.find(m => m.uid === me);
+  if (!lead && !mine) { el.innerHTML = `<div class="it" style="justify-content:center;padding:28px"><div style="text-align:center"><div class="n">Esperando o líder do grupo responder...</div><div class="d">Se ele estiver no WhatsApp, é só voltar para o jogo: você entra sozinho.</div></div></div><div class="row2"><button class="btn alt" id="lbLeave">CANCELAR</button></div>`; $('lbLeave').onclick = () => { lbLeave(true); lbClose(); }; return; }
   const slot = (m, i) => m ? `<div class="lbs ${m.ready || m.uid === LB.lead ? 'ok' : ''}"><span class="av" style="background:${LB_COLS[i]}">${lbEsc(m.name[0])}</span><div style="flex:1;min-width:0"><div class="n">${m.uid === LB.lead ? '👑 ' : ''}${lbEsc(m.name)}${m.uid === me ? ' <span class="d">(você)</span>' : ''}</div><div class="d">Nv ${m.lvl || 1} · ${LB_DEST[m.region] || ''}</div></div><b class="st">${m.uid === LB.lead ? 'LÍDER' : m.ready ? 'PRONTO' : 'ESPERANDO'}</b></div>`
     : `<div class="lbs empty"><span class="av" style="background:rgba(255,255,255,.06)">+</span><div class="d">Vaga livre: convide um amigo</div></div>`;
   const slots = [0, 1, 2, 3].map(i => slot(LB.members[i], i)).join('');
