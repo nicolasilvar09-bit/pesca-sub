@@ -167,6 +167,7 @@ const EVSPAWN = [
   { id: 'lua', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'laje', key: 'cherne', n: [1, 2], msg: 'Lua cheia: chernes saíram da toca na Laje Branca.' },
   { id: 'lua2', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'jorge', key: 'dentao', n: [1, 2], msg: 'Lua cheia: dentão caçando no costão da Jorge Grego.' },
   { id: 'frente', when: () => COND.frontOn, spot: 'foz', key: 'robalo', n: [3, 5], msg: 'Água mexida da frente fria: robalo entrou na foz!' },
+  { id: 'atum', when: () => COND.vis > 1.15 && SV.tod >= 5.5 && SV.tod < 9, spot: 'plataforma', key: 'atumrabino', n: [4, 7], msg: 'Amanhecer de água azul: cardume de atum-rabino subiu na Plataforma de Fora!' },
   ...evAmz(), ...evNe(),
 ];
 let evT = 0;
@@ -177,7 +178,7 @@ function updateEvents(dt) {
   for (const e of EVSPAWN) {
     if ((e.reg || (e.amz ? 'amz' : 'cv')) !== REGION || done.ids.includes(e.id) || !e.when()) continue;
     const s = spotById(e.spot); if (Math.hypot(P.pos.x - s.x, P.pos.z - s.z) > 420) continue;
-    done.ids.push(e.id); for (let i = 0; i < (e.key === 'albacora' || e.key === 'dourado' ? 1 : e.n[1]); i++) spawnGroup(s, e.key, Math.round(rand(e.n[0], e.n[1])), 1.1);
+    done.ids.push(e.id); for (let i = 0; i < (e.key === 'albacora' || e.key === 'dourado' || e.key === 'atumrabino' ? 1 : e.n[1]); i++) spawnGroup(s, e.key, Math.round(rand(e.n[0], e.n[1])), 1.1);
     toast(e.msg, 5, 'gold');
   }
 }

@@ -66,7 +66,7 @@ function H(x, z) {
   // estuário raso
   const df = Math.hypot(x - FOZ.x, z - FOZ.z);
   if (h < 0 && df < 220) h = lerp(h, Math.max(h, -5.5 + df * 0.018), 1 - smooth(40, 210, df));
-  return Hextra(x, z, h);
+  return platDeep(x, z, Hextra(x, z, h));
 }
 const murkAt = (x, z) => AMZ ? murkAmz(x, z) : NE ? 0 : Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z - FOZ.z)), smooth(-600, -650, x) * (1 - smooth(40, 80, Math.abs(z - FOZ.z))));
 
@@ -484,6 +484,7 @@ const SPOTS = AMZ ? spotsAmz() : NE ? spotsNe() : [
   { id: 'cargueiro', name: 'Naufrágio do Cargueiro', x: CARG.x, z: CARG.z, r: 50, depth: '20–27 m', desc: 'Casco grande deitado na areia, fundo de verdade. Garoupas e chernes enormes nas tocas. Só com fôlego treinado.' },
   { id: 'castelhanos', name: 'Ponta de Castelhanos', x: 0, z: 0, r: 52, depth: '8–28 m', cur: [0.32, 0.1], desc: 'Lado de fora da Ilha Grande, mar aberto batendo no costão. Correnteza forte e peixe grande.' },
   { id: 'fora', name: 'Parcel de Fora', x: FORA.x, z: FORA.z, r: 58, depth: '15–40 m', cur: [0.45, -0.18], desc: 'Pináculo isolado no oceano. Água azul, correnteza e pelágicos grandes. Leve combustível de sobra.' },
+  { id: 'plataforma', name: 'Plataforma de Fora', x: platP().x - 40, z: platP().z + 40, r: 60, depth: 'água azul · ~85 m', cur: [0.35, -0.12], desc: 'Pesca oceânica bem longe da costa: mergulho em volta das pernas de uma plataforma de petróleo. Atum-rabino, anchova, olho-de-boi e dourado. Leve muito combustível.' },
   { id: 'foz', name: 'Foz do Rio Mambucaba', x: FOZ.x + 30, z: FOZ.z, r: 60, depth: '2–6 m', desc: 'Água turva de rio. Robalo encostado no fundo e cardume de tainha. Visibilidade baixa.' },
 ];
 // zonas: pedaços de costão e lajes fora dos pontos do mapa, com peixe próprio (não aparecem na carta)
@@ -598,6 +599,7 @@ function buildRocksAndDecor() {
   if (AMZ) buildRiverWorld(); else if (NE) buildWorldNe(); else {
   buildWreck({ x: NAUF.x, z: NAUF.z, ry: 0.6, L: 34, spot: 'naufragio' });
   buildWreck({ x: CARG.x, z: CARG.z, ry: -0.45, L: 48, spot: 'cargueiro' });
+  buildPlatform();
 
   // troncos no rio
   const logMat = uwify(new THREE.MeshStandardMaterial({ color: 0x3b2c1e, roughness: 1 }), { key: 'l' });

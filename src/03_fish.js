@@ -175,7 +175,7 @@ function fishTex(key, c) {
     if (key === 'dentao') { g.fillStyle = 'rgba(240,240,250,.75)'; for (const y of [25, 75]) { g.beginPath(); g.moveTo(222, y + (y < 50 ? 4 : -4)); g.lineTo(232, y + (y < 50 ? 4 : -4)); g.lineTo(226, y + (y < 50 ? 18 : -18)); g.fill(); } g.strokeStyle = 'rgba(90,150,230,.6)'; g.lineWidth = 1.5; for (const y of [30, 34, 66, 70]) { g.beginPath(); g.moveTo(238, y); g.lineTo(252, y + (y < 50 ? 3 : -3)); g.stroke(); } }
     if (key === 'cherne') { for (let i = 0; i < 26; i++) blob(R() * 200, 10 + R() * 80, 3 + R() * 3, 3 + R() * 3, 'rgba(230,225,210,.45)'); }
     if (key === 'olhodeboi') { g.strokeStyle = 'rgba(200,150,40,.7)'; g.lineWidth = 7; for (const y of [25, 75]) { g.beginPath(); g.moveTo(240, y - (y < 50 ? 12 : -12)); g.lineTo(20, y); g.stroke(); } }
-    amzTex(key, g, blob, bars, R); neTex(key, g, blob, bars, R);
+    amzTex(key, g, blob, bars, R); neTex(key, g, blob, bars, R); oceanTex(key, g, blob, bars, R);
     for (let i = 0; i < 1800; i++) { g.fillStyle = `rgba(${R() > 0.5 ? '255,255,255' : '0,0,0'},${R() * 0.07})`; g.fillRect(R() * 256, R() * 100, 2, 2); }
     g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 2; for (const [a, b] of [[6, 44], [56, 94]]) { g.beginPath(); g.moveTo(203, a); g.quadraticCurveTo(196, (a + b) / 2, 203, b); g.stroke(); }
     g.strokeStyle = 'rgba(10,8,8,.55)'; g.lineWidth = 2; for (const [y, d] of [[36, -1], [64, 1]]) { g.beginPath(); g.moveTo(256, y); g.quadraticCurveTo(247, y + d * 2, 238, y + d * 6); g.stroke(); }
@@ -409,7 +409,7 @@ const POP_LAJE = [...POP_ZONE, ['garoupa', 2, [1, 1], 1, 1.0], ['caranha', 1, [1
 const POP_FORA_COSTA = [['olhete', 1, [2, 4], 0.5], ['sororoca', 1, [3, 5], 0.5], ['enchova', 1, [3, 6], 0.5]];
 function spawnAll() {
   // só as espécies do destino atual
-  for (const k of Object.keys(SPECIES)) if (spInRegion(k)) makePool(k, SPECIES[k].shape, fishTex(k), k === 'mero' || k === 'pirarucu' || SPECIES[k].shape === 'shark' ? 8 : 260);
+  for (const k of Object.keys(SPECIES)) if (spInRegion(k)) makePool(k, SPECIES[k].shape, fishTex(k), k === 'mero' || k === 'pirarucu' || SPECIES[k].shape === 'shark' ? 8 : k === 'atumrabino' ? 60 : 260);
   const POPR = AMZ ? popAmz() : NE ? popNe() : POP;
   for (const s of SPOTS) {
     const pop = POPR[s.id]; if (!pop) continue;
