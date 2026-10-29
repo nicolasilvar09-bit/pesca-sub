@@ -193,7 +193,7 @@ function updateEnv(dt) {
   if (lastUnder !== camUnder) { AU.setEnv(camUnder); lastUnder = camUnder; }
   BUOYS.forEach((b, i) => { b.position.y = waveH(b.position.x, b.position.z, T) - 0.15; b.rotation.set(Math.sin(T * 1.2 + i) * 0.12, i, Math.cos(T + i) * 0.1); });
   for (const m of LAND) m.visible = !camUnder;
-  updateFX(dt, camUnder, camMurk, T); updateSound(dt); updateAtmos(dt, T); updateMarina(dt, T);
+  updateFX(dt, camUnder, camMurk, T); updateSound(dt); updateAtmos(dt, T); updateWeather(dt); updateMarina(dt, T);
   poolsBegin(); drawFishes(); updateLife(dt, T); poolsEnd();
 }
 let lastT = performance.now();
@@ -227,7 +227,7 @@ function init() {
   initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); bakeShallow(); buildFX();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); $('menu').classList.add('live');
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); $('menu').classList.add('live');
   $('playBtn').onclick = startGame;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
   loop();

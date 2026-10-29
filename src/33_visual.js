@@ -64,6 +64,11 @@ const WATER_TOP = () => `
   float surfL=smoothstep(0.7,1.0,sin(dep*2.0+t*1.4+fn*2.5))*(1.0-smoothstep(0.5,4.5,dep))*smoothstep(0.2,0.5,fn);
   float cap=smoothstep(0.36,0.5,waveH(p,t)/max(uSwell,0.01))*smoothstep(0.55,0.78,fn)*smoothstep(1.05,1.6,uSwell);
   float foam=clamp(shore+surfL*(0.5+0.5*uSwell)+cap*0.8,0.0,1.0)*(1.0-smoothstep(160.0,700.0,dist));
+  // pingos de chuva: anéis pequenos abrindo na água perto da câmera
+  if(uRain>0.02){ vec2 q=p*1.6, cc=floor(q); float hh=skH(cc+7.0), ph=fract(t*1.4+hh*5.0);
+    vec2 ctr=cc+0.5+0.3*(vec2(skH(cc),skH(cc+3.0))-0.5); float rr=length(q-ctr);
+    float rp=smoothstep(0.05,0.0,abs(rr-ph*0.45))*(1.0-ph)*step(hh,uRain);
+    col+=vec3(0.2,0.22,0.24)*rp*(1.0-smoothstep(6.0,40.0,dist)); col*=1.0-0.1*uRain; }
   // brilho do sol picando na água
   float gl=pow(max(dot(R,uSun),0.0),70.0)*step(0.93,skH(floor(p*5.0)+floor(t*6.0)))*2.5*smoothstep(-0.05,0.1,uSun.y)*(1.0-uCloud);
   col+=vec3(1.0,0.92,0.75)*gl;

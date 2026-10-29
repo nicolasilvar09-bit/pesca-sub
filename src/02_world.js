@@ -249,11 +249,11 @@ function buildWater() {
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
   waterMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: CU.uTime, uSun: { value: SUN_DIR }, uUnder: { value: 0 }, uFogC: { value: new THREE.Color() }, uFogD: { value: 0.0006 }, uHaze: { value: HAZE }, uDay: CU.uDay, uSwell: CU.uSwell, uDusk: CU.uDusk, uCloud: CU.uCloud, uShal: { value: null }, uShalB: { value: new THREE.Vector4(0, 0, 0, 0) } },
+    uniforms: { uTime: CU.uTime, uSun: { value: SUN_DIR }, uUnder: { value: 0 }, uFogC: { value: new THREE.Color() }, uFogD: { value: 0.0006 }, uHaze: { value: HAZE }, uDay: CU.uDay, uSwell: CU.uSwell, uDusk: CU.uDusk, uCloud: CU.uCloud, uShal: { value: null }, uShalB: { value: new THREE.Vector4(0, 0, 0, 0) }, uRain: { value: 0 } },
     vertexShader: WAVE_GLSL + `uniform float uTime; varying vec3 vW;
       void main(){ vec4 w=modelMatrix*vec4(position,1.0); float fade=1.0-smoothstep(250.0,1100.0,length(position.xz));
         w.y+=waveH(w.xz,uTime)*fade; vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader: WAVE_GLSL + `uniform float uTime; uniform vec3 uSun; uniform float uUnder; uniform vec3 uFogC; uniform float uFogD; uniform vec3 uHaze; uniform float uDay; uniform float uDusk; uniform float uCloud; uniform sampler2D uShal; uniform vec4 uShalB; varying vec3 vW;
+    fragmentShader: WAVE_GLSL + `uniform float uTime; uniform vec3 uSun; uniform float uUnder; uniform vec3 uFogC; uniform float uFogD; uniform vec3 uHaze; uniform float uDay; uniform float uDusk; uniform float uCloud; uniform sampler2D uShal; uniform vec4 uShalB; uniform float uRain; varying vec3 vW;
       ` + SKY_GLSL(3) + `
       void main(){
         vec3 Vd=cameraPosition-vW; float dist=length(Vd); vec3 V=Vd/dist;

@@ -13,10 +13,10 @@ function rollCond() {
   COND.vis = lerp(0.6, 1.6, r()); COND.swell = lerp(0.55, 1.7, Math.pow(r(), 1.3)); COND.cur = lerp(0.6, 1.5, r());
   COND.cloud = r() < 0.28 ? lerp(0.55, 1, r()) : r() * 0.3;
   SWELL.k = COND.swell; CU.uSwell.value = COND.swell; CU.uCloud.value = COND.cloud;
-  rollFront();
+  rollFront(); rollWeather(); WX.day = SV.day;
 }
 const visM = () => Math.round(0.83 / ((AMZ ? 0.075 : NE ? 0.03 : 0.042) / COND.vis));
-const condTxt = () => `Visibilidade ~${visM()} m · ${AMZ ? `rio na ${season()}` : `ondas ${(0.55 * COND.swell).toFixed(1).replace('.', ',')} m`} · correnteza ${COND.cur < 0.85 ? 'fraca' : COND.cur < 1.2 ? 'moderada' : 'forte'} · ${COND.cloud > 0.5 ? 'nublado' : COND.cloud > 0.2 ? 'poucas nuvens' : 'céu limpo'}`;
+const condTxt = () => `Visibilidade ~${visM()} m · ${AMZ ? `rio na ${season()}` : `ondas ${(0.55 * COND.swell).toFixed(1).replace('.', ',')} m`} · correnteza ${COND.cur < 0.85 ? 'fraca' : COND.cur < 1.2 ? 'moderada' : 'forte'} · ${COND.cloud > 0.5 ? 'nublado' : COND.cloud > 0.2 ? 'poucas nuvens' : 'céu limpo'} · ${wxTxt()}`;
 
 function updateClock(dt) {
   if (SV.tod == null) { SV.tod = 7; SV.day = SV.day || 1; }
