@@ -618,7 +618,7 @@ function startComp(id, duo, live) {
   const s = spotById(id); if (!s || COMP.on) return;
   const fee = live ? 0 : duo ? 200 : 100;
   if (SV.money < fee) { toast(`Inscrição custa ${fmtR(fee)}.`); return; }
-  SV.money -= fee; save(); COMP.duo = null; COMP.mult = live ? 1 : compMult(); COMP.live = live ? { ...live, n: 0, kg: 0 } : null;
+  SV.money -= fee; save(); COMP.duo = null; COMP.mult = live ? 1 : compMult(); COMP.live = live ? { ...live, n: 0, kg: 0 } : null; COMP.mate = null; COMP.guest = null; COMP.hostRows = null;
   if (P.mode === 'swim') climbBoat();
   let bx = s.x + 18, bz = s.z + 18; for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; const x = s.x + Math.cos(a) * 20, z = s.z + Math.sin(a) * 20; if (H(x, z) < -4) { bx = x; bz = z; break; } }
   BOAT.pos.set(bx, 0, bz); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
@@ -686,15 +686,16 @@ function updateComp(dt, t) {
   const s = COMP.spot;
   for (const b of COMP.bots) stepBot(b, dt, t, s, COMP.duo && b.team === 0 ? duoPartnerCatch : compBotCatch);
   // placar
-  const rows = COMP.duo ? duoRows() : [{ name: 'Você', n: COMP.me.n, kg: COMP.me.kg, me: true }, ...(COMP.live ? [{ name: COMP.live.name, n: COMP.live.n, kg: COMP.live.kg }] : []), ...COMP.bots.map(b => ({ name: b.name, n: b.n, kg: b.kg }))].sort((a, b) => b.n - a.n || b.kg - a.kg);
+  const rows = COMP.guest ? guestRows() : COMP.duo ? duoRows() : [{ name: 'Você', n: COMP.me.n, kg: COMP.me.kg, me: true }, ...(COMP.live ? [{ name: COMP.live.name, n: COMP.live.n, kg: COMP.live.kg }] : []), ...COMP.bots.map(b => ({ name: b.name, n: b.n, kg: b.kg }))].sort((a, b) => b.n - a.n || b.kg - a.kg);
   const mm = Math.max(0, Math.ceil(COMP.t)), tt = `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}`;
   $('compHud').innerHTML = `<div class="ct ${COMP.t < 60 ? 'low' : ''}">⏱ ${tt}</div>` + rows.map((r, i) => `<div class="cr ${r.me ? 'me' : ''}"><span>${i + 1}º ${r.name}</span><b>${r.n}${AMZ ? ' pts' : ''} · ${fmtKg(r.kg)} kg</b></div>`).join('');
-  if (COMP.t <= 0) endComp(rows);
+  if (COMP.guest ? COMP.t < -20 : COMP.t <= 0) endComp(rows); // o convidado espera o fim mandado pelo anfitrião
 }
 function endComp(rows) {
   COMP.on = false; $('compHud').classList.add('hide');
   for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
-  const duo = COMP.duo, PR = (COMP.live ? [500, 200] : duo ? [1800, 700, 0] : [900, 350, 150, 0]).map(v => v * COMP.mult), pos = rows.findIndex(r => r.me), prize = PR[pos];
+  if (COMP.mate) duoHostEnd(rows);
+  const duo = COMP.duo, PR = (COMP.live && !COMP.guest ? [500, 200] : duo ? [1800, 700, 0] : [900, 350, 150, 0]).map(v => v * COMP.mult), pos = rows.findIndex(r => r.me), prize = PR[pos];
   if (duo) duo.friend.xp = (duo.friend.xp || 0) + (pos === 0 ? 150 : 60);
   COMP.duo = null;
   SV.money += prize; if (pos === 0) SV.wins = (SV.wins || 0) + 1; addXP([600, 300, 150, 50][pos]); save();

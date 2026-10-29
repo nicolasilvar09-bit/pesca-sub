@@ -127,5 +127,6 @@ function duoPartnerCatch(b, f) { b.n += compPts(f); b.kg += f.kg; friendCatch(b,
 function duoRows() {
   const T = [{ name: COMP.duo.names[0], n: COMP.me.n, kg: COMP.me.kg, me: true }, { name: COMP.duo.names[1], n: 0, kg: 0 }, { name: COMP.duo.names[2], n: 0, kg: 0 }];
   for (const b of COMP.bots) { T[b.team].n += b.n; T[b.team].kg += b.kg; }
+  if (COMP.mate) { T[0].n += COMP.mate.n; T[0].kg += COMP.mate.kg; }
   return T.sort((a, b) => b.n - a.n || b.kg - a.kg);
 }

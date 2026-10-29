@@ -145,10 +145,15 @@ function onBcast(ev, d) {
   if (ev === 'hello') { if (!isFriend(d.from)) ON.friends.push({ id: d.from, name: d.name, level: d.lvl || 1 }); toast(`${d.name} adicionou você como amigo!`, 3.5, 'gold'); loadFriends(); return; }
   if (!isFriend(d.from)) return;
   if (ev === 'pos' && d.region === REGION) remoteState(d);
-  if (ev === 'chal') { ON.inv = d; showInvite(d); }
+  if (ev === 'chal' || ev === 'duo_inv') { ON.inv = d; d.kind = ev === 'duo_inv' ? 'duo' : 'chal'; showInvite(d); }
+  if (ev === 'duo_ok' && ON.wait && ON.wait.to === d.from) { const w = ON.wait; ON.wait = null; startDuoHost(w.spot, d.from, d.name, d.at); }
+  if (ev === 'duo_no' && ON.wait && ON.wait.to === d.from) { ON.wait = null; toast(`${d.name} não pode agora.`, 3); }
+  if (ev === 'duo_sb' && COMP.on && COMP.guest === d.from) { COMP.hostRows = d.rows; COMP.t = d.t; if (d.last) toast(d.last, 2.2); }
+  if (ev === 'duo_end' && COMP.on && COMP.guest === d.from) { COMP.hostRows = d.rows; endComp(guestRows()); }
   if (ev === 'chal_ok' && ON.wait && ON.wait.to === d.from) { const w = ON.wait; ON.wait = null; startLive(w.spot, d.from, d.name, d.at); }
   if (ev === 'chal_no' && ON.wait && ON.wait.to === d.from) { ON.wait = null; toast(`${d.name} recusou o desafio.`, 3); }
-  if (ev === 'chal_sc' && COMP.on && COMP.live && COMP.live.uid === d.from) { COMP.live.n = d.n; COMP.live.kg = d.kg; if (d.last) toast(`${d.name} pegou ${d.last}`, 2.2); }
+  if (ev === 'chal_sc' && COMP.on && COMP.mate && COMP.mate.uid === d.from) { COMP.mate.n = d.n; COMP.mate.kg = d.kg; if (d.last) toast(`${d.name} pegou ${d.last}`, 2.2); }
+  if (ev === 'chal_sc' && COMP.on && COMP.live && COMP.live.uid === d.from && !COMP.guest) { COMP.live.n = d.n; COMP.live.kg = d.kg; if (d.last) toast(`${d.name} pegou ${d.last}`, 2.2); }
 }
 
 // ---------- amigo ao vivo: mergulhador e barco desenhados a partir das posições recebidas ----------
@@ -209,10 +214,11 @@ function challenge(id) {
 }
 function showInvite(d) {
   const b = $('onInv'); if (!b) return;
-  b.innerHTML = `<div class="n">⚔️ ${d.name} te desafiou!</div><div class="d">10 minutos na ${d.spotName}. Ganha quem pegar mais peixes na medida.</div><div style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px"><button class="btn alt" id="invNo">RECUSAR</button><button class="btn gold" id="invOk">ACEITAR</button></div>`;
+  const duo = d.kind === 'duo';
+  b.innerHTML = `<div class="n">${duo ? `🤝 ${d.name} te chamou para o campeonato em dupla!` : `⚔️ ${d.name} te desafiou!`}</div><div class="d">10 minutos na ${d.spotName}. ${duo ? 'Vocês dois contra 2 duplas; conta a soma dos peixes da dupla. Prêmio para cada um: 1º R$ 1.800 · 2º R$ 700.' : 'Ganha quem pegar mais peixes na medida.'}</div><div style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px"><button class="btn alt" id="invNo">RECUSAR</button><button class="btn gold" id="invOk">ACEITAR</button></div>`;
   b.classList.remove('hide'); buzz([60, 40, 60]); AU.coin();
-  $('invNo').onclick = () => { bcast('chal_no', { to: d.from }); b.classList.add('hide'); ON.inv = null; };
-  $('invOk').onclick = () => { const at = Date.now() + 4000; bcast('chal_ok', { to: d.from, at }); b.classList.add('hide'); ON.inv = null; startLive(d.spot, d.from, d.name, at); };
+  $('invNo').onclick = () => { bcast(duo ? 'duo_no' : 'chal_no', { to: d.from }); b.classList.add('hide'); ON.inv = null; };
+  $('invOk').onclick = () => { const at = Date.now() + 4000; bcast(duo ? 'duo_ok' : 'chal_ok', { to: d.from, at }); b.classList.add('hide'); ON.inv = null; if (duo) startDuoGuest(d.spot, d.from, d.name, at); else startLive(d.spot, d.from, d.name, at); };
   setTimeout(() => { if (ON.inv === d) { b.classList.add('hide'); ON.inv = null; } }, 40000);
 }
 function startLive(spotId, uid, name, at) {
@@ -261,7 +267,7 @@ function onlineHTML() {
     const o = ON.online[f.id], here = o && o.region === REGION;
     const where = o ? (here ? '🟢 jogando no mesmo destino' : `🟡 jogando ${o.region === 'amz' ? 'no Amazonas' : 'na Costa Verde'}`) : '⚪ offline';
     return `<div class="it"><span class="av" style="background:#7a2a2a">${f.name[0]}</span><div style="flex:1"><div class="n">${f.name} <span class="d">· Nv ${f.level || 1}</span></div><div class="d">${where}</div></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${here ? `<button class="btn" data-ongo="${f.id}">IR ATÉ</button><button class="btn gold" data-onchal="${f.id}" ${COMP.on ? 'disabled' : ''}>DESAFIAR</button>` : ''}<button class="btn alt" data-ondel="${f.id}">✕</button></div></div>`;
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${here ? `<button class="btn" data-ongo="${f.id}">IR ATÉ</button><button class="btn gold" data-onchal="${f.id}" ${COMP.on ? 'disabled' : ''}>DESAFIAR</button><button class="btn gold" data-onduo="${f.id}" ${COMP.on ? 'disabled' : ''}>DUPLA</button>` : ''}<button class="btn alt" data-ondel="${f.id}">✕</button></div></div>`;
   }).join('') : '<div class="it"><div class="d">Nenhum amigo ainda. Adicione pelo código.</div></div>') + '</div>';
   h += `<div class="it" style="margin-top:8px"><div class="d">No mesmo destino, vocês veem o barco e o mergulhador um do outro ao vivo, com o nome em cima. Cada um tem os próprios peixes. No <b>desafio</b>, ganha quem pegar mais peixes na medida em 10 minutos (vencedor R$ 800, perdedor R$ 300).</div></div>`;
   return h;
@@ -277,6 +283,7 @@ function bindOnline(B, on) {
   if (q('onRestore')) q('onRestore').onclick = () => { if (confirm('Trocar o progresso deste aparelho pelo save da nuvem?')) cloudRestore(ON.cloud); };
   B.querySelectorAll('[data-ondel]').forEach(b => b.onclick = () => { const f = ON.friends.find(x => x.id === b.dataset.ondel); if (f && confirm(`Remover ${f.name} dos amigos online?`)) delFriendOnline(f.id).then(() => renderShop()); });
   B.querySelectorAll('[data-onchal]').forEach(b => b.onclick = () => { challenge(b.dataset.onchal); closePanels(); });
+  B.querySelectorAll('[data-onduo]').forEach(b => b.onclick = () => { challengeDuo(b.dataset.onduo); closePanels(); });
   B.querySelectorAll('[data-ongo]').forEach(b => b.onclick = () => {
     const R = ON.remotes[b.dataset.ongo]; if (!R) { toast('Ainda sem a posição dele. Espere uns segundos.', 2.5); return; }
     const near = SPOTS.filter(s => s.r).sort((a, c) => Math.hypot(a.x - R.bpos.x, a.z - R.bpos.z) - Math.hypot(c.x - R.bpos.x, c.z - R.bpos.z))[0];
@@ -299,4 +306,48 @@ function setupOnline() {
   document.addEventListener('visibilitychange', () => { if (document.hidden) cloudPush(); });
   setInterval(() => cloudPush(), 60000);
 }
-function updateOnline(dt, t) { sendPos(dt); updateRemotes(dt, t); }
+function updateOnline(dt, t) { sendPos(dt); updateRemotes(dt, t); duoTick(dt); }
+
+// ---------- campeonato em dupla com amigo de verdade ----------
+// quem convida é o anfitrião: roda as duplas rivais e manda o placar; o convidado pesca e manda os peixes dele
+function challengeDuo(id) {
+  const f = ON.friends.find(x => x.id === id), o = ON.online[id];
+  if (!f || !o) return; if (o.region !== REGION) { toast(`${f.name} está em outro destino.`, 3, 'bad'); return; }
+  if (SV.money < 200) { toast('A inscrição da dupla custa R$ 200.', 3, 'bad'); return; }
+  const near = SPOTS.filter(s => s.r).sort((a, b) => Math.hypot(a.x - BOAT.pos.x, a.z - BOAT.pos.z) - Math.hypot(b.x - BOAT.pos.x, b.z - BOAT.pos.z))[0];
+  ON.wait = { to: id, spot: near.id }; bcast('duo_inv', { to: id, spot: near.id, spotName: near.name });
+  toast(`Convite de dupla enviado para ${f.name} na ${near.name}. Esperando resposta...`, 4);
+  setTimeout(() => { if (ON.wait && ON.wait.to === id) { ON.wait = null; toast(`${f.name} não respondeu.`, 3); } }, 45000);
+}
+function startDuoHost(spotId, uid, name, at) {
+  if (COMP.on) return; closePanels(); toast(`Campeonato em dupla com ${name} começa em instantes!`, 3, 'gold');
+  setTimeout(() => {
+    duoPartner = null; const keepFriend = friends()[0];
+    startComp(spotId, true); if (!COMP.on) return;
+    for (const b of COMP.bots) scene.remove(b.rig.root);
+    const s = COMP.spot, rv = DUO_RIVALS.slice().sort(() => Math.random() - 0.5).slice(0, 4);
+    const mk = (n, col, team, skill) => { const a = rand(0, TAU); const b = makeBot({ id: n, name: n, col: 0, lvl: 1, spec: 'toca' }, new V3(s.x + Math.cos(a) * 12, -0.2, s.z + Math.sin(a) * 12)); b.rig.suitMat.color.set(col); b.skill = skill; b.team = team; b.pref = null; return b; };
+    COMP.bots = [mk(rv[0][0], rv[0][1], 1, 0.2), mk(rv[1][0], rv[1][1], 1, 0.17), mk(rv[2][0], rv[2][1], 2, 0.21), mk(rv[3][0], rv[3][1], 2, 0.16)];
+    COMP.mate = { uid, name, n: 0, kg: 0 };
+    COMP.duo = { names: [`Você + ${name}`, `${rv[0][0]} + ${rv[1][0]}`, `${rv[2][0]} + ${rv[3][0]}`], friend: { name, xp: 0 } };
+    ON.sbT = 0; toast(`Valendo! Você e ${name} contra 2 duplas na ${s.name}.`, 4, 'gold');
+  }, Math.max(0, at - Date.now()));
+}
+function startDuoGuest(spotId, uid, name, at) {
+  if (COMP.on) return; closePanels(); toast(`Campeonato em dupla com ${name} começa em instantes!`, 3, 'gold');
+  setTimeout(() => {
+    startComp(spotId, null, { uid, name }); if (!COMP.on) return;
+    COMP.guest = uid; COMP.hostRows = null; COMP.duo = { names: [`${name} + você`], friend: { name, xp: 0 } };
+    toast(`Valendo! Você e ${name} contra 2 duplas. O placar vem do jogo de ${name}.`, 4, 'gold');
+  }, Math.max(0, at - Date.now()));
+}
+// placar do convidado: o que o anfitrião mandou, com a sua dupla marcada
+function guestRows() {
+  const rows = (COMP.hostRows || [{ name: COMP.duo.names[0], n: COMP.me.n, kg: COMP.me.kg, team: 0 }]).map(r => ({ ...r, me: r.team === 0 }));
+  return rows;
+}
+function duoTick(dt) {
+  if (!COMP.on || !COMP.mate || (ON.sbT -= dt) > 0) return; ON.sbT = 2;
+  bcast('duo_sb', { to: COMP.mate.uid, rows: duoRows().map(r => ({ name: r.me ? `${myName()} + ${COMP.mate.name}` : r.name, n: r.n, kg: Math.round(r.kg * 10) / 10, team: r.me ? 0 : 1 })), t: COMP.t });
+}
+function duoHostEnd(rows) { if (COMP.mate) bcast('duo_end', { to: COMP.mate.uid, rows: rows.map(r => ({ name: r.me ? `${myName()} + ${COMP.mate.name}` : r.name, n: r.n, kg: Math.round(r.kg * 10) / 10, team: r.me ? 0 : 1 })) }); }
