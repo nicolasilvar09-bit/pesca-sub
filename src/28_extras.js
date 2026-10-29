@@ -122,7 +122,7 @@ function buildRancho() {
     // grade 3 x 3 entre a porta e as janelas; peixe de lado, cabeça para a direita
     const x = -1.3 + (i % 3) * 1.1, y = 2.35 - Math.floor(i / 3) * 0.68;
     const plank = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.6, 0.06), dark); plank.position.set(x, y, -1.8); wall.add(plank);
-    const fm = new THREE.Mesh(fishGeo(SHAPES[sp.shape], true), new THREE.MeshStandardMaterial({ map: fishTex(t.key), roughness: 0.4, metalness: 0.2, side: THREE.DoubleSide }));
+    const fm = new THREE.Mesh(fishGeo(shapeOf(t.key, sp.shape), true), new THREE.MeshStandardMaterial({ map: fishTex(t.key), roughness: 0.4, metalness: 0.2, side: THREE.DoubleSide }));
     fm.scale.setScalar(0.8 + 0.25 * smooth(0.3, 1.2, t.len || 0.5)); fm.position.set(x - 0.05, y, -1.9); wall.add(fm);
   });
   scene.add(RANCH.g = g);

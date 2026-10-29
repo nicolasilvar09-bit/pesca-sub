@@ -86,12 +86,14 @@ function fishGeo(sh, lo) {
       const a = j / NR * TAU, ca = Math.cos(a), belly = ca < 0 ? 0.92 : 1;
       // boca: o maxilar de baixo avança e a cabeça afina por cima, dando a linha da boca
       const jw = (sh.jaw != null ? sh.jaw : 0.6) * smooth(0.84, 1, t), jx = jw * (ca < 0 ? 0.035 * -ca : -0.012 * ca);
-      add(x + jx, ca * hh * belly, Math.sin(a) * ww * (1 - 0.25 * Math.pow(Math.abs(ca), 3)), t * 0.97, (j / NR) * 0.78);
+      // testa: o alto da cabeça sobe e cai reto (dourado, xaréu, peixe-galo); focinho: a cabeça se alonga
+      const br = ca > 0 && sh.brow ? 1 + sh.brow * smooth(0.55, 0.9, t) * (1 - smooth(0.93, 1.0, t)) * ca : 1, sn = (sh.snout || 0) * smooth(0.85, 1, t);
+      add(x + jx + sn, ca * hh * belly * br, Math.sin(a) * ww * (1 - 0.25 * Math.pow(Math.abs(ca), 3)), t * 0.97, (j / NR) * 0.78);
     }
   }
   for (let i = 0; i < NL; i++) for (let j = 0; j < NR; j++) { const a = i * (NR + 1) + j, b = a + NR + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
   const tc = add(x0, 0, 0, 0, 0.39); for (let j = 0; j < NR; j++) idx.push(tc, j + 1, j);
-  const sc = add(x1 + 0.012, 0, 0, 0.99, 0.39), base = NL * (NR + 1); for (let j = 0; j < NR; j++) idx.push(sc, base + j, base + j + 1);
+  const sc = add(x1 + 0.012 + (sh.snout || 0), 0, 0, 0.99, 0.39), base = NL * (NR + 1); for (let j = 0; j < NR; j++) idx.push(sc, base + j, base + j + 1);
   // nadadeira: faixa entre a base e a borda; u corre ao longo da base (raios), v da base (0.8) à borda (0.99)
   const fin = (S, R, bse, edge, p, us) => {
     const o = pos.length / 3;
@@ -102,19 +104,28 @@ function fishGeo(sh, lo) {
   // barbilhões dos bagres: fios longos saindo da boca
   if (sh.barbels && !lo) for (const sz of [1, -1]) fin(4, 1, s => [X(0.97) - s * 0.01, -TOP(0.97) * 0.3, sz * SIDE(0.97) * 0.5], (s, b) => [b[0] - 0.22 * (0.3 + 0.7 * s), b[1] - 0.04 - 0.02 * s, b[2] + sz * 0.08 * (0.4 + s)], 3, 0.05);
   // caudal: bifurcada (lobos pontudos) ou arredondada
-  const hp = TOP(0), tH = sh.tailH, tip = sh.fork ? 0.19 : 0.15, mid = sh.fork ? 0.075 : 0.15;
+  const hp = TOP(0), tH = sh.tailH, tip = sh.tip || (sh.fork ? 0.19 : 0.15), mid = sh.mid || (sh.fork ? 0.075 : 0.15);
   fin(S + 2, R, s => [x0 + 0.02, hp * (1 - 2 * s) * 0.95, 0], s => { const ys = 1 - 2 * s; return sh.fork ? [x0 - (mid + (tip - mid) * Math.pow(Math.abs(ys), 1.3)) * (sh.hetero && ys > 0 ? 1.7 : 1), ys * tH * (sh.hetero ? (ys > 0 ? 1.5 : 0.7) : 1), 0] : [x0 - tip * (1 - 0.3 * ys * ys), ys * tH * 0.95, 0]; }, 1, 0.9);
   // dorsais e anal: perfil por nós (raia dura na frente, mole atrás)
   const dfin = (a, b, h, K, down) => { const pf = knots(K); fin(S, R, s => { const t = lerp(a, b, s); return [X(t), (down ? -0.88 : 0.94) * TOP(t), 0]; }, (s, bb) => [bb[0] - h * 0.35 * pf(s), bb[1] + (down ? -1 : 1) * h * pf(s), 0], 3, 0.5); };
   const D = sh.dors;
-  if (sh.df === 'one') dfin(0.2, 0.8, D, [[0, 0], [0.1, 0.8], [0.38, 0.62], [0.48, 0.5], [0.6, 0.85], [0.8, 1], [0.95, 0.7], [1, 0]]);
+  // nadadeiras sob medida por espécie: [início, fim, altura (× dors), nós, embaixo?]
+  if (sh.fins) for (const [a, b, h, K, down] of sh.fins) dfin(a, b, D * h, K, down);
+  else if (sh.df === 'one') dfin(0.2, 0.8, D, [[0, 0], [0.1, 0.8], [0.38, 0.62], [0.48, 0.5], [0.6, 0.85], [0.8, 1], [0.95, 0.7], [1, 0]]);
   else if (sh.df === 'long') dfin(0.1, 0.97, D, [[0, 0], [0.06, 0.45], [0.6, 0.7], [0.93, 1], [1, 0]]);
   else if (sh.df === 'back') { dfin(0.05, 0.36, D, [[0, 0], [0.12, 0.7], [0.7, 1], [0.95, 0.8], [1, 0]]); dfin(0.05, 0.34, D * 0.9, [[0, 0], [0.12, 0.7], [0.7, 1], [0.95, 0.8], [1, 0]], true); }
   else if (sh.hetero) { dfin(0.4, 0.6, D * 1.8, [[0, 0], [0.15, 0.55], [0.55, 1], [0.85, 0.55], [1, 0]]); dfin(0.13, 0.21, D * 0.45, [[0, 0], [0.5, 1], [1, 0]]); } // tubarão: 1ª dorsal grande, 2ª pequena
   else { dfin(0.56, 0.78, D * 1.2, [[0, 0], [0.15, 0.45], [0.65, 1], [0.92, 0.9], [1, 0]]); dfin(0.22, 0.44, D, [[0, 0], [0.2, 0.6], [0.75, 1], [1, 0]]); }
-  if (sh.df === 'long') dfin(0.1, 0.5, D * 0.8, [[0, 0], [0.1, 0.6], [0.85, 1], [1, 0]], true);
+  if (sh.fins) { }
+  else if (sh.df === 'long') dfin(0.1, 0.5, D * 0.8, [[0, 0], [0.1, 0.6], [0.85, 1], [1, 0]], true);
   else if (sh.hetero) dfin(0.13, 0.21, D * 0.4, [[0, 0], [0.5, 1], [1, 0]], true);
   else if (sh.df !== 'back') dfin(0.17, 0.42, D * 0.75, [[0, 0], [0.2, 0.7], [0.75, 1], [1, 0]], true);
+  // pínulas (atuns e cavalas): fileira de nadadeirinhas antes da cauda, em cima e embaixo
+  if (sh.finlets && !lo) for (let k = 0; k < sh.finlets; k++) for (const dn of [false, true]) {
+    const t0 = 0.05 + k * 0.024; fin(1, 1, s => { const t = t0 + s * 0.016; return [X(t), (dn ? -0.9 : 0.92) * TOP(t), 0]; }, (s, b) => [b[0] - 0.012, b[1] + (dn ? -1 : 1) * 0.022 * (1 - s), 0], 3, 0.3);
+  }
+  // quilha no pedúnculo da cauda (atum, xaréu): aba lateral fina
+  if (sh.keel && !lo) for (const sz of [1, -1]) fin(3, 1, s => [X(0.02 + s * 0.12), 0, sz * SIDE(0.02 + s * 0.12) * 0.95], (s, b) => [b[0], b[1], b[2] + sz * sh.keel * Math.sin(Math.PI * s)], 3, 0.2);
   // peitorais (folha voltada para trás e para fora) e pélvicas
   const pl = sh.pec, pt = 0.69;
   for (const sz of [1, -1]) {
@@ -188,7 +199,7 @@ function fishTex(key, c) {
 const POOLS = {};
 const _dummy = new THREE.Object3D();
 function makePool(key, shape, tex, max, lo) {
-  const geo = fishGeo(SHAPES[shape], lo);
+  const geo = fishGeo(shapeOf(key, shape), lo);
   const anim = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3); anim.setUsage(THREE.DynamicDrawUsage); geo.setAttribute('aAnim', anim);
   const mat = uwify(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.36, metalness: 0.3, side: THREE.DoubleSide }), {
     key: 'fishI', vHead: 'attribute vec3 aAnim;\nattribute vec2 aPart;\n',
@@ -233,7 +244,7 @@ class Fish {
     this.home = opt.home || null; this.leader = opt.leader || null; this.off = opt.off || new V3();
     this.alive = true; this.fight = 0; this.orbitA = rand(0, TAU); this.wob = rand(0, TAU);
     this.bend = 0; this.gl = rand(0, TAU); this.glR = rand(0.3, 0.6);
-    this.radius = SHAPES[sp.shape].h * 0.45 * this.len;
+    this.radius = shapeOf(key, sp.shape).h * 0.45 * this.len;
   }
   dir(out) { return out.set(Math.cos(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.sin(this.yaw) * Math.cos(this.pitch)); }
   pickWander() {

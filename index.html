@@ -555,22 +555,13 @@ function buildSky() {
     uniforms: { uSun: { value: SUN_DIR }, uHaze: { value: HAZE }, uTime: CU.uTime, uDay: CU.uDay, uDusk: CU.uDusk, uCloud: CU.uCloud },
     vertexShader: `varying vec3 vD; void main(){ vD=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); gl_Position.z=gl_Position.w*0.99999; }`,
     fragmentShader: `uniform vec3 uSun; uniform vec3 uHaze; uniform float uTime; uniform float uDay; uniform float uDusk; uniform float uCloud; varying vec3 vD;
-      float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-      float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}
-      float fb(vec2 p){float s=0.0,a=0.5;for(int i=0;i<5;i++){s+=a*n(p);p*=2.03;a*=0.5;}return s;}
-      void main(){ vec3 d=normalize(vD); float y=max(d.y,0.0);
-        vec3 zen=mix(vec3(0.008,0.014,0.04),vec3(0.30,0.53,0.84),uDay); zen=mix(zen,vec3(0.5,0.53,0.57)*uDay+0.01,uCloud*0.6);
-        vec3 c=mix(uHaze,zen,pow(y,0.5));
-        float s=max(dot(d,uSun),0.0), up=smoothstep(-0.08,0.02,uSun.y);
-        c+=vec3(1.0,0.88,0.65)*(pow(s,900.0)*10.0+pow(s,10.0)*0.22)*up*(1.0-uCloud*0.85);
-        c+=vec3(1.0,0.4,0.12)*uDusk*pow(s,3.0)*(1.0-y)*0.8;
+      ` + SKY_GLSL(5) + `
+      void main(){ vec3 d=normalize(vD); vec3 c=skyCol(d); float y=max(d.y,0.0);
+        c+=vec3(1.0,0.88,0.65)*pow(max(dot(d,uSun),0.0),900.0)*10.0*smoothstep(-0.08,0.02,uSun.y)*(1.0-uCloud*0.85);
         // lua e estrelas
         vec3 md=normalize(vec3(-uSun.x,abs(uSun.y)*0.8+0.25,uSun.z)); float mn=max(dot(d,md),0.0);
         c+=vec3(0.85,0.9,1.0)*(pow(mn,2500.0)*4.0+pow(mn,40.0)*0.04)*(1.0-uDay)*(1.0-uCloud*0.8);
-        if(d.y>0.0){ vec2 sp=floor(d.xz/(d.y+0.06)*220.0); c+=vec3(step(0.9975,h(sp)))*(1.0-smoothstep(0.1,0.45,uDay))*smoothstep(0.04,0.3,d.y)*(1.0-uCloud); }
-        if(d.y>0.0){ vec2 cp=d.xz/(d.y+0.12)*1.4+vec2(uTime*0.004,0.0); float cl=smoothstep(0.52-uCloud*0.4,0.78,fb(cp)); cl*=smoothstep(0.0,0.12,d.y);
-          vec3 cc=vec3(0.95,0.96,0.97)*(0.85+0.3*s)*(0.06+0.94*uDay); cc=mix(cc,vec3(1.0,0.55,0.35)*0.9,uDusk*0.55); cc=mix(cc,vec3(0.5,0.52,0.56)*(0.08+0.92*uDay),uCloud*0.6);
-          c=mix(c,cc,cl*0.85); }
+        if(d.y>0.0){ vec2 sp=floor(d.xz/(d.y+0.06)*220.0); c+=vec3(step(0.9975,skH(sp)))*(1.0-smoothstep(0.1,0.45,uDay))*smoothstep(0.04,0.3,d.y)*(1.0-uCloud); }
         else c=uHaze*0.92;
         gl_FragColor=vec4(c,1.0);
       }`,
@@ -668,12 +659,12 @@ function buildWater() {
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
   waterMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: CU.uTime, uSun: { value: SUN_DIR }, uUnder: { value: 0 }, uFogC: { value: new THREE.Color() }, uFogD: { value: 0.0006 }, uHaze: { value: HAZE }, uDay: CU.uDay, uSwell: CU.uSwell },
+    uniforms: { uTime: CU.uTime, uSun: { value: SUN_DIR }, uUnder: { value: 0 }, uFogC: { value: new THREE.Color() }, uFogD: { value: 0.0006 }, uHaze: { value: HAZE }, uDay: CU.uDay, uSwell: CU.uSwell, uDusk: CU.uDusk, uCloud: CU.uCloud, uShal: { value: null }, uShalB: { value: new THREE.Vector4(0, 0, 0, 0) } },
     vertexShader: WAVE_GLSL + `uniform float uTime; varying vec3 vW;
       void main(){ vec4 w=modelMatrix*vec4(position,1.0); float fade=1.0-smoothstep(250.0,1100.0,length(position.xz));
         w.y+=waveH(w.xz,uTime)*fade; vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader: WAVE_GLSL + `uniform float uTime; uniform vec3 uSun; uniform float uUnder; uniform vec3 uFogC; uniform float uFogD; uniform vec3 uHaze; uniform float uDay; varying vec3 vW;
-      vec3 sky(vec3 d){ float y=max(d.y,0.0); return mix(uHaze,vec3(0.30,0.53,0.84)*uDay+0.01,pow(y,0.5)); }
+    fragmentShader: WAVE_GLSL + `uniform float uTime; uniform vec3 uSun; uniform float uUnder; uniform vec3 uFogC; uniform float uFogD; uniform vec3 uHaze; uniform float uDay; uniform float uDusk; uniform float uCloud; uniform sampler2D uShal; uniform vec4 uShalB; varying vec3 vW;
+      ` + SKY_GLSL(3) + `
       void main(){
         vec3 Vd=cameraPosition-vW; float dist=length(Vd); vec3 V=Vd/dist;
         vec2 p=vW.xz; float t=uTime; float rf=1.0-smoothstep(20.0,260.0,dist);
@@ -687,12 +678,9 @@ function buildWater() {
         if(uUnder<0.5){
           float fr=0.02+0.98*pow(1.0-max(dot(N,V),0.0),5.0);
           vec3 R=reflect(-V,N); R.y=abs(R.y);
-          vec3 refl=sky(R)+vec3(1.0,0.9,0.72)*pow(max(dot(R,uSun),0.0),600.0)*7.0*smoothstep(-0.05,0.05,uSun.y);
+          vec3 refl=skyCol(R)+vec3(1.0,0.9,0.72)*pow(max(dot(R,uSun),0.0),600.0)*7.0*smoothstep(-0.05,0.05,uSun.y);
           vec3 deep=${AMZ ? 'vec3(0.07,0.11,0.07)' : NE ? 'vec3(0.02,0.25,0.33)' : 'vec3(0.03,0.19,0.24)'}*(0.1+0.9*uDay);
-          col=mix(deep,refl,fr);
-          col+=vec3(0.0,0.10,0.08)*clamp(waveH(p,t)+0.3,0.0,1.0);
-          a=mix(0.5,1.0,max(fr,smoothstep(6.0,80.0,dist)));
-          col=mix(col,uHaze,1.0-exp(-dist*uFogD));
+` + WATER_TOP() + `
         } else {
           float cw=dot(-V,N);
           float win=smoothstep(0.60,0.70,cw);
@@ -1244,12 +1232,14 @@ function fishGeo(sh, lo) {
       const a = j / NR * TAU, ca = Math.cos(a), belly = ca < 0 ? 0.92 : 1;
       // boca: o maxilar de baixo avança e a cabeça afina por cima, dando a linha da boca
       const jw = (sh.jaw != null ? sh.jaw : 0.6) * smooth(0.84, 1, t), jx = jw * (ca < 0 ? 0.035 * -ca : -0.012 * ca);
-      add(x + jx, ca * hh * belly, Math.sin(a) * ww * (1 - 0.25 * Math.pow(Math.abs(ca), 3)), t * 0.97, (j / NR) * 0.78);
+      // testa: o alto da cabeça sobe e cai reto (dourado, xaréu, peixe-galo); focinho: a cabeça se alonga
+      const br = ca > 0 && sh.brow ? 1 + sh.brow * smooth(0.55, 0.9, t) * (1 - smooth(0.93, 1.0, t)) * ca : 1, sn = (sh.snout || 0) * smooth(0.85, 1, t);
+      add(x + jx + sn, ca * hh * belly * br, Math.sin(a) * ww * (1 - 0.25 * Math.pow(Math.abs(ca), 3)), t * 0.97, (j / NR) * 0.78);
     }
   }
   for (let i = 0; i < NL; i++) for (let j = 0; j < NR; j++) { const a = i * (NR + 1) + j, b = a + NR + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
   const tc = add(x0, 0, 0, 0, 0.39); for (let j = 0; j < NR; j++) idx.push(tc, j + 1, j);
-  const sc = add(x1 + 0.012, 0, 0, 0.99, 0.39), base = NL * (NR + 1); for (let j = 0; j < NR; j++) idx.push(sc, base + j, base + j + 1);
+  const sc = add(x1 + 0.012 + (sh.snout || 0), 0, 0, 0.99, 0.39), base = NL * (NR + 1); for (let j = 0; j < NR; j++) idx.push(sc, base + j, base + j + 1);
   // nadadeira: faixa entre a base e a borda; u corre ao longo da base (raios), v da base (0.8) à borda (0.99)
   const fin = (S, R, bse, edge, p, us) => {
     const o = pos.length / 3;
@@ -1260,19 +1250,28 @@ function fishGeo(sh, lo) {
   // barbilhões dos bagres: fios longos saindo da boca
   if (sh.barbels && !lo) for (const sz of [1, -1]) fin(4, 1, s => [X(0.97) - s * 0.01, -TOP(0.97) * 0.3, sz * SIDE(0.97) * 0.5], (s, b) => [b[0] - 0.22 * (0.3 + 0.7 * s), b[1] - 0.04 - 0.02 * s, b[2] + sz * 0.08 * (0.4 + s)], 3, 0.05);
   // caudal: bifurcada (lobos pontudos) ou arredondada
-  const hp = TOP(0), tH = sh.tailH, tip = sh.fork ? 0.19 : 0.15, mid = sh.fork ? 0.075 : 0.15;
+  const hp = TOP(0), tH = sh.tailH, tip = sh.tip || (sh.fork ? 0.19 : 0.15), mid = sh.mid || (sh.fork ? 0.075 : 0.15);
   fin(S + 2, R, s => [x0 + 0.02, hp * (1 - 2 * s) * 0.95, 0], s => { const ys = 1 - 2 * s; return sh.fork ? [x0 - (mid + (tip - mid) * Math.pow(Math.abs(ys), 1.3)) * (sh.hetero && ys > 0 ? 1.7 : 1), ys * tH * (sh.hetero ? (ys > 0 ? 1.5 : 0.7) : 1), 0] : [x0 - tip * (1 - 0.3 * ys * ys), ys * tH * 0.95, 0]; }, 1, 0.9);
   // dorsais e anal: perfil por nós (raia dura na frente, mole atrás)
   const dfin = (a, b, h, K, down) => { const pf = knots(K); fin(S, R, s => { const t = lerp(a, b, s); return [X(t), (down ? -0.88 : 0.94) * TOP(t), 0]; }, (s, bb) => [bb[0] - h * 0.35 * pf(s), bb[1] + (down ? -1 : 1) * h * pf(s), 0], 3, 0.5); };
   const D = sh.dors;
-  if (sh.df === 'one') dfin(0.2, 0.8, D, [[0, 0], [0.1, 0.8], [0.38, 0.62], [0.48, 0.5], [0.6, 0.85], [0.8, 1], [0.95, 0.7], [1, 0]]);
+  // nadadeiras sob medida por espécie: [início, fim, altura (× dors), nós, embaixo?]
+  if (sh.fins) for (const [a, b, h, K, down] of sh.fins) dfin(a, b, D * h, K, down);
+  else if (sh.df === 'one') dfin(0.2, 0.8, D, [[0, 0], [0.1, 0.8], [0.38, 0.62], [0.48, 0.5], [0.6, 0.85], [0.8, 1], [0.95, 0.7], [1, 0]]);
   else if (sh.df === 'long') dfin(0.1, 0.97, D, [[0, 0], [0.06, 0.45], [0.6, 0.7], [0.93, 1], [1, 0]]);
   else if (sh.df === 'back') { dfin(0.05, 0.36, D, [[0, 0], [0.12, 0.7], [0.7, 1], [0.95, 0.8], [1, 0]]); dfin(0.05, 0.34, D * 0.9, [[0, 0], [0.12, 0.7], [0.7, 1], [0.95, 0.8], [1, 0]], true); }
   else if (sh.hetero) { dfin(0.4, 0.6, D * 1.8, [[0, 0], [0.15, 0.55], [0.55, 1], [0.85, 0.55], [1, 0]]); dfin(0.13, 0.21, D * 0.45, [[0, 0], [0.5, 1], [1, 0]]); } // tubarão: 1ª dorsal grande, 2ª pequena
   else { dfin(0.56, 0.78, D * 1.2, [[0, 0], [0.15, 0.45], [0.65, 1], [0.92, 0.9], [1, 0]]); dfin(0.22, 0.44, D, [[0, 0], [0.2, 0.6], [0.75, 1], [1, 0]]); }
-  if (sh.df === 'long') dfin(0.1, 0.5, D * 0.8, [[0, 0], [0.1, 0.6], [0.85, 1], [1, 0]], true);
+  if (sh.fins) { }
+  else if (sh.df === 'long') dfin(0.1, 0.5, D * 0.8, [[0, 0], [0.1, 0.6], [0.85, 1], [1, 0]], true);
   else if (sh.hetero) dfin(0.13, 0.21, D * 0.4, [[0, 0], [0.5, 1], [1, 0]], true);
   else if (sh.df !== 'back') dfin(0.17, 0.42, D * 0.75, [[0, 0], [0.2, 0.7], [0.75, 1], [1, 0]], true);
+  // pínulas (atuns e cavalas): fileira de nadadeirinhas antes da cauda, em cima e embaixo
+  if (sh.finlets && !lo) for (let k = 0; k < sh.finlets; k++) for (const dn of [false, true]) {
+    const t0 = 0.05 + k * 0.024; fin(1, 1, s => { const t = t0 + s * 0.016; return [X(t), (dn ? -0.9 : 0.92) * TOP(t), 0]; }, (s, b) => [b[0] - 0.012, b[1] + (dn ? -1 : 1) * 0.022 * (1 - s), 0], 3, 0.3);
+  }
+  // quilha no pedúnculo da cauda (atum, xaréu): aba lateral fina
+  if (sh.keel && !lo) for (const sz of [1, -1]) fin(3, 1, s => [X(0.02 + s * 0.12), 0, sz * SIDE(0.02 + s * 0.12) * 0.95], (s, b) => [b[0], b[1], b[2] + sz * sh.keel * Math.sin(Math.PI * s)], 3, 0.2);
   // peitorais (folha voltada para trás e para fora) e pélvicas
   const pl = sh.pec, pt = 0.69;
   for (const sz of [1, -1]) {
@@ -1346,7 +1345,7 @@ function fishTex(key, c) {
 const POOLS = {};
 const _dummy = new THREE.Object3D();
 function makePool(key, shape, tex, max, lo) {
-  const geo = fishGeo(SHAPES[shape], lo);
+  const geo = fishGeo(shapeOf(key, shape), lo);
   const anim = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3); anim.setUsage(THREE.DynamicDrawUsage); geo.setAttribute('aAnim', anim);
   const mat = uwify(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.36, metalness: 0.3, side: THREE.DoubleSide }), {
     key: 'fishI', vHead: 'attribute vec3 aAnim;\nattribute vec2 aPart;\n',
@@ -1391,7 +1390,7 @@ class Fish {
     this.home = opt.home || null; this.leader = opt.leader || null; this.off = opt.off || new V3();
     this.alive = true; this.fight = 0; this.orbitA = rand(0, TAU); this.wob = rand(0, TAU);
     this.bend = 0; this.gl = rand(0, TAU); this.glR = rand(0.3, 0.6);
-    this.radius = SHAPES[sp.shape].h * 0.45 * this.len;
+    this.radius = shapeOf(key, sp.shape).h * 0.45 * this.len;
   }
   dir(out) { return out.set(Math.cos(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.sin(this.yaw) * Math.cos(this.pitch)); }
   pickWander() {
@@ -2199,7 +2198,7 @@ function startGame() {
 }
 function init() {
   loadSave(); if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
-  initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); buildFX();
+  initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); bakeShallow(); buildFX();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
   setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt();
@@ -6301,7 +6300,7 @@ function buildRancho() {
     // grade 3 x 3 entre a porta e as janelas; peixe de lado, cabeça para a direita
     const x = -1.3 + (i % 3) * 1.1, y = 2.35 - Math.floor(i / 3) * 0.68;
     const plank = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.6, 0.06), dark); plank.position.set(x, y, -1.8); wall.add(plank);
-    const fm = new THREE.Mesh(fishGeo(SHAPES[sp.shape], true), new THREE.MeshStandardMaterial({ map: fishTex(t.key), roughness: 0.4, metalness: 0.2, side: THREE.DoubleSide }));
+    const fm = new THREE.Mesh(fishGeo(shapeOf(t.key, sp.shape), true), new THREE.MeshStandardMaterial({ map: fishTex(t.key), roughness: 0.4, metalness: 0.2, side: THREE.DoubleSide }));
     fm.scale.setScalar(0.8 + 0.25 * smooth(0.3, 1.2, t.len || 0.5)); fm.position.set(x - 0.05, y, -1.9); wall.add(fm);
   });
   scene.add(RANCH.g = g);
@@ -6756,6 +6755,145 @@ function huntHit(f) {
 }
 function huntCatch(f) { if (!f.sp.ornamental) P.bleedT = T + 60; }
 function huntTear(f) { f.bleed = 45; bleed(f.pos, 5, 0.9); }
+
+// ================= visual: céu, pôr do sol, mar raso, espuma e reflexo =================
+
+// ---------- céu compartilhado: o mesmo céu no alto e refletido na água ----------
+// OCT = oitavas do ruído das nuvens (o reflexo usa menos, é mais barato)
+const SKY_GLSL = oct => `
+float skH(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float skN(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(skH(i),skH(i+vec2(1,0)),f.x),mix(skH(i+vec2(0,1)),skH(i+vec2(1,1)),f.x),f.y);}
+float skF(vec2 p){float s=0.0,a=0.5;for(int i=0;i<${oct};i++){s+=a*skN(p);p*=2.03;a*=0.5;}return s;}
+vec3 skyCol(vec3 d){
+  float y=max(d.y,0.0), s=max(dot(d,uSun),0.0), up=smoothstep(-0.08,0.02,uSun.y);
+  vec3 zen=mix(vec3(0.008,0.014,0.04),vec3(0.22,0.46,0.82),uDay);
+  zen=mix(zen,vec3(0.26,0.24,0.46)*(0.3+0.7*uDay),uDusk*0.55);             // topo arroxeado no fim da tarde
+  zen=mix(zen,vec3(0.5,0.53,0.57)*uDay+0.01,uCloud*0.6);
+  vec3 c=mix(uHaze,zen,pow(y,0.45));
+  // faixa do pôr do sol: laranja no horizonte, rosa acima, mais forte do lado do sol
+  float band=(1.0-smoothstep(0.0,0.42,y))*uDusk*(1.0-uCloud*0.6);
+  c+=mix(vec3(1.0,0.42,0.12),vec3(0.9,0.38,0.55),smoothstep(0.02,0.3,y))*band*(0.3+0.9*pow(s,2.5));
+  c+=vec3(1.0,0.5,0.18)*uDusk*pow(s,24.0)*1.2*up;                          // brilho grande em volta do sol baixo
+  c+=vec3(1.0,0.9,0.75)*pow(s,10.0)*0.18*up*(1.0-uCloud*0.8);
+  if(d.y>0.0){
+    vec2 cp=d.xz/(d.y+0.12)*1.4+vec2(uTime*0.004,0.0);
+    float f0=skF(cp), cl=smoothstep(0.52-uCloud*0.4,0.8,f0)*smoothstep(0.0,0.12,d.y);
+    // luz na nuvem: amostra deslocada para o sol, borda iluminada e base mais escura
+    float lit=clamp((f0-skF(cp+uSun.xz*0.09))*3.2+0.85,0.62,1.2);
+    vec3 cc=vec3(0.97,0.97,0.98)*lit*(0.06+0.94*uDay);
+    cc=mix(cc,mix(vec3(1.0,0.5,0.3),vec3(0.95,0.45,0.6),1.0-lit)*(0.55+0.5*lit),uDusk*0.75*(0.5+0.5*pow(s,1.5)));
+    cc=mix(cc,vec3(0.5,0.52,0.56)*(0.08+0.92*uDay)*lit,uCloud*0.6);
+    cc+=vec3(1.0,0.88,0.7)*pow(s,8.0)*(1.0-cl)*0.6*up;                    // contorno prateado contra o sol
+    // cirros: fios altos e finos, bonitos no entardecer
+    float ci=smoothstep(0.58,0.86,skF(vec2(cp.x*0.32,cp.y*2.4)+vec2(uTime*0.002,7.0)))*smoothstep(0.03,0.25,d.y)*(1.0-uCloud);
+    c+=mix(vec3(0.9,0.93,0.97)*uDay,vec3(1.0,0.55,0.45),uDusk)*ci*0.35;
+    c=mix(c,cc,cl*0.88);
+  }
+  return c;
+}`;
+
+// ---------- mapa de profundidade para a cor do raso e a espuma da arrebentação ----------
+const SHAL = { done: false };
+function bakeShallow() {
+  if (SHAL.done || !waterMat) return; SHAL.done = true; const t0 = performance.now();
+  const N = 256, x0 = WB.x0 - 150, x1 = WB.x1 + 150, z0 = WB.z0 - 150, z1 = WB.z1 + 150, d = new Uint8Array(N * N * 4);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const x = x0 + (i + 0.5) / N * (x1 - x0), z = z0 + (j + 0.5) / N * (z1 - z0), k = (j * N + i) * 4;
+    d[k] = Math.round(clamp(-H(x, z), 0, 25.5) * 10); d[k + 3] = 255;
+  }
+  const tex = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
+  waterMat.uniforms.uShal.value = tex; waterMat.uniforms.uShalB.value.set(x0, z0, 1 / (x1 - x0), 1 / (z1 - z0)); SHAL.ms = performance.now() - t0;
+}
+const SHAL_COL = () => AMZ ? 'vec3(0.17,0.21,0.10)' : NE ? 'vec3(0.10,0.66,0.62)' : 'vec3(0.08,0.42,0.38)';
+
+// trecho do shader da água vista de cima: raso claro, espuma na beira e nas cristas, brilho do sol
+const WATER_TOP = () => `
+  float dep=25.0; vec2 su=(vW.xz-uShalB.xy)*uShalB.zw;
+  if(su.x>0.0&&su.y>0.0&&su.x<1.0&&su.y<1.0) dep=texture2D(uShal,su).r*25.5;
+  float shl=exp(-dep*0.3)*(1.0-smoothstep(300.0,900.0,dist));
+  deep=mix(deep,${SHAL_COL()}*(0.1+0.9*uDay),shl*0.9);
+  col=mix(deep,refl,fr*(1.0-shl*0.35));
+  col+=vec3(0.0,0.10,0.08)*clamp(waveH(p,t)+0.3,0.0,1.0);
+  // luz atravessando a crista da onda contra o sol
+  vec3 sh=normalize(vec3(uSun.x,0.0,uSun.z)); col+=vec3(0.02,0.22,0.18)*clamp(waveH(p,t)/max(uSwell,0.3),0.0,1.0)*pow(max(dot(-V,sh),0.0),3.0)*uDay*0.6;
+  // espuma: na beira (raso) com linhas de arrebentação chegando, e carneirinhos com mar mexido
+  float fn=skN(p*0.35+vec2(t*0.05,t*0.03))*0.6+skN(p*1.4-vec2(t*0.12))*0.4;
+  float shore=(1.0-smoothstep(0.1,2.0,dep))*smoothstep(0.25,0.55,fn);
+  float surfL=smoothstep(0.7,1.0,sin(dep*2.0+t*1.4+fn*2.5))*(1.0-smoothstep(0.5,4.5,dep))*smoothstep(0.2,0.5,fn);
+  float cap=smoothstep(0.36,0.5,waveH(p,t)/max(uSwell,0.01))*smoothstep(0.55,0.78,fn)*smoothstep(1.05,1.6,uSwell);
+  float foam=clamp(shore+surfL*(0.5+0.5*uSwell)+cap*0.8,0.0,1.0)*(1.0-smoothstep(160.0,700.0,dist));
+  // brilho do sol picando na água
+  float gl=pow(max(dot(R,uSun),0.0),70.0)*step(0.93,skH(floor(p*5.0)+floor(t*6.0)))*2.5*smoothstep(-0.05,0.1,uSun.y)*(1.0-uCloud);
+  col+=vec3(1.0,0.92,0.75)*gl;
+  col=mix(col,vec3(0.9,0.95,0.96)*(0.12+0.88*uDay),foam*0.9);
+  a=mix(mix(0.5,0.3,shl),1.0,max(fr,smoothstep(6.0,80.0,dist))); a=max(a,foam*0.95);
+  col=mix(col,uHaze,1.0-exp(-dist*uFogD));`;
+
+// ================= um modelo por espécie =================
+// ajustes de corpo em cima do formato base (SHAPES). Campos novos do fishGeo:
+// brow = testa alta e reta · snout = focinho mais longo · finlets = nº de pínulas · keel = quilha do pedúnculo
+// tip/mid = recorte da cauda · fins = nadadeiras sob medida [início, fim, altura × dors, nós, embaixo?]
+// (t vai de 0 na cauda a 1 no focinho; nos nós, 0 = fim de trás da nadadeira e 1 = frente)
+const K_SICKLE = [[0, 0], [0.12, 0.22], [0.6, 0.3], [0.86, 1], [1, 0]];          // lobo em foice na frente (pampo)
+const K_FILA = [[0, 0], [0.1, 0.12], [0.7, 0.18], [0.84, 0.35], [0.9, 1], [1, 0]]; // filamento comprido (peixe-galo)
+const K_SOFT = [[0, 0], [0.15, 0.6], [0.7, 1], [0.95, 0.85], [1, 0]];
+const K_SPINY = [[0, 0], [0.12, 0.55], [0.4, 0.75], [0.75, 1], [0.95, 0.85], [1, 0]];
+const K_TRAIL = [[0, 0], [0.05, 1], [0.25, 0.75], [0.8, 0.45], [1, 0]];           // ponta para trás (frade, cirurgião)
+const FISH_GEO = {
+  // ---- Costa Verde ----
+  sargo: { brow: 0.15 },
+  marimba: { h: 0.42, brow: 0.1 },
+  salema: { h: 0.36, w: 0.12, pk: 0.8 },
+  cocoroca: { h: 0.38, jaw: 0.4, brow: 0.2 },
+  canhanha: { h: 0.42, brow: 0.12 },
+  pampo: { h: 0.52, brow: 0.2, tailH: 0.27, fins: [[0.22, 0.6, 2.2, K_SICKLE], [0.2, 0.56, 2.0, K_SICKLE, true], [0.62, 0.72, 0.5, [[0, 0], [0.5, 1], [1, 0]]]] },
+  budiao: { brow: 0.3, tip: 0.13, mid: 0.14 },
+  frade: { h: 0.7, jaw: 0.1, brow: 0.2, fins: [[0.12, 0.68, 1.1, K_TRAIL], [0.12, 0.5, 1.0, K_TRAIL, true]] },
+  peixegalo: { h: 0.8, w: 0.06, pk: 0.75, brow: 0.55, jaw: 0.7, tailH: 0.2, fins: [[0.2, 0.6, 2.6, K_FILA], [0.2, 0.55, 2.4, K_FILA, true]] },
+  cangulo: { h: 0.5, w: 0.1, pk: 0.68, jaw: 0.0, brow: 0.15, snout: 0.03, fork: false, tip: 0.12, mid: 0.11, tailH: 0.17,
+    fins: [[0.62, 0.72, 0.9, [[0, 0], [0.2, 0.4], [0.85, 1], [1, 0]]], [0.12, 0.44, 1.0, K_SOFT], [0.12, 0.42, 1.0, K_SOFT, true]] },
+  garoupa: { h: 0.31, jaw: 1.3 },
+  badejo: { h: 0.26, w: 0.15, jaw: 1.1, pk: 0.74, dors: 0.07, tip: 0.13, mid: 0.13 },
+  cherne: { h: 0.37, w: 0.17, brow: 0.12, jaw: 1.2, tailH: 0.17 },
+  mero: { h: 0.38, w: 0.23, pk: 0.62, jaw: 1.6, pec: 0.17, dors: 0.07, tailH: 0.16, brow: 0.08 },
+  caranha: { h: 0.37, brow: 0.22, jaw: 1.15, dors: 0.1 },
+  cioba: { h: 0.33, tailH: 0.21, tip: 0.2, mid: 0.06 },
+  dentao: { h: 0.38, brow: 0.3, jaw: 1.2 },
+  robalo: { h: 0.24, jaw: 1.3, snout: 0.015, pk: 0.76, brow: -0.1 },
+  tainha: { h: 0.2, w: 0.14, pk: 0.7, jaw: 0.0, brow: 0.22, tailH: 0.17 },
+  enchova: { h: 0.23, jaw: 1.35, pk: 0.76 },
+  sororoca: { finlets: 7, keel: 0.012, snout: 0.01 },
+  xareu: { h: 0.42, brow: 0.7, keel: 0.016, tailH: 0.28, tip: 0.21, mid: 0.06 },
+  olhodeboi: { keel: 0.014, brow: 0.08 },
+  olhete: { keel: 0.012, h: 0.24 },
+  dourado: { brow: 1.15, h: 0.29, tip: 0.21, mid: 0.06 },
+  bicuda: { snout: 0.04 },
+  albacora: { finlets: 8, keel: 0.022, pec: 0.27, tip: 0.2, mid: 0.04 },
+  atumrabino: { finlets: 8, keel: 0.026, tip: 0.21, mid: 0.04 },
+  // ---- Costa dos Corais ----
+  guaiuba: { h: 0.3, tailH: 0.27, tip: 0.23, mid: 0.05, pk: 0.8 },
+  ariaco: { h: 0.32, brow: 0.12 },
+  cavala: { h: 0.16, finlets: 8, keel: 0.012, snout: 0.03, tip: 0.2, mid: 0.04 },
+  saramunete: { h: 0.22, pk: 0.72, jaw: 0.0, brow: 0.28, barbels: true },
+  garoupagato: { h: 0.3, w: 0.17, jaw: 1.2 },
+  pargo: { h: 0.4, brow: 0.35, tailH: 0.2 },
+  budiaoazul: { brow: 0.45, tip: 0.14, mid: 0.11, tailH: 0.2 },
+  cirurgiao: { h: 0.56, jaw: 0.0, snout: 0.01, brow: 0.2, tip: 0.17, mid: 0.07, fork: true, fins: [[0.12, 0.72, 0.6, K_SOFT], [0.12, 0.5, 0.6, K_SOFT, true]] },
+  // ---- Amazonas ----
+  tambaqui: { h: 0.48, brow: 0.15, jaw: 0.3 },
+  pacu: { h: 0.54, brow: 0.22, jaw: 0.2 },
+  piranha: { h: 0.45, jaw: 1.7, brow: 0.3 },
+  matrinxa: { h: 0.28, pk: 0.8 },
+  pescada: { h: 0.27, jaw: 1.0, pk: 0.76, fork: false, tip: 0.14, mid: 0.17 },
+  apapa: { h: 0.33, jaw: 1.25, brow: -0.15 },
+  aracu: { h: 0.25, jaw: 0.15, brow: 0.12 },
+  jaraqui: { h: 0.29, tailH: 0.22, tip: 0.21, mid: 0.06 },
+  douradorio: { h: 0.27, jaw: 0.95, brow: 0.1 },
+  cachorra: { h: 0.21, jaw: 1.9, brow: -0.1 },
+  bicudario: { snout: 0.035 },
+};
+// formato final de uma espécie: base + ajustes dela
+function shapeOf(key, shape) { const b = SHAPES[shape], o = FISH_GEO[key]; return o ? Object.assign({}, b, o) : b; }
 
 init();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { });
