@@ -71,7 +71,7 @@ function cloudRestore(d) {
   try { localStorage.setItem(SAVE_KEY, j); } catch (e) { } idbPut(j);
   toast('Progresso restaurado da nuvem!', 3, 'gold'); setTimeout(() => location.reload(), 600);
 }
-function onlineTick() { sbRefresh(); cloudPush(); if (ON.joined) wsTrack(); loadFriends(); }
+function onlineTick() { sbRefresh(); cloudPush(); rankFlush(); if (ON.joined) wsTrack(); loadFriends(); }
 
 // ---------- amigos por código ----------
 async function loadFriends() {
@@ -302,8 +302,8 @@ function emailReturn() {
 }
 function setupOnline() {
   emailReturn(); onlineStart();
-  addEventListener('pagehide', () => cloudPush());
-  document.addEventListener('visibilitychange', () => { if (document.hidden) cloudPush(); });
+  addEventListener('pagehide', () => { cloudPush(); rankFlush(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { cloudPush(); rankFlush(); } });
   setInterval(() => cloudPush(), 60000);
 }
 function updateOnline(dt, t) { sendPos(dt); updateRemotes(dt, t); duoTick(dt); }

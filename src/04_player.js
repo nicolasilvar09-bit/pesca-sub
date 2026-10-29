@@ -87,7 +87,7 @@ function catchFish(f) {
   P.stringer.push(tagCatch({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len }));
   if (!sp.ornamental) addXP(15 + f.kg * 12);
   if ((SV.tod || 12) >= 19 || (SV.tod || 12) < 5) SV.nightCatch = true;
-  compOnCatch(f);
+  compOnCatch(f); rankCatch(f);
   if (!sp.ornamental) { mission('catch', { key: f.key }); mission('catchkg', { kg: f.kg }); if (GUN.waitShot) mission('wait'); }
   if (sp.rare) toast(`${sp.name}! Peixe raro na fieira.`, 4, 'gold'); else if (isTrophy(f)) toast(`Troféu! ${sp.name} acima do tamanho comum.`, 4, 'gold');
   if (sp.ornamental) toast(`${sp.name} é peixe ornamental, ninguém compra. Prefira deixar no mar.`, 4, 'bad');
@@ -340,7 +340,7 @@ function updateSwim(dt, t) {
     if (P.pos.y > surfY - 0.45 && P.vel.y > -0.05) {
       P.under = false; P.grip = false; AU.breath(); P.surfT = 0; P.lastDiveT = P.diveT;
       const d = P.maxD; if (d > 2) toast(`Mergulho: ${fmtKg(d)} m · ${Math.floor(P.diveT)} s`, 2.2);
-      mission('depth', { d });
+      mission('depth', { d }); rankDive(d);
     }
     if (P.o2 <= 0 && !P.blackT) blackout();
     // espera
