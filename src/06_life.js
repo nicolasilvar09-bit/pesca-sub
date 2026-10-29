@@ -53,7 +53,7 @@ function buildLife() {
   for (const id of AMZ ? ['praia', 'lago', 'lago', 'igapo', 'canal'] : ['jorge', 'laje', 'gipoia', 'lagoa', 'lagoa', 'castelhanos', 'cataguases']) { const s = spotById(id); const m = buildTurtle(); TURTLES.push({ m, spot: s, pos: new V3(s.x, H(s.x, s.z) + 3, s.z), vel: new V3(), tgt: new V3(), t: 0, yaw: 0, flap: 0, breathe: rand(30, 80) }); }
   STR.line = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(40 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xd8d0a0 }));
   STR.line.frustumCulled = false; scene.add(STR.line);
-  if (!AMZ) buildDecor2();
+  if (!AMZ) { buildDecor2(); buildRockDetail(); }
 }
 function buildDecor2() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3(), up = new V3(0, 1, 0), d = new V3();

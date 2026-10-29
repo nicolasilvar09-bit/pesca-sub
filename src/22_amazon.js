@@ -301,11 +301,11 @@ function updateAmazon(dt, t) { if (!AMZ) return; updateJacares(dt, t); updatePei
 
 // ---------- peixes do rio ----------
 Object.assign(SHAPES, {
-  cichlid: { h: 0.34, w: 0.13, pk: 0.74, fork: false, tailH: 0.19, dors: 0.1, df: 'one', pec: 0.12 },      // tucunaré
-  traira: { h: 0.23, w: 0.15, pk: 0.68, fork: false, tailH: 0.16, dors: 0.09, df: 'one', pec: 0.1 },
-  cat: { h: 0.17, w: 0.19, pk: 0.62, fork: true, tailH: 0.17, dors: 0.1, df: 'one', pec: 0.14 },           // surubim (bagre)
-  arapaima: { h: 0.2, w: 0.15, pk: 0.66, fork: false, tailH: 0.15, dors: 0.11, df: 'back', pec: 0.1 },     // pirarucu
-  aruana: { h: 0.21, w: 0.07, pk: 0.86, fork: false, tailH: 0.12, dors: 0.1, df: 'back', pec: 0.08 },
+  cichlid: { jaw: 1.2, h: 0.34, w: 0.13, pk: 0.74, fork: false, tailH: 0.19, dors: 0.1, df: 'one', pec: 0.12 },      // tucunaré
+  traira: { jaw: 1.4, h: 0.23, w: 0.15, pk: 0.68, fork: false, tailH: 0.16, dors: 0.09, df: 'one', pec: 0.1 },
+  cat: { jaw: 0.5, barbels: true, h: 0.17, w: 0.19, pk: 0.62, fork: true, tailH: 0.17, dors: 0.1, df: 'one', pec: 0.14 },           // surubim (bagre)
+  arapaima: { jaw: 1.0, h: 0.2, w: 0.15, pk: 0.66, fork: false, tailH: 0.15, dors: 0.11, df: 'back', pec: 0.1 },     // pirarucu
+  aruana: { jaw: 1.7, h: 0.21, w: 0.07, pk: 0.86, fork: false, tailH: 0.12, dors: 0.1, df: 'back', pec: 0.08 },
 });
 const AMZ_SPECIES = {
   tucunare: { name: 'Tucunaré-açu', shape: 'cichlid', len: [0.3, 0.72], k: 13, price: 45, min: 0.35, cruise: 0.55, burst: 4.2, shy: 0.6, curious: 0.45, habit: 'reef', str: 1.5,

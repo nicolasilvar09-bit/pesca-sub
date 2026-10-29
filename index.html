@@ -840,6 +840,9 @@ function rockTex() {
     for (let i = 0; i < 160; i++) { const x = Math.random() * 256, y = Math.random() * 256, r = rand(3, 18); for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) { g.fillStyle = `rgba(${Math.random() < 0.6 ? '20,20,20' : '255,255,255'},${rand(0.06, 0.18)})`; g.beginPath(); g.ellipse(x + ox, y + oy, r, r * rand(0.4, 1), rand(0, 3), 0, TAU); g.fill(); } }
     g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1.2;
     for (let i = 0; i < 30; i++) { let x = Math.random() * 256, y = Math.random() * 256; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += rand(-12, 12); y += rand(-12, 12); g.lineTo(x, y); } g.stroke(); }
+    // furinhos e anéis de craca velha, crostas claras de alga calcária
+    for (let i = 0; i < 260; i++) { const x = Math.random() * 256, y = Math.random() * 256, r = rand(0.8, 2.2); g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1; g.beginPath(); g.arc(x - 0.5, y - 0.5, r + 1, 0, TAU); g.stroke(); }
+    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(255,255,255,${rand(0.06, 0.16)})`; g.beginPath(); g.ellipse(Math.random() * 256, Math.random() * 256, rand(6, 22), rand(4, 12), rand(0, 3), 0, TAU); g.fill(); }
   });
 }
 function fanTex() {
@@ -1206,18 +1209,18 @@ const SPECIES = {
     col: { back: '#3e3a26', side: '#5d5a3c', belly: '#8d8a68', fin: '#3a3622', iris: '#a08040' } },
 };
 const SHAPES = {
-  deep: { h: 0.46, w: 0.11, pk: 0.85, fork: true, tailH: 0.21, dors: 0.12, df: 'one', pec: 0.12 },
-  disc: { h: 0.66, w: 0.08, pk: 0.8, fork: false, tailH: 0.2, dors: 0.22, df: 'one', pec: 0.11 },
-  parrot: { h: 0.33, w: 0.15, pk: 0.72, fork: false, tailH: 0.17, dors: 0.07, df: 'one', pec: 0.12 },
-  grouper: { h: 0.31, w: 0.18, pk: 0.72, fork: false, tailH: 0.15, dors: 0.08, df: 'one', pec: 0.13 },
-  snap: { h: 0.36, w: 0.14, pk: 0.78, fork: true, tailH: 0.18, dors: 0.09, df: 'one', pec: 0.13 },
-  slim: { h: 0.23, w: 0.12, pk: 0.78, fork: true, tailH: 0.17, dors: 0.08, df: 'two', pec: 0.1 },
-  mack: { h: 0.18, w: 0.09, pk: 0.8, fork: true, tailH: 0.2, dors: 0.05, df: 'two', pec: 0.08 },
-  jack: { h: 0.37, w: 0.11, pk: 0.82, fork: true, tailH: 0.26, dors: 0.06, df: 'two', pec: 0.17 },
-  mahi: { h: 0.27, w: 0.09, pk: 0.92, fork: true, tailH: 0.25, dors: 0.11, df: 'long', pec: 0.12 },
-  barra: { h: 0.13, w: 0.075, pk: 0.7, fork: true, tailH: 0.14, dors: 0.05, df: 'two', pec: 0.07 },
-  amber: { h: 0.26, w: 0.12, pk: 0.85, fork: true, tailH: 0.23, dors: 0.05, df: 'two', pec: 0.11 },
-  tuna: { h: 0.29, w: 0.19, pk: 0.72, fork: true, tailH: 0.32, dors: 0.11, df: 'two', pec: 0.16 },
+  deep: { jaw: 0.5, h: 0.46, w: 0.11, pk: 0.85, fork: true, tailH: 0.21, dors: 0.12, df: 'one', pec: 0.12 },
+  disc: { jaw: 0.3, h: 0.66, w: 0.08, pk: 0.8, fork: false, tailH: 0.2, dors: 0.22, df: 'one', pec: 0.11 },
+  parrot: { jaw: 0.0, h: 0.33, w: 0.15, pk: 0.72, fork: false, tailH: 0.17, dors: 0.07, df: 'one', pec: 0.12 },
+  grouper: { jaw: 1.3, h: 0.31, w: 0.18, pk: 0.72, fork: false, tailH: 0.15, dors: 0.08, df: 'one', pec: 0.13 },
+  snap: { jaw: 1.0, h: 0.36, w: 0.14, pk: 0.78, fork: true, tailH: 0.18, dors: 0.09, df: 'one', pec: 0.13 },
+  slim: { jaw: 0.8, h: 0.23, w: 0.12, pk: 0.78, fork: true, tailH: 0.17, dors: 0.08, df: 'two', pec: 0.1 },
+  mack: { jaw: 0.8, h: 0.18, w: 0.09, pk: 0.8, fork: true, tailH: 0.2, dors: 0.05, df: 'two', pec: 0.08 },
+  jack: { jaw: 0.6, h: 0.37, w: 0.11, pk: 0.82, fork: true, tailH: 0.26, dors: 0.06, df: 'two', pec: 0.17 },
+  mahi: { jaw: 0.4, h: 0.27, w: 0.09, pk: 0.92, fork: true, tailH: 0.25, dors: 0.11, df: 'long', pec: 0.12 },
+  barra: { jaw: 1.6, h: 0.13, w: 0.075, pk: 0.7, fork: true, tailH: 0.14, dors: 0.05, df: 'two', pec: 0.07 },
+  amber: { jaw: 0.7, h: 0.26, w: 0.12, pk: 0.85, fork: true, tailH: 0.23, dors: 0.05, df: 'two', pec: 0.11 },
+  tuna: { jaw: 0.4, h: 0.29, w: 0.19, pk: 0.72, fork: true, tailH: 0.32, dors: 0.11, df: 'two', pec: 0.16 },
 };
 // corpo em tubo + nadadeiras em malha (com raios na textura) + olhos em relevo.
 // aPart = (parte, peso): 0 corpo, 1 caudal, 2 peitoral, 3 dorsal/anal/pélvica; peso 0 na base, 1 na borda
@@ -1228,7 +1231,12 @@ function fishGeo(sh, lo) {
   const add = (x, y, z, u, v, p = 0, w = 0) => { pos.push(x, y, z); uv.push(u, v); prt.push(p, w); return pos.length / 3 - 1; };
   for (let i = 0; i <= NL; i++) {
     const t = i / NL, x = X(t), hh = TOP(t), ww = SIDE(t);
-    for (let j = 0; j <= NR; j++) { const a = j / NR * TAU; const belly = Math.cos(a) < 0 ? 0.92 : 1; add(x, Math.cos(a) * hh * belly, Math.sin(a) * ww * (1 - 0.25 * Math.pow(Math.abs(Math.cos(a)), 3)), t * 0.97, (j / NR) * 0.78); }
+    for (let j = 0; j <= NR; j++) {
+      const a = j / NR * TAU, ca = Math.cos(a), belly = ca < 0 ? 0.92 : 1;
+      // boca: o maxilar de baixo avança e a cabeça afina por cima, dando a linha da boca
+      const jw = (sh.jaw != null ? sh.jaw : 0.6) * smooth(0.84, 1, t), jx = jw * (ca < 0 ? 0.035 * -ca : -0.012 * ca);
+      add(x + jx, ca * hh * belly, Math.sin(a) * ww * (1 - 0.25 * Math.pow(Math.abs(ca), 3)), t * 0.97, (j / NR) * 0.78);
+    }
   }
   for (let i = 0; i < NL; i++) for (let j = 0; j < NR; j++) { const a = i * (NR + 1) + j, b = a + NR + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
   const tc = add(x0, 0, 0, 0, 0.39); for (let j = 0; j < NR; j++) idx.push(tc, j + 1, j);
@@ -1240,6 +1248,8 @@ function fishGeo(sh, lo) {
     for (let i = 0; i < S; i++) for (let r = 0; r < R; r++) { const a = o + i * (R + 1) + r, b = a + R + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
   };
   const S = lo ? 5 : 10, R = lo ? 1 : 3;
+  // barbilhões dos bagres: fios longos saindo da boca
+  if (sh.barbels && !lo) for (const sz of [1, -1]) fin(4, 1, s => [X(0.97) - s * 0.01, -TOP(0.97) * 0.3, sz * SIDE(0.97) * 0.5], (s, b) => [b[0] - 0.22 * (0.3 + 0.7 * s), b[1] - 0.04 - 0.02 * s, b[2] + sz * 0.08 * (0.4 + s)], 3, 0.05);
   // caudal: bifurcada (lobos pontudos) ou arredondada
   const hp = TOP(0), tH = sh.tailH, tip = sh.fork ? 0.19 : 0.15, mid = sh.fork ? 0.075 : 0.15;
   fin(S + 2, R, s => [x0 + 0.02, hp * (1 - 2 * s) * 0.95, 0], s => { const ys = 1 - 2 * s; return sh.fork ? [x0 - (mid + (tip - mid) * Math.pow(Math.abs(ys), 1.3)), ys * tH, 0] : [x0 - tip * (1 - 0.3 * ys * ys), ys * tH * 0.95, 0]; }, 1, 0.9);
@@ -2237,7 +2247,7 @@ function buildLife() {
   for (const id of AMZ ? ['praia', 'lago', 'lago', 'igapo', 'canal'] : ['jorge', 'laje', 'gipoia', 'lagoa', 'lagoa', 'castelhanos', 'cataguases']) { const s = spotById(id); const m = buildTurtle(); TURTLES.push({ m, spot: s, pos: new V3(s.x, H(s.x, s.z) + 3, s.z), vel: new V3(), tgt: new V3(), t: 0, yaw: 0, flap: 0, breathe: rand(30, 80) }); }
   STR.line = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(40 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xd8d0a0 }));
   STR.line.frustumCulled = false; scene.add(STR.line);
-  if (!AMZ) buildDecor2();
+  if (!AMZ) { buildDecor2(); buildRockDetail(); }
 }
 function buildDecor2() {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pp = new V3(), up = new V3(0, 1, 0), d = new V3();
@@ -5047,11 +5057,11 @@ function updateAmazon(dt, t) { if (!AMZ) return; updateJacares(dt, t); updatePei
 
 // ---------- peixes do rio ----------
 Object.assign(SHAPES, {
-  cichlid: { h: 0.34, w: 0.13, pk: 0.74, fork: false, tailH: 0.19, dors: 0.1, df: 'one', pec: 0.12 },      // tucunaré
-  traira: { h: 0.23, w: 0.15, pk: 0.68, fork: false, tailH: 0.16, dors: 0.09, df: 'one', pec: 0.1 },
-  cat: { h: 0.17, w: 0.19, pk: 0.62, fork: true, tailH: 0.17, dors: 0.1, df: 'one', pec: 0.14 },           // surubim (bagre)
-  arapaima: { h: 0.2, w: 0.15, pk: 0.66, fork: false, tailH: 0.15, dors: 0.11, df: 'back', pec: 0.1 },     // pirarucu
-  aruana: { h: 0.21, w: 0.07, pk: 0.86, fork: false, tailH: 0.12, dors: 0.1, df: 'back', pec: 0.08 },
+  cichlid: { jaw: 1.2, h: 0.34, w: 0.13, pk: 0.74, fork: false, tailH: 0.19, dors: 0.1, df: 'one', pec: 0.12 },      // tucunaré
+  traira: { jaw: 1.4, h: 0.23, w: 0.15, pk: 0.68, fork: false, tailH: 0.16, dors: 0.09, df: 'one', pec: 0.1 },
+  cat: { jaw: 0.5, barbels: true, h: 0.17, w: 0.19, pk: 0.62, fork: true, tailH: 0.17, dors: 0.1, df: 'one', pec: 0.14 },           // surubim (bagre)
+  arapaima: { jaw: 1.0, h: 0.2, w: 0.15, pk: 0.66, fork: false, tailH: 0.15, dors: 0.11, df: 'back', pec: 0.1 },     // pirarucu
+  aruana: { jaw: 1.7, h: 0.21, w: 0.07, pk: 0.86, fork: false, tailH: 0.12, dors: 0.1, df: 'back', pec: 0.08 },
 });
 const AMZ_SPECIES = {
   tucunare: { name: 'Tucunaré-açu', shape: 'cichlid', len: [0.3, 0.72], k: 13, price: 45, min: 0.35, cruise: 0.55, burst: 4.2, shy: 0.6, curious: 0.45, habit: 'reef', str: 1.5,
@@ -6130,6 +6140,42 @@ function updateMarina(dt, t) {
     p.m.position.y = MAR.deckY + Math.abs(Math.sin(t * p.speed * 5.5 + p.ph)) * (p.tgt ? 0.03 : 0);
   }
 }
+
+// ================= detalhes: cracas e mexilhões nas pedras rasas, esponjas incrustantes e textura de pedra mais rica =================
+function buildRockDetail() {
+  if (AMZ) return;
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new V3(), up = new V3(0, 1, 0), d = new V3(), w = new V3(), nr = new V3(), r = mulberry(303);
+  const barn = [], mus = [], crust = [];
+  for (const R of ROCKS) {
+    if (!R.q || R.noDecor || !R.spot) continue;
+    const topY = R.y + R.r * R.sy;
+    // cracas: perto da superfície (zona de arrebentação) e no topo das pedras rasas
+    if (topY > -5) for (let k = 0; k < 40; k++) {
+      d.set(r() * 2 - 1, r() * 1.2 - 0.1, r() * 2 - 1).normalize(); rockSurf(R, d, w, nr, 0.99);
+      if (w.y > -6) barn.push([w.x, w.y, w.z, nr.clone(), 0.6 + r() * 0.9]);
+    }
+    // mexilhões: cachos escuros na parte de cima das pedras bem rasas
+    if (topY > -2.5) for (let c = 0; c < 3; c++) {
+      d.set(r() * 2 - 1, 0.6 + r() * 0.4, r() * 2 - 1).normalize();
+      for (let k = 0; k < 9; k++) { const dd = _t1.copy(d).add(_t2.set((r() - 0.5) * 0.25, (r() - 0.5) * 0.15, (r() - 0.5) * 0.25)).normalize(); rockSurf(R, dd, w, nr, 0.995); mus.push([w.x, w.y, w.z, nr.clone(), r() * TAU]); }
+    }
+    // crostas e esponjas incrustantes coloridas nas faces laterais
+    if (r() < 0.55) for (let k = 0; k < 4; k++) { d.set(r() * 2 - 1, r() * 0.8 - 0.3, r() * 2 - 1).normalize(); rockSurf(R, d, w, nr, 1.0); crust.push([w.x, w.y, w.z, nr.clone(), 0.25 + r() * 0.5, Math.floor(r() * 4)]); }
+  }
+  const place = (it, i, im, sc, rot) => { q.setFromUnitVectors(up, it[3]); if (rot) q.multiply(_rq2.setFromAxisAngle(up, rot)); s.set(sc[0], sc[1], sc[2]); m4.compose(_t2.set(it[0], it[1], it[2]), q, s); im.setMatrixAt(i, m4); };
+  // craca: cone curto com boca escura (cor por vértice)
+  const bG = new THREE.CylinderGeometry(0.022, 0.055, 0.05, 7, 1); bG.translate(0, 0.025, 0);
+  const bc = new Float32Array(bG.attributes.position.count * 3); for (let i = 0; i < bG.attributes.position.count; i++) { const top = bG.attributes.position.getY(i) > 0.04; bc.set(top ? [0.18, 0.17, 0.16] : [0.78, 0.76, 0.7], i * 3); } bG.setAttribute('color', new THREE.BufferAttribute(bc, 3));
+  chunked(bG, uwify(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }), { key: 'brn' }), barn, (it, i, im) => place(it, i, im, [it[4], it[4], it[4]]), 70);
+  // mexilhão: concha alongada, preto-azulado
+  const mG = new THREE.SphereGeometry(0.05, 8, 5); mG.scale(0.55, 0.45, 1.3); mG.translate(0, 0.012, 0);
+  chunked(mG, uwify(new THREE.MeshStandardMaterial({ color: 0x1c2230, roughness: 0.35, metalness: 0.2 }), { key: 'mus' }), mus, (it, i, im) => place(it, i, im, [1, 1, 1], it[4]), 70);
+  // crosta: disco achatado irregular (laranja, roxo, amarelo, vermelho)
+  const cG = new THREE.CircleGeometry(1, 9); cG.rotateX(-Math.PI / 2); const cp = cG.attributes.position; for (let i = 1; i < cp.count; i++) { const k = 0.7 + 0.5 * Math.sin(i * 2.3); cp.setX(i, cp.getX(i) * k); cp.setZ(i, cp.getZ(i) * k); } cG.translate(0, 0.006, 0);
+  const CC = [0xd8702a, 0x8a3a8a, 0xd8c040, 0xb83030];
+  chunked(cG, uwify(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), { key: 'crs' }), crust, (it, i, im) => { place(it, i, im, [it[4], 1, it[4] * 0.8], it[4] * 9); im.setColorAt(i, new THREE.Color(CC[it[5]])); }, 90);
+}
+const _rq2 = new THREE.Quaternion();
 
 init();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { });

@@ -431,6 +431,9 @@ function rockTex() {
     for (let i = 0; i < 160; i++) { const x = Math.random() * 256, y = Math.random() * 256, r = rand(3, 18); for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) { g.fillStyle = `rgba(${Math.random() < 0.6 ? '20,20,20' : '255,255,255'},${rand(0.06, 0.18)})`; g.beginPath(); g.ellipse(x + ox, y + oy, r, r * rand(0.4, 1), rand(0, 3), 0, TAU); g.fill(); } }
     g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1.2;
     for (let i = 0; i < 30; i++) { let x = Math.random() * 256, y = Math.random() * 256; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += rand(-12, 12); y += rand(-12, 12); g.lineTo(x, y); } g.stroke(); }
+    // furinhos e anéis de craca velha, crostas claras de alga calcária
+    for (let i = 0; i < 260; i++) { const x = Math.random() * 256, y = Math.random() * 256, r = rand(0.8, 2.2); g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1; g.beginPath(); g.arc(x - 0.5, y - 0.5, r + 1, 0, TAU); g.stroke(); }
+    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(255,255,255,${rand(0.06, 0.16)})`; g.beginPath(); g.ellipse(Math.random() * 256, Math.random() * 256, rand(6, 22), rand(4, 12), rand(0, 3), 0, TAU); g.fill(); }
   });
 }
 function fanTex() {

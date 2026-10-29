@@ -60,18 +60,18 @@ const SPECIES = {
     col: { back: '#3e3a26', side: '#5d5a3c', belly: '#8d8a68', fin: '#3a3622', iris: '#a08040' } },
 };
 const SHAPES = {
-  deep: { h: 0.46, w: 0.11, pk: 0.85, fork: true, tailH: 0.21, dors: 0.12, df: 'one', pec: 0.12 },
-  disc: { h: 0.66, w: 0.08, pk: 0.8, fork: false, tailH: 0.2, dors: 0.22, df: 'one', pec: 0.11 },
-  parrot: { h: 0.33, w: 0.15, pk: 0.72, fork: false, tailH: 0.17, dors: 0.07, df: 'one', pec: 0.12 },
-  grouper: { h: 0.31, w: 0.18, pk: 0.72, fork: false, tailH: 0.15, dors: 0.08, df: 'one', pec: 0.13 },
-  snap: { h: 0.36, w: 0.14, pk: 0.78, fork: true, tailH: 0.18, dors: 0.09, df: 'one', pec: 0.13 },
-  slim: { h: 0.23, w: 0.12, pk: 0.78, fork: true, tailH: 0.17, dors: 0.08, df: 'two', pec: 0.1 },
-  mack: { h: 0.18, w: 0.09, pk: 0.8, fork: true, tailH: 0.2, dors: 0.05, df: 'two', pec: 0.08 },
-  jack: { h: 0.37, w: 0.11, pk: 0.82, fork: true, tailH: 0.26, dors: 0.06, df: 'two', pec: 0.17 },
-  mahi: { h: 0.27, w: 0.09, pk: 0.92, fork: true, tailH: 0.25, dors: 0.11, df: 'long', pec: 0.12 },
-  barra: { h: 0.13, w: 0.075, pk: 0.7, fork: true, tailH: 0.14, dors: 0.05, df: 'two', pec: 0.07 },
-  amber: { h: 0.26, w: 0.12, pk: 0.85, fork: true, tailH: 0.23, dors: 0.05, df: 'two', pec: 0.11 },
-  tuna: { h: 0.29, w: 0.19, pk: 0.72, fork: true, tailH: 0.32, dors: 0.11, df: 'two', pec: 0.16 },
+  deep: { jaw: 0.5, h: 0.46, w: 0.11, pk: 0.85, fork: true, tailH: 0.21, dors: 0.12, df: 'one', pec: 0.12 },
+  disc: { jaw: 0.3, h: 0.66, w: 0.08, pk: 0.8, fork: false, tailH: 0.2, dors: 0.22, df: 'one', pec: 0.11 },
+  parrot: { jaw: 0.0, h: 0.33, w: 0.15, pk: 0.72, fork: false, tailH: 0.17, dors: 0.07, df: 'one', pec: 0.12 },
+  grouper: { jaw: 1.3, h: 0.31, w: 0.18, pk: 0.72, fork: false, tailH: 0.15, dors: 0.08, df: 'one', pec: 0.13 },
+  snap: { jaw: 1.0, h: 0.36, w: 0.14, pk: 0.78, fork: true, tailH: 0.18, dors: 0.09, df: 'one', pec: 0.13 },
+  slim: { jaw: 0.8, h: 0.23, w: 0.12, pk: 0.78, fork: true, tailH: 0.17, dors: 0.08, df: 'two', pec: 0.1 },
+  mack: { jaw: 0.8, h: 0.18, w: 0.09, pk: 0.8, fork: true, tailH: 0.2, dors: 0.05, df: 'two', pec: 0.08 },
+  jack: { jaw: 0.6, h: 0.37, w: 0.11, pk: 0.82, fork: true, tailH: 0.26, dors: 0.06, df: 'two', pec: 0.17 },
+  mahi: { jaw: 0.4, h: 0.27, w: 0.09, pk: 0.92, fork: true, tailH: 0.25, dors: 0.11, df: 'long', pec: 0.12 },
+  barra: { jaw: 1.6, h: 0.13, w: 0.075, pk: 0.7, fork: true, tailH: 0.14, dors: 0.05, df: 'two', pec: 0.07 },
+  amber: { jaw: 0.7, h: 0.26, w: 0.12, pk: 0.85, fork: true, tailH: 0.23, dors: 0.05, df: 'two', pec: 0.11 },
+  tuna: { jaw: 0.4, h: 0.29, w: 0.19, pk: 0.72, fork: true, tailH: 0.32, dors: 0.11, df: 'two', pec: 0.16 },
 };
 // corpo em tubo + nadadeiras em malha (com raios na textura) + olhos em relevo.
 // aPart = (parte, peso): 0 corpo, 1 caudal, 2 peitoral, 3 dorsal/anal/pélvica; peso 0 na base, 1 na borda
@@ -82,7 +82,12 @@ function fishGeo(sh, lo) {
   const add = (x, y, z, u, v, p = 0, w = 0) => { pos.push(x, y, z); uv.push(u, v); prt.push(p, w); return pos.length / 3 - 1; };
   for (let i = 0; i <= NL; i++) {
     const t = i / NL, x = X(t), hh = TOP(t), ww = SIDE(t);
-    for (let j = 0; j <= NR; j++) { const a = j / NR * TAU; const belly = Math.cos(a) < 0 ? 0.92 : 1; add(x, Math.cos(a) * hh * belly, Math.sin(a) * ww * (1 - 0.25 * Math.pow(Math.abs(Math.cos(a)), 3)), t * 0.97, (j / NR) * 0.78); }
+    for (let j = 0; j <= NR; j++) {
+      const a = j / NR * TAU, ca = Math.cos(a), belly = ca < 0 ? 0.92 : 1;
+      // boca: o maxilar de baixo avança e a cabeça afina por cima, dando a linha da boca
+      const jw = (sh.jaw != null ? sh.jaw : 0.6) * smooth(0.84, 1, t), jx = jw * (ca < 0 ? 0.035 * -ca : -0.012 * ca);
+      add(x + jx, ca * hh * belly, Math.sin(a) * ww * (1 - 0.25 * Math.pow(Math.abs(ca), 3)), t * 0.97, (j / NR) * 0.78);
+    }
   }
   for (let i = 0; i < NL; i++) for (let j = 0; j < NR; j++) { const a = i * (NR + 1) + j, b = a + NR + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
   const tc = add(x0, 0, 0, 0, 0.39); for (let j = 0; j < NR; j++) idx.push(tc, j + 1, j);
@@ -94,6 +99,8 @@ function fishGeo(sh, lo) {
     for (let i = 0; i < S; i++) for (let r = 0; r < R; r++) { const a = o + i * (R + 1) + r, b = a + R + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
   };
   const S = lo ? 5 : 10, R = lo ? 1 : 3;
+  // barbilhões dos bagres: fios longos saindo da boca
+  if (sh.barbels && !lo) for (const sz of [1, -1]) fin(4, 1, s => [X(0.97) - s * 0.01, -TOP(0.97) * 0.3, sz * SIDE(0.97) * 0.5], (s, b) => [b[0] - 0.22 * (0.3 + 0.7 * s), b[1] - 0.04 - 0.02 * s, b[2] + sz * 0.08 * (0.4 + s)], 3, 0.05);
   // caudal: bifurcada (lobos pontudos) ou arredondada
   const hp = TOP(0), tH = sh.tailH, tip = sh.fork ? 0.19 : 0.15, mid = sh.fork ? 0.075 : 0.15;
   fin(S + 2, R, s => [x0 + 0.02, hp * (1 - 2 * s) * 0.95, 0], s => { const ys = 1 - 2 * s; return sh.fork ? [x0 - (mid + (tip - mid) * Math.pow(Math.abs(ys), 1.3)), ys * tH, 0] : [x0 - tip * (1 - 0.3 * ys * ys), ys * tH * 0.95, 0]; }, 1, 0.9);
