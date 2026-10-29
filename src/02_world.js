@@ -519,6 +519,7 @@ function addHole(R, a, spot) {
 
 function buildRocksAndDecor() {
   const r = mulberry(42);
+  buildDeepSpots();
   if (AMZ) buildRiverRocks(r); else if (NE) buildReefNe(r); else {
   // Laje Branca
   for (let i = 0; i < 90; i++) {

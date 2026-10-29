@@ -930,6 +930,7 @@ function addHole(R, a, spot) {
 
 function buildRocksAndDecor() {
   const r = mulberry(42);
+  buildDeepSpots();
   if (AMZ) buildRiverRocks(r); else if (NE) buildReefNe(r); else {
   // Laje Branca
   for (let i = 0; i < 90; i++) {
@@ -1396,9 +1397,12 @@ class Fish {
   dir(out) { return out.set(Math.cos(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.sin(this.yaw) * Math.cos(this.pitch)); }
   pickWander() {
     const sp = this.sp, S = this.spot;
-    for (let k = 0; k < 8; k++) {
+    // peixe de fundo passeia de pedra em pedra pela estrutura toda (costão, laje), não só no centro do ponto
+    const rocky = sp.habit !== 'pelagic' && !(sp.habit === 'hole' && this.home);
+    for (let k = 0; k < 12; k++) {
       let x, z, y;
       if (sp.habit === 'hole' && this.home) { x = this.home.x + rand(-7, 7); z = this.home.z + rand(-7, 7); }
+      else if (rocky && k < 6 && Math.random() < 0.75 && nearRockTarget(S, this.pos, _t3)) { x = _t3.x; z = _t3.z; }
       else { const R = S.r * (sp.habit === 'pelagic' ? 1.7 : sp.habit === 'mid' ? 1.3 : 1); const a = rand(0, TAU), d = Math.sqrt(Math.random()) * R; x = S.x + Math.cos(a) * d; z = S.z + Math.sin(a) * d; }
       const h = H(x, z); if (h > -1.6) continue;
       if (sp.habit === 'pelagic') y = rand(Math.max(h + 2, -16), -2);
@@ -1406,7 +1410,8 @@ class Fish {
       else y = h + rand(0.4, sp.habit === 'hole' ? 1.6 : 3.5);
       this.target.set(x, Math.min(y, -0.8), z); return;
     }
-    this.target.set(S.x, Math.max(H(S.x, S.z) + 1, -12), S.z);
+    if (nearRockTarget(S, null, _t3)) this.target.set(_t3.x, _t3.y + 1, _t3.z);
+    else this.target.set(S.x, Math.max(H(S.x, S.z) + 1, -12), S.z);
   }
   startFlee(spread = true) {
     if (this.state === 'hooked' || this.state === 'dead') return;
@@ -1453,7 +1458,7 @@ class Fish {
           this.target.x += Math.sin(tn * 0.37 + this.wob) * 0.45; this.target.z += Math.cos(tn * 0.29 + this.wob * 1.7) * 0.45; this.target.y += Math.sin(tn + this.wob) * 0.3;
           if (L.state === 'curious') { this.state = 'curious'; this.t = L.t; }
         }
-        else if (this.t <= 0 || p.distanceTo(this.target) < 1.2) { this.pickWander(); this.t = rand(5, 12); }
+        else if (this.t <= 0 || p.distanceTo(this.target) < 1.2) { this.pickWander(); this.t = clamp(p.distanceTo(this.target) / Math.max(0.2, this.speed) * 1.3, 5, 45) + rand(0, 4); } // tempo de chegar lá
         if (!L && P.mode === 'swim' && P.under && P.still > 1.4 && dP < 24 && Math.random() < sp.curious * fishAct(this.key) * (P.hide ? 2 : 1) * (SV.flasher ? 1.4 : 1) * dt * 0.45) { this.state = 'curious'; this.t = rand(6, 11); }
         break;
       case 'curious': {
@@ -1550,6 +1555,7 @@ function spawnGroup(spot, key, n, big = 1) {
     const hs = HOLES.filter(h => h.spot === spot.id).sort((a, b) => a.used - b.used);
     if (hs.length) { home = hs[Math.floor(Math.random() * Math.min(4, hs.length))]; home.used++; pos = new V3(home.x, home.y, home.z); }
   }
+  if (!pos && sp.habit !== 'pelagic' && nearRockTarget(spot, null, _t3)) pos = new V3(_t3.x, sp.habit === 'mid' ? rand(_t3.y + 0.5, Math.min(-0.8, _t3.y + 3)) : _t3.y + rand(0.4, 2.5), _t3.z);
   if (!pos) {
     for (let k = 0; k < 20; k++) { const a = rand(0, TAU), d = Math.sqrt(Math.random()) * spot.r, x = spot.x + Math.cos(a) * d, z = spot.z + Math.sin(a) * d, h = H(x, z); if (h < -2) { pos = new V3(x, sp.habit === 'pelagic' ? rand(Math.max(h + 2, -14), -2) : h + rand(0.6, 2.5), z); break; } }
     if (!pos) pos = new V3(spot.x, H(spot.x, spot.z) + 1.5, spot.z);
@@ -1570,12 +1576,12 @@ function spawnAll() {
   for (const k of Object.keys(SPECIES)) if (spInRegion(k)) makePool(k, SPECIES[k].shape, fishTex(k), k === 'mero' || k === 'pirarucu' || SPECIES[k].shape === 'shark' ? 8 : k === 'atumrabino' ? 60 : 260);
   const POPR = AMZ ? popAmz() : NE ? popNe() : POP;
   for (const s of SPOTS) {
-    const pop = POPR[s.id]; if (!pop) continue;
-    for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0; g < groups; g++) if (Math.random() < chance) spawnGroup(s, key, Math.round(rand(a, b)), big);
+    const pop = POPR[s.id] || DEEP_POP[s.id]; if (!pop) continue;
+    for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0, ng = nGroups(groups, densSpot()); g < ng; g++) if (Math.random() < chance) spawnGroup(s, key, Math.round(rand(a, b)), big);
   }
   for (const z of ZONES) {
     const pop = AMZ ? POP_ZONE_AMZ : NE ? POP_ZONE_NE : z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
-    for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0; g < groups; g++) if (Math.random() < chance) spawnGroup(z, key, Math.round(rand(a, b)), big);
+    for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0, ng = nGroups(groups, densZone()); g < ng; g++) if (Math.random() < chance) spawnGroup(z, key, Math.round(rand(a, b)), big);
   }
 }
 function updateFishes(dt, now) {
@@ -2200,7 +2206,7 @@ function startGame() {
   const D = ensureDaily(); if (D.list.some(m => !m.done)) toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5);
 }
 function init() {
-  loadSave(); if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
+  addDeepSpots(); loadSave(); if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
   initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); bakeShallow(); buildFX();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
@@ -4813,7 +4819,7 @@ function Hamz(x, z) {
   // pedral: leito raso e rochoso a leste
   const dpd = Math.hypot(x - 1250, z - rivC(1250));
   if (dpd < 210) h = Math.max(h, lerp(-5.5 + fbm(x * 0.04, z * 0.04, 2), h, smooth(90, 200, dpd)));
-  return h;
+  return amzPoco(x, z, h);
 }
 // água preta: o igarapé e a lagoa preta (cor de chá, quase sem visibilidade)
 function murkAmz(x, z) { return Math.max(1 - smooth(190, 320, Math.hypot(x + 600, z + 980)), 1 - smooth(30, 90, segDist(x, z, -600, -980, -430, rivC(-430) - rivW(-430) + 60))); }
@@ -6976,6 +6982,84 @@ function updateTips(dt) {
 function updateIntro(dt) { updateTutFish(dt); updateTips(dt); }
 // botões que só atrapalham no começo: aparecem depois do tutorial
 function introHideButtons() { if (tutActive()) ['bCall', 'bView', 'bWp', 'bChum', 'bPhoto'].forEach(id => show(id, false)); }
+
+// ================= pontos fundos e peixe espalhado pela estrutura =================
+
+// ---------- pontos fundos novos (pináculo com tocas ou naufrágio) ----------
+// top = profundidade do topo do pináculo; wreck = naufrágio no lugar do pináculo
+const _t3 = new V3();
+const DEEP_DEF = {
+  cv: [
+    { id: 'pedrameio', name: 'Pedra do Meio', x: 480, z: -1920, r: 50, depth: '22–34 m', top: -22, desc: 'Pináculo isolado no fundo de 33 m, fora da Ilha Grande. Garoupa e badejo grandes nas tocas, cherne e olhete em volta.' },
+    { id: 'lajefunda', name: 'Laje Funda', x: 1300, z: -2160, r: 55, depth: '25–40 m', top: -25, desc: 'Laje funda em mar aberto, para apneísta experiente. Os maiores badejos e garoupas, olho-de-boi e xaréu de meia-água.' },
+    { id: 'rebocador', name: 'Naufrágio do Rebocador', x: -520, z: -1920, r: 45, depth: '24–32 m', wreck: true, desc: 'Rebocador afundado a 32 m. Cioba, caranha e cherne na sombra do casco.' },
+  ],
+  ne: [
+    { id: 'paredefunda', name: 'Paredão Fundo', x: 0, z: -1215, r: 50, depth: '20–32 m', top: -20, desc: 'Torre de coral na saída do paredão, no azul. Pargo, cioba e garoupa nas tocas; cavala e tubarão passando.' },
+    { id: 'sueste', name: 'Parcel do Sueste', x: 920, z: -1100, r: 50, depth: '22–31 m', top: -22, desc: 'Parcel fundo e isolado. Badejo e garoupa grandes, dentão e olho-de-boi.' },
+    { id: 'cargueiro_ne', name: 'Naufrágio do Cargueiro', x: -560, z: -1190, r: 48, depth: '24–32 m', wreck: true, desc: 'Cargueiro inteiro a 32 m. Mero (protegido), pargo e tubarão-lixa morando no casco.' },
+  ],
+  amz: [
+    { id: 'pocao', name: 'Poção do Tapajós', x: 480, z: -49, r: 50, depth: '12–25 m', top: -14, desc: 'Poço fundo no meio do rio, com pedras no fundo. Surubim, pescada e dourado grandes; água escura lá embaixo.' },
+  ],
+};
+const DEEP_POP = {
+  pedrameio: [['garoupa', 9, [1, 1], 1, 1.45], ['badejo', 5, [1, 1], 1, 1.4], ['cherne', 2, [1, 1], 0.8, 1.3], ['dentao', 2, [1, 1], 0.7, 1.3], ['caranha', 3, [1, 2], 1, 1.3], ['cioba', 3, [1, 2], 1, 1.25], ['olhete', 3, [2, 5], 1, 1.3], ['olhodeboi', 3, [1, 3], 1, 1.3], ['xareu', 2, [3, 6], 1, 1.3], ['mero', 1, [1, 1], 0.5], ['cangulo', 2, [1, 3]], ['cocoroca', 2, [8, 12]]],
+  lajefunda: [['garoupa', 10, [1, 1], 1, 1.55], ['badejo', 6, [1, 1], 1, 1.5], ['cherne', 3, [1, 1], 0.8, 1.4], ['dentao', 2, [1, 1], 0.8, 1.35], ['olhodeboi', 4, [1, 4], 1, 1.45], ['xareu', 3, [3, 7], 1, 1.4], ['olhete', 3, [2, 5], 1, 1.35], ['albacora', 1, [3, 5], 0.5], ['bicuda', 2, [1, 3], 1, 1.3], ['mero', 1, [1, 1], 0.6]],
+  rebocador: [['cioba', 4, [1, 2], 1, 1.3], ['caranha', 4, [1, 2], 1, 1.3], ['cherne', 2, [1, 1], 0.8, 1.3], ['garoupa', 7, [1, 1], 1, 1.4], ['badejo', 4, [1, 1], 1, 1.35], ['dentao', 2, [1, 1], 0.6, 1.3], ['olhete', 2, [2, 4], 1, 1.2], ['mero', 1, [1, 1], 0.7], ['cangulo', 3, [1, 3]], ['peixegalo', 2, [4, 8]]],
+  paredefunda: [['pargo', 5, [2, 4], 1, 1.3], ['cioba', 4, [1, 2], 1, 1.3], ['garoupa', 6, [1, 1], 1, 1.4], ['badejo', 4, [1, 1], 1, 1.35], ['dentao', 2, [1, 1], 0.7, 1.3], ['cavala', 3, [3, 6], 1, 1.25], ['olhodeboi', 3, [1, 3], 1, 1.3], ['xareu', 3, [3, 6], 1, 1.3], ['tubaraolixa', 1, [1, 1], 0.8], ['cabecachata', 1, [1, 1], 0.4], ['mero', 1, [1, 1], 0.5]],
+  sueste: [['badejo', 5, [1, 1], 1, 1.45], ['garoupa', 7, [1, 1], 1, 1.45], ['garoupagato', 4, [1, 1], 1, 1.3], ['dentao', 3, [1, 1], 0.8, 1.35], ['olhodeboi', 4, [1, 4], 1, 1.4], ['pargo', 3, [2, 4], 1, 1.3], ['cioba', 3, [1, 2], 1, 1.3], ['xareu', 3, [3, 7], 1, 1.3], ['bicuda', 2, [1, 3]]],
+  cargueiro_ne: [['mero', 1, [1, 1], 0.9], ['pargo', 5, [2, 4], 1, 1.35], ['cioba', 4, [1, 2], 1, 1.3], ['garoupa', 6, [1, 1], 1, 1.4], ['badejo', 3, [1, 1], 1, 1.35], ['tubaraolixa', 2, [1, 1]], ['xareu', 2, [3, 6], 1, 1.3], ['dentao', 2, [1, 1], 0.7, 1.3], ['guaiuba', 3, [4, 8]]],
+  pocao: [['surubim', 4, [1, 1], 1, 1.4], ['pescada', 4, [3, 6], 1, 1.3], ['douradorio', 3, [1, 3], 1, 1.3], ['cachorra', 3, [1, 3], 1, 1.25], ['tambaqui', 2, [2, 3], 1, 1.2], ['apapa', 2, [2, 4]], ['traira', 2, [1, 1]], ['piranha', 2, [4, 8]]],
+};
+// entra na lista de pontos antes de tudo (o save pode ter um deles como destino)
+function addDeepSpots() {
+  for (const d of DEEP_DEF[REGION] || []) if (!SPOTS.some(s => s.id === d.id)) SPOTS.push({ ...d, deep: true });
+}
+// pedras do ponto fundo: campo de pedras com tocas e um pináculo subindo até o topo
+function buildDeepSpots() {
+  const r = mulberry(4242);
+  for (const S of SPOTS.filter(s => s.deep)) {
+    if (S.wreck) buildWreck({ x: S.x, z: S.z, ry: r() * TAU, L: 38 + r() * 10, spot: S.id });
+    for (let i = 0; i < 80; i++) {
+      const a = r() * TAU, d = 6 + Math.pow(r(), 0.8) * S.r, x = S.x + Math.cos(a) * d, z = S.z + Math.sin(a) * d, rad = lerp(4.4, 1.2, d / S.r) * (0.6 + r() * 0.7);
+      const R = addRock(x, H(x, z) + rad * 0.25, z, rad, S.id); if (rad > 2 && r() < 0.55) addHole(R, r() * TAU, S.id);
+    }
+    if (S.wreck) continue;
+    const h0 = H(S.x, S.z), N = 16;
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1), a = r() * TAU, d = (1 - t) * 7 * r(), x = S.x + Math.cos(a) * d, z = S.z + Math.sin(a) * d, rad = lerp(6, 2.4, t) * (0.8 + r() * 0.4);
+      const R = addRock(x, lerp(h0 + 2, S.top - rad * 0.5, t), z, rad, S.id); if (t < 0.8 && r() < 0.6) addHole(R, r() * TAU, S.id);
+    }
+  }
+}
+// poço fundo no meio do rio (Amazonas)
+function amzPoco(x, z, h) { const d = Math.hypot(x - 480, z - rivC(480)); return d < 120 ? Math.min(h, lerp(-25 + 1.5 * fbm(x * 0.04, z * 0.04, 2), h, smooth(35, 115, d))) : h; }
+
+// ---------- peixe espalhado ao longo das pedras do ponto (costão inteiro, laje inteira) ----------
+// pedras de um ponto ou zona: as marcadas com o id dele e as que ficam dentro da área
+function rocksFor(S) {
+  if (S._rk) return S._rk;
+  // no rio as pedras marcadas com o ponto podem estar na margem, longe dele: lá vale só a área do ponto
+  const R2 = (S.r * 1.3) ** 2, tagMax = AMZ ? (S.r * 1.6) ** 2 : 1e12;
+  return (S._rk = ROCKS.filter(R => { if (R.noDecor || R.r <= 0.8) return false; const d2 = (R.x - S.x) ** 2 + (R.z - S.z) ** 2; return d2 < R2 || (R.spot === S.id && d2 < tagMax); }));
+}
+// lugar perto de uma pedra: preferindo pedras perto de onde o peixe já está, para ele ir passeando pelo costão
+function nearRockTarget(S, from, out) {
+  const rk = rocksFor(S); if (!rk.length) return false;
+  let R = null;
+  // entre três sorteios fica com o mais longe do centro: na laje as pedras se juntam no meio, e o peixe se espalhava pouco
+  const far = c => (c.x - S.x) ** 2 + (c.z - S.z) ** 2;
+  for (let k = 0; k < 10; k++) { let c = rk[Math.floor(Math.random() * rk.length)]; for (let j = 0; j < 2; j++) { const c2 = rk[Math.floor(Math.random() * rk.length)]; if (far(c2) > far(c)) c = c2; } if (!from || (c.x - from.x) ** 2 + (c.z - from.z) ** 2 < 1225) { R = c; break; } }
+  if (!R) R = rk[Math.floor(Math.random() * rk.length)];
+  const a = rand(0, TAU), d = R.r + rand(0.4, 3.5), x = R.x + Math.cos(a) * d, z = R.z + Math.sin(a) * d, h = H(x, z);
+  if (h > -1.6) return false;
+  out.set(x, h, z); return true;
+}
+// quantas vezes mais grupos: o Nordeste estava vazio; zonas de costão e laje ganham mais peixe
+const densSpot = () => NE ? 1.6 : AMZ ? 1.15 : 1.25;
+const densZone = () => NE ? 2.3 : AMZ ? 1.3 : 1.7;
+const nGroups = (g, k) => { const n = g * k; return Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); };
 
 init();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { });

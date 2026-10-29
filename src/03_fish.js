@@ -249,9 +249,12 @@ class Fish {
   dir(out) { return out.set(Math.cos(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.sin(this.yaw) * Math.cos(this.pitch)); }
   pickWander() {
     const sp = this.sp, S = this.spot;
-    for (let k = 0; k < 8; k++) {
+    // peixe de fundo passeia de pedra em pedra pela estrutura toda (costão, laje), não só no centro do ponto
+    const rocky = sp.habit !== 'pelagic' && !(sp.habit === 'hole' && this.home);
+    for (let k = 0; k < 12; k++) {
       let x, z, y;
       if (sp.habit === 'hole' && this.home) { x = this.home.x + rand(-7, 7); z = this.home.z + rand(-7, 7); }
+      else if (rocky && k < 6 && Math.random() < 0.75 && nearRockTarget(S, this.pos, _t3)) { x = _t3.x; z = _t3.z; }
       else { const R = S.r * (sp.habit === 'pelagic' ? 1.7 : sp.habit === 'mid' ? 1.3 : 1); const a = rand(0, TAU), d = Math.sqrt(Math.random()) * R; x = S.x + Math.cos(a) * d; z = S.z + Math.sin(a) * d; }
       const h = H(x, z); if (h > -1.6) continue;
       if (sp.habit === 'pelagic') y = rand(Math.max(h + 2, -16), -2);
@@ -259,7 +262,8 @@ class Fish {
       else y = h + rand(0.4, sp.habit === 'hole' ? 1.6 : 3.5);
       this.target.set(x, Math.min(y, -0.8), z); return;
     }
-    this.target.set(S.x, Math.max(H(S.x, S.z) + 1, -12), S.z);
+    if (nearRockTarget(S, null, _t3)) this.target.set(_t3.x, _t3.y + 1, _t3.z);
+    else this.target.set(S.x, Math.max(H(S.x, S.z) + 1, -12), S.z);
   }
   startFlee(spread = true) {
     if (this.state === 'hooked' || this.state === 'dead') return;
@@ -306,7 +310,7 @@ class Fish {
           this.target.x += Math.sin(tn * 0.37 + this.wob) * 0.45; this.target.z += Math.cos(tn * 0.29 + this.wob * 1.7) * 0.45; this.target.y += Math.sin(tn + this.wob) * 0.3;
           if (L.state === 'curious') { this.state = 'curious'; this.t = L.t; }
         }
-        else if (this.t <= 0 || p.distanceTo(this.target) < 1.2) { this.pickWander(); this.t = rand(5, 12); }
+        else if (this.t <= 0 || p.distanceTo(this.target) < 1.2) { this.pickWander(); this.t = clamp(p.distanceTo(this.target) / Math.max(0.2, this.speed) * 1.3, 5, 45) + rand(0, 4); } // tempo de chegar lá
         if (!L && P.mode === 'swim' && P.under && P.still > 1.4 && dP < 24 && Math.random() < sp.curious * fishAct(this.key) * (P.hide ? 2 : 1) * (SV.flasher ? 1.4 : 1) * dt * 0.45) { this.state = 'curious'; this.t = rand(6, 11); }
         break;
       case 'curious': {
@@ -403,6 +407,7 @@ function spawnGroup(spot, key, n, big = 1) {
     const hs = HOLES.filter(h => h.spot === spot.id).sort((a, b) => a.used - b.used);
     if (hs.length) { home = hs[Math.floor(Math.random() * Math.min(4, hs.length))]; home.used++; pos = new V3(home.x, home.y, home.z); }
   }
+  if (!pos && sp.habit !== 'pelagic' && nearRockTarget(spot, null, _t3)) pos = new V3(_t3.x, sp.habit === 'mid' ? rand(_t3.y + 0.5, Math.min(-0.8, _t3.y + 3)) : _t3.y + rand(0.4, 2.5), _t3.z);
   if (!pos) {
     for (let k = 0; k < 20; k++) { const a = rand(0, TAU), d = Math.sqrt(Math.random()) * spot.r, x = spot.x + Math.cos(a) * d, z = spot.z + Math.sin(a) * d, h = H(x, z); if (h < -2) { pos = new V3(x, sp.habit === 'pelagic' ? rand(Math.max(h + 2, -14), -2) : h + rand(0.6, 2.5), z); break; } }
     if (!pos) pos = new V3(spot.x, H(spot.x, spot.z) + 1.5, spot.z);
@@ -423,12 +428,12 @@ function spawnAll() {
   for (const k of Object.keys(SPECIES)) if (spInRegion(k)) makePool(k, SPECIES[k].shape, fishTex(k), k === 'mero' || k === 'pirarucu' || SPECIES[k].shape === 'shark' ? 8 : k === 'atumrabino' ? 60 : 260);
   const POPR = AMZ ? popAmz() : NE ? popNe() : POP;
   for (const s of SPOTS) {
-    const pop = POPR[s.id]; if (!pop) continue;
-    for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0; g < groups; g++) if (Math.random() < chance) spawnGroup(s, key, Math.round(rand(a, b)), big);
+    const pop = POPR[s.id] || DEEP_POP[s.id]; if (!pop) continue;
+    for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0, ng = nGroups(groups, densSpot()); g < ng; g++) if (Math.random() < chance) spawnGroup(s, key, Math.round(rand(a, b)), big);
   }
   for (const z of ZONES) {
     const pop = AMZ ? POP_ZONE_AMZ : NE ? POP_ZONE_NE : z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
-    for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0; g < groups; g++) if (Math.random() < chance) spawnGroup(z, key, Math.round(rand(a, b)), big);
+    for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0, ng = nGroups(groups, densZone()); g < ng; g++) if (Math.random() < chance) spawnGroup(z, key, Math.round(rand(a, b)), big);
   }
 }
 function updateFishes(dt, now) {

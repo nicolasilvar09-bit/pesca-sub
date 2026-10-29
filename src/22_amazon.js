@@ -30,7 +30,7 @@ function Hamz(x, z) {
   // pedral: leito raso e rochoso a leste
   const dpd = Math.hypot(x - 1250, z - rivC(1250));
   if (dpd < 210) h = Math.max(h, lerp(-5.5 + fbm(x * 0.04, z * 0.04, 2), h, smooth(90, 200, dpd)));
-  return h;
+  return amzPoco(x, z, h);
 }
 // água preta: o igarapé e a lagoa preta (cor de chá, quase sem visibilidade)
 function murkAmz(x, z) { return Math.max(1 - smooth(190, 320, Math.hypot(x + 600, z + 980)), 1 - smooth(30, 90, segDist(x, z, -600, -980, -430, rivC(-430) - rivW(-430) + 60))); }

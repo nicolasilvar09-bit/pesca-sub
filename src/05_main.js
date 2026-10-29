@@ -223,7 +223,7 @@ function startGame() {
   const D = ensureDaily(); if (D.list.some(m => !m.done)) toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5);
 }
 function init() {
-  loadSave(); if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
+  addDeepSpots(); loadSave(); if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
   initRenderer(); sky = buildSky(); buildTerrain(); buildWater(); buildRocksAndDecor(); buildLand(); bakeShallow(); buildFX();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); buildLife(); initExtra();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
