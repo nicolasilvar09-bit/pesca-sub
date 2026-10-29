@@ -283,7 +283,7 @@ class Fish {
     // ferido: procura a toca mais perto e fica escondido mais tempo
     if (this.hurt > 0) { this.hurt -= dt; if (!this.home && (this.state === 'wander' || this.state === 'flee')) { let best = null, bd = 35; for (const hl of HOLES) { const d = Math.hypot(hl.x - p.x, hl.z - p.z); if (d < bd) { bd = d; best = hl; } } if (best) { this.home = best; this.state = 'tohole'; this.t = 15; } } }
     const dP = p.distanceTo(P.pos);
-    if (this.state !== 'hooked') {
+    if (this.state !== 'hooked' && !this.tut) { // o peixe do tutorial não tem medo
       const vis = P.mode === 'swim';
       let fearR = (1.6 + sp.shy * gearShy() * 12 * (0.2 + P.noise * 1.15)) * (P.under ? 1 : 0.4);
       if (P.still > 2 && P.under) fearR *= 0.55; // espera: peixe se aproxima mais
@@ -312,7 +312,7 @@ class Fish {
       case 'curious': {
         this.speed = sp.cruise * 0.9;
         if (L) { _t1.copy(this.off).applyAxisAngle(_t2.set(0, 1, 0), L.yaw); this.target.copy(L.pos).add(_t1); }
-        else { this.orbitA += dt * 0.25; const R = 2.8 + this.len * 2.5; this.target.set(P.pos.x + Math.cos(this.orbitA) * R, P.pos.y + Math.sin(this.orbitA * 0.7) * 0.8, P.pos.z + Math.sin(this.orbitA) * R); }
+        else { this.orbitA += dt * 0.25; const R = this.tut ? 2.3 : 2.8 + this.len * 2.5; this.target.set(P.pos.x + Math.cos(this.orbitA) * R, P.pos.y + Math.sin(this.orbitA * 0.7) * 0.8, P.pos.z + Math.sin(this.orbitA) * R); }
         if (this.t <= 0 || !P.under) { this.state = 'wander'; this.t = 0; }
         break;
       }
