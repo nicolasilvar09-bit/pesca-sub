@@ -142,6 +142,7 @@ function wsMsg(m) {
 function onBcast(ev, d) {
   if (!d.from || d.from === ON.s.uid) return;
   if (d.to && d.to !== ON.s.uid) return;
+  if ((ev.startsWith('lb_') || d.pid) && lobbyMsg(ev, d)) return; // grupo (lobby): membros podem não ser amigos ainda
   if (ev === 'hello') { if (!isFriend(d.from)) ON.friends.push({ id: d.from, name: d.name, level: d.lvl || 1 }); toast(`${d.name} adicionou você como amigo!`, 3.5, 'gold'); loadFriends(); return; }
   if (!isFriend(d.from)) return;
   if (ev === 'pos' && d.region === REGION) remoteState(d);
@@ -229,7 +230,7 @@ function startLive(spotId, uid, name, at) {
     toast('Valendo! O placar do amigo atualiza ao vivo.', 3, 'gold');
   }, Math.max(0, at - Date.now()));
 }
-function liveCatch(f) { if (COMP.on && COMP.live) bcast('chal_sc', { to: COMP.live.uid, n: COMP.me.n, kg: Math.round(COMP.me.kg * 10) / 10, last: `${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg` }); }
+function liveCatch(f) { if (COMP.on && COMP.lobby && LB.pid) { bcast('chal_sc', { pid: LB.pid, n: COMP.me.n, kg: Math.round(COMP.me.kg * 10) / 10, last: `${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg` }); return; } if (COMP.on && COMP.live) bcast('chal_sc', { to: COMP.live.uid, n: COMP.me.n, kg: Math.round(COMP.me.kg * 10) / 10, last: `${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg` }); }
 
 // ---------- conta com e-mail e senha: leva o save para outro aparelho ----------
 async function protectAccount(email, pass) {
@@ -252,7 +253,8 @@ async function loginAccount(email, pass) {
 function onlineHTML() {
   if (!ON.s || !ON.me) return `<div class="it"><div><div class="n">Conectando...</div><div class="d">${ON.err || 'Entrando no servidor do jogo.'}</div></div><button class="btn" id="onRetry">TENTAR DE NOVO</button></div>`;
   const ago = ON.pushT ? Math.round((Date.now() - ON.pushT) / 60000) : null;
-  let h = `<div class="it" style="margin-bottom:8px;flex-direction:column;align-items:stretch;gap:6px"><div class="n">Seu código de amigo: <b style="color:var(--acc);letter-spacing:3px;font-size:1.25em">${ON.me.code}</b> <button class="btn alt" id="onCopy" style="margin-left:6px">COPIAR</button></div>
+  let h = `<div class="it" style="margin-bottom:8px;border-color:var(--acc2)"><div><div class="n">👥 Grupo ${LB.pid && LB.members.length > 1 ? `(${LB.members.length}/4)` : ''}</div><div class="d">Chame até 3 amigos (ou mande o link no WhatsApp), escolham destino e modo e saiam juntos.</div></div><button class="btn gold" id="onLobby">ABRIR GRUPO</button></div>`;
+  h += `<div class="it" style="margin-bottom:8px;flex-direction:column;align-items:stretch;gap:6px"><div class="n">Seu código de amigo: <b style="color:var(--acc);letter-spacing:3px;font-size:1.25em">${ON.me.code}</b> <button class="btn alt" id="onCopy" style="margin-left:6px">COPIAR</button></div>
     <div class="d">Mande esse código para quem vai jogar com você. Cada um adiciona o código do outro (basta um dos dois).</div>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="d">Seu nome:</span><input id="onName" maxlength="16" value="${myName().replace(/"/g, '')}" style="flex:1;min-width:120px;padding:8px;border-radius:8px;border:1px solid var(--line);background:#031018;color:#cfe"><button class="btn" id="onNameOk">SALVAR</button></div>
     <div class="d">☁️ Save na nuvem: ${ON.pushT ? (ago < 1 ? 'enviado agora há pouco' : `enviado há ${ago} min`) : 'ativo'}. ${ON.ws && ON.joined ? '🟢 ao vivo' : '⚪ reconectando ao vivo...'}</div></div>`;
@@ -274,6 +276,7 @@ function onlineHTML() {
 }
 function bindOnline(B, on) {
   const q = id => $(id);
+  if (q('onLobby')) q('onLobby').onclick = () => { closePanels(); lbOpen(); };
   if (q('onRetry')) q('onRetry').onclick = () => { ON.err = 'Tentando...'; renderShop(); onlineStart().then(() => renderShop()); };
   if (q('onCopy')) q('onCopy').onclick = () => { try { navigator.clipboard.writeText(ON.me.code); toast('Código copiado!', 2); } catch (e) { toast('Código: ' + ON.me.code, 4); } };
   if (q('onNameOk')) q('onNameOk').onclick = () => { renameOnline(q('onName').value).then(() => renderShop()); };

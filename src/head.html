@@ -143,6 +143,21 @@ body.portrait .thumb{width:72px;height:48px}
 #spotList{flex:1;min-width:220px}
 #menu{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:linear-gradient(180deg,rgba(2,12,18,.35),rgba(2,12,18,.55) 55%,rgba(2,12,18,.9)),url(%%COVER%%) center/cover #04141c;text-align:center;padding:20px}
 #menu{overflow:auto}
+.lbcard{width:min(880px,96vw)}
+#lobby .d{color:var(--muted);font-size:12px}
+.lbgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 12px}
+.lbs{display:flex;align-items:center;gap:6px;padding:10px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line);min-height:62px}
+.lbs .n{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lbs .d{color:var(--muted);font-size:12px}
+.lbs .st{font-size:11px;letter-spacing:1px;color:var(--muted)}
+.lbs.ok{border-color:var(--acc2);box-shadow:inset 0 0 0 1px var(--acc2)}.lbs.ok .st{color:var(--acc2)}
+.lbs.empty{border-style:dashed;opacity:.7}
+.lbcols{display:flex;gap:14px;flex-wrap:wrap}.lbcol{flex:1;min-width:260px}
+.lbh{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:10px 0 6px;font-weight:800}
+.lbseg{display:flex;gap:6px;flex-wrap:wrap}
+#lobby select{width:100%;padding:9px;border-radius:10px;border:1px solid var(--line);background:#031018;color:#cfe;font:inherit}
+.lbchat{min-height:70px;max-height:110px;overflow:auto;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid var(--line);font-size:13px;display:flex;flex-direction:column;gap:3px}
+body.portrait .lbgrid,body.short .lbgrid{grid-template-columns:repeat(2,1fr)}
+@media (max-width:640px){.lbgrid{grid-template-columns:repeat(2,1fr)}}
 #menu.live{background:linear-gradient(180deg,rgba(2,12,18,.0),rgba(2,12,18,.15) 40%,rgba(2,12,18,.82) 100%)}
 #menu.live h1,#menu.live .tag{text-shadow:0 2px 18px rgba(0,0,0,.75)}
 #menu h1{font-size:clamp(30px,min(8vw,11vh),64px);margin:0;letter-spacing:1px;font-weight:900;line-height:.95;text-shadow:0 4px 30px rgba(0,0,0,.6)}
