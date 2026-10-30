@@ -378,7 +378,7 @@ function chunked(geo, mat, items, place, far = 90) {
   }
 }
 // embaixo d'água nada além do alcance da neblina é desenhado (a água esconde mesmo)
-function updateChunks() { const p = camera.position, f = QF().decor, uw = camUnder && scene.fog ? 2.6 / scene.fog.density : 1e9; for (const k of CHUNKS) { const R = k.r + Math.min(f * k.fk, uw); k.im.visible = p.distanceToSquared(k.c) < R * R; } }
+function updateChunks() { const p = camera.position, f = QF().decor, uw = camUnder && scene.fog ? 2.6 / scene.fog.density : 1e9; for (const k of CHUNKS) { const R = k.r + Math.min(f * k.fk, uw, !camUnder && k.c.y < -0.5 ? 70 : 1e9); k.im.visible = p.distanceToSquared(k.c) < R * R; } } // de cima, o fundo longe não aparece
 // junta geometrias (sem índice) numa só
 function mergeGeos(list) {
   const pa = [], na = [];

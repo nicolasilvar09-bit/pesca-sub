@@ -60,6 +60,7 @@ function buildPlatform() {
   PLAT.lights = new THREE.MeshStandardMaterial({ color: 0xfff4d0, emissive: 0xfff0c0, emissiveIntensity: 0 });
   for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; const b = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), PLAT.lights); b.position.set(Math.cos(a) * 15, 14.6 + (k % 3) * 6, Math.sin(a) * 15); g.add(b); }
   PLAT.light = new THREE.PointLight(0xffe0b0, 0, 90, 1.5); PLAT.light.position.set(0, 12, 0); g.add(PLAT.light);
+  mergeStatic(g, new Set([PLAT.flame])); // estrutura parada vira poucas peças (a chama continua animada)
   // a lancha bate nas pernas
   MAR.rects.push({ x0: P0.x - S - 2, x1: P0.x + S + 2, z0: P0.z - S - 2, z1: P0.z + S + 2 });
   // cardumes de isca girando nas pernas

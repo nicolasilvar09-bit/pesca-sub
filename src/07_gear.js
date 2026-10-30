@@ -700,7 +700,7 @@ function stepBot(b, dt, t, c, onCatch) {
   const v = b.vel.length();
   if (v > 0.1) { b.yaw += angDiff(b.yaw, Math.atan2(-b.vel.x, -b.vel.z)) * clamp(dt * 3, 0, 1); b.pitch = lerp(b.pitch, clamp(Math.atan2(b.vel.y, Math.hypot(b.vel.x, b.vel.z)), -1.2, 1.2), clamp(dt * 3, 0, 1)); }
   b.kick += dt * (2 + Math.min(1, v) * 5);
-  b.rig.root.visible = camera.position.distanceTo(b.pos) < 90;
+  botLod(b); // perto: corpo inteiro; longe: silhueta de 1 peça
   placeRig(b.rig, b.pos, b.yaw, under ? b.pitch : 0, under, Math.min(1, v), b.kick);
 }
 function compBotCatch(b, f) { b.n += compPts(f); b.kg += f.kg; toast(`${b.name} pegou ${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg`, 2.2); }

@@ -442,10 +442,10 @@ function spawnAll() {
 }
 function updateFishes(dt, now) {
   if (FEAR.t > 0) FEAR.t -= dt;
-  const c = camera.position;
+  const c = camera.position, fr = camUnder ? QF().fish : Math.min(QF().fish, 45), fishR2 = fr * fr; // de cima da água não dá para ver peixe longe
   for (let i = FISHES.length - 1; i >= 0; i--) {
     const f = FISHES[i]; const d2 = (f.pos.x - c.x) ** 2 + (f.pos.z - c.z) ** 2;
-    f.vis = d2 < QF().fish * QF().fish || f.state === 'hooked' || f === GUN.fish;
+    f.vis = d2 < fishR2 || f.state === 'hooked' || f === GUN.fish;
     if (f.vis) f.update(dt);
   }
   for (let i = RESPAWN.length - 1; i >= 0; i--) {

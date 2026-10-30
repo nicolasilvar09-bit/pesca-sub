@@ -27,8 +27,10 @@ const daysToWorld = () => (7 - (SV.day || 1) % 7) % 7;
 const worldSpot = () => spotById(WORLD_ARENA[REGION]) || SPOTS.find(s => s.r);
 
 // ---------- texturas ----------
+const TEX_CACHE = {};
 function flagTex(spec) {
-  return canvasTex(96, 64, g => {
+  const key = 'f' + JSON.stringify(spec); if (TEX_CACHE[key]) return TEX_CACHE[key];
+  return TEX_CACHE[key] = canvasTex(96, 64, g => {
     const [k, a, b, c] = spec[0];
     if (k === 'v') { g.fillStyle = a; g.fillRect(0, 0, 32, 64); g.fillStyle = b; g.fillRect(32, 0, 32, 64); g.fillStyle = c; g.fillRect(64, 0, 32, 64); }
     else if (k === 'v2') { g.fillStyle = a; g.fillRect(0, 0, 38, 64); g.fillStyle = b; g.fillRect(38, 0, 58, 64); }
@@ -40,7 +42,8 @@ function flagTex(spec) {
   });
 }
 function bannerTex(sp, w = 512, h = 96) {
-  return canvasTex(w, h, g => {
+  const key = 'b' + sp.name + w; if (TEX_CACHE[key]) return TEX_CACHE[key];
+  return TEX_CACHE[key] = canvasTex(w, h, g => {
     g.fillStyle = sp.col; g.fillRect(0, 0, w, h); g.fillStyle = sp.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.font = `900 ${h * 0.46}px system-ui, sans-serif`; g.fillText(sp.name, w / 2, h * 0.42); g.font = `600 ${h * 0.2}px system-ui, sans-serif`; g.fillText(sp.sub.toUpperCase(), w / 2, h * 0.82);
   });
@@ -91,8 +94,8 @@ function teamBoat(team, i, x, z, yaw) {
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.6), fm); fl.position.set(0.47, 2.85, -3.0); fl.rotation.y = Math.PI / 2; g.add(fl);
   const sp = SPONSORS[i % SPONSORS.length], bm = new THREE.MeshStandardMaterial({ map: bannerTex(sp, 256, 48), roughness: 0.7, side: THREE.DoubleSide });
   for (const s of [1, -1]) { const b = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.42), bm); b.position.set(s * 1.27, 0.95, 0.3); b.rotation.y = s * Math.PI / 2; g.add(b); }
-  const m = mergeGroup(g); m.position.set(x, 0, z); m.rotation.y = yaw; m.userData = { x, z, yaw, ph: rand(0, TAU) };
-  return m;
+  g.position.set(x, 0, z); g.rotation.y = yaw; g.userData = { x, z, yaw, ph: rand(0, TAU) };
+  return g;
 }
 function orgBoat(x, z, yaw) {
   const g = buildBoatModel(3);
@@ -100,8 +103,8 @@ function orgBoat(x, z, yaw) {
   for (const s of [1, -1]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4.5, 6), pm); p.position.set(s * 2.2, 3.2, -1); g.add(p); }
   const t = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.72), new THREE.MeshStandardMaterial({ map: titleTex(), side: THREE.DoubleSide, roughness: 0.7 })); t.position.set(0, 5.0, -1); g.add(t);
   SPONSORS.slice(0, 4).forEach((sp, k) => { const b = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.38), new THREE.MeshStandardMaterial({ map: bannerTex(sp, 256, 48), side: THREE.DoubleSide })); b.position.set(k < 2 ? 1.4 : -1.4, 1.05, (k % 2 ? -1.6 : 1.4)); b.rotation.y = k < 2 ? Math.PI / 2 : -Math.PI / 2; g.add(b); });
-  const m = mergeGroup(g); m.scale.setScalar(1.25); m.position.set(x, 0, z); m.rotation.y = yaw; m.userData = { x, z, yaw, ph: 0 };
-  return m;
+  g.scale.setScalar(1.25); g.position.set(x, 0, z); g.rotation.y = yaw; g.userData = { x, z, yaw, ph: 0 };
+  return g;
 }
 function buildHeli() {
   const g = new THREE.Group(), red = new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.4, metalness: 0.3 }), dk = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
@@ -115,18 +118,20 @@ function buildHeli() {
 }
 function buildWorldScene() {
   const S = worldSpot(); if (!S) return;
-  const grp = new THREE.Group(); WORLD.boats = [];
+  const grp = new THREE.Group(), fleet = new THREE.Group(); grp.add(fleet); WORLD.boats = [];
   // frota em anel em volta da arena, proas apontando para fora
   const ring = 82, n = TEAMS.length + 1;
   for (let i = 0; i < n; i++) {
     const a = i / n * TAU + 0.3; let x = S.x + Math.cos(a) * ring, z = S.z + Math.sin(a) * ring;
     for (let k = 0; k < 10 && H(x, z) > -2.5; k++) { x += Math.cos(a) * 8; z += Math.sin(a) * 8; }
     const team = i < TEAMS.length ? TEAMS[i] : ['Brasil', [['br']], 0x1a7a3a, 0];
-    const b = teamBoat(team, i, x, z, -a + Math.PI / 2); b.userData.team = team[0]; grp.add(b); WORLD.boats.push(b);
+    const b = teamBoat(team, i, x, z, -a + Math.PI / 2); b.userData.team = team[0]; fleet.add(b); WORLD.boats.push(b);
   }
   // organização do lado de fora do anel, de frente para a arena
   let ox = S.x + Math.cos(-0.25) * (ring + 30), oz = S.z + Math.sin(-0.25) * (ring + 30); for (let k = 0; k < 10 && H(ox, oz) > -2.5; k++) { ox += 8; }
-  const org = orgBoat(ox, oz, 0.25 + Math.PI / 2); grp.add(org); WORLD.boats.push(org);
+  const org = orgBoat(ox, oz, 0.25 + Math.PI / 2); fleet.add(org); WORLD.boats.push(org);
+  // a frota inteira vira poucas peças: materiais iguais de barcos diferentes são desenhados juntos (barcos ancorados, parados)
+  mergeStatic(fleet, new Set(), matSig); WORLD.boats = WORLD.boats.map(b => ({ position: b.position.clone(), rotation: b.rotation.clone(), userData: b.userData, visible: true }));
   // boias laranja marcando a arena
   const bG = new THREE.SphereGeometry(0.45, 10, 8), N = 32, bim = new THREE.InstancedMesh(bG, new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.4 }), N), m4 = new THREE.Matrix4();
   for (let i = 0; i < N; i++) { const a = i / N * TAU; m4.makeTranslation(S.x + Math.cos(a) * 130, 0.1, S.z + Math.sin(a) * 130); bim.setMatrixAt(i, m4); }

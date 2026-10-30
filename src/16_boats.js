@@ -188,7 +188,7 @@ function buildBoatModel(idx, paintOverride) {
 }
 // troca o modelo da lancha mantendo posição e rumo
 function rebuildBoat() {
-  const old = BOAT.mesh, g = buildBoatModel(curBoatIdx());
+  const old = BOAT.mesh, g = mergeBoat(buildBoatModel(curBoatIdx()));
   if (old) { g.position.copy(old.position); g.quaternion.copy(old.quaternion); scene.remove(old); old.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
   scene.add(g); BOAT.mesh = g; BOAT.meshIdx = curBoatIdx(); BOAT.meshPaint = JSON.stringify(SV.boatPaint || {});
 }

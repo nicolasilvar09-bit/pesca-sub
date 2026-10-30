@@ -186,7 +186,7 @@ function remoteState(d) {
     R = ON.remotes[d.from] = { rig, tag, pos: new V3(d.x, d.y, d.z), boat: null, bi: null, bpos: new V3(d.bx, 0, d.bz), yaw: d.yw, pitch: d.pt, kick: 0, name: d.name };
   }
   R.d = d; R.seen = performance.now();
-  if (R.bi !== d.bi) { if (R.boat) scene.remove(R.boat); R.boat = buildBoatModel(d.bi); scene.add(R.boat); R.bi = d.bi; }
+  if (R.bi !== d.bi) { if (R.boat) scene.remove(R.boat); R.boat = mergeBoat(buildBoatModel(d.bi)); scene.add(R.boat); R.bi = d.bi; }
 }
 function dropRemote(id) { const R = ON.remotes[id]; if (!R) return; if (R.rig.root.parent) R.rig.root.parent.remove(R.rig.root); scene.remove(R.tag); if (RIDE.on && RIDE.host === id) rideStop('O piloto saiu do jogo: você voltou para a sua lancha.'); delete RIDE.pass[id]; if (R.boat) scene.remove(R.boat); delete ON.remotes[id]; }
 function updateRemotes(dt, t) {

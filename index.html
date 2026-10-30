@@ -816,7 +816,7 @@ function chunked(geo, mat, items, place, far = 90) {
   }
 }
 // embaixo d'água nada além do alcance da neblina é desenhado (a água esconde mesmo)
-function updateChunks() { const p = camera.position, f = QF().decor, uw = camUnder && scene.fog ? 2.6 / scene.fog.density : 1e9; for (const k of CHUNKS) { const R = k.r + Math.min(f * k.fk, uw); k.im.visible = p.distanceToSquared(k.c) < R * R; } }
+function updateChunks() { const p = camera.position, f = QF().decor, uw = camUnder && scene.fog ? 2.6 / scene.fog.density : 1e9; for (const k of CHUNKS) { const R = k.r + Math.min(f * k.fk, uw, !camUnder && k.c.y < -0.5 ? 70 : 1e9); k.im.visible = p.distanceToSquared(k.c) < R * R; } } // de cima, o fundo longe não aparece
 // junta geometrias (sem índice) numa só
 function mergeGeos(list) {
   const pa = [], na = [];
@@ -1617,10 +1617,10 @@ function spawnAll() {
 }
 function updateFishes(dt, now) {
   if (FEAR.t > 0) FEAR.t -= dt;
-  const c = camera.position;
+  const c = camera.position, fr = camUnder ? QF().fish : Math.min(QF().fish, 45), fishR2 = fr * fr; // de cima da água não dá para ver peixe longe
   for (let i = FISHES.length - 1; i >= 0; i--) {
     const f = FISHES[i]; const d2 = (f.pos.x - c.x) ** 2 + (f.pos.z - c.z) ** 2;
-    f.vis = d2 < QF().fish * QF().fish || f.state === 'hooked' || f === GUN.fish;
+    f.vis = d2 < fishR2 || f.state === 'hooked' || f === GUN.fish;
     if (f.vis) f.update(dt);
   }
   for (let i = RESPAWN.length - 1; i >= 0; i--) {
@@ -2241,7 +2241,7 @@ const yieldUI = () => new Promise(r => setTimeout(r, 0));
 async function init() {
   addDeepSpots(); loadSave(); fixOldRecords(); onlineStart(); // conecta enquanto o mundo 3D é montado
   if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
-  initRenderer(); sky = buildSky(); await yieldUI(); buildTerrain(); await yieldUI(); buildWater(); buildRocksAndDecor(); await yieldUI(); buildLand(); bakeShallow(); buildFX(); await yieldUI();
+  initRenderer(); sky = buildSky(); await yieldUI(); buildTerrain(); await yieldUI(); buildWater(); buildRocksAndDecor(); await yieldUI(); buildLand(); mergeMarina(); bakeShallow(); buildFX(); await yieldUI();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); await yieldUI(); buildLife(); initExtra(); await yieldUI();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
   setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); setupRide(); setupHudCompact(); $('menu').classList.add('live');
@@ -3190,7 +3190,7 @@ function stepBot(b, dt, t, c, onCatch) {
   const v = b.vel.length();
   if (v > 0.1) { b.yaw += angDiff(b.yaw, Math.atan2(-b.vel.x, -b.vel.z)) * clamp(dt * 3, 0, 1); b.pitch = lerp(b.pitch, clamp(Math.atan2(b.vel.y, Math.hypot(b.vel.x, b.vel.z)), -1.2, 1.2), clamp(dt * 3, 0, 1)); }
   b.kick += dt * (2 + Math.min(1, v) * 5);
-  b.rig.root.visible = camera.position.distanceTo(b.pos) < 90;
+  botLod(b); // perto: corpo inteiro; longe: silhueta de 1 peça
   placeRig(b.rig, b.pos, b.yaw, under ? b.pitch : 0, under, Math.min(1, v), b.kick);
 }
 function compBotCatch(b, f) { b.n += compPts(f); b.kg += f.kg; toast(`${b.name} pegou ${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg`, 2.2); }
@@ -4114,7 +4114,7 @@ function buildBoatModel(idx, paintOverride) {
 }
 // troca o modelo da lancha mantendo posição e rumo
 function rebuildBoat() {
-  const old = BOAT.mesh, g = buildBoatModel(curBoatIdx());
+  const old = BOAT.mesh, g = mergeBoat(buildBoatModel(curBoatIdx()));
   if (old) { g.position.copy(old.position); g.quaternion.copy(old.quaternion); scene.remove(old); old.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
   scene.add(g); BOAT.mesh = g; BOAT.meshIdx = curBoatIdx(); BOAT.meshPaint = JSON.stringify(SV.boatPaint || {});
 }
@@ -5590,6 +5590,7 @@ function buildPlatform() {
   PLAT.lights = new THREE.MeshStandardMaterial({ color: 0xfff4d0, emissive: 0xfff0c0, emissiveIntensity: 0 });
   for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; const b = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), PLAT.lights); b.position.set(Math.cos(a) * 15, 14.6 + (k % 3) * 6, Math.sin(a) * 15); g.add(b); }
   PLAT.light = new THREE.PointLight(0xffe0b0, 0, 90, 1.5); PLAT.light.position.set(0, 12, 0); g.add(PLAT.light);
+  mergeStatic(g, new Set([PLAT.flame])); // estrutura parada vira poucas peças (a chama continua animada)
   // a lancha bate nas pernas
   MAR.rects.push({ x0: P0.x - S - 2, x1: P0.x + S + 2, z0: P0.z - S - 2, z1: P0.z + S + 2 });
   // cardumes de isca girando nas pernas
@@ -5793,7 +5794,7 @@ function remoteState(d) {
     R = ON.remotes[d.from] = { rig, tag, pos: new V3(d.x, d.y, d.z), boat: null, bi: null, bpos: new V3(d.bx, 0, d.bz), yaw: d.yw, pitch: d.pt, kick: 0, name: d.name };
   }
   R.d = d; R.seen = performance.now();
-  if (R.bi !== d.bi) { if (R.boat) scene.remove(R.boat); R.boat = buildBoatModel(d.bi); scene.add(R.boat); R.bi = d.bi; }
+  if (R.bi !== d.bi) { if (R.boat) scene.remove(R.boat); R.boat = mergeBoat(buildBoatModel(d.bi)); scene.add(R.boat); R.bi = d.bi; }
 }
 function dropRemote(id) { const R = ON.remotes[id]; if (!R) return; if (R.rig.root.parent) R.rig.root.parent.remove(R.rig.root); scene.remove(R.tag); if (RIDE.on && RIDE.host === id) rideStop('O piloto saiu do jogo: você voltou para a sua lancha.'); delete RIDE.pass[id]; if (R.boat) scene.remove(R.boat); delete ON.remotes[id]; }
 function updateRemotes(dt, t) {
@@ -7742,8 +7743,10 @@ const daysToWorld = () => (7 - (SV.day || 1) % 7) % 7;
 const worldSpot = () => spotById(WORLD_ARENA[REGION]) || SPOTS.find(s => s.r);
 
 // ---------- texturas ----------
+const TEX_CACHE = {};
 function flagTex(spec) {
-  return canvasTex(96, 64, g => {
+  const key = 'f' + JSON.stringify(spec); if (TEX_CACHE[key]) return TEX_CACHE[key];
+  return TEX_CACHE[key] = canvasTex(96, 64, g => {
     const [k, a, b, c] = spec[0];
     if (k === 'v') { g.fillStyle = a; g.fillRect(0, 0, 32, 64); g.fillStyle = b; g.fillRect(32, 0, 32, 64); g.fillStyle = c; g.fillRect(64, 0, 32, 64); }
     else if (k === 'v2') { g.fillStyle = a; g.fillRect(0, 0, 38, 64); g.fillStyle = b; g.fillRect(38, 0, 58, 64); }
@@ -7755,7 +7758,8 @@ function flagTex(spec) {
   });
 }
 function bannerTex(sp, w = 512, h = 96) {
-  return canvasTex(w, h, g => {
+  const key = 'b' + sp.name + w; if (TEX_CACHE[key]) return TEX_CACHE[key];
+  return TEX_CACHE[key] = canvasTex(w, h, g => {
     g.fillStyle = sp.col; g.fillRect(0, 0, w, h); g.fillStyle = sp.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.font = `900 ${h * 0.46}px system-ui, sans-serif`; g.fillText(sp.name, w / 2, h * 0.42); g.font = `600 ${h * 0.2}px system-ui, sans-serif`; g.fillText(sp.sub.toUpperCase(), w / 2, h * 0.82);
   });
@@ -7806,8 +7810,8 @@ function teamBoat(team, i, x, z, yaw) {
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.6), fm); fl.position.set(0.47, 2.85, -3.0); fl.rotation.y = Math.PI / 2; g.add(fl);
   const sp = SPONSORS[i % SPONSORS.length], bm = new THREE.MeshStandardMaterial({ map: bannerTex(sp, 256, 48), roughness: 0.7, side: THREE.DoubleSide });
   for (const s of [1, -1]) { const b = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.42), bm); b.position.set(s * 1.27, 0.95, 0.3); b.rotation.y = s * Math.PI / 2; g.add(b); }
-  const m = mergeGroup(g); m.position.set(x, 0, z); m.rotation.y = yaw; m.userData = { x, z, yaw, ph: rand(0, TAU) };
-  return m;
+  g.position.set(x, 0, z); g.rotation.y = yaw; g.userData = { x, z, yaw, ph: rand(0, TAU) };
+  return g;
 }
 function orgBoat(x, z, yaw) {
   const g = buildBoatModel(3);
@@ -7815,8 +7819,8 @@ function orgBoat(x, z, yaw) {
   for (const s of [1, -1]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4.5, 6), pm); p.position.set(s * 2.2, 3.2, -1); g.add(p); }
   const t = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.72), new THREE.MeshStandardMaterial({ map: titleTex(), side: THREE.DoubleSide, roughness: 0.7 })); t.position.set(0, 5.0, -1); g.add(t);
   SPONSORS.slice(0, 4).forEach((sp, k) => { const b = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.38), new THREE.MeshStandardMaterial({ map: bannerTex(sp, 256, 48), side: THREE.DoubleSide })); b.position.set(k < 2 ? 1.4 : -1.4, 1.05, (k % 2 ? -1.6 : 1.4)); b.rotation.y = k < 2 ? Math.PI / 2 : -Math.PI / 2; g.add(b); });
-  const m = mergeGroup(g); m.scale.setScalar(1.25); m.position.set(x, 0, z); m.rotation.y = yaw; m.userData = { x, z, yaw, ph: 0 };
-  return m;
+  g.scale.setScalar(1.25); g.position.set(x, 0, z); g.rotation.y = yaw; g.userData = { x, z, yaw, ph: 0 };
+  return g;
 }
 function buildHeli() {
   const g = new THREE.Group(), red = new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.4, metalness: 0.3 }), dk = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
@@ -7830,18 +7834,20 @@ function buildHeli() {
 }
 function buildWorldScene() {
   const S = worldSpot(); if (!S) return;
-  const grp = new THREE.Group(); WORLD.boats = [];
+  const grp = new THREE.Group(), fleet = new THREE.Group(); grp.add(fleet); WORLD.boats = [];
   // frota em anel em volta da arena, proas apontando para fora
   const ring = 82, n = TEAMS.length + 1;
   for (let i = 0; i < n; i++) {
     const a = i / n * TAU + 0.3; let x = S.x + Math.cos(a) * ring, z = S.z + Math.sin(a) * ring;
     for (let k = 0; k < 10 && H(x, z) > -2.5; k++) { x += Math.cos(a) * 8; z += Math.sin(a) * 8; }
     const team = i < TEAMS.length ? TEAMS[i] : ['Brasil', [['br']], 0x1a7a3a, 0];
-    const b = teamBoat(team, i, x, z, -a + Math.PI / 2); b.userData.team = team[0]; grp.add(b); WORLD.boats.push(b);
+    const b = teamBoat(team, i, x, z, -a + Math.PI / 2); b.userData.team = team[0]; fleet.add(b); WORLD.boats.push(b);
   }
   // organização do lado de fora do anel, de frente para a arena
   let ox = S.x + Math.cos(-0.25) * (ring + 30), oz = S.z + Math.sin(-0.25) * (ring + 30); for (let k = 0; k < 10 && H(ox, oz) > -2.5; k++) { ox += 8; }
-  const org = orgBoat(ox, oz, 0.25 + Math.PI / 2); grp.add(org); WORLD.boats.push(org);
+  const org = orgBoat(ox, oz, 0.25 + Math.PI / 2); fleet.add(org); WORLD.boats.push(org);
+  // a frota inteira vira poucas peças: materiais iguais de barcos diferentes são desenhados juntos (barcos ancorados, parados)
+  mergeStatic(fleet, new Set(), matSig); WORLD.boats = WORLD.boats.map(b => ({ position: b.position.clone(), rotation: b.rotation.clone(), userData: b.userData, visible: true }));
   // boias laranja marcando a arena
   const bG = new THREE.SphereGeometry(0.45, 10, 8), N = 32, bim = new THREE.InstancedMesh(bG, new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.4 }), N), m4 = new THREE.Matrix4();
   for (let i = 0; i < N; i++) { const a = i / N * TAU; m4.makeTranslation(S.x + Math.cos(a) * 130, 0.1, S.z + Math.sin(a) * 130); bim.setMatrixAt(i, m4); }
@@ -8423,6 +8429,68 @@ function fixOldRecords() {
   if (SV.rk && SV.rk.fish) for (const k in SV.rk.fish) SV.rk.fish[k] = Math.min(SV.rk.fish[k], cap(k));
   save();
 }
+
+// ================= desempenho na superfície: juntar peças paradas e desenhar menos o que não dá para ver =================
+// medido no celular: marina 41 FPS (496 desenhos), Mundial 33 FPS (632 desenhos, 1,6 milhão de triângulos).
+
+// junta as malhas paradas de 'root' em uma por material (as de 'keep' e as escondidas ficam como estão)
+function mergeStatic(root, keep = new Set(), sig = m => m.uuid) {
+  root.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), m4 = new THREE.Matrix4(), by = new Map(), drop = [];
+  root.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || o === root || !o.visible || !o.geometry || o.onBeforeRender !== THREE.Object3D.prototype.onBeforeRender) return;
+    for (let p = o; p && p !== root; p = p.parent) if (keep.has(p) || !p.visible) return;
+    const geo = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(m4.multiplyMatrices(inv, o.matrixWorld));
+    const names = ['position', 'normal', 'uv', 'color'].filter(n => geo.attributes[n]), key = sig(o.material) + '|' + names.join(',');
+    if (!by.has(key)) by.set(key, { mat: o.material, names, list: [] }); by.get(key).list.push(geo); drop.push(o);
+  });
+  if (drop.length < 4) return 0; // não compensa
+  drop.forEach(o => o.parent.remove(o));
+  for (const { mat, names, list } of by.values()) {
+    const g = new THREE.BufferGeometry();
+    for (const n of names) {
+      const sz = list[0].attributes[n].itemSize; let len = 0; list.forEach(x => len += x.attributes[n].count * sz);
+      const arr = new Float32Array(len); let off = 0; list.forEach(x => { arr.set(x.attributes[n].array, off); off += x.attributes[n].count * sz; });
+      g.setAttribute(n, new THREE.BufferAttribute(arr, sz));
+    }
+    if (!g.attributes.normal) g.computeVertexNormals();
+    g.computeBoundingSphere(); root.add(new THREE.Mesh(g, mat));
+  }
+  return drop.length;
+}
+// lancha (a sua e a dos amigos): tudo menos o piloto vira poucas peças
+const mergeBoat = g => { if (g && !g.userData.merged) { mergeStatic(g, new Set(g.userData.pilot || [])); g.userData.merged = true; } return g; };
+
+// marina: píer, estacas, tábuas, quiosques e placas viram poucas peças; os barcos de pesca, uma peça cada (continuam balançando)
+function mergeMarina() {
+  const used = new Set([water, sky, ...MAR.boats.map(b => b.m), ...MAR.people.map(p => p.m)]);
+  const box = new THREE.Group(); scene.add(box);
+  for (const o of [...scene.children]) {
+    if (o === box || used.has(o) || o.isInstancedMesh || o.isLight || o.isPoints || o.isLine || o.isSprite) continue;
+    if (o.isMesh && o.material === TERR.mat) continue;
+    if (Object.keys(o.userData || {}).length) continue; // animado (tartaruga, bandeira, etc.)
+    if (!o.isMesh && o.type !== 'Group') continue;
+    if ((o.position.x - PIER.x) ** 2 + (o.position.z - (PIER.z0 + PIER.z1) / 2) ** 2 > 160 * 160) continue;
+    box.attach(o);
+  }
+  const n = mergeStatic(box); MAR.boats.forEach(b => mergeStatic(b.m));
+  return n;
+}
+
+// mergulhador-bot longe: uma silhueta de 1 peça no lugar das ~85 do corpo inteiro
+const BOT_FAR = { geo: null };
+function botLod(b) {
+  const r = b.rig; if (!r.far) {
+    if (!BOT_FAR.geo) BOT_FAR.geo = new THREE.CapsuleGeometry(0.17, 1.35, 3, 6).translate(0, -0.15, 0);
+    r.far = new THREE.Mesh(BOT_FAR.geo, r.suitMat); r.root.add(r.far); r.parts = r.root.children.filter(c => c !== r.far);
+  }
+  const d = camera.position.distanceTo(b.pos), near = d < 32;
+  r.root.visible = d < 110; if (!r.root.visible) return;
+  if (r.lodNear !== near) { r.lodNear = near; r.parts.forEach(c => c.visible = near); r.far.visible = !near; }
+}
+
+// assinatura de material: mesmos parâmetros = mesma peça (a frota do Mundial inteira vira ~30 desenhos)
+const matSig = m => [m.type, m.color && m.color.getHexString(), m.emissive && m.emissive.getHexString(), m.map ? m.map.uuid : '', m.transparent ? m.opacity : 1, m.side, m.vertexColors ? 1 : 0, (m.roughness || 0).toFixed(2), (m.metalness || 0).toFixed(2), m.customProgramCacheKey ? m.customProgramCacheKey() : ''].join('/');
 
 init();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { });
