@@ -42,3 +42,12 @@ function feeHTML() {
   const f = marinaFee();
   return `<div class="it" style="margin-bottom:8px"><div class="d">⚓ Diária da marina: ${f ? `<b>${fmtR(f)} por dia</b> pela vaga da lancha atual` : 'grátis para a lancha 21 pés'} (26 pés ${fmtR(MARINA_FEE[1])}, 32 pés ${fmtR(MARINA_FEE[2])}, 38 pés ${fmtR(MARINA_FEE[3])}). Escolha a lancha do dia de acordo com o passeio.</div></div>`;
 }
+
+// ---------- correção única: recordes acima do peso possível (antes o troféu podia ter até 3x o peso) ----------
+function fixOldRecords() {
+  if (SV.kgFix) return; SV.kgFix = 1;
+  const cap = k => SPECIES[k] ? maxKg(SPECIES[k]) : Infinity;
+  for (const k in SV.best || {}) SV.best[k] = Math.min(SV.best[k], cap(k));
+  if (SV.rk && SV.rk.fish) for (const k in SV.rk.fish) SV.rk.fish[k] = Math.min(SV.rk.fish[k], cap(k));
+  save();
+}

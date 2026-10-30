@@ -63,3 +63,16 @@ function nextHTML() {
   return `<div class="it" style="margin-bottom:8px"><div class="d">Tudo o que dá prêmio agora: história, missões do dia e conquistas mais perto.</div></div><div class="list">` +
     rows.map(([ic, t, p, d]) => `<div class="it" style="justify-content:flex-start;gap:10px"><span style="font-size:20px">${ic}</span><div style="flex:1"><div class="n">${t}${p ? ` <span class="d">· ${p}</span>` : ''}</div><div class="d">${d}</div></div></div>`).join('') + '</div>';
 }
+
+// ---------- medidor de desempenho (Opções › Mostrar FPS) ----------
+const FPSM = { el: null, n: 0, t: 0, last: performance.now() };
+function updateFps() {
+  const now = performance.now(), dt = (now - FPSM.last) / 1000; FPSM.last = now;
+  if (!OPT.fps) { if (FPSM.el) FPSM.el.style.display = 'none'; return; }
+  if (!FPSM.el) { FPSM.el = document.createElement('div'); FPSM.el.style.cssText = 'position:fixed;left:50%;bottom:6px;transform:translateX(-50%);z-index:25;pointer-events:none;font:600 11px ui-monospace,Menlo,monospace;color:#bff7ef;background:rgba(4,16,20,.75);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:3px 8px;white-space:nowrap'; document.body.appendChild(FPSM.el); }
+  FPSM.el.style.display = 'block'; FPSM.n++; FPSM.t += dt;
+  if (FPSM.t < 1) return;
+  const fps = FPSM.n / FPSM.t, i = renderer.info.render; FPSM.n = 0; FPSM.t = 0;
+  FPSM.el.style.color = fps < 25 ? '#ff8080' : fps < 40 ? '#ffd080' : '#bff7ef';
+  FPSM.el.textContent = `${Math.round(fps)} FPS · ${i.calls} desenhos · ${Math.round(i.triangles / 1000)} mil triângulos · ${QF().name} ${Math.round(AQ.scale * 100)}%`;
+}

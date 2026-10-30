@@ -210,7 +210,7 @@ function loop() {
   IN.lookX = 0; IN.lookY = 0;
   updateEnv(dt);
   if (started) updateHUD(dt);
-  renderer.render(scene, camera);
+  renderer.render(scene, camera); updateFps();
 }
 function startGame() {
   AU.init(); started = true; $('menu').classList.add('hide'); $('hud').classList.remove('hide');
@@ -225,7 +225,7 @@ function startGame() {
 // o mundo é montado em etapas, soltando a página entre elas: a conexão online anda junto em vez de esperar o 3D todo
 const yieldUI = () => new Promise(r => setTimeout(r, 0));
 async function init() {
-  addDeepSpots(); loadSave(); onlineStart(); // conecta enquanto o mundo 3D é montado
+  addDeepSpots(); loadSave(); fixOldRecords(); onlineStart(); // conecta enquanto o mundo 3D é montado
   if (!SPOTS.some(s => s.id === SV.dest) && !wpById(SV.dest)) SV.dest = SPOTS[1].id;
   initRenderer(); sky = buildSky(); await yieldUI(); buildTerrain(); await yieldUI(); buildWater(); buildRocksAndDecor(); await yieldUI(); buildLand(); bakeShallow(); buildFX(); await yieldUI();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); await yieldUI(); buildLife(); initExtra(); await yieldUI();

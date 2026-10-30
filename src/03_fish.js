@@ -228,11 +228,15 @@ function poolsEnd() { for (const k in POOLS) { const p = POOLS[k]; p.im.count = 
 const FISHES = [], RESPAWN = [];
 const FEAR = { pos: new V3(), r: 0, t: 0 };
 const _t1 = new V3(), _t2 = new V3();
+// tamanho do peixe: 'big' (pontos fundos, arena) aumenta a CHANCE de peixe grande e de troféu, sem passar do teto.
+// teto: troféu até 12% mais comprido que o máximo normal (~40% mais pesado); antes ia a 45% (até 3x o peso)
+const LEN_CAP = 1.12;
 function rollLen(sp, big = 1) {
   const [a, b] = sp.len, r = Math.random();
-  if (r < 0.07) return Math.min(b * 1.45, b * rand(1.02, 1.3) * big); // troféu
-  return Math.min(b * 1.45, lerp(a, b, Math.pow(Math.random(), 1.7)) * big);
+  if (r < 0.07 * big) return b * rand(1.0, LEN_CAP); // troféu
+  return lerp(a, b, Math.pow(Math.random(), 1.7 / (big * big)));
 }
+const maxKg = sp => sp.k * (sp.len[1] * LEN_CAP) ** 3;
 class Fish {
   constructor(key, spot, pos, opt = {}) {
     const sp = SPECIES[key]; this.key = key; this.sp = sp; this.spot = spot;
@@ -416,7 +420,7 @@ function spawnGroup(spot, key, n, big = 1) {
   const spread = 1.2 + n * 0.25;
   for (let i = 1; i < n; i++) {
     const off = new V3(rand(-spread, spread), rand(-0.9, 0.9), rand(-spread, spread));
-    const f = new Fish(key, spot, pos.clone().add(off), { leader, off, len: leader.len * rand(0.72, 1.25) }); FISHES.push(f);
+    const f = new Fish(key, spot, pos.clone().add(off), { leader, off, len: Math.min(sp.len[1] * LEN_CAP, leader.len * rand(0.72, 1.25)) }); FISHES.push(f);
   }
 }
 // zonas (costões e lajes fora dos pontos do mapa): mistura menor, de acordo com a profundidade

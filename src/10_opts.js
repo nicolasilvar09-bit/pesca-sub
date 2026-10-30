@@ -20,6 +20,7 @@ function renderOpt() {
   const seg = (k, opts) => opts.map(([v, n]) => `<button class="btn ${OPT[k] === v ? 'gold' : 'alt'}" data-opt="${k}" data-v="${v}">${n}</button>`).join('');
   $('optBody').innerHTML = '<div class="list">' +
     optRow('Qualidade gráfica', seg('q', QUALITY.map((q, i) => [i, q.name]))) +
+    optRow('Mostrar FPS (desempenho)', seg('fps', [[true, 'SIM'], [false, 'NÃO']])) +
     optRow('Dificuldade dos bots', seg('bots', [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil']])) +
     optRow('Sensibilidade da câmera', `<input type="range" min="0.4" max="2.2" step="0.1" value="${OPT.sens}" data-range="sens"><b>${OPT.sens.toFixed(1)}×</b>`) +
     optRow('Inverter eixo vertical', seg('inv', [[false, 'NÃO'], [true, 'SIM']])) +
