@@ -9,7 +9,7 @@ const LB_SPOTS = {
   amz: [['praia', 'Praia'], ['igapo', 'Igapó'], ['canal', 'Canal do Tapajós'], ['lago', 'Lago Verde'], ['pedral', 'Pedral'], ['pocao', 'Poção do Tapajós']],
 };
 const LB_DEST = { cv: 'Costa Verde', ne: 'Costa dos Corais', amz: 'Amazonas' };
-const LB_MODES = [['livre', '🤿 Pesca livre', 'Todos no mesmo ponto, sem placar. Cada um vende o que pegar.'], ['desafio', '⚔️ Desafio 10 min', 'Cada um por si: ganha quem pegar mais na medida. Prêmio 1º R$ 800 · 2º R$ 350 · 3º R$ 150.'], ['dupla', '🤝 Dupla vs bots', 'Só com 2: vocês dois contra 2 duplas. Prêmio 1º R$ 1.800 para cada.']];
+const LB_MODES = [['livre', '🤿 Pesca livre', 'Todos no mesmo ponto, sem placar. Cada um vende o que pegar.'], ['desafio', '⚔️ Desafio 10 min', 'Cada um por si: ganha quem pegar mais na medida. Prêmio 1º R$ 800 · 2º R$ 350 · 3º R$ 150.'], ['dupla', '🤝 Dupla vs bots', 'Só com 2: vocês dois contra 2 duplas. Prêmio 1º R$ 1.800 para cada.'], ['mundial', '🏆 Mundial', 'Vocês são a seleção brasileira (até 3) contra 11 países, num cenário com frota, TV e helicóptero. Inscrição R$ 500 cada. 1º lugar R$ 15.000 para cada.']];
 const LB_CHAT = ['Bora!', 'Tô pronto', '1 minuto', 'Onde vamos?', 'Partiu fundo!', 'GG'];
 const lbIsLead = () => LB.pid && LB.lead === (ON.s && ON.s.uid);
 const lbMe = () => ({ uid: ON.s.uid, name: myName(), lvl: level(), code: ON.me ? ON.me.code : '', region: REGION, ready: false, suit: SV.suit || 0 });
@@ -90,6 +90,7 @@ function lobbyMsg(ev, d) {
   if (ev === 'lb_go') { lbGo(d); return true; }
   if (ev === 'lb_here' && lead) { LB.here[d.from] = 1; lbCheckAll(); return true; }
   if (ev === 'lb_start') { lbStart(d.at); return true; }
+  if (ev.startsWith('w_')) { worldMsg(ev, d); return true; }
   if (ev === 'chal_sc' && COMP.on && COMP.lobby) { const l = COMP.lives.find(l => l.uid === d.from); if (l) { l.n = d.n; l.kg = d.kg; if (d.last) toast(`${d.name} pegou ${d.last}`, 2.2); } return true; }
   return false;
 }
@@ -109,6 +110,7 @@ function lbLaunch() {
   const others = LB.members.filter(m => m.uid !== LB.lead);
   if (LB.mode !== 'livre' && !others.length) { toast('Chame pelo menos um amigo para esse modo.', 3, 'bad'); return; }
   if (LB.mode === 'dupla' && others.length !== 1) { toast('Dupla vs bots é só com 2 jogadores.', 3, 'bad'); return; }
+  if (LB.mode === 'mundial' && LB.members.length > 3) { toast('A seleção do Mundial tem no máximo 3 atletas.', 3, 'bad'); return; }
   if (others.some(m => !m.ready)) { toast('Ainda tem gente que não marcou PRONTO.', 3, 'bad'); return; }
   const d = { pid: LB.pid, dest: LB.dest, spot: LB.spot, mode: LB.mode, members: LB.members, lead: LB.lead };
   bcast('lb_go', d); lbGo({ ...d, from: ON.s.uid });
@@ -148,6 +150,7 @@ function lbStart(at) {
       BOAT.pos.set(S.x + Math.cos(a) * 16, 0, S.z + Math.sin(a) * 16); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
       toast('Pesca livre com o grupo: cada um vende o que pegar. Boa pescaria!', 4, 'gold');
     } else if (LB.mode === 'desafio') startComp(S.id, null, others.map(m => ({ uid: m.uid, name: m.name })));
+    else if (LB.mode === 'mundial') startWorld({ online: { host: lbIsLead(), lead: LB.lead, members: LB.members.map(m => ({ uid: m.uid, name: m.name })) } });
     else if (LB.mode === 'dupla') { const o = others[0]; if (lbIsLead()) startDuoHost(S.id, o.uid, o.name, Date.now()); else startDuoGuest(S.id, LB.lead, (LB.members.find(m => m.uid === LB.lead) || {}).name || 'Líder', Date.now()); }
     LB.phase = 'lobby'; lbSave();
   }, Math.max(0, at - Date.now()));

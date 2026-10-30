@@ -157,89 +157,144 @@ function updateWorldScene(dt, t) {
   if (!under && camera.position.distanceTo(h.position) < 220 && (WORLD.hornT -= dt) <= 0) { WORLD.hornT = 0.11; AU.burst(0.08, 140, 'lowpass', 0.12 * (1 - camera.position.distanceTo(h.position) / 220)); }
 }
 
-// ---------- a prova ----------
-function startWorld() {
-  if (COMP.on || !isWorldDay()) return;
+// ---------- a prova (por equipes de até 3) ----------
+// cada país tem 3 atletas: 1 nadando de verdade e 2 que pontuam pelo rádio (pesca simulada, sem pesar o celular).
+// o Brasil é você + até 2 companheiros de verdade: amigos-bot, atletas da seleção ou amigos online do GRUPO.
+const SELECAO = [{ id: 'sel_rafa', name: 'Rafa (seleção)', col: 0, lvl: 2, spec: 'toca' }, { id: 'sel_duda', name: 'Duda (seleção)', col: 0, lvl: 2, spec: 'azul' }];
+const BR_NUMS = [10, 9, 11];
+const worldMates = () => (SV.worldTeam || []).map(id => id && (friendById(id) || SELECAO.find(x => x.id === id))).filter(Boolean);
+function startWorld(opts) {
+  const online = opts && opts.online, host = !online || online.host;
+  if (COMP.on || (!online && !isWorldDay())) return;
   if (SV.money < WORLD_FEE) { toast(`A inscrição do Mundial custa ${fmtR(WORLD_FEE)}.`, 3, 'bad'); return; }
   if (!WORLD.scene) buildWorldScene();
   SV.money -= WORLD_FEE; save(); closePanels();
-  const S = WORLD.S, me = WORLD.boats[TEAMS.length].userData;
+  const S = WORLD.S, me = WORLD.boats[TEAMS.length].userData, slot = online ? Math.max(0, online.members.findIndex(m => m.uid === ON.s.uid)) : 0;
   if (P.mode === 'swim') climbBoat();
-  BOAT.pos.set(me.x + Math.cos(me.yaw) * 5, 0, me.z - Math.sin(me.yaw) * 5); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
+  BOAT.pos.set(me.x + Math.cos(me.yaw) * (5 + slot * 6), 0, me.z - Math.sin(me.yaw) * (5 + slot * 6)); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
   // peixe extra na arena: a organização escolheu o melhor pesqueiro
   const pop = (AMZ ? popAmz() : NE ? popNe() : POP)[S.id] || [];
   for (const [key, groups, [a, b]] of pop) for (let g = 0; g < groups; g++) spawnGroup(S, key, Math.round(rand(a, b)), 1.15);
-  // um atleta de cada país, saindo do próprio barco (força × 0,55: forte, mas dá para ganhar)
+  const teams = {}; const mk = name => teams[name] = { kg: 0, n: 0, sp: new Set(), mates: [] };
+  // um atleta de cada país nadando, saindo do próprio barco (força × 0,55: forte, mas dá para ganhar) + 2 pelo rádio
   COMP.bots = TEAMS.map((tm, i) => {
-    const u = WORLD.boats[i].userData, b = makeBot({ id: 'w' + i, name: tm[0], col: 0, lvl: 2, spec: 'toca' }, new V3(u.x, -0.2, u.z));
-    dressCountry(b.rig, tm[0], tm[1]); b.skill = tm[3] * 0.55; b.team = tm[0]; b.sp = new Set(); b.best = 0; b.c = { x: lerp(u.x, S.x, 0.55), z: lerp(u.z, S.z, 0.55), r: 70 }; b.pref = null; return b;
+    const u = WORLD.boats[i].userData, b = makeBot({ id: 'w' + i, name: tm[0], col: 0, lvl: 2, spec: 'toca' }, new V3(u.x, -0.2, u.z)), T = mk(tm[0]);
+    T.virt = 2; T.rate = 0.0083 * tm[3] / 0.27;
+    dressCountry(b.rig, tm[0], tm[1]); b.skill = tm[3] * 0.55; b.team = tm[0]; b.c = { x: lerp(u.x, S.x, 0.55), z: lerp(u.z, S.z, 0.55), r: 70 }; b.pref = null; return b;
   });
-  COMP.on = true; COMP.world = { phase: 1, sp: new Set(), best: 0, bestBy: '', bestKey: '' }; COMP.t = WORLD_BAT; COMP.spot = S; COMP.me = { n: 0, kg: 0 }; COMP.lives = []; COMP.live = null; COMP.duo = null; COMP.mult = 1;
-  WORLD.undress = dressCountry(DIVER, 'Brasil', [['br']]); // você veste o uniforme da seleção brasileira
+  const BR = mk('Brasil'); BR.mates = ['Você'];
+  // companheiros de seleção (só sem amigos online): bots de verdade na água com o uniforme do Brasil
+  if (!online) worldMates().slice(0, 2).forEach((f, k) => {
+    const b = makeBot(f, new V3(me.x + rand(-4, 4), -0.2, me.z + rand(-4, 4)));
+    dressCountry(b.rig, 'Brasil', [['br']], BR_NUMS[k + 1]); b.skill = (f.id.startsWith('sel_') ? 0.3 : fSkill(f)) * 0.55; b.team = 'Brasil'; b.mate = f.name;
+    b.c = { x: lerp(me.x, S.x, 0.55), z: lerp(me.z, S.z, 0.55), r: 70 }; COMP.bots.push(b); BR.mates.push(f.name);
+  });
+  if (online) online.members.forEach(m => { if (m.uid !== ON.s.uid) BR.mates.push(m.name); });
+  COMP.on = true; COMP.world = { phase: 1, best: 0, bestBy: '', bestKey: '', teams, online, host, sbT: 0, vT: 0, hostRows: null };
+  COMP.t = WORLD_BAT; COMP.spot = S; COMP.me = { n: 0, kg: 0 }; COMP.lives = []; COMP.live = null; COMP.duo = null; COMP.mult = 1;
+  WORLD.undress = dressCountry(DIVER, 'Brasil', [['br']], BR_NUMS[slot] || 10); // você veste o uniforme da seleção brasileira
   jumpIn(); P.o2 = 1;
   $('compHud').classList.remove('hide');
-  toast(`🏆 MUNDIAL DE PESCA SUB · 1ª bateria valendo! ${WORLD_BAT / 60} minutos. Pontos: 10 por kg + 5 por espécie diferente. Peixe pequeno ou protegido desclassifica o peixe.`, 7, 'gold');
+  toast(`🏆 MUNDIAL · Seleção brasileira: ${BR.mates.join(', ')}. 1ª bateria valendo! Pontos da equipe: 10 por kg + 5 por espécie diferente.`, 7, 'gold');
+  if (BR.mates.length < 3) toast(`Equipe com ${BR.mates.length} de 3: os outros países têm 3 atletas. Monte a equipe na aba Campeonato.`, 5);
   AU.tone(220, 200, 1.4, 0.35, 'sawtooth'); AU.tone(330, 300, 1.4, 0.2, 'sawtooth');
 }
 const worldPts = (kg, nsp) => Math.round(kg * 10 + nsp * 5);
 function worldRows() {
-  const w = COMP.world;
-  return [{ name: '🇧🇷 Brasil (você)', pts: worldPts(COMP.me.kg, w.sp.size), kg: COMP.me.kg, n: COMP.me.n, nsp: w.sp.size, me: true },
-    ...COMP.bots.map(b => ({ name: b.team, pts: worldPts(b.kg, b.sp.size), kg: b.kg, n: b.n, nsp: b.sp.size }))].sort((a, b) => b.pts - a.pts);
+  const w = COMP.world; if (!w.host && w.hostRows) return w.hostRows.map(r => ({ ...r, me: r.name === 'Brasil' }));
+  return Object.entries(w.teams).map(([name, T]) => ({ name, pts: worldPts(T.kg, T.sp.size), kg: T.kg, n: T.n, nsp: T.sp.size, me: name === 'Brasil' })).sort((a, b) => b.pts - a.pts);
+}
+function worldScore(team, kg, key, who) {
+  const w = COMP.world, T = w.teams[team]; if (!T) return;
+  T.n++; T.kg += kg; T.sp.add(key);
+  if (kg > w.best) { w.best = kg; w.bestBy = team === 'Brasil' ? `Brasil (${who})` : team; w.bestKey = SPECIES[key] ? SPECIES[key].name : key; if (team === 'Brasil') toast(`Maior peixe do Mundial até agora: ${w.bestKey} de ${fmtKg(kg)} kg (${who})!`, 3, 'gold'); }
 }
 function worldCatch(f) {
-  const w = COMP.world; w.sp.add(f.key);
-  if (f.kg > w.best) { w.best = f.kg; w.bestBy = 'Brasil (você)'; w.bestKey = f.sp.name; toast(`Maior peixe do Mundial até agora: ${f.sp.name} de ${fmtKg(f.kg)} kg!`, 3, 'gold'); }
+  const w = COMP.world;
+  if (w.host) worldScore('Brasil', f.kg, f.key, 'você');
+  else bcast('w_sc', { pid: LB.pid, kg: f.kg, key: f.key }); // convidado: o líder soma na equipe
 }
 function worldBotCatch(b, f) {
-  const w = COMP.world; b.n++; b.kg += f.kg; b.sp.add(f.key);
-  if (f.kg > w.best) { w.best = f.kg; w.bestBy = b.team; w.bestKey = f.sp.name; }
-  if (f.kg > 6 || Math.random() < 0.15) toast(`📻 ${b.team}: ${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg`, 2.2);
+  const w = COMP.world; if (!w.host) return; // no convidado os bots só nadam (o placar vem do líder)
+  worldScore(b.team, f.kg, f.key, b.mate || b.team);
+  if (b.team === 'Brasil') toast(`🇧🇷 ${b.mate} pegou ${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg!`, 2.5, 'gold');
+  else if (f.kg > 6 || Math.random() < 0.15) toast(`📻 ${b.team}: ${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg`, 2.2);
+}
+// os 2 atletas de cada país que pescam "pelo rádio": pegam peixes de verdade da arena (sem tirar da água)
+function worldVirtual(dt) {
+  const w = COMP.world; if ((w.vT -= dt) > 0) return; w.vT = 1;
+  let pool = null;
+  for (const [name, T] of Object.entries(w.teams)) for (let k = 0; k < (T.virt || 0); k++) if (Math.random() < T.rate) {
+    pool = pool || FISHES.filter(f => legalFish(f) && Math.hypot(f.pos.x - COMP.spot.x, f.pos.z - COMP.spot.z) < 140);
+    if (!pool.length) return; const f = pool[Math.floor(Math.random() * pool.length)]; worldScore(name, f.kg, f.key, name);
+  }
+}
+// mensagens da equipe online (pelo id do grupo)
+function worldMsg(ev, d) {
+  const w = COMP.world; if (!COMP.on || !w || !w.online) return;
+  if (ev === 'w_sc' && w.host) { const who = d.name || 'amigo'; worldScore('Brasil', d.kg, d.key, who); toast(`🇧🇷 ${who} pegou ${(SPECIES[d.key] || {}).name || d.key} de ${fmtKg(d.kg)} kg!`, 2.5, 'gold'); }
+  if (ev === 'w_sb' && !w.host) { w.hostRows = d.rows; COMP.t = d.t; if (d.phase !== w.phase) { w.phase = d.phase; toast(d.phase === 'gap' ? 'Fim da 1ª bateria! Intervalo.' : '2ª bateria valendo!', 4, 'gold'); } w.best = d.best; w.bestBy = d.bestBy; w.bestKey = d.bestKey; }
+  if (ev === 'w_end' && !w.host) { w.hostRows = d.rows; w.best = d.best; w.bestBy = d.bestBy; w.bestKey = d.bestKey; endWorld(worldRows()); }
 }
 function worldUpdate(dt, t) {
-  const w = COMP.world; COMP.t -= dt;
-  if (w.phase !== 'gap') for (const b of COMP.bots) stepBot(b, dt, t, b.c, worldBotCatch);
-  const rows = worldRows(), mm = Math.max(0, Math.ceil(COMP.t)), tt = `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}`, pos = rows.findIndex(r => r.me);
-  const top = rows.slice(0, 5), mine = pos >= 5 ? `<div class="cr me"><span>${pos + 1}º Brasil</span><b>${rows[pos].pts} pts</b></div>` : '';
+  const w = COMP.world; if (w.host) COMP.t -= dt;
+  if (w.phase !== 'gap') { for (const b of COMP.bots) stepBot(b, dt, t, b.c, worldBotCatch); if (w.host) worldVirtual(dt); }
+  // amigos online da equipe: veste o uniforme do Brasil neles também
+  if (w.online) w.online.members.forEach((m, k) => { const R = ON.remotes[m.uid]; if (R && !R.kitOff) R.kitOff = dressCountry(R.rig, 'Brasil', [['br']], BR_NUMS[k] || 9); });
+  const rows = worldRows(), mm = Math.max(0, Math.ceil(COMP.t)), tt = `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}`, pos = Math.max(0, rows.findIndex(r => r.me));
+  const top = rows.slice(0, 5), mine = pos >= 5 ? `<div class="cr me"><span>${pos + 1}º 🇧🇷 Brasil</span><b>${rows[pos].pts} pts</b></div>` : '';
   $('compHud').innerHTML = `<div class="ct ${COMP.t < 60 ? 'low' : ''}">🏆 ${w.phase === 'gap' ? 'Intervalo' : w.phase + 'ª bateria'} · ${tt}</div>` +
-    top.map((r, i) => `<div class="cr ${r.me ? 'me' : ''}"><span>${i + 1}º ${r.me ? 'Brasil' : r.name}</span><b>${r.pts} pts</b></div>`).join('') + mine;
+    top.map((r, i) => `<div class="cr ${r.me ? 'me' : ''}"><span>${i + 1}º ${r.me ? '🇧🇷 Brasil' : r.name}</span><b>${r.pts} pts</b></div>`).join('') + mine;
+  if (!w.host) return; // o convidado segue o tempo e o fim mandados pelo líder
+  if (w.online && (w.sbT -= dt) <= 0) { w.sbT = 2; bcast('w_sb', { pid: LB.pid, rows: rows.map(r => ({ name: r.name, pts: r.pts, kg: Math.round(r.kg * 10) / 10, n: r.n, nsp: r.nsp })), t: COMP.t, phase: w.phase, best: w.best, bestBy: w.bestBy, bestKey: w.bestKey }); }
   if (COMP.t > 0) return;
-  if (w.phase === 1) { w.phase = 'gap'; COMP.t = WORLD_GAP; toast(`Fim da 1ª bateria! Você está em ${pos + 1}º. Respire: a 2ª bateria começa em ${WORLD_GAP} s.`, 6, 'gold'); AU.tone(220, 200, 1, 0.3, 'sawtooth'); for (const b of COMP.bots) { b.state = 'up'; b.target = null; } }
+  if (w.phase === 1) { w.phase = 'gap'; COMP.t = WORLD_GAP; toast(`Fim da 1ª bateria! O Brasil está em ${pos + 1}º. Respire: a 2ª bateria começa em ${WORLD_GAP} s.`, 6, 'gold'); AU.tone(220, 200, 1, 0.3, 'sawtooth'); for (const b of COMP.bots) { b.state = 'up'; b.target = null; } }
   else if (w.phase === 'gap') { w.phase = 2; COMP.t = WORLD_BAT; toast('2ª bateria valendo! Última chance.', 4, 'gold'); AU.tone(220, 200, 1.4, 0.35, 'sawtooth'); AU.tone(330, 300, 1.4, 0.2, 'sawtooth'); }
-  else endWorld(rows);
+  else {
+    if (w.online) bcast('w_end', { pid: LB.pid, rows: rows.map(r => ({ name: r.name, pts: r.pts, kg: Math.round(r.kg * 10) / 10, n: r.n, nsp: r.nsp })), best: w.best, bestBy: w.bestBy, bestKey: w.bestKey });
+    endWorld(rows);
+  }
 }
 function endWorld(rows) {
   const w = COMP.world; COMP.on = false; COMP.world = null; $('compHud').classList.add('hide');
   for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
   if (WORLD.undress) { WORLD.undress(); WORLD.undress = null; } applyGear(); // volta para a sua roupa
-  const pos = rows.findIndex(r => r.me), PR = [15000, 8000, 5000, 2000, 2000, 1000, 1000, 500, 500, 500, 500, 500];
+  for (const id in ON.remotes) { const R = ON.remotes[id]; if (R.kitOff) { R.kitOff(); R.kitOff = null; } }
+  const pos = Math.max(0, rows.findIndex(r => r.me)), PR = [15000, 8000, 5000, 2000, 2000, 1000, 1000, 500, 500, 500, 500, 500], br = rows[pos];
   let prize = PR[pos] || 0; const extras = [];
-  // prêmios das empresas
-  if (w.bestBy === 'Brasil (você)') { prize += SPONSORS[0].val; extras.push(`🎯 ${SPONSORS[0].name} · maior peixe (${w.bestKey} de ${fmtKg(w.best)} kg): ${fmtR(SPONSORS[0].val)}`); }
-  const maxSp = Math.max(...rows.map(r => r.nsp)); if (rows[pos].nsp === maxSp && maxSp > 0) { prize += SPONSORS[1].val; extras.push(`🐠 ${SPONSORS[1].name} · mais espécies (${maxSp}): ${fmtR(SPONSORS[1].val)}`); }
+  // prêmios das empresas (cada atleta da equipe premiada recebe)
+  if (w.bestBy.startsWith('Brasil')) { prize += SPONSORS[0].val; extras.push(`🎯 ${SPONSORS[0].name} · maior peixe (${w.bestKey} de ${fmtKg(w.best)} kg, ${w.bestBy.replace('Brasil ', '')}): ${fmtR(SPONSORS[0].val)}`); }
+  const maxSp = Math.max(...rows.map(r => r.nsp)); if (br.nsp === maxSp && maxSp > 0) { prize += SPONSORS[1].val; extras.push(`🐠 ${SPONSORS[1].name} · mais espécies (${maxSp}): ${fmtR(SPONSORS[1].val)}`); }
   SV.worlds = SV.worlds || []; if (!SV.worlds.length) { prize += SPONSORS[2].val; extras.push(`⭐ ${SPONSORS[2].name} · melhor estreante: ${fmtR(SPONSORS[2].val)}`); }
-  SV.worlds.push({ day: SV.day, reg: REGION, pos: pos + 1, pts: rows[pos].pts }); if (pos === 0) SV.worldTitles = (SV.worldTitles || 0) + 1;
+  SV.worlds.push({ day: SV.day, reg: REGION, pos: pos + 1, pts: br.pts }); if (pos === 0) SV.worldTitles = (SV.worldTitles || 0) + 1;
   SV.money += prize; addXP([2000, 1200, 800, 400][pos] || 200); save();
   paused = true; $('marinaPanel').classList.remove('hide');
   $('marinaPanel').querySelector('h2').textContent = '🏆 Resultado do Mundial';
-  $('mSub').textContent = pos === 0 ? 'CAMPEÃO MUNDIAL! O Brasil é campeão!' : pos < 3 ? `Pódio! O Brasil ficou em ${pos + 1}º no Mundial.` : `O Brasil ficou em ${pos + 1}º de ${rows.length}.`;
+  $('mSub').textContent = pos === 0 ? 'CAMPEÕES MUNDIAIS! O Brasil é campeão!' : pos < 3 ? `Pódio! O Brasil ficou em ${pos + 1}º no Mundial.` : `O Brasil ficou em ${pos + 1}º de ${rows.length}.`;
   $('mTabs').innerHTML = '';
   const medal = i => ['🥇', '🥈', '🥉'][i] || `${i + 1}º`;
-  $('mBody').innerHTML = `<div class="list">` + rows.map((r, i) => `<div class="it" ${r.me ? 'style="border-color:var(--acc)"' : ''}><div><div class="n">${medal(i)} ${r.me ? '🇧🇷 Brasil (você)' : r.name}</div><div class="d">${r.n} peixe(s) · ${fmtKg(r.kg)} kg · ${r.nsp} espécie(s)</div></div><b>${r.pts} pts</b></div>`).join('') + '</div>' +
-    `<div class="it" style="margin-top:8px;flex-direction:column;align-items:stretch"><div class="n">Prêmios</div><div class="d">Colocação: ${fmtR(PR[pos] || 0)}${extras.length ? '<br>' + extras.join('<br>') : ''}<br><b>Total: ${fmtR(prize)}</b> (já no saldo). Os peixes continuam na fieira e na caixa para vender.</div></div>`;
+  $('mBody').innerHTML = `<div class="list">` + rows.map((r, i) => `<div class="it" ${r.me ? 'style="border-color:var(--acc)"' : ''}><div><div class="n">${medal(i)} ${r.me ? '🇧🇷 Brasil (sua equipe)' : r.name}</div><div class="d">${r.n} peixe(s) · ${fmtKg(r.kg)} kg · ${r.nsp} espécie(s)</div></div><b>${r.pts} pts</b></div>`).join('') + '</div>' +
+    `<div class="it" style="margin-top:8px;flex-direction:column;align-items:stretch"><div class="n">Seus prêmios</div><div class="d">Colocação da equipe: ${fmtR(PR[pos] || 0)}${extras.length ? '<br>' + extras.join('<br>') : ''}<br><b>Total: ${fmtR(prize)}</b> (já no saldo). Os peixes continuam na fieira e na caixa para vender.</div></div>`;
   AU.coin(); if (pos < 3) { AU.tone(523, 784, 0.5, 0.2, 'triangle'); AU.tone(659, 988, 0.6, 0.18, 'triangle', 0.2); }
 }
-// ---------- cartão na aba Campeonato ----------
+// ---------- cartão na aba Campeonato: equipe e inscrição ----------
 function worldHTML(at) {
   const S = worldSpot(), d = daysToWorld(), done = (SV.worlds || []).some(x => x.day === SV.day);
   const hist = (SV.worlds || []).slice(-3).reverse().map(x => `dia ${x.day}: ${x.pos}º`).join(' · ');
-  return `<div class="it" style="margin-bottom:10px;border-color:var(--acc);flex-wrap:wrap"><div style="flex:1;min-width:240px"><div class="n">🏆 Mundial de Pesca Sub · ${S.name}</div>
-    <div class="d">${TEAMS.length + 1} países, 2 baterias de ${WORLD_BAT / 60} min. Pontos: 10 por kg + 5 por espécie. 1º lugar ${fmtR(15000)} · patrocinadores pagam maior peixe (${SPONSORS[0].name}), mais espécies (${SPONSORS[1].name}) e melhor estreante (${SPONSORS[2].name}). Inscrição ${fmtR(WORLD_FEE)}.${SV.worldTitles ? ` · 🥇 Títulos: ${SV.worldTitles}` : ''}${hist ? `<br>Seus Mundiais: ${hist}` : ''}</div></div>
-    ${isWorldDay() ? (done ? '<span class="d">Você já competiu hoje</span>' : `<button class="btn gold" id="worldGo" ${COMP.on || SV.money < WORLD_FEE ? 'disabled' : ''}>INSCREVER-SE</button>`) : `<div style="text-align:right"><div class="d">Próximo: domingo (dia ${(SV.day || 1) + d})</div>${at ? `<button class="btn alt" id="worldWait" style="margin-top:4px">ESPERAR ATÉ O MUNDIAL</button>` : ''}</div>`}</div>`;
+  const opts = [...friends().map(f => [f.id, `${f.name} · ${FR_LVL[f.lvl][0]}`]), ...SELECAO.map(x => [x.id, x.name])];
+  const team = SV.worldTeam || [];
+  const sel = k => `<select data-wteam="${k}" style="flex:1;min-width:130px;padding:7px;border-radius:8px;border:1px solid var(--line);background:#031018;color:#cfe;font:inherit"><option value="">— vaga livre —</option>${opts.map(([id, n]) => `<option value="${id}" ${team[k] === id && team[1 - k] !== id ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+  return `<div class="it" style="margin-bottom:10px;border-color:var(--acc);flex-direction:column;align-items:stretch;gap:8px"><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div style="flex:1;min-width:240px"><div class="n">🏆 Mundial de Pesca Sub · ${S.name}</div>
+    <div class="d">${TEAMS.length + 1} seleções de 3 atletas, 2 baterias de ${WORLD_BAT / 60} min. Pontos da equipe: 10 por kg + 5 por espécie. 1º lugar ${fmtR(15000)} para cada atleta · patrocinadores pagam maior peixe (${SPONSORS[0].name}), mais espécies (${SPONSORS[1].name}) e melhor estreante (${SPONSORS[2].name}). Inscrição ${fmtR(WORLD_FEE)}.${SV.worldTitles ? ` · 🥇 Títulos: ${SV.worldTitles}` : ''}${hist ? `<br>Seus Mundiais: ${hist}` : ''}</div></div>
+    ${isWorldDay() ? (done ? '<span class="d">Você já competiu hoje</span>' : `<button class="btn gold" id="worldGo" ${COMP.on || SV.money < WORLD_FEE ? 'disabled' : ''}>INSCREVER A EQUIPE</button>`) : `<div style="text-align:right"><div class="d">Próximo: domingo (dia ${(SV.day || 1) + d})</div>${at ? `<button class="btn alt" id="worldWait" style="margin-top:4px">ESPERAR ATÉ O MUNDIAL</button>` : ''}</div>`}</div>
+    <div class="n" style="font-size:13px">🇧🇷 Sua seleção</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="btn alt" style="cursor:default">Você · 10</span>${sel(0)}${sel(1)}</div>
+    <div class="d">Companheiros: seus amigos (aba Amigos) ou atletas da seleção. Com amigos de verdade: abra o 👥 GRUPO e escolha o modo 🏆 Mundial (até 3 na equipe, vale qualquer dia).</div></div>`;
 }
 function bindWorld() {
   const g = $('worldGo'); if (g) g.onclick = () => startWorld();
   const w = $('worldWait'); if (w) w.onclick = () => { let rem = daysToWorld() * 24 - (SV.tod || 0) + 8; while (rem > 0) { const s = Math.min(rem, 23); waitHours(s); rem -= s; } save(); renderShop(); toast('Domingo, 8h: dia do Mundial!', 3, 'gold'); };
+  document.querySelectorAll('[data-wteam]').forEach(sl => sl.onchange = () => { const T = SV.worldTeam = (SV.worldTeam || ['', '']).slice(0, 2); T[+sl.dataset.wteam] = sl.value; if (T[0] && T[0] === T[1]) T[1 - +sl.dataset.wteam] = ''; save(); renderShop(); });
 }
 
 // ---------- uniforme de seleção: cor do time, faixas, gola, bandeirinha no peito, nome e número nas costas ----------
@@ -263,9 +318,9 @@ const KIT_W = 512, KIT_H = 512;
 const kitY = y => { const T = [[-0.155, 0], [-0.04, 0.2], [0.04, 0.267], [0.13, 0.333], [0.22, 0.4], [0.32, 0.467], [0.4, 0.533], [0.46, 0.6], [0.52, 0.667], [0.575, 0.733], [0.605, 0.8]];
   for (let i = 1; i < T.length; i++) if (y <= T[i][0]) { const k = (y - T[i - 1][0]) / (T[i][0] - T[i - 1][0]); return (1 - lerp(T[i - 1][1], T[i][1], k)) * KIT_H; } return (1 - 0.8) * KIT_H; };
 const KIT_TEX = {};
-function kitTorsoTex(team, flag) {
-  if (KIT_TEX[team]) return KIT_TEX[team];
-  const K = KITS[team] || KITS['Brasil'];
+function kitTorsoTex(team, flag, num) {
+  const K = KITS[team] || KITS['Brasil'], N = num || K.num, key = team + '#' + N;
+  if (KIT_TEX[key]) return KIT_TEX[key];
   const t = canvasTex(KIT_W, KIT_H, g => {
     g.fillStyle = K.base; g.fillRect(0, 0, KIT_W, KIT_H);
     if (K.check) { const c = 22; for (let y = kitY(0.46); y < kitY(0.08); y += c) for (let x = KIT_W * 0.36; x < KIT_W * 0.64; x += c) if (((x / c | 0) + (y / c | 0)) % 2) { g.fillStyle = K.acc; g.fillRect(x, y, c, c); } }
@@ -284,12 +339,12 @@ function kitTorsoTex(team, flag) {
       const fs = K.nm.length > 8 ? 17 : K.nm.length > 6 ? 21 : K.nm.length > 5 ? 26 : 30; g.font = `900 ${fs}px system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.lineWidth = 5; g.strokeStyle = K.out; g.strokeText(K.nm, 0, 0); g.fillStyle = K.txt; g.fillText(K.nm, 0, 0); g.restore();
       g.save(); g.translate(x0, kitY(0.3)); g.scale(1, 1 / sy); g.font = '900 86px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.lineWidth = 7; g.strokeStyle = K.out; g.strokeText(String(K.num), 0, 0); g.fillStyle = K.txt; g.fillText(String(K.num), 0, 0); g.restore();
+      g.lineWidth = 7; g.strokeStyle = K.out; g.strokeText(String(N), 0, 0); g.fillStyle = K.txt; g.fillText(String(N), 0, 0); g.restore();
     };
     back(0); back(KIT_W);
     for (let n = 0; n < 3000; n++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.07})`; g.fillRect(Math.random() * KIT_W, Math.random() * KIT_H, 1, 1); }
   });
-  t.anisotropy = 4; return KIT_TEX[team] = t;
+  t.anisotropy = 4; return KIT_TEX[key] = t;
 }
 // braços e pernas: cor do time com listra lateral
 function kitLimbTex(team) {
@@ -299,11 +354,11 @@ function kitLimbTex(team) {
   t.wrapS = t.wrapT = THREE.RepeatWrapping; return KIT_TEX[k] = t;
 }
 // veste o uniforme; devolve como desfazer (para o mergulhador do jogador)
-function dressCountry(rig, team, flag) {
+function dressCountry(rig, team, flag, num) {
   rig.suitMat.map = kitLimbTex(team); rig.suitMat.color.set(0xffffff); rig.suitMat.needsUpdate = true;
   // o tronco é a maior peça torneada com o material da roupa; guardado para vestir de novo sem errar de peça
   let torso = rig._torso || null; if (!torso) rig.root.traverse(o => { if (o.isMesh && o.geometry.type === 'LatheGeometry' && o.material === rig.suitMat && (!torso || o.geometry.attributes.position.count > torso.geometry.attributes.position.count)) torso = o; }); rig._torso = torso;
   if (!torso) return () => { };
-  const old = torso.userData.suitMat || (torso.userData.suitMat = torso.material), m = uwify(new THREE.MeshStandardMaterial({ map: kitTorsoTex(team, flag), roughness: old.roughness, metalness: old.metalness }), { key: 'dv' });
+  const old = torso.userData.suitMat || (torso.userData.suitMat = torso.material), m = uwify(new THREE.MeshStandardMaterial({ map: kitTorsoTex(team, flag, num), roughness: old.roughness, metalness: old.metalness }), { key: 'dv' });
   torso.material = m; return () => { torso.material = old; };
 }
