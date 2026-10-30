@@ -172,9 +172,10 @@ function startWorld() {
   // um atleta de cada país, saindo do próprio barco (força × 0,55: forte, mas dá para ganhar)
   COMP.bots = TEAMS.map((tm, i) => {
     const u = WORLD.boats[i].userData, b = makeBot({ id: 'w' + i, name: tm[0], col: 0, lvl: 2, spec: 'toca' }, new V3(u.x, -0.2, u.z));
-    b.rig.suitMat.color.set(tm[2]); b.skill = tm[3] * 0.55; b.team = tm[0]; b.sp = new Set(); b.best = 0; b.c = { x: lerp(u.x, S.x, 0.55), z: lerp(u.z, S.z, 0.55), r: 70 }; b.pref = null; return b;
+    dressCountry(b.rig, tm[0], tm[1]); b.skill = tm[3] * 0.55; b.team = tm[0]; b.sp = new Set(); b.best = 0; b.c = { x: lerp(u.x, S.x, 0.55), z: lerp(u.z, S.z, 0.55), r: 70 }; b.pref = null; return b;
   });
   COMP.on = true; COMP.world = { phase: 1, sp: new Set(), best: 0, bestBy: '', bestKey: '' }; COMP.t = WORLD_BAT; COMP.spot = S; COMP.me = { n: 0, kg: 0 }; COMP.lives = []; COMP.live = null; COMP.duo = null; COMP.mult = 1;
+  WORLD.myPlate = dressCountry(DIVER, 'Brasil', [['br']]); // você veste a roupa do Brasil
   jumpIn(); P.o2 = 1;
   $('compHud').classList.remove('hide');
   toast(`🏆 MUNDIAL DE PESCA SUB · 1ª bateria valendo! ${WORLD_BAT / 60} minutos. Pontos: 10 por kg + 5 por espécie diferente. Peixe pequeno ou protegido desclassifica o peixe.`, 7, 'gold');
@@ -210,6 +211,7 @@ function worldUpdate(dt, t) {
 function endWorld(rows) {
   const w = COMP.world; COMP.on = false; COMP.world = null; $('compHud').classList.add('hide');
   for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
+  if (WORLD.myPlate) { WORLD.myPlate.parent.remove(WORLD.myPlate); WORLD.myPlate = null; } applyGear(); // volta para a sua roupa
   const pos = rows.findIndex(r => r.me), PR = [15000, 8000, 5000, 2000, 2000, 1000, 1000, 500, 500, 500, 500, 500];
   let prize = PR[pos] || 0; const extras = [];
   // prêmios das empresas
@@ -238,4 +240,38 @@ function worldHTML(at) {
 function bindWorld() {
   const g = $('worldGo'); if (g) g.onclick = () => startWorld();
   const w = $('worldWait'); if (w) w.onclick = () => { let rem = daysToWorld() * 24 - (SV.tod || 0) + 8; while (rem > 0) { const s = Math.min(rem, 23); waitHours(s); rem -= s; } save(); renderShop(); toast('Domingo, 8h: dia do Mundial!', 3, 'gold'); };
+}
+
+// ---------- roupa de cada país: estampa nas cores da bandeira e placa com bandeira e nome nas costas ----------
+const FLAG_SUIT = {};
+function flagSuitTex(name, spec) {
+  if (FLAG_SUIT[name]) return FLAG_SUIT[name];
+  const t = canvasTex(256, 256, g => {
+    const [k, a, b, c] = spec[0];
+    // faixas largas como a bandeira; um pouco escurecidas para parecer neoprene
+    if (k === 'v') { g.fillStyle = a; g.fillRect(0, 0, 86, 256); g.fillStyle = b; g.fillRect(85, 0, 86, 256); g.fillStyle = c; g.fillRect(170, 0, 86, 256); }
+    else if (k === 'v2') { g.fillStyle = a; g.fillRect(0, 0, 100, 256); g.fillStyle = b; g.fillRect(100, 0, 156, 256); }
+    else if (k === 'h') { g.fillStyle = a; g.fillRect(0, 0, 256, 86); g.fillStyle = b; g.fillRect(0, 85, 256, 86); g.fillStyle = c; g.fillRect(0, 170, 256, 86); }
+    else if (k === 'h2') { g.fillStyle = a; g.fillRect(0, 0, 256, 128); g.fillStyle = b; g.fillRect(0, 128, 256, 128); }
+    else if (k === 'st') { for (let i = 0; i < 9; i++) { g.fillStyle = i % 2 ? b : a; g.fillRect(0, i * 28.5, 256, 29); } }
+    else if (k === 'jp') { g.fillStyle = a; g.fillRect(0, 0, 256, 256); g.fillStyle = b; g.beginPath(); g.arc(128, 128, 60, 0, TAU); g.fill(); }
+    else { g.fillStyle = '#009c3b'; g.fillRect(0, 0, 256, 256); g.fillStyle = '#ffdf00'; g.beginPath(); g.moveTo(128, 30); g.lineTo(236, 128); g.lineTo(128, 226); g.lineTo(20, 128); g.fill(); g.fillStyle = '#002776'; g.beginPath(); g.arc(128, 128, 46, 0, TAU); g.fill(); }
+    g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(0, 0, 256, 256);
+    for (let n = 0; n < 2500; n++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.1})`; g.fillRect(Math.random() * 256, Math.random() * 256, 1, 1); }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; return FLAG_SUIT[name] = t;
+}
+function namePlateTex(name, spec) {
+  return canvasTex(256, 120, g => {
+    g.fillStyle = '#0b1820'; g.fillRect(0, 0, 256, 120);
+    g.drawImage(flagTex(spec).image, 88, 6, 80, 54);
+    g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${name.length > 9 ? 34 : 44}px system-ui, sans-serif`; g.fillText(name.toUpperCase(), 128, 88);
+  });
+}
+// veste o mergulhador com a roupa do país; devolve a placa para poder tirar depois
+function dressCountry(rig, name, spec) {
+  rig.suitMat.map = flagSuitTex(name, spec); rig.suitMat.color.set(0xffffff); rig.suitMat.needsUpdate = true;
+  const pm = uwify(new THREE.MeshStandardMaterial({ map: namePlateTex(name, spec), roughness: 0.6 }), { key: 'wplate' });
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.33, 0.155), pm); plate.position.set(0, 0.36, 0.13); plate.rotation.x = -0.12; rig.root.add(plate);
+  return plate;
 }
