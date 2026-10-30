@@ -247,9 +247,7 @@ function worldUpdate(dt, t) {
   // amigos online da equipe: veste o uniforme do Brasil neles também
   if (w.online) w.online.members.forEach((m, k) => { const R = ON.remotes[m.uid]; if (R && !R.kitOff) R.kitOff = dressCountry(R.rig, 'Brasil', [['br']], BR_NUMS[k] || 9); });
   const rows = worldRows(), mm = Math.max(0, Math.ceil(COMP.t)), tt = `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}`, pos = Math.max(0, rows.findIndex(r => r.me));
-  const top = rows.slice(0, 5), mine = pos >= 5 ? `<div class="cr me"><span>${pos + 1}º 🇧🇷 Brasil</span><b>${rows[pos].pts} pts</b></div>` : '';
-  $('compHud').innerHTML = `<div class="ct ${COMP.t < 60 ? 'low' : ''}">🏆 ${w.phase === 'gap' ? 'Intervalo' : w.phase + 'ª bateria'} · ${tt}</div>` +
-    top.map((r, i) => `<div class="cr ${r.me ? 'me' : ''}"><span>${i + 1}º ${r.me ? '🇧🇷 Brasil' : r.name}</span><b>${r.pts} pts</b></div>`).join('') + mine;
+  compHudSet(`🏆 ${w.phase === 'gap' ? 'Intervalo' : w.phase + 'ª bateria'} · ${tt}`, COMP.t < 60, rows.map(r => ({ label: r.me ? '🇧🇷 Brasil' : r.name, val: `${r.pts} pts`, me: r.me })));
   if (!w.host) return; // o convidado segue o tempo e o fim mandados pelo líder
   if (w.online && (w.sbT -= dt) <= 0) { w.sbT = 2; bcast('w_sb', { pid: LB.pid, rows: rows.map(r => ({ name: r.name, pts: r.pts, kg: Math.round(r.kg * 10) / 10, n: r.n, nsp: r.nsp })), t: COMP.t, phase: w.phase, best: w.best, bestBy: w.bestBy, bestKey: w.bestKey }); }
   if (COMP.t > 0) return;

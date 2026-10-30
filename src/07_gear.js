@@ -703,6 +703,20 @@ function stepBot(b, dt, t, c, onCatch) {
   botLod(b); // perto: corpo inteiro; longe: silhueta de 1 peça
   placeRig(b.rig, b.pos, b.yaw, under ? b.pitch : 0, under, Math.min(1, v), b.kick);
 }
+// placar da competição: pequeno no alto (sua posição e o líder); toque para ver todos
+function compHudSet(title, low, rows) {
+  const el = $('compHud'), full = !!COMP.hudFull;
+  if (!el._b) { el._b = 1; el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); COMP.hudFull = !COMP.hudFull; AU.click(); }); }
+  let me = rows.findIndex(r => r.me); if (me < 0) me = 0;
+  const line = (r, i, c = '') => `<div class="cr ${c}"><span>${i + 1}º ${r.label}</span><b>${r.val}</b></div>`;
+  let h = `<div class="ct ${low ? 'low' : ''}">${title}</div>`;
+  if (full) h += rows.slice(0, 8).map((r, i) => line(r, i, r.me ? 'me' : '')).join('');
+  else { if (me > 0) h += line(rows[0], 0); if (rows[me]) h += line(rows[me], me, 'me'); }
+  h += `<div class="cx">${full ? '▲ fechar' : `▼ placar (${rows.length})`}</div>`;
+  if (el._h === h) return; el.innerHTML = h; el._h = h;
+  // fica no canto direito, logo abaixo dos quadros de dinheiro e fieira (no celular em pé, no centro)
+  const tr = $('topr'); el.style.top = document.body.classList.contains('portrait') || !tr ? '' : Math.round(tr.getBoundingClientRect().bottom + 6) + 'px';
+}
 function compBotCatch(b, f) { b.n += compPts(f); b.kg += f.kg; toast(`${b.name} pegou ${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg`, 2.2); }
 function updateComp(dt, t) {
   if (!COMP.on) return;
@@ -713,7 +727,7 @@ function updateComp(dt, t) {
   // placar
   const rows = COMP.guest ? guestRows() : COMP.duo ? duoRows() : [{ name: 'Você', n: COMP.me.n, kg: COMP.me.kg, me: true }, ...COMP.lives.map(l => ({ name: l.name, n: l.n, kg: l.kg })), ...COMP.bots.map(b => ({ name: b.name, n: b.n, kg: b.kg }))].sort((a, b) => b.n - a.n || b.kg - a.kg);
   const mm = Math.max(0, Math.ceil(COMP.t)), tt = `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}`;
-  $('compHud').innerHTML = `<div class="ct ${COMP.t < 60 ? 'low' : ''}">⏱ ${tt}</div>` + rows.map((r, i) => `<div class="cr ${r.me ? 'me' : ''}"><span>${i + 1}º ${r.name}</span><b>${r.n}${AMZ ? ' pts' : ''} · ${fmtKg(r.kg)} kg</b></div>`).join('');
+  compHudSet(`⏱ ${tt}`, COMP.t < 60, rows.map(r => ({ label: r.name, val: `${r.n}${AMZ ? ' pts' : ''} · ${fmtKg(r.kg)} kg`, me: r.me })));
   if (COMP.guest ? COMP.t < -20 : COMP.t <= 0) endComp(rows); // o convidado espera o fim mandado pelo anfitrião
 }
 function endComp(rows) {

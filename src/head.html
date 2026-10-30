@@ -80,6 +80,8 @@ html,body{margin:0;height:100%;height:100dvh;position:fixed;inset:0;width:100%;o
 #bWp{right:12px;bottom:104px;width:60px;height:60px;font-size:11px;background:rgba(64,140,255,.45)}
 #bChum{right:12px;bottom:236px;width:60px;height:60px;font-size:10px;background:rgba(160,120,60,.55)}
 #bJump{right:96px;bottom:10px;width:76px;height:76px;font-size:12px;background:rgba(47,208,192,.4)}
+#bLight{left:calc(130px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:9px;background:rgba(255,220,120,.25)}#bLight.on{background:rgba(255,220,120,.6)}
+body.short #bLight{left:calc(114px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}body.portrait #bLight{left:128px;bottom:calc(166px + env(safe-area-inset-bottom));width:48px;height:48px}
 #bMarina{right:184px;bottom:10px;width:76px;height:76px;font-size:12px;background:rgba(255,176,32,.5)}
 #bView{position:absolute;left:calc(70px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px}
 #bPhoto{position:absolute;left:calc(130px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px;background:rgba(110,190,255,.42)}
@@ -102,10 +104,12 @@ body.portrait #tut{top:calc(170px + env(safe-area-inset-top));width:92vw}
 body.short #bPhoto{left:calc(114px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}
 body.portrait #bPhoto{bottom:calc(166px + env(safe-area-inset-bottom));left:128px;width:48px;height:48px}
 #bShop{position:absolute;left:calc(70px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px;background:rgba(255,176,32,.45)}
-#compHud{position:absolute;left:50%;top:52px;transform:translateX(-50%);background:rgba(4,16,20,.82);border:1px solid var(--line);border-radius:12px;padding:6px 10px;min-width:210px;font-size:12px}
-#compHud .ct{text-align:center;font-weight:800;font-size:16px;color:var(--acc);font-family:ui-monospace,Menlo,monospace;margin-bottom:2px}
+#compHud{position:absolute;right:calc(10px + env(safe-area-inset-right));top:66px;background:rgba(4,16,20,.6);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:3px 9px 2px;min-width:150px;max-width:220px;font-size:11px;pointer-events:auto;cursor:pointer}
+#compHud .ct{text-align:center;font-weight:800;font-size:13px;color:var(--acc);font-family:ui-monospace,Menlo,monospace;margin-bottom:1px}
 #compHud .ct.low{color:var(--bad)}
-#compHud .cr{display:flex;justify-content:space-between;gap:12px;color:var(--muted);line-height:1.5}
+#compHud .cr{display:flex;justify-content:space-between;gap:10px;color:var(--muted);line-height:1.35}
+#compHud .cr span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#compHud .cx{text-align:center;font-size:9px;color:var(--muted);opacity:.7;line-height:1.2}
 #compHud .cr b{color:var(--ink);font-variant-numeric:tabular-nums}
 #compHud .cr.me span,#compHud .cr.me b{color:var(--acc2)}
 #bMap{position:absolute;left:calc(10px + env(safe-area-inset-left));top:auto;bottom:182px;width:52px;height:52px;font-size:10px}
@@ -193,7 +197,7 @@ body.short #knob{width:50px;height:50px;margin:-25px 0 0 -25px}
 body.short #btns{transform:scale(.84);transform-origin:right bottom;bottom:8px}
 body.short #bMap,body.short #bView{bottom:146px;width:46px;height:46px}
 body.short #bView,body.short #bShop{left:calc(62px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}
-body.short #compHud{top:40px;font-size:11px;padding:4px 8px}
+body.short #compHud{font-size:10px;padding:2px 7px 1px;max-width:190px}body.short #compHud .ct{font-size:12px}
 body.short #bands{bottom:190px}
 body.short #fight{bottom:80px}
 body.short #menu .tips{font-size:11px;margin-top:8px}
@@ -212,7 +216,7 @@ body.portrait #joy{width:126px;height:126px;left:16px;bottom:calc(24px + env(saf
 body.portrait #btns{transform:scale(.8);transform-origin:right bottom;right:6px;bottom:calc(14px + env(safe-area-inset-bottom))}
 body.portrait #bMap{bottom:calc(166px + env(safe-area-inset-bottom));left:16px;width:48px;height:48px}
 body.portrait #bShop{bottom:calc(166px + env(safe-area-inset-bottom));left:72px;width:48px;height:48px}
-body.portrait #compHud{top:calc(122px + env(safe-area-inset-top))}
+body.portrait #compHud{right:auto;left:50%;transform:translateX(-50%);top:calc(122px + env(safe-area-inset-top))}
 body.portrait #bView{bottom:calc(166px + env(safe-area-inset-bottom));left:72px;width:48px;height:48px}
 body.inboat #bView{bottom:240px}body.short.inboat #bView{bottom:198px}body.portrait.inboat #bView{bottom:calc(222px + env(safe-area-inset-bottom))}
 body.portrait #bands{bottom:calc(200px + env(safe-area-inset-bottom));font-size:11px}

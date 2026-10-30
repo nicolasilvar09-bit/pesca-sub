@@ -170,7 +170,7 @@ function sendPos(dt) {
   ON.posT = 0.18;
   const r = v => Math.round(v * 100) / 100;
   const ride = RIDE.on && P.mode === 'boat';
-  bcast('pos', { m: ride ? 'ride' : P.mode, host: ride ? RIDE.host : undefined, seat: ride ? RIDE.seat : undefined, u: P.under ? 1 : 0, x: r(P.pos.x), y: r(P.pos.y), z: r(P.pos.z), yw: r(P.yaw), pt: r(P.pitch), bx: r(BOAT.pos.x), bz: r(BOAT.pos.z), bh: r(BOAT.heading), bi: myBoatIdx(), an: BOAT.anchored ? 1 : 0 });
+  bcast('pos', { m: ride ? 'ride' : P.mode, host: ride ? RIDE.host : undefined, seat: ride ? RIDE.seat : undefined, u: P.under ? 1 : 0, x: r(P.pos.x), y: r(P.pos.y), z: r(P.pos.z), yw: r(P.yaw), pt: r(P.pitch), bx: r(BOAT.pos.x), bz: r(BOAT.pos.z), bh: r(BOAT.heading), bi: myBoatIdx(), an: BOAT.anchored ? 1 : 0, hl: SV.headOff ? 0 : 1 });
 }
 function nameTag(name) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const g = cv.getContext('2d');
