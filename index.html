@@ -78,6 +78,7 @@ html,body{margin:0;height:100%;height:100dvh;position:fixed;inset:0;width:100%;o
 #bDive{right:14px;bottom:110px;width:62px;height:62px}
 #bCtx{right:90px;bottom:118px;width:auto;min-width:96px;height:44px;border-radius:22px;padding:0 14px;font-size:12px;background:rgba(255,176,32,.55);border-color:rgba(255,220,150,.7)}
 #bAnchor{right:0;bottom:10px;width:84px;height:84px;font-size:12px}
+#bRide{right:0;bottom:10px;width:84px;height:84px;font-size:11px;background:rgba(255,120,60,.5)}
 #bWp{right:12px;bottom:104px;width:60px;height:60px;font-size:11px;background:rgba(64,140,255,.45)}
 #bChum{right:12px;bottom:236px;width:60px;height:60px;font-size:10px;background:rgba(160,120,60,.55)}
 #bJump{right:96px;bottom:10px;width:76px;height:76px;font-size:12px;background:rgba(47,208,192,.4)}
@@ -2105,7 +2106,7 @@ function updateHUD(dt) {
   else if (!swim && SV.fuel <= 0 && !nearMarina()) { ctx.textContent = 'REBOQUE (R$ 150)'; show('bCtx', true); }
   else show('bCtx', false);
   show('cross', swim); show('bands', swim); show('bView', swim || P.mode === 'boat'); document.body.classList.toggle('inboat', P.mode === 'boat'); show('bPhoto', swim && P.under && !!SV.cam); show('bCall', swim && P.under); show('bEq', swim && P.under && !OPT.autoEq); $('bCall').style.opacity = callCD > 0 ? 0.45 : ''; show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
-  introHideButtons();
+  introHideButtons(); rideHUD();
   const aim = aimOnFish(); $('cross').classList.toggle('ok', !!(aim && aim.ok));
   const al = $('aimLbl'); if (aim) { al.textContent = `${aim.f.sp.rare ? '★ RARO · ' : isTrophy(aim.f) ? '★ TROFÉU · ' : ''}${aim.f.sp.name} · ~${Math.round(aim.f.len * 100 / 5) * 5} cm${aim.ok ? '' : ' · longe'}`; al.classList.remove('hide'); } else al.classList.add('hide');
   const fighting = GUN.state === 'hooked' && GUN.fish && GUN.fish.fight > 0;
@@ -2166,10 +2167,10 @@ function step(dt) {
   if (took('call')) callFish();
   if (took('eq')) equalize();
   callCD = Math.max(0, callCD - dt);
-  updateBoat(dt, T);
+  rideBefore(); updateBoat(dt, T);
   if (P.mode === 'swim') { updateSwim(dt, T); if (THIRD) thirdPersonCam(T); }
   else { took('dive'); diveBuoy.visible = false; diveLine.visible = false; P.pos.copy(BOAT.pos); P.under = false; P.o2 = Math.min(1, P.o2 + dt / (maxBreath() * 0.85) * recMult()); P.bpm = lerp(P.bpm, 70, dt * 0.5); P.surfT += dt; P.still = 0; }
-  updateDiver(dt, T);
+  updateDiver(dt, T); rideTick(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
   updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt); updateIntro(dt); updateRare2(dt); updateWorldScene(dt, T); updateStory(dt);
@@ -2229,7 +2230,7 @@ async function init() {
   initRenderer(); sky = buildSky(); await yieldUI(); buildTerrain(); await yieldUI(); buildWater(); buildRocksAndDecor(); await yieldUI(); buildLand(); bakeShallow(); buildFX(); await yieldUI();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); await yieldUI(); buildLife(); initExtra(); await yieldUI();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); $('menu').classList.add('live');
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); setupRide(); $('menu').classList.add('live');
   $('playBtn').onclick = startGame;
   ON.ready = true;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
@@ -4068,7 +4069,7 @@ function buildBoatModel(idx, paintOverride) {
   }
   // piloto
   const pilot = buildDiver(false); scene.remove(pilot.root); g.add(pilot.root); pilot.root.position.set(0.15, pilotY, pilotZ); pilot.root.rotation.y = Math.PI;
-  poseDiver(pilot, 'drive', 0); g.userData.pilot = [pilot.root]; g.userData.rig = pilot; g.userData.eye = new V3(0.15, pilotY + 0.8, pilotZ + 0.12);
+  poseDiver(pilot, 'drive', 0); g.userData.pilot = [pilot.root]; g.userData.rig = pilot; g.userData.eye = new V3(0.15, pilotY + 0.8, pilotZ + 0.12); g.userData.pilotPos = pilot.root.position.clone();
   g.scale.setScalar(BOATS[idx] ? BOATS[idx].scale : 1);
   return g;
 }
@@ -5248,7 +5249,7 @@ function buildVoadeira() {
   const tiller = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.8, 6), alu); tiller.rotation.x = Math.PI / 2 - 0.25; tiller.position.set(0, 1.15, -2.45); g.add(tiller);
   // piloto sentado no banco de trás, mão na cana
   const pilot = buildDiver(false); scene.remove(pilot.root); g.add(pilot.root); pilot.root.position.set(0.1, 0.72 + 0.62, -2.15); pilot.root.rotation.y = Math.PI;
-  poseDiver(pilot, 'drive', 0); g.userData.pilot = [pilot.root]; g.userData.rig = pilot; g.userData.eye = new V3(0.1, 0.72 + 0.62 + 0.8, -2.05);
+  poseDiver(pilot, 'drive', 0); g.userData.pilot = [pilot.root]; g.userData.rig = pilot; g.userData.pilotPos = pilot.root.position.clone(); g.userData.eye = new V3(0.1, 0.72 + 0.62 + 0.8, -2.05);
   return g;
 }
 function voadHTML() {
@@ -5717,6 +5718,7 @@ function onBcast(ev, d) {
   if (ev === 'hello') { if (!isFriend(d.from)) ON.friends.push({ id: d.from, name: d.name, level: d.lvl || 1 }); toast(`${d.name} adicionou você como amigo!`, 3.5, 'gold'); loadFriends(); return; }
   if (!isFriend(d.from)) return;
   if (ev === 'pos' && d.region === REGION) remoteState(d);
+  if (ev.startsWith('ride_')) { rideMsg(ev, d); return; }
   if (ev === 'chal' || ev === 'duo_inv') { ON.inv = d; d.kind = ev === 'duo_inv' ? 'duo' : 'chal'; showInvite(d); }
   if (ev === 'duo_ok' && ON.wait && ON.wait.to === d.from) { const w = ON.wait; ON.wait = null; startDuoHost(w.spot, d.from, d.name, d.at); }
   if (ev === 'duo_no' && ON.wait && ON.wait.to === d.from) { ON.wait = null; toast(`${d.name} não pode agora.`, 3); }
@@ -5735,7 +5737,8 @@ function sendPos(dt) {
   const anyHere = Object.keys(ON.online).some(k => isFriend(k) && ON.online[k].region === REGION); if (!anyHere) return;
   ON.posT = 0.18;
   const r = v => Math.round(v * 100) / 100;
-  bcast('pos', { m: P.mode, u: P.under ? 1 : 0, x: r(P.pos.x), y: r(P.pos.y), z: r(P.pos.z), yw: r(P.yaw), pt: r(P.pitch), bx: r(BOAT.pos.x), bz: r(BOAT.pos.z), bh: r(BOAT.heading), bi: myBoatIdx(), an: BOAT.anchored ? 1 : 0 });
+  const ride = RIDE.on && P.mode === 'boat';
+  bcast('pos', { m: ride ? 'ride' : P.mode, host: ride ? RIDE.host : undefined, seat: ride ? RIDE.seat : undefined, u: P.under ? 1 : 0, x: r(P.pos.x), y: r(P.pos.y), z: r(P.pos.z), yw: r(P.yaw), pt: r(P.pitch), bx: r(BOAT.pos.x), bz: r(BOAT.pos.z), bh: r(BOAT.heading), bi: myBoatIdx(), an: BOAT.anchored ? 1 : 0 });
 }
 function nameTag(name) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const g = cv.getContext('2d');
@@ -5753,7 +5756,7 @@ function remoteState(d) {
   R.d = d; R.seen = performance.now();
   if (R.bi !== d.bi) { if (R.boat) scene.remove(R.boat); R.boat = buildBoatModel(d.bi); scene.add(R.boat); R.bi = d.bi; }
 }
-function dropRemote(id) { const R = ON.remotes[id]; if (!R) return; scene.remove(R.rig.root, R.tag); if (R.boat) scene.remove(R.boat); delete ON.remotes[id]; }
+function dropRemote(id) { const R = ON.remotes[id]; if (!R) return; if (R.rig.root.parent) R.rig.root.parent.remove(R.rig.root); scene.remove(R.tag); if (RIDE.on && RIDE.host === id) rideStop('O piloto saiu do jogo: você voltou para a sua lancha.'); delete RIDE.pass[id]; if (R.boat) scene.remove(R.boat); delete ON.remotes[id]; }
 function updateRemotes(dt, t) {
   for (const id in ON.remotes) {
     const R = ON.remotes[id], d = R.d;
@@ -5762,6 +5765,8 @@ function updateRemotes(dt, t) {
     R.pos.lerp(_t2.set(d.x, d.y, d.z), k); R.yaw += angDiff(R.yaw, d.yw) * k; R.pitch = lerp(R.pitch, d.pt, k);
     R.bpos.lerp(_t2.set(d.bx, waveH(d.bx, d.bz, t), d.bz), k);
     const mv = Math.min(1, old.distanceTo(R.pos) / Math.max(dt, 1e-3) / 1.2); R.kick += dt * (2 + mv * 5);
+    if (d.m === 'ride' && rideRemote(R, d, t)) continue; // passageiro sentado na lancha de alguém
+    if (R.rig.root.parent !== scene) scene.add(R.rig.root);
     const swim = d.m === 'swim';
     R.rig.root.visible = swim && camera.position.distanceTo(R.pos) < 120;
     if (swim) placeRig(R.rig, R.pos, R.yaw, d.u ? R.pitch : 0, !!d.u, mv, R.kick);
@@ -5840,7 +5845,7 @@ function onlineHTML() {
     const o = ON.online[f.id], here = o && o.region === REGION;
     const where = o ? (here ? '🟢 jogando no mesmo destino' : `🟡 jogando ${({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[o.region] || 'na Costa Verde')}`) : '⚪ offline';
     return `<div class="it"><span class="av" style="background:#7a2a2a">${f.name[0]}</span><div style="flex:1"><div class="n">${f.name} <span class="d">· Nv ${f.level || 1}</span></div><div class="d">${where}</div></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${here ? `<button class="btn" data-ongo="${f.id}">IR ATÉ</button><button class="btn gold" data-onchal="${f.id}" ${COMP.on ? 'disabled' : ''}>DESAFIAR</button><button class="btn gold" data-onduo="${f.id}" ${COMP.on ? 'disabled' : ''}>DUPLA</button>` : ''}<button class="btn alt" data-ondel="${f.id}">✕</button></div></div>`;
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${here ? `<button class="btn" data-ongo="${f.id}">IR ATÉ</button><button class="btn alt" data-onride="${f.id}" ${RIDE.on ? 'disabled' : ''}>🚤 CARONA</button><button class="btn gold" data-onchal="${f.id}" ${COMP.on ? 'disabled' : ''}>DESAFIAR</button><button class="btn gold" data-onduo="${f.id}" ${COMP.on ? 'disabled' : ''}>DUPLA</button>` : ''}<button class="btn alt" data-ondel="${f.id}">✕</button></div></div>`;
   }).join('') : '<div class="it"><div class="d">Nenhum amigo ainda. Adicione pelo código.</div></div>') + '</div>';
   h += `<div class="it" style="margin-top:8px"><div class="d">No mesmo destino, vocês veem o barco e o mergulhador um do outro ao vivo, com o nome em cima. Cada um tem os próprios peixes. No <b>desafio</b>, ganha quem pegar mais peixes na medida em 10 minutos (vencedor R$ 800, perdedor R$ 300).</div></div>`;
   return h;
@@ -5857,6 +5862,7 @@ function bindOnline(B, on) {
   if (q('onRestore')) q('onRestore').onclick = () => { if (confirm('Trocar o progresso deste aparelho pelo save da nuvem?')) cloudRestore(ON.cloud); };
   B.querySelectorAll('[data-ondel]').forEach(b => b.onclick = () => { const f = ON.friends.find(x => x.id === b.dataset.ondel); if (f && confirm(`Remover ${f.name} dos amigos online?`)) delFriendOnline(f.id).then(() => renderShop()); });
   B.querySelectorAll('[data-onchal]').forEach(b => b.onclick = () => { challenge(b.dataset.onchal); closePanels(); });
+  B.querySelectorAll('[data-onride]').forEach(b => b.onclick = () => { rideAsk(b.dataset.onride); });
   B.querySelectorAll('[data-onduo]').forEach(b => b.onclick = () => { challengeDuo(b.dataset.onduo); closePanels(); });
   B.querySelectorAll('[data-ongo]').forEach(b => b.onclick = () => {
     const R = ON.remotes[b.dataset.ongo]; if (!R) { toast('Ainda sem a posição dele. Espere uns segundos.', 2.5); return; }
@@ -7430,7 +7436,7 @@ function lbCreate() {
   if (!ON.s || !ON.me) { toast('Conectando ao servidor do jogo... tente de novo em instantes.', 3); return false; }
   LB.pid = ON.s.uid.slice(0, 8) + Date.now().toString(36); LB.lead = ON.s.uid; LB.members = [lbMe()]; LB.dest = REGION; LB.spot = LB.spot || (LB_SPOTS[REGION][0][0]); LB.mode = 'livre'; LB.chat = []; LB.phase = 'lobby'; lbSave(); return true;
 }
-function lbState() { if (lbIsLead()) { bcast('lb_state', { pid: LB.pid, lead: LB.lead, members: LB.members, dest: LB.dest, spot: LB.spot, mode: LB.mode }); lbSave(); } }
+function lbState() { if (lbIsLead()) { bcast('lb_state', { pid: LB.pid, lead: LB.lead, members: LB.members, dest: LB.dest, spot: LB.spot, mode: LB.mode, ride: !!LB.ride }); lbSave(); } }
 function lbInvite(uid) {
   if (!LB.pid && !lbCreate()) return;
   if (LB.members.length >= LB_MAX) { toast('O grupo está cheio (4).', 2.5); return; }
@@ -7487,7 +7493,7 @@ function lobbyMsg(ev, d) {
   }
   if (ev === 'lb_full') { toast('O grupo já está cheio.', 3, 'bad'); LB.pid = null; lbRender(); return true; }
   if (ev === 'lb_state' && !lead) {
-    const was = LB.members.length; LB.lead = d.lead; LB.members = d.members; LB.dest = d.dest; LB.spot = d.spot; LB.mode = d.mode; lbSave();
+    const was = LB.members.length; LB.lead = d.lead; LB.members = d.members; LB.dest = d.dest; LB.spot = d.spot; LB.mode = d.mode; LB.ride = !!d.ride; lbSave();
     LB.members.forEach(lbBefriend); if (!was) toast('Você entrou no grupo!', 2.5, 'gold'); lbRender(); return true;
   }
   if (ev === 'lb_ready' && lead) { const m = LB.members.find(m => m.uid === d.from); if (m) { m.ready = !!d.ready; lbState(); lbRender(); } return true; }
@@ -7522,11 +7528,11 @@ function lbLaunch() {
   if (LB.mode === 'dupla' && others.length !== 1) { toast('Dupla vs bots é só com 2 jogadores.', 3, 'bad'); return; }
   if (LB.mode === 'mundial' && LB.members.length > 3) { toast('A seleção do Mundial tem no máximo 3 atletas.', 3, 'bad'); return; }
   if (others.some(m => !m.ready)) { toast('Ainda tem gente que não marcou PRONTO.', 3, 'bad'); return; }
-  const d = { pid: LB.pid, dest: LB.dest, spot: LB.spot, mode: LB.mode, members: LB.members, lead: LB.lead };
+  const d = { pid: LB.pid, dest: LB.dest, spot: LB.spot, mode: LB.mode, members: LB.members, lead: LB.lead, ride: !!LB.ride };
   bcast('lb_go', d); lbGo({ ...d, from: ON.s.uid });
 }
 function lbGo(d) {
-  LB.dest = d.dest; LB.spot = d.spot; LB.mode = d.mode; LB.members = d.members; LB.lead = d.lead; LB.phase = 'go'; LB.here = {}; lbSave();
+  LB.dest = d.dest; LB.spot = d.spot; LB.mode = d.mode; LB.members = d.members; LB.lead = d.lead; LB.ride = !!d.ride; LB.phase = 'go'; LB.here = {}; lbSave();
   if (d.dest !== REGION) {
     // viagem do grupo é de graça (sem liberar o destino para sempre)
     if (P.stringer.length) { SV.cooler.push(...P.stringer); P.stringer = []; }
@@ -7559,6 +7565,8 @@ function lbStart(at) {
       const a = idx / Math.max(1, LB.members.length) * TAU; if (P.mode === 'swim') climbBoat();
       BOAT.pos.set(S.x + Math.cos(a) * 16, 0, S.z + Math.sin(a) * 16); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
       toast('Pesca livre com o grupo: cada um vende o que pegar. Boa pescaria!', 4, 'gold');
+      // todos na lancha do líder: os outros vão de carona, cada um num banco
+      if (LB.ride) { if (lbIsLead()) LB.members.forEach((m, k) => { if (m.uid !== ON.s.uid) RIDE.pass[m.uid] = k; }); else rideStart(LB.lead, (LB.members.find(m => m.uid === LB.lead) || {}).name, Math.max(1, idx)); }
     } else if (LB.mode === 'desafio') startComp(S.id, null, others.map(m => ({ uid: m.uid, name: m.name })));
     else if (LB.mode === 'mundial') startWorld({ online: { host: lbIsLead(), lead: LB.lead, members: LB.members.map(m => ({ uid: m.uid, name: m.name })) } });
     else if (LB.mode === 'dupla') { const o = others[0]; if (lbIsLead()) startDuoHost(S.id, o.uid, o.name, Date.now()); else startDuoGuest(S.id, LB.lead, (LB.members.find(m => m.uid === LB.lead) || {}).name || 'Líder', Date.now()); }
@@ -7597,6 +7605,7 @@ function lbRender() {
         <select id="lbSpot" ${lead ? '' : 'disabled'}>${LB_SPOTS[LB.dest].map(([id, n]) => `<option value="${id}" ${id === LB.spot ? 'selected' : ''}>${n}</option>`).join('')}</select>
         <div class="lbh">Modo</div>
         <div class="lbseg">${seg('mode', LB_MODES.map(m => [m[0], m[1]]), !lead)}</div>
+        ${LB.mode === 'livre' ? `<div class="lbh">Lancha</div><div class="lbseg"><button class="btn ${LB.ride ? 'alt' : 'gold'}" data-lbride="0" ${lead ? '' : 'disabled'}>Cada um na sua</button><button class="btn ${LB.ride ? 'gold' : 'alt'}" data-lbride="1" ${lead ? '' : 'disabled'}>🚤 Todos na lancha do líder</button></div>` : ''}
         <div class="d" style="margin-top:4px">${modeInfo}${LB.dest !== REGION ? ` · Quem não estiver em ${LB_DEST[LB.dest]} viaja de graça com o grupo.` : ''}</div>
       </div>
       <div class="lbcol">
@@ -7617,6 +7626,7 @@ function lbRender() {
       </div>
     </div>`;
   el.querySelectorAll('[data-lb]').forEach(b => b.onclick = () => { const k = b.dataset.lb; LB[k] = b.dataset.v; if (k === 'dest') LB.spot = LB_SPOTS[LB.dest][0][0]; AU.click(); lbState(); lbRender(); });
+  el.querySelectorAll('[data-lbride]').forEach(b => b.onclick = () => { LB.ride = b.dataset.lbride === '1'; AU.click(); lbState(); lbRender(); });
   const sp = $('lbSpot'); if (sp) sp.onchange = () => { LB.spot = sp.value; lbState(); lbRender(); };
   el.querySelectorAll('[data-lbinv]').forEach(b => b.onclick = () => lbInvite(b.dataset.lbinv));
   el.querySelectorAll('[data-lbwait]').forEach(b => b.onclick = () => { const id = b.dataset.lbwait; if (LB.pending[id]) delete LB.pending[id]; else { LB.pending[id] = 1; toast('Quando ele abrir o jogo, o convite chega na hora.', 3); } AU.click(); lbRender(); });
@@ -8142,7 +8152,7 @@ function bindStory() {
 function updateStory(dt) {
   if ((storyT -= dt) > 0) return; storyT = 1;
   const s = st();
-  if (started && !paused && SV.tut >= TUT.length && s.seen < s.ch && s.ch < STORY.length && !COMP.on) storyIntro();
+  if (started && !paused && SV.tut >= TUT.length && s.seen < s.ch && s.ch < STORY.length && !COMP.on && !RIDE.on && !(LB.pid && LB.members.length > 1)) storyIntro(); // não interrompe pescaria em grupo
   if (s.sp && s.lastDay !== SV.day) {
     s.lastDay = SV.day;
     if (s.sp === 'mare') SV.fuel = Math.max(SV.fuel, tankMax());
@@ -8156,6 +8166,89 @@ function setupStory() {
   const lv = $('hLvl') && $('hLvl').parentElement; if (!lv) return;
   const el = document.createElement('div'); el.id = 'hStory'; el.style.cssText = 'font-size:11px;line-height:1.3;margin-top:4px;color:var(--acc);max-width:170px;cursor:pointer;pointer-events:auto';
   el.onclick = () => { shopTab = 'hist'; openShop(nearMarina()); }; lv.after(el); storyHUD();
+}
+
+// ================= lancha compartilhada (carona): um pilota, os amigos vão sentados na mesma lancha =================
+// o passageiro esconde a própria lancha e acompanha a do piloto pela posição ao vivo; pula na água quando o
+// piloto ancora e, ao subir de volta, senta de novo. O piloto vê os passageiros sentados no banco de trás.
+const RIDE = { on: false, host: null, hostName: '', seat: 1, lost: 0, pass: {}, last: null };
+const SEATS = [new V3(-0.55, 0, -0.95), new V3(0.55, 0, -0.95), new V3(0, 0, -1.85)];
+function seatPos(boat, k, out) { const p = boat.userData.pilotPos || new V3(0.15, 0.9, -0.4); return out.copy(p).add(SEATS[((k || 1) - 1) % 3]); }
+const hostBoat = () => { const R = ON.remotes[RIDE.host]; return R && R.boat; };
+function rideStart(host, name, seat) {
+  if (RIDE.on && RIDE.host === host) return;
+  RIDE.on = true; RIDE.host = host; RIDE.hostName = name || 'amigo'; RIDE.seat = seat || 1; RIDE.lost = 0; RIDE.last = null;
+  if (P.mode === 'swim') climbBoat();
+  toast(`🚤 Você está de carona na lancha de ${RIDE.hostName}. Quando ele ancorar, pule na água junto!`, 5, 'gold'); AU.click();
+}
+function rideStop(why) {
+  if (!RIDE.on) return;
+  const hb = hostBoat(); RIDE.on = false;
+  if (DIVER.root.parent !== scene) scene.add(DIVER.root);
+  BOAT.mesh.visible = true; BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0);
+  // a sua lancha aparece ao lado da do amigo
+  if (hb) { const a = hb.rotation.y; BOAT.pos.set(hb.position.x + Math.cos(a) * 7, 0, hb.position.z - Math.sin(a) * 7); BOAT.heading = a; }
+  if (P.mode === 'boat') { BOAT.anchored = false; toggleAnchor(); }
+  bcast('ride_end', { to: RIDE.host });
+  toast(why || 'Você desceu da carona: sua lancha está do lado.', 4);
+}
+// antes da física do barco: passageiro não pilota
+function rideBefore() { if (RIDE.on && P.mode === 'boat') { IN.jx = 0; IN.jy = 0; } }
+// depois do mergulhador: lancha (escondida) colada na do piloto, você sentado no banco dela
+function rideTick(dt, t) {
+  if (!RIDE.on) return;
+  const R = ON.remotes[RIDE.host];
+  if (!R || !R.boat) { if ((RIDE.lost += dt) > 12) rideStop('O piloto saiu do jogo: você voltou para a sua lancha.'); return; }
+  RIDE.lost = 0;
+  const prev = RIDE.last || R.bpos.clone(); BOAT.pos.set(R.bpos.x, 0, R.bpos.z); BOAT.heading = R.d.bh; BOAT.speed = 0;
+  const an = !!R.d.an; if (an && !BOAT.anchored) { BOAT.anchored = true; BOAT.anchorP = new V3(BOAT.pos.x, H(BOAT.pos.x, BOAT.pos.z), BOAT.pos.z); } else if (!an) BOAT.anchored = false;
+  BOAT.mesh.visible = false; BOAT.rope.visible = false; R.boat.visible = true;
+  const spd = prev.distanceTo(R.bpos) / Math.max(dt, 1e-3); RIDE.last = R.bpos.clone();
+  if (P.mode === 'boat') {
+    if (DIVER.root.parent !== R.boat) R.boat.add(DIVER.root);
+    seatPos(R.boat, RIDE.seat, DIVER.root.position); DIVER.root.rotation.set(0, Math.PI, 0); DIVER.root.visible = !SV.boatFP; poseDiver(DIVER, 'drive', t);
+    AU.setEngine(Math.min(1, spd / 18), !an && spd > 0.4, camUnder);
+  } else if (DIVER.root.parent !== scene) scene.add(DIVER.root);
+}
+// passageiro dos outros: sentado na lancha do piloto (a minha ou a de outro amigo)
+function rideRemote(R, d, t) {
+  const hb = d.host === ON.s.uid ? BOAT.mesh : (ON.remotes[d.host] && ON.remotes[d.host].boat);
+  if (!hb) return false;
+  if (R.rig.root.parent !== hb) hb.add(R.rig.root);
+  seatPos(hb, d.seat, R.rig.root.position); R.rig.root.rotation.set(0, Math.PI, 0); R.rig.root.visible = true; poseDiver(R.rig, 'drive', t);
+  if (R.boat) R.boat.visible = false;
+  R.rig.root.getWorldPosition(R.tag.position); R.tag.position.y += 1.05;
+  const dd = camera.position.distanceTo(R.tag.position); R.tag.visible = dd < 400; R.tag.scale.set(2.4, 0.6, 1).multiplyScalar(clamp(dd / 18, 0.5, 6));
+  return true;
+}
+// ---------- pedido de carona ----------
+function rideAsk(id) { const f = ON.friends.find(x => x.id === id); bcast('ride_req', { to: id }); toast(`Pedido de carona enviado para ${f ? f.name : 'o amigo'}.`, 3); }
+function rideMsg(ev, d) {
+  if (ev === 'ride_req') {
+    const b = $('onInv'); if (!b) return;
+    b.innerHTML = `<div class="n">🚤 ${d.name} quer carona na sua lancha!</div><div class="d">Ele vai sentado no banco de trás e pula na água quando você ancorar.</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn alt" id="invNo">AGORA NÃO</button><button class="btn gold" id="invOk">PODE VIR</button></div>`;
+    b.classList.remove('hide'); buzz([60, 40, 60]); AU.coin();
+    $('invNo').onclick = () => { b.classList.add('hide'); bcast('ride_no', { to: d.from }); };
+    $('invOk').onclick = () => {
+      b.classList.add('hide'); const used = Object.values(RIDE.pass); let seat = 1; while (used.includes(seat)) seat++;
+      if (seat > 3) { toast('A lancha já está cheia (3 passageiros).', 3, 'bad'); bcast('ride_no', { to: d.from }); return; }
+      RIDE.pass[d.from] = seat; bcast('ride_ok', { to: d.from, seat }); toast(`${d.name} subiu na sua lancha!`, 3, 'gold');
+    };
+    setTimeout(() => b.classList.add('hide'), 40000);
+  }
+  if (ev === 'ride_ok') { if (P.mode === 'swim' && P.under) { toast('Suba para a superfície para pegar a carona.', 3); } rideStart(d.from, d.name, d.seat); }
+  if (ev === 'ride_no') toast(`${d.name} não pode dar carona agora.`, 3);
+  if (ev === 'ride_end') { delete RIDE.pass[d.from]; }
+}
+// ---------- botão SAIR DA CARONA ----------
+function setupRide() {
+  const a = $('bAnchor'); if (!a) return;
+  const b = document.createElement('div'); b.className = 'b'; b.id = 'bRide'; b.innerHTML = 'SAIR DA<br>CARONA'; b.classList.add('hide');
+  b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); rideStop(); }); a.after(b);
+}
+function rideHUD() {
+  const riding = RIDE.on && P.mode === 'boat';
+  show('bRide', riding); if (riding) { show('bAnchor', false); show('bMarina', false); }
 }
 
 init();

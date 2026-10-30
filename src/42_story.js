@@ -112,7 +112,7 @@ function bindStory() {
 function updateStory(dt) {
   if ((storyT -= dt) > 0) return; storyT = 1;
   const s = st();
-  if (started && !paused && SV.tut >= TUT.length && s.seen < s.ch && s.ch < STORY.length && !COMP.on) storyIntro();
+  if (started && !paused && SV.tut >= TUT.length && s.seen < s.ch && s.ch < STORY.length && !COMP.on && !RIDE.on && !(LB.pid && LB.members.length > 1)) storyIntro(); // não interrompe pescaria em grupo
   if (s.sp && s.lastDay !== SV.day) {
     s.lastDay = SV.day;
     if (s.sp === 'mare') SV.fuel = Math.max(SV.fuel, tankMax());

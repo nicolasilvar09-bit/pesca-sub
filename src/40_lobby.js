@@ -20,7 +20,7 @@ function lbCreate() {
   if (!ON.s || !ON.me) { toast('Conectando ao servidor do jogo... tente de novo em instantes.', 3); return false; }
   LB.pid = ON.s.uid.slice(0, 8) + Date.now().toString(36); LB.lead = ON.s.uid; LB.members = [lbMe()]; LB.dest = REGION; LB.spot = LB.spot || (LB_SPOTS[REGION][0][0]); LB.mode = 'livre'; LB.chat = []; LB.phase = 'lobby'; lbSave(); return true;
 }
-function lbState() { if (lbIsLead()) { bcast('lb_state', { pid: LB.pid, lead: LB.lead, members: LB.members, dest: LB.dest, spot: LB.spot, mode: LB.mode }); lbSave(); } }
+function lbState() { if (lbIsLead()) { bcast('lb_state', { pid: LB.pid, lead: LB.lead, members: LB.members, dest: LB.dest, spot: LB.spot, mode: LB.mode, ride: !!LB.ride }); lbSave(); } }
 function lbInvite(uid) {
   if (!LB.pid && !lbCreate()) return;
   if (LB.members.length >= LB_MAX) { toast('O grupo está cheio (4).', 2.5); return; }
@@ -77,7 +77,7 @@ function lobbyMsg(ev, d) {
   }
   if (ev === 'lb_full') { toast('O grupo já está cheio.', 3, 'bad'); LB.pid = null; lbRender(); return true; }
   if (ev === 'lb_state' && !lead) {
-    const was = LB.members.length; LB.lead = d.lead; LB.members = d.members; LB.dest = d.dest; LB.spot = d.spot; LB.mode = d.mode; lbSave();
+    const was = LB.members.length; LB.lead = d.lead; LB.members = d.members; LB.dest = d.dest; LB.spot = d.spot; LB.mode = d.mode; LB.ride = !!d.ride; lbSave();
     LB.members.forEach(lbBefriend); if (!was) toast('Você entrou no grupo!', 2.5, 'gold'); lbRender(); return true;
   }
   if (ev === 'lb_ready' && lead) { const m = LB.members.find(m => m.uid === d.from); if (m) { m.ready = !!d.ready; lbState(); lbRender(); } return true; }
@@ -112,11 +112,11 @@ function lbLaunch() {
   if (LB.mode === 'dupla' && others.length !== 1) { toast('Dupla vs bots é só com 2 jogadores.', 3, 'bad'); return; }
   if (LB.mode === 'mundial' && LB.members.length > 3) { toast('A seleção do Mundial tem no máximo 3 atletas.', 3, 'bad'); return; }
   if (others.some(m => !m.ready)) { toast('Ainda tem gente que não marcou PRONTO.', 3, 'bad'); return; }
-  const d = { pid: LB.pid, dest: LB.dest, spot: LB.spot, mode: LB.mode, members: LB.members, lead: LB.lead };
+  const d = { pid: LB.pid, dest: LB.dest, spot: LB.spot, mode: LB.mode, members: LB.members, lead: LB.lead, ride: !!LB.ride };
   bcast('lb_go', d); lbGo({ ...d, from: ON.s.uid });
 }
 function lbGo(d) {
-  LB.dest = d.dest; LB.spot = d.spot; LB.mode = d.mode; LB.members = d.members; LB.lead = d.lead; LB.phase = 'go'; LB.here = {}; lbSave();
+  LB.dest = d.dest; LB.spot = d.spot; LB.mode = d.mode; LB.members = d.members; LB.lead = d.lead; LB.ride = !!d.ride; LB.phase = 'go'; LB.here = {}; lbSave();
   if (d.dest !== REGION) {
     // viagem do grupo é de graça (sem liberar o destino para sempre)
     if (P.stringer.length) { SV.cooler.push(...P.stringer); P.stringer = []; }
@@ -149,6 +149,8 @@ function lbStart(at) {
       const a = idx / Math.max(1, LB.members.length) * TAU; if (P.mode === 'swim') climbBoat();
       BOAT.pos.set(S.x + Math.cos(a) * 16, 0, S.z + Math.sin(a) * 16); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
       toast('Pesca livre com o grupo: cada um vende o que pegar. Boa pescaria!', 4, 'gold');
+      // todos na lancha do líder: os outros vão de carona, cada um num banco
+      if (LB.ride) { if (lbIsLead()) LB.members.forEach((m, k) => { if (m.uid !== ON.s.uid) RIDE.pass[m.uid] = k; }); else rideStart(LB.lead, (LB.members.find(m => m.uid === LB.lead) || {}).name, Math.max(1, idx)); }
     } else if (LB.mode === 'desafio') startComp(S.id, null, others.map(m => ({ uid: m.uid, name: m.name })));
     else if (LB.mode === 'mundial') startWorld({ online: { host: lbIsLead(), lead: LB.lead, members: LB.members.map(m => ({ uid: m.uid, name: m.name })) } });
     else if (LB.mode === 'dupla') { const o = others[0]; if (lbIsLead()) startDuoHost(S.id, o.uid, o.name, Date.now()); else startDuoGuest(S.id, LB.lead, (LB.members.find(m => m.uid === LB.lead) || {}).name || 'Líder', Date.now()); }
@@ -187,6 +189,7 @@ function lbRender() {
         <select id="lbSpot" ${lead ? '' : 'disabled'}>${LB_SPOTS[LB.dest].map(([id, n]) => `<option value="${id}" ${id === LB.spot ? 'selected' : ''}>${n}</option>`).join('')}</select>
         <div class="lbh">Modo</div>
         <div class="lbseg">${seg('mode', LB_MODES.map(m => [m[0], m[1]]), !lead)}</div>
+        ${LB.mode === 'livre' ? `<div class="lbh">Lancha</div><div class="lbseg"><button class="btn ${LB.ride ? 'alt' : 'gold'}" data-lbride="0" ${lead ? '' : 'disabled'}>Cada um na sua</button><button class="btn ${LB.ride ? 'gold' : 'alt'}" data-lbride="1" ${lead ? '' : 'disabled'}>🚤 Todos na lancha do líder</button></div>` : ''}
         <div class="d" style="margin-top:4px">${modeInfo}${LB.dest !== REGION ? ` · Quem não estiver em ${LB_DEST[LB.dest]} viaja de graça com o grupo.` : ''}</div>
       </div>
       <div class="lbcol">
@@ -207,6 +210,7 @@ function lbRender() {
       </div>
     </div>`;
   el.querySelectorAll('[data-lb]').forEach(b => b.onclick = () => { const k = b.dataset.lb; LB[k] = b.dataset.v; if (k === 'dest') LB.spot = LB_SPOTS[LB.dest][0][0]; AU.click(); lbState(); lbRender(); });
+  el.querySelectorAll('[data-lbride]').forEach(b => b.onclick = () => { LB.ride = b.dataset.lbride === '1'; AU.click(); lbState(); lbRender(); });
   const sp = $('lbSpot'); if (sp) sp.onchange = () => { LB.spot = sp.value; lbState(); lbRender(); };
   el.querySelectorAll('[data-lbinv]').forEach(b => b.onclick = () => lbInvite(b.dataset.lbinv));
   el.querySelectorAll('[data-lbwait]').forEach(b => b.onclick = () => { const id = b.dataset.lbwait; if (LB.pending[id]) delete LB.pending[id]; else { LB.pending[id] = 1; toast('Quando ele abrir o jogo, o convite chega na hora.', 3); } AU.click(); lbRender(); });

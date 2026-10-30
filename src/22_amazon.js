@@ -458,7 +458,7 @@ function buildVoadeira() {
   const tiller = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.8, 6), alu); tiller.rotation.x = Math.PI / 2 - 0.25; tiller.position.set(0, 1.15, -2.45); g.add(tiller);
   // piloto sentado no banco de trás, mão na cana
   const pilot = buildDiver(false); scene.remove(pilot.root); g.add(pilot.root); pilot.root.position.set(0.1, 0.72 + 0.62, -2.15); pilot.root.rotation.y = Math.PI;
-  poseDiver(pilot, 'drive', 0); g.userData.pilot = [pilot.root]; g.userData.rig = pilot; g.userData.eye = new V3(0.1, 0.72 + 0.62 + 0.8, -2.05);
+  poseDiver(pilot, 'drive', 0); g.userData.pilot = [pilot.root]; g.userData.rig = pilot; g.userData.pilotPos = pilot.root.position.clone(); g.userData.eye = new V3(0.1, 0.72 + 0.62 + 0.8, -2.05);
   return g;
 }
 function voadHTML() {

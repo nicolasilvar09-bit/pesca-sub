@@ -106,7 +106,7 @@ function updateHUD(dt) {
   else if (!swim && SV.fuel <= 0 && !nearMarina()) { ctx.textContent = 'REBOQUE (R$ 150)'; show('bCtx', true); }
   else show('bCtx', false);
   show('cross', swim); show('bands', swim); show('bView', swim || P.mode === 'boat'); document.body.classList.toggle('inboat', P.mode === 'boat'); show('bPhoto', swim && P.under && !!SV.cam); show('bCall', swim && P.under); show('bEq', swim && P.under && !OPT.autoEq); $('bCall').style.opacity = callCD > 0 ? 0.45 : ''; show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
-  introHideButtons();
+  introHideButtons(); rideHUD();
   const aim = aimOnFish(); $('cross').classList.toggle('ok', !!(aim && aim.ok));
   const al = $('aimLbl'); if (aim) { al.textContent = `${aim.f.sp.rare ? '★ RARO · ' : isTrophy(aim.f) ? '★ TROFÉU · ' : ''}${aim.f.sp.name} · ~${Math.round(aim.f.len * 100 / 5) * 5} cm${aim.ok ? '' : ' · longe'}`; al.classList.remove('hide'); } else al.classList.add('hide');
   const fighting = GUN.state === 'hooked' && GUN.fish && GUN.fish.fight > 0;
@@ -167,10 +167,10 @@ function step(dt) {
   if (took('call')) callFish();
   if (took('eq')) equalize();
   callCD = Math.max(0, callCD - dt);
-  updateBoat(dt, T);
+  rideBefore(); updateBoat(dt, T);
   if (P.mode === 'swim') { updateSwim(dt, T); if (THIRD) thirdPersonCam(T); }
   else { took('dive'); diveBuoy.visible = false; diveLine.visible = false; P.pos.copy(BOAT.pos); P.under = false; P.o2 = Math.min(1, P.o2 + dt / (maxBreath() * 0.85) * recMult()); P.bpm = lerp(P.bpm, 70, dt * 0.5); P.surfT += dt; P.still = 0; }
-  updateDiver(dt, T);
+  updateDiver(dt, T); rideTick(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
   updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt); updateIntro(dt); updateRare2(dt); updateWorldScene(dt, T); updateStory(dt);
@@ -230,7 +230,7 @@ async function init() {
   initRenderer(); sky = buildSky(); await yieldUI(); buildTerrain(); await yieldUI(); buildWater(); buildRocksAndDecor(); await yieldUI(); buildLand(); bakeShallow(); buildFX(); await yieldUI();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); await yieldUI(); buildLife(); initExtra(); await yieldUI();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); $('menu').classList.add('live');
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); setupRide(); $('menu').classList.add('live');
   $('playBtn').onclick = startGame;
   ON.ready = true;
   window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };

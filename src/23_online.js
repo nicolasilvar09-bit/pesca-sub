@@ -150,6 +150,7 @@ function onBcast(ev, d) {
   if (ev === 'hello') { if (!isFriend(d.from)) ON.friends.push({ id: d.from, name: d.name, level: d.lvl || 1 }); toast(`${d.name} adicionou você como amigo!`, 3.5, 'gold'); loadFriends(); return; }
   if (!isFriend(d.from)) return;
   if (ev === 'pos' && d.region === REGION) remoteState(d);
+  if (ev.startsWith('ride_')) { rideMsg(ev, d); return; }
   if (ev === 'chal' || ev === 'duo_inv') { ON.inv = d; d.kind = ev === 'duo_inv' ? 'duo' : 'chal'; showInvite(d); }
   if (ev === 'duo_ok' && ON.wait && ON.wait.to === d.from) { const w = ON.wait; ON.wait = null; startDuoHost(w.spot, d.from, d.name, d.at); }
   if (ev === 'duo_no' && ON.wait && ON.wait.to === d.from) { ON.wait = null; toast(`${d.name} não pode agora.`, 3); }
@@ -168,7 +169,8 @@ function sendPos(dt) {
   const anyHere = Object.keys(ON.online).some(k => isFriend(k) && ON.online[k].region === REGION); if (!anyHere) return;
   ON.posT = 0.18;
   const r = v => Math.round(v * 100) / 100;
-  bcast('pos', { m: P.mode, u: P.under ? 1 : 0, x: r(P.pos.x), y: r(P.pos.y), z: r(P.pos.z), yw: r(P.yaw), pt: r(P.pitch), bx: r(BOAT.pos.x), bz: r(BOAT.pos.z), bh: r(BOAT.heading), bi: myBoatIdx(), an: BOAT.anchored ? 1 : 0 });
+  const ride = RIDE.on && P.mode === 'boat';
+  bcast('pos', { m: ride ? 'ride' : P.mode, host: ride ? RIDE.host : undefined, seat: ride ? RIDE.seat : undefined, u: P.under ? 1 : 0, x: r(P.pos.x), y: r(P.pos.y), z: r(P.pos.z), yw: r(P.yaw), pt: r(P.pitch), bx: r(BOAT.pos.x), bz: r(BOAT.pos.z), bh: r(BOAT.heading), bi: myBoatIdx(), an: BOAT.anchored ? 1 : 0 });
 }
 function nameTag(name) {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const g = cv.getContext('2d');
@@ -186,7 +188,7 @@ function remoteState(d) {
   R.d = d; R.seen = performance.now();
   if (R.bi !== d.bi) { if (R.boat) scene.remove(R.boat); R.boat = buildBoatModel(d.bi); scene.add(R.boat); R.bi = d.bi; }
 }
-function dropRemote(id) { const R = ON.remotes[id]; if (!R) return; scene.remove(R.rig.root, R.tag); if (R.boat) scene.remove(R.boat); delete ON.remotes[id]; }
+function dropRemote(id) { const R = ON.remotes[id]; if (!R) return; if (R.rig.root.parent) R.rig.root.parent.remove(R.rig.root); scene.remove(R.tag); if (RIDE.on && RIDE.host === id) rideStop('O piloto saiu do jogo: você voltou para a sua lancha.'); delete RIDE.pass[id]; if (R.boat) scene.remove(R.boat); delete ON.remotes[id]; }
 function updateRemotes(dt, t) {
   for (const id in ON.remotes) {
     const R = ON.remotes[id], d = R.d;
@@ -195,6 +197,8 @@ function updateRemotes(dt, t) {
     R.pos.lerp(_t2.set(d.x, d.y, d.z), k); R.yaw += angDiff(R.yaw, d.yw) * k; R.pitch = lerp(R.pitch, d.pt, k);
     R.bpos.lerp(_t2.set(d.bx, waveH(d.bx, d.bz, t), d.bz), k);
     const mv = Math.min(1, old.distanceTo(R.pos) / Math.max(dt, 1e-3) / 1.2); R.kick += dt * (2 + mv * 5);
+    if (d.m === 'ride' && rideRemote(R, d, t)) continue; // passageiro sentado na lancha de alguém
+    if (R.rig.root.parent !== scene) scene.add(R.rig.root);
     const swim = d.m === 'swim';
     R.rig.root.visible = swim && camera.position.distanceTo(R.pos) < 120;
     if (swim) placeRig(R.rig, R.pos, R.yaw, d.u ? R.pitch : 0, !!d.u, mv, R.kick);
@@ -273,7 +277,7 @@ function onlineHTML() {
     const o = ON.online[f.id], here = o && o.region === REGION;
     const where = o ? (here ? '🟢 jogando no mesmo destino' : `🟡 jogando ${({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[o.region] || 'na Costa Verde')}`) : '⚪ offline';
     return `<div class="it"><span class="av" style="background:#7a2a2a">${f.name[0]}</span><div style="flex:1"><div class="n">${f.name} <span class="d">· Nv ${f.level || 1}</span></div><div class="d">${where}</div></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${here ? `<button class="btn" data-ongo="${f.id}">IR ATÉ</button><button class="btn gold" data-onchal="${f.id}" ${COMP.on ? 'disabled' : ''}>DESAFIAR</button><button class="btn gold" data-onduo="${f.id}" ${COMP.on ? 'disabled' : ''}>DUPLA</button>` : ''}<button class="btn alt" data-ondel="${f.id}">✕</button></div></div>`;
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${here ? `<button class="btn" data-ongo="${f.id}">IR ATÉ</button><button class="btn alt" data-onride="${f.id}" ${RIDE.on ? 'disabled' : ''}>🚤 CARONA</button><button class="btn gold" data-onchal="${f.id}" ${COMP.on ? 'disabled' : ''}>DESAFIAR</button><button class="btn gold" data-onduo="${f.id}" ${COMP.on ? 'disabled' : ''}>DUPLA</button>` : ''}<button class="btn alt" data-ondel="${f.id}">✕</button></div></div>`;
   }).join('') : '<div class="it"><div class="d">Nenhum amigo ainda. Adicione pelo código.</div></div>') + '</div>';
   h += `<div class="it" style="margin-top:8px"><div class="d">No mesmo destino, vocês veem o barco e o mergulhador um do outro ao vivo, com o nome em cima. Cada um tem os próprios peixes. No <b>desafio</b>, ganha quem pegar mais peixes na medida em 10 minutos (vencedor R$ 800, perdedor R$ 300).</div></div>`;
   return h;
@@ -290,6 +294,7 @@ function bindOnline(B, on) {
   if (q('onRestore')) q('onRestore').onclick = () => { if (confirm('Trocar o progresso deste aparelho pelo save da nuvem?')) cloudRestore(ON.cloud); };
   B.querySelectorAll('[data-ondel]').forEach(b => b.onclick = () => { const f = ON.friends.find(x => x.id === b.dataset.ondel); if (f && confirm(`Remover ${f.name} dos amigos online?`)) delFriendOnline(f.id).then(() => renderShop()); });
   B.querySelectorAll('[data-onchal]').forEach(b => b.onclick = () => { challenge(b.dataset.onchal); closePanels(); });
+  B.querySelectorAll('[data-onride]').forEach(b => b.onclick = () => { rideAsk(b.dataset.onride); });
   B.querySelectorAll('[data-onduo]').forEach(b => b.onclick = () => { challengeDuo(b.dataset.onduo); closePanels(); });
   B.querySelectorAll('[data-ongo]').forEach(b => b.onclick = () => {
     const R = ON.remotes[b.dataset.ongo]; if (!R) { toast('Ainda sem a posição dele. Espere uns segundos.', 2.5); return; }
