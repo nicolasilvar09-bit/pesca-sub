@@ -175,7 +175,7 @@ function startWorld() {
     dressCountry(b.rig, tm[0], tm[1]); b.skill = tm[3] * 0.55; b.team = tm[0]; b.sp = new Set(); b.best = 0; b.c = { x: lerp(u.x, S.x, 0.55), z: lerp(u.z, S.z, 0.55), r: 70 }; b.pref = null; return b;
   });
   COMP.on = true; COMP.world = { phase: 1, sp: new Set(), best: 0, bestBy: '', bestKey: '' }; COMP.t = WORLD_BAT; COMP.spot = S; COMP.me = { n: 0, kg: 0 }; COMP.lives = []; COMP.live = null; COMP.duo = null; COMP.mult = 1;
-  WORLD.myPlate = dressCountry(DIVER, 'Brasil', [['br']]); // você veste a roupa do Brasil
+  WORLD.undress = dressCountry(DIVER, 'Brasil', [['br']]); // você veste o uniforme da seleção brasileira
   jumpIn(); P.o2 = 1;
   $('compHud').classList.remove('hide');
   toast(`🏆 MUNDIAL DE PESCA SUB · 1ª bateria valendo! ${WORLD_BAT / 60} minutos. Pontos: 10 por kg + 5 por espécie diferente. Peixe pequeno ou protegido desclassifica o peixe.`, 7, 'gold');
@@ -211,7 +211,7 @@ function worldUpdate(dt, t) {
 function endWorld(rows) {
   const w = COMP.world; COMP.on = false; COMP.world = null; $('compHud').classList.add('hide');
   for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
-  if (WORLD.myPlate) { WORLD.myPlate.parent.remove(WORLD.myPlate); WORLD.myPlate = null; } applyGear(); // volta para a sua roupa
+  if (WORLD.undress) { WORLD.undress(); WORLD.undress = null; } applyGear(); // volta para a sua roupa
   const pos = rows.findIndex(r => r.me), PR = [15000, 8000, 5000, 2000, 2000, 1000, 1000, 500, 500, 500, 500, 500];
   let prize = PR[pos] || 0; const extras = [];
   // prêmios das empresas
@@ -242,36 +242,68 @@ function bindWorld() {
   const w = $('worldWait'); if (w) w.onclick = () => { let rem = daysToWorld() * 24 - (SV.tod || 0) + 8; while (rem > 0) { const s = Math.min(rem, 23); waitHours(s); rem -= s; } save(); renderShop(); toast('Domingo, 8h: dia do Mundial!', 3, 'gold'); };
 }
 
-// ---------- roupa de cada país: estampa nas cores da bandeira e placa com bandeira e nome nas costas ----------
-const FLAG_SUIT = {};
-function flagSuitTex(name, spec) {
-  if (FLAG_SUIT[name]) return FLAG_SUIT[name];
-  const t = canvasTex(256, 256, g => {
-    const [k, a, b, c] = spec[0];
-    // faixas largas como a bandeira; um pouco escurecidas para parecer neoprene
-    if (k === 'v') { g.fillStyle = a; g.fillRect(0, 0, 86, 256); g.fillStyle = b; g.fillRect(85, 0, 86, 256); g.fillStyle = c; g.fillRect(170, 0, 86, 256); }
-    else if (k === 'v2') { g.fillStyle = a; g.fillRect(0, 0, 100, 256); g.fillStyle = b; g.fillRect(100, 0, 156, 256); }
-    else if (k === 'h') { g.fillStyle = a; g.fillRect(0, 0, 256, 86); g.fillStyle = b; g.fillRect(0, 85, 256, 86); g.fillStyle = c; g.fillRect(0, 170, 256, 86); }
-    else if (k === 'h2') { g.fillStyle = a; g.fillRect(0, 0, 256, 128); g.fillStyle = b; g.fillRect(0, 128, 256, 128); }
-    else if (k === 'st') { for (let i = 0; i < 9; i++) { g.fillStyle = i % 2 ? b : a; g.fillRect(0, i * 28.5, 256, 29); } }
-    else if (k === 'jp') { g.fillStyle = a; g.fillRect(0, 0, 256, 256); g.fillStyle = b; g.beginPath(); g.arc(128, 128, 60, 0, TAU); g.fill(); }
-    else { g.fillStyle = '#009c3b'; g.fillRect(0, 0, 256, 256); g.fillStyle = '#ffdf00'; g.beginPath(); g.moveTo(128, 30); g.lineTo(236, 128); g.lineTo(128, 226); g.lineTo(20, 128); g.fill(); g.fillStyle = '#002776'; g.beginPath(); g.arc(128, 128, 46, 0, TAU); g.fill(); }
-    g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(0, 0, 256, 256);
-    for (let n = 0; n < 2500; n++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.1})`; g.fillRect(Math.random() * 256, Math.random() * 256, 1, 1); }
+// ---------- uniforme de seleção: cor do time, faixas, gola, bandeirinha no peito, nome e número nas costas ----------
+// nome como a seleção usa no próprio país; cores de uniforme (não a bandeira inteira)
+const KITS = {
+  'Brasil': { nm: 'BRASIL', base: '#f7d117', acc: '#0a8f3c', acc2: '#1d4fa3', txt: '#0a8f3c', out: '#ffffff', num: 10 },
+  'Itália': { nm: 'ITALIA', base: '#1f5fbf', acc: '#ffffff', acc2: '#0a8f3c', txt: '#ffffff', out: '#123a75', num: 7 },
+  'Espanha': { nm: 'ESPAÑA', base: '#c8102e', acc: '#f1bf00', acc2: '#7a0a1c', txt: '#f1bf00', out: '#7a0a1c', num: 8 },
+  'Croácia': { nm: 'HRVATSKA', base: '#ffffff', acc: '#e30613', acc2: '#171796', txt: '#171796', out: '#ffffff', num: 4, check: true },
+  'Portugal': { nm: 'PORTUGAL', base: '#8a1220', acc: '#0b6b2e', acc2: '#d4a92a', txt: '#d4a92a', out: '#4a0812', num: 7 },
+  'França': { nm: 'FRANCE', base: '#14213d', acc: '#ffffff', acc2: '#d62828', txt: '#ffffff', out: '#0a1020', num: 11 },
+  'Grécia': { nm: 'HELLAS', base: '#ffffff', acc: '#0d5eaf', acc2: '#0d5eaf', txt: '#0d5eaf', out: '#ffffff', num: 9 },
+  'Chile': { nm: 'CHILE', base: '#d52b1e', acc: '#ffffff', acc2: '#0039a6', txt: '#ffffff', out: '#7a1008', num: 5 },
+  'México': { nm: 'MÉXICO', base: '#006847', acc: '#ffffff', acc2: '#ce1126', txt: '#ffffff', out: '#00351f', num: 14 },
+  'Peru': { nm: 'PERÚ', base: '#ffffff', acc: '#d91023', acc2: '#d91023', txt: '#d91023', out: '#ffffff', num: 6, sash: true },
+  'África do Sul': { nm: 'SOUTH AFRICA', base: '#007749', acc: '#ffb81c', acc2: '#ffffff', txt: '#ffb81c', out: '#003d25', num: 3 },
+  'Japão': { nm: 'JAPAN', base: '#1c2c6e', acc: '#bc002d', acc2: '#ffffff', txt: '#ffffff', out: '#0d1636', num: 1 },
+};
+// medidas do tronco na textura (costas na borda u = 0/1, peito no meio); altura do corpo → linha da textura
+const KIT_W = 512, KIT_H = 512;
+const kitY = y => { const T = [[-0.155, 0], [-0.04, 0.2], [0.04, 0.267], [0.13, 0.333], [0.22, 0.4], [0.32, 0.467], [0.4, 0.533], [0.46, 0.6], [0.52, 0.667], [0.575, 0.733], [0.605, 0.8]];
+  for (let i = 1; i < T.length; i++) if (y <= T[i][0]) { const k = (y - T[i - 1][0]) / (T[i][0] - T[i - 1][0]); return (1 - lerp(T[i - 1][1], T[i][1], k)) * KIT_H; } return (1 - 0.8) * KIT_H; };
+const KIT_TEX = {};
+function kitTorsoTex(team, flag) {
+  if (KIT_TEX[team]) return KIT_TEX[team];
+  const K = KITS[team] || KITS['Brasil'];
+  const t = canvasTex(KIT_W, KIT_H, g => {
+    g.fillStyle = K.base; g.fillRect(0, 0, KIT_W, KIT_H);
+    if (K.check) { const c = 22; for (let y = kitY(0.46); y < kitY(0.08); y += c) for (let x = KIT_W * 0.36; x < KIT_W * 0.64; x += c) if (((x / c | 0) + (y / c | 0)) % 2) { g.fillStyle = K.acc; g.fillRect(x, y, c, c); } }
+    if (K.sash) { g.strokeStyle = K.acc; g.lineWidth = 46; g.beginPath(); g.moveTo(KIT_W * 0.36, kitY(0.56)); g.lineTo(KIT_W * 0.64, kitY(0.0)); g.stroke(); }
+    // faixas laterais (das axilas até a cintura) em duas cores
+    for (const u of [0.25, 0.75]) { g.fillStyle = K.acc; g.fillRect(u * KIT_W - 10, 0, 20, KIT_H); g.fillStyle = K.acc2; g.fillRect(u * KIT_W - 3, 0, 6, KIT_H); }
+    // gola
+    g.fillStyle = K.acc; g.fillRect(0, 0, KIT_W, kitY(0.585)); g.fillStyle = K.acc2; g.fillRect(0, kitY(0.585) - 6, KIT_W, 6);
+    // peito: bandeirinha e escudo de estrelas
+    g.drawImage(flagTex(flag).image, KIT_W * 0.5 + 18, kitY(0.47), 40, 27);
+    g.fillStyle = K.acc; g.font = '900 26px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('★', KIT_W * 0.5 - 38, kitY(0.44));
+    // costas: nome em arco pequeno e número grande, desenhados dos dois lados da emenda
+    const sy = 0.78; // a textura estica na vertical: compensa para a letra não sair achatada
+    const back = (x0) => {
+      g.save(); g.translate(x0, kitY(0.47)); g.scale(1, 1 / sy);
+      const fs = K.nm.length > 8 ? 17 : K.nm.length > 6 ? 21 : K.nm.length > 5 ? 26 : 30; g.font = `900 ${fs}px system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.lineWidth = 5; g.strokeStyle = K.out; g.strokeText(K.nm, 0, 0); g.fillStyle = K.txt; g.fillText(K.nm, 0, 0); g.restore();
+      g.save(); g.translate(x0, kitY(0.3)); g.scale(1, 1 / sy); g.font = '900 86px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.lineWidth = 7; g.strokeStyle = K.out; g.strokeText(String(K.num), 0, 0); g.fillStyle = K.txt; g.fillText(String(K.num), 0, 0); g.restore();
+    };
+    back(0); back(KIT_W);
+    for (let n = 0; n < 3000; n++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.07})`; g.fillRect(Math.random() * KIT_W, Math.random() * KIT_H, 1, 1); }
   });
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; return FLAG_SUIT[name] = t;
+  t.anisotropy = 4; return KIT_TEX[team] = t;
 }
-function namePlateTex(name, spec) {
-  return canvasTex(256, 120, g => {
-    g.fillStyle = '#0b1820'; g.fillRect(0, 0, 256, 120);
-    g.drawImage(flagTex(spec).image, 88, 6, 80, 54);
-    g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${name.length > 9 ? 34 : 44}px system-ui, sans-serif`; g.fillText(name.toUpperCase(), 128, 88);
-  });
+// braços e pernas: cor do time com listra lateral
+function kitLimbTex(team) {
+  const k = team + '_l'; if (KIT_TEX[k]) return KIT_TEX[k];
+  const K = KITS[team] || KITS['Brasil'];
+  const t = canvasTex(128, 128, g => { g.fillStyle = K.base; g.fillRect(0, 0, 128, 128); for (const u of [0.25, 0.75]) { g.fillStyle = K.acc; g.fillRect(u * 128 - 6, 0, 12, 128); g.fillStyle = K.acc2; g.fillRect(u * 128 - 2, 0, 4, 128); } });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; return KIT_TEX[k] = t;
 }
-// veste o mergulhador com a roupa do país; devolve a placa para poder tirar depois
-function dressCountry(rig, name, spec) {
-  rig.suitMat.map = flagSuitTex(name, spec); rig.suitMat.color.set(0xffffff); rig.suitMat.needsUpdate = true;
-  const pm = uwify(new THREE.MeshStandardMaterial({ map: namePlateTex(name, spec), roughness: 0.6 }), { key: 'wplate' });
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.33, 0.155), pm); plate.position.set(0, 0.36, 0.13); plate.rotation.x = -0.12; rig.root.add(plate);
-  return plate;
+// veste o uniforme; devolve como desfazer (para o mergulhador do jogador)
+function dressCountry(rig, team, flag) {
+  rig.suitMat.map = kitLimbTex(team); rig.suitMat.color.set(0xffffff); rig.suitMat.needsUpdate = true;
+  // o tronco é a maior peça torneada com o material da roupa; guardado para vestir de novo sem errar de peça
+  let torso = rig._torso || null; if (!torso) rig.root.traverse(o => { if (o.isMesh && o.geometry.type === 'LatheGeometry' && o.material === rig.suitMat && (!torso || o.geometry.attributes.position.count > torso.geometry.attributes.position.count)) torso = o; }); rig._torso = torso;
+  if (!torso) return () => { };
+  const old = torso.userData.suitMat || (torso.userData.suitMat = torso.material), m = uwify(new THREE.MeshStandardMaterial({ map: kitTorsoTex(team, flag), roughness: old.roughness, metalness: old.metalness }), { key: 'dv' });
+  torso.material = m; return () => { torso.material = old; };
 }
