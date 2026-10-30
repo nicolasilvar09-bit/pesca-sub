@@ -2243,7 +2243,8 @@ async function init() {
   setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); setupRide(); setupHudCompact(); $('menu').classList.add('live');
   $('playBtn').onclick = startGame;
   ON.ready = true;
-  window.__G = { P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
+  // ganchos para os testes automáticos (tests/smoke.js)
+  window.__G = { openShop, tab: t => { shopTab = t; renderShop(); }, areas: SHOP_AREAS, startComp, COMP, startWorld, endWorld, jumpIn, toggleAnchor, climbBoat, P, BOAT, GUN, FISHES, SV, SPOTS, startGame, step, camera, scene, H, T: () => T, fire: gunFire, hold: v => { IN.held.pull = v; }, equip: id => { SV.gun = id; buildGun(gunById(id)); } };
   loop();
 }
 
