@@ -224,7 +224,7 @@ function worldBotCatch(b, f) {
 function worldVirtual(dt) {
   const w = COMP.world; if ((w.vT -= dt) > 0) return; w.vT = 1;
   let pool = null;
-  for (const [name, T] of Object.entries(w.teams)) for (let k = 0; k < (T.virt || 0); k++) if (Math.random() < T.rate) {
+  for (const [name, T] of Object.entries(w.teams)) for (let k = 0; k < (T.virt || 0); k++) if (Math.random() < T.rate * botDiff().skill / 1.6) {
     pool = pool || FISHES.filter(f => legalFish(f) && Math.hypot(f.pos.x - COMP.spot.x, f.pos.z - COMP.spot.z) < 140);
     if (!pool.length) return; const f = pool[Math.floor(Math.random() * pool.length)]; worldScore(name, f.kg, f.key, name);
   }

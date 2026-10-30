@@ -5,7 +5,7 @@ const QUALITY = [
   { name: 'Média', pr: 1.15, terr: 650, decor: 90, fish: 110 },
   { name: 'Alta', pr: 2, terr: 950, decor: 140, fish: 150 },
 ];
-const OPT = { q: matchMedia('(pointer:coarse)').matches ? 1 : 2, sens: 1, inv: false, vol: 0.8, mus: true, vib: true, third: true };
+const OPT = { q: matchMedia('(pointer:coarse)').matches ? 1 : 2, sens: 1, inv: false, vol: 0.8, mus: true, vib: true, third: true, bots: 1 };
 try { Object.assign(OPT, JSON.parse(localStorage.getItem(OPT_KEY) || '{}')); } catch (e) { }
 const QF = () => QUALITY[OPT.q] || QUALITY[1];
 // resolução dinâmica: fração da resolução da qualidade atual (baixa sozinha quando o FPS cai)
@@ -20,6 +20,7 @@ function renderOpt() {
   const seg = (k, opts) => opts.map(([v, n]) => `<button class="btn ${OPT[k] === v ? 'gold' : 'alt'}" data-opt="${k}" data-v="${v}">${n}</button>`).join('');
   $('optBody').innerHTML = '<div class="list">' +
     optRow('Qualidade gráfica', seg('q', QUALITY.map((q, i) => [i, q.name]))) +
+    optRow('Dificuldade dos bots', seg('bots', [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil']])) +
     optRow('Sensibilidade da câmera', `<input type="range" min="0.4" max="2.2" step="0.1" value="${OPT.sens}" data-range="sens"><b>${OPT.sens.toFixed(1)}×</b>`) +
     optRow('Inverter eixo vertical', seg('inv', [[false, 'NÃO'], [true, 'SIM']])) +
     optRow('Volume', `<input type="range" min="0" max="1" step="0.05" value="${OPT.vol}" data-range="vol"><b>${Math.round(OPT.vol * 100)}%</b>`) +

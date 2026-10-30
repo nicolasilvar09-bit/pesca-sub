@@ -3038,7 +3038,7 @@ function renderShop() {
     h += engineHTML(at);
   }
   if (shopTab === 'comp') {
-    h = worldHTML(at) + `<div class="it" style="margin-bottom:8px"><div><div class="n">Campeonato de pesca sub · 10 minutos${weekend() ? ' · <b style="color:var(--acc)">TORNEIO DO FIM DE SEMANA: PRÊMIOS EM DOBRO</b>' : ''}</div><div class="d">${AMZ ? '<b>Torneio do Tucunaré:</b> você contra 3 pescadores da região. Cada peixe na medida vale 1 ponto; tucunaré e dourado valem 2, e 3 se forem grandes. Empate decide pelo peso.' : 'Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso.'} Inscrição R$ 100. Prêmios: 1º R$ 900 · 2º R$ 350 · 3º R$ 150.</div></div></div><div class="list">` +
+    h = `<div class="it" style="margin-bottom:8px"><div><div class="n">Nível dos adversários</div><div class="d">Vale para campeonatos, Mundial e duplas. ${['Fácil: pescam devagar.', 'Normal: competitivos, pegam uns 10 peixes em 10 min.', 'Difícil: rápidos e certeiros.'][OPT.bots ?? 1]}</div></div><div style="display:flex;gap:6px">${BOT_DIFF.map((d, i) => `<button class="btn ${(OPT.bots ?? 1) === i ? 'gold' : 'alt'}" data-botdiff="${i}">${d.n}</button>`).join('')}</div></div>` + worldHTML(at) + `<div class="it" style="margin-bottom:8px"><div><div class="n">Campeonato de pesca sub · 10 minutos${weekend() ? ' · <b style="color:var(--acc)">TORNEIO DO FIM DE SEMANA: PRÊMIOS EM DOBRO</b>' : ''}</div><div class="d">${AMZ ? '<b>Torneio do Tucunaré:</b> você contra 3 pescadores da região. Cada peixe na medida vale 1 ponto; tucunaré e dourado valem 2, e 3 se forem grandes. Empate decide pelo peso.' : 'Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso.'} Inscrição R$ 100. Prêmios: 1º R$ 900 · 2º R$ 350 · 3º R$ 150.</div></div></div><div class="list">` +
       SPOTS.filter(s => s.r).map(s => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.depth}</div></div><button class="btn gold" data-comp="${s.id}" ${COMP.on || SV.money < 100 ? 'disabled' : ''}>COMPETIR</button></div>`).join('') + '</div>' + duoHTML();
   }
   if (shopTab === 'miss') h = missionsHTML();
@@ -3071,7 +3071,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
-  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindWorld(); bindStory(); bindFriends(B, on); bindDuo(on);
+  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindWorld(); bindStory(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
@@ -3113,28 +3113,37 @@ function startComp(id, duo, live) {
 function compOnCatch(f) { if (!COMP.on) return; if (COMP.world) worldCatch(f); const pt = compPts(f); COMP.me.n += pt; COMP.me.kg += f.kg; if (pt > 1) toast(`+${pt} pontos no torneio!`, 2.5, 'gold'); liveCatch(f); }
 // ---------- pescador bot (campeonato e amigos) ----------
 // c: centro que ele patrulha {x, z, r}; onCatch(b, f) é chamado quando ele pega um peixe
+// dificuldade dos bots (Opções › e aba Campeonato): pontaria, descanso na superfície, tempo de mira e velocidade
+const BOT_DIFF = [
+  { n: 'Fácil', skill: 1.0, rest: [18, 28], aim: [1.8, 3.4], swim: 1.35, dive: [35, 50], reload: 6 },
+  { n: 'Normal', skill: 1.6, rest: [9, 15], aim: [1.0, 2.0], swim: 1.75, dive: [40, 55], reload: 5 },
+  { n: 'Difícil', skill: 1.9, rest: [7, 12], aim: [0.9, 1.6], swim: 1.95, dive: [45, 60], reload: 4 },
+];
+const botDiff = () => BOT_DIFF[OPT.bots != null ? OPT.bots : 1] || BOT_DIFF[1];
 function stepBot(b, dt, t, c, onCatch) {
+  const BD = botDiff();
   const sy = waveH(b.pos.x, b.pos.z, t);
   let des = _t1.set(0, 0, 0), under = b.state !== 'surf';
   b.t -= dt;
   if (b.state === 'surf') {
     b.pos.y = sy - 0.15; des.set(c.x - b.pos.x, 0, c.z - b.pos.z); if (des.length() > 8) des.normalize().multiplyScalar(0.6); else des.set(0, 0, 0);
-    if (b.t <= 0) { b.state = 'dive'; b.t = rand(35, 50); b.target = null; spawnBubbles(b.pos, 10, 0.3); }
+    if (b.t <= 0) { b.state = 'dive'; b.t = rand(BD.dive[0], BD.dive[1]); b.target = null; spawnBubbles(b.pos, 10, 0.3); }
   } else if (b.state === 'dive') {
     if (!b.target || !legalFish(b.target) || b.target.pos.distanceTo(b.pos) > 35) {
       let best = null, bd = 30; for (const f of FISHES) { if (!legalFish(f)) continue; const d = f.pos.distanceTo(b.pos); const dd = d - (b.pref ? b.pref(f) : 0); if (dd < bd && Math.hypot(f.pos.x - c.x, f.pos.z - c.z) < c.r * 1.8) { bd = dd; best = f; } }
       b.target = best; b.aimT = 0;
     }
-    if (b.target) {
+    if (b.reload > 0) { b.reload -= dt; des.set(0, 0.05, 0); }
+    else if (b.target) {
       const tp = b.target.pos; des.subVectors(tp, b.pos); const d = des.length();
-      if (d > 3.4) des.multiplyScalar(1.35 / d); else { des.set(0, 0, 0); b.aimT += dt; b.yaw = Math.atan2(-(tp.x - b.pos.x), -(tp.z - b.pos.z)); }
-      if (b.aimT > rand(1.8, 3.4)) {
+      if (d > 3.4) des.multiplyScalar(BD.swim / d); else { des.set(0, 0, 0); b.aimT += dt; b.yaw = Math.atan2(-(tp.x - b.pos.x), -(tp.z - b.pos.z)); }
+      if (b.aimT > rand(BD.aim[0], BD.aim[1])) {
         b.aimT = 0;
-        const f = b.target, ok = Math.random() < (typeof b.skill === 'function' ? b.skill() : b.skill) * (f.state === 'curious' || f.state === 'hidden' ? 1.4 : 1);
+        const f = b.target, ok = Math.random() < Math.min(0.85, (typeof b.skill === 'function' ? b.skill() : b.skill) * BD.skill) * (f.state === 'curious' || f.state === 'hidden' ? 1.4 : 1);
         if (ok) {
           spawnBubbles(f.pos, 14, 0.3);
           if (camera.position.distanceTo(f.pos) < 25) AU.thud();
-          onCatch(b, f);
+          onCatch(b, f); b.reload = BD.reload; // recarrega o arbalete e prende o peixe na fieira
           RESPAWN.push({ key: f.key, spot: f.spot.id, n: 1, t: performance.now() / 1000 + rand(60, 120) });
           f.remove();
         } else f.startFlee();
@@ -3144,7 +3153,7 @@ function stepBot(b, dt, t, c, onCatch) {
     if (b.t <= 0) b.state = 'up';
   } else if (b.state === 'up') {
     des.set(0, 1.3, 0);
-    if (b.pos.y > sy - 0.5) { b.state = 'surf'; b.t = rand(18, 28); }
+    if (b.pos.y > sy - 0.5) { b.state = 'surf'; b.t = rand(BD.rest[0], BD.rest[1]); }
   }
   b.vel.lerp(des, clamp(dt * 2, 0, 1));
   b.pos.addScaledVector(b.vel, dt);
@@ -3384,7 +3393,7 @@ const QUALITY = [
   { name: 'Média', pr: 1.15, terr: 650, decor: 90, fish: 110 },
   { name: 'Alta', pr: 2, terr: 950, decor: 140, fish: 150 },
 ];
-const OPT = { q: matchMedia('(pointer:coarse)').matches ? 1 : 2, sens: 1, inv: false, vol: 0.8, mus: true, vib: true, third: true };
+const OPT = { q: matchMedia('(pointer:coarse)').matches ? 1 : 2, sens: 1, inv: false, vol: 0.8, mus: true, vib: true, third: true, bots: 1 };
 try { Object.assign(OPT, JSON.parse(localStorage.getItem(OPT_KEY) || '{}')); } catch (e) { }
 const QF = () => QUALITY[OPT.q] || QUALITY[1];
 // resolução dinâmica: fração da resolução da qualidade atual (baixa sozinha quando o FPS cai)
@@ -3399,6 +3408,7 @@ function renderOpt() {
   const seg = (k, opts) => opts.map(([v, n]) => `<button class="btn ${OPT[k] === v ? 'gold' : 'alt'}" data-opt="${k}" data-v="${v}">${n}</button>`).join('');
   $('optBody').innerHTML = '<div class="list">' +
     optRow('Qualidade gráfica', seg('q', QUALITY.map((q, i) => [i, q.name]))) +
+    optRow('Dificuldade dos bots', seg('bots', [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil']])) +
     optRow('Sensibilidade da câmera', `<input type="range" min="0.4" max="2.2" step="0.1" value="${OPT.sens}" data-range="sens"><b>${OPT.sens.toFixed(1)}×</b>`) +
     optRow('Inverter eixo vertical', seg('inv', [[false, 'NÃO'], [true, 'SIM']])) +
     optRow('Volume', `<input type="range" min="0" max="1" step="0.05" value="${OPT.vol}" data-range="vol"><b>${Math.round(OPT.vol * 100)}%</b>`) +
@@ -7899,7 +7909,7 @@ function worldBotCatch(b, f) {
 function worldVirtual(dt) {
   const w = COMP.world; if ((w.vT -= dt) > 0) return; w.vT = 1;
   let pool = null;
-  for (const [name, T] of Object.entries(w.teams)) for (let k = 0; k < (T.virt || 0); k++) if (Math.random() < T.rate) {
+  for (const [name, T] of Object.entries(w.teams)) for (let k = 0; k < (T.virt || 0); k++) if (Math.random() < T.rate * botDiff().skill / 1.6) {
     pool = pool || FISHES.filter(f => legalFish(f) && Math.hypot(f.pos.x - COMP.spot.x, f.pos.z - COMP.spot.z) < 140);
     if (!pool.length) return; const f = pool[Math.floor(Math.random() * pool.length)]; worldScore(name, f.kg, f.key, name);
   }
