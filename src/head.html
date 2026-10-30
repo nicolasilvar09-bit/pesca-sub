@@ -102,7 +102,7 @@ body.portrait #tut{top:calc(170px + env(safe-area-inset-top));width:92vw}
 body.short #bPhoto{left:calc(114px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}
 body.portrait #bPhoto{bottom:calc(166px + env(safe-area-inset-bottom));left:128px;width:48px;height:48px}
 #bShop{position:absolute;left:calc(70px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px;background:rgba(255,176,32,.45)}
-#compHud{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(4,16,20,.82);border:1px solid var(--line);border-radius:12px;padding:6px 10px;min-width:210px;font-size:12px}
+#compHud{position:absolute;left:50%;top:52px;transform:translateX(-50%);background:rgba(4,16,20,.82);border:1px solid var(--line);border-radius:12px;padding:6px 10px;min-width:210px;font-size:12px}
 #compHud .ct{text-align:center;font-weight:800;font-size:16px;color:var(--acc);font-family:ui-monospace,Menlo,monospace;margin-bottom:2px}
 #compHud .ct.low{color:var(--bad)}
 #compHud .cr{display:flex;justify-content:space-between;gap:12px;color:var(--muted);line-height:1.5}
@@ -144,6 +144,9 @@ body.portrait .thumb{width:72px;height:48px}
 #spotList{flex:1;min-width:220px}
 #menu{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:linear-gradient(180deg,rgba(2,12,18,.35),rgba(2,12,18,.55) 55%,rgba(2,12,18,.9)),url(%%COVER%%) center/cover #04141c;text-align:center;padding:20px}
 #menu{overflow:auto}
+body.inboat #comp .hsw{display:none}
+#hStory{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.short #comp{transform:scale(.88);transform-origin:left top}
 .lbcard{width:min(880px,96vw)}
 #lobby .d{color:var(--muted);font-size:12px}
 .lbgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 12px}
@@ -183,7 +186,7 @@ body.short #knob{width:50px;height:50px;margin:-25px 0 0 -25px}
 body.short #btns{transform:scale(.84);transform-origin:right bottom;bottom:8px}
 body.short #bMap,body.short #bView{bottom:146px;width:46px;height:46px}
 body.short #bView,body.short #bShop{left:calc(62px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}
-body.short #compHud{top:6px;font-size:11px;padding:4px 8px}
+body.short #compHud{top:40px;font-size:11px;padding:4px 8px}
 body.short #bands{bottom:190px}
 body.short #fight{bottom:80px}
 body.short #menu .tips{font-size:11px;margin-top:8px}

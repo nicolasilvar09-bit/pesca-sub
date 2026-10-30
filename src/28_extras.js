@@ -37,7 +37,8 @@ const SON = { cv: null, g: null, t: 0, col: 0 };
 function updateSonar(dt) {
   const on = SV.sonar && P.mode === 'boat' && started;
   if (!SON.cv) { const c = SON.cv = document.createElement('canvas'); c.width = 150; c.height = 96; c.style.cssText = 'position:fixed;right:10px;top:68px;width:150px;height:96px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:#021018;pointer-events:none;z-index:2'; document.body.appendChild(c); SON.g = c.getContext('2d'); SON.g.fillStyle = '#021018'; SON.g.fillRect(0, 0, 150, 96); }
-  SON.cv.style.display = on ? 'block' : 'none'; if (!on || (SON.t -= dt) > 0) return; SON.t = 0.12;
+  SON.cv.style.display = 'none'; // o sonar agora aparece na tela do console da lancha (44_console)
+  if (!on || (SON.t -= dt) > 0) return; SON.t = 0.12;
   const g = SON.g, bx = BOAT.pos.x, bz = BOAT.pos.z, depth = Math.max(0.5, -H(bx, bz)), maxD = Math.max(10, Math.ceil(depth / 10) * 10 + 5), yOf = d => 14 + d / maxD * 80;
   // rola uma coluna
   const img = g.getImageData(1, 14, 149, 82); g.putImageData(img, 0, 14);

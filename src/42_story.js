@@ -124,6 +124,6 @@ function updateStory(dt) {
 function setupStory() {
   // linha do objetivo atual no painel da esquerda; toque abre a aba História
   const lv = $('hLvl') && $('hLvl').parentElement; if (!lv) return;
-  const el = document.createElement('div'); el.id = 'hStory'; el.style.cssText = 'font-size:11px;line-height:1.3;margin-top:4px;color:var(--acc);max-width:170px;cursor:pointer;pointer-events:auto';
+  const el = document.createElement('div'); el.id = 'hStory'; el.style.cssText = 'font-size:11px;line-height:1.3;margin-top:4px;color:var(--acc);max-width:150px;cursor:pointer;pointer-events:auto';
   el.onclick = () => { shopTab = 'hist'; openShop(nearMarina()); }; lv.after(el); storyHUD();
 }
