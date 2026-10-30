@@ -117,6 +117,13 @@ body.portrait #bPhoto{bottom:calc(166px + env(safe-area-inset-bottom));left:128p
 .card h2{margin:0 0 4px;font-size:20px}
 .card .sub{color:var(--muted);font-size:13px;margin-bottom:10px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+#mTabs{display:block;margin:6px 0 10px}
+.areas{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
+.area{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:12px;font-weight:700;cursor:pointer;color:var(--muted)}
+.area span{font-size:20px;line-height:1}
+.area.on{background:rgba(47,208,192,.16);border-color:var(--acc2);color:var(--ink)}
+#mTabs .tabs.sub{margin:0}
+body.short .area{padding:5px 2px;font-size:11px;flex-direction:row;justify-content:center;gap:5px}body.short .area span{font-size:15px}
 .tab{padding:7px 12px;border-radius:18px;background:rgba(255,255,255,.07);border:1px solid var(--line);font-size:13px;cursor:pointer}
 .tabs.sub .tab{padding:5px 10px;font-size:12px}
 .it.eq{gap:12px;align-items:center}.thumb{width:96px;height:64px;border-radius:8px;object-fit:cover;flex:none;border:1px solid var(--line)}
@@ -3010,6 +3017,13 @@ function updateLight() {
 
 // ---------- loja / marina ----------
 let shopTab = 'sell', shopAtMarina = false;
+const SHOP_AREAS = [
+  { id: 'marina', ic: '⚓', n: 'Marina', tabs: [['sell', 'Vender pescado'], ['fuel', 'Combustível'], ['boats', 'Lanchas'], ['viagem', 'Viagem']] },
+  { id: 'equip', ic: '🎯', n: 'Equipamento', tabs: [['equip', 'Arbaletes e roupas'], ['apneia', 'Apneia'], ['extras', 'Extras']] },
+  { id: 'comp', ic: '🏆', n: 'Competições', tabs: [['comp', 'Campeonato e Mundial'], ['rank', 'Ranking online']] },
+  { id: 'social', ic: '👥', n: 'Social', tabs: [['online', 'Online e grupo'], ['amigos', 'Amigos']] },
+  { id: 'diario', ic: '📖', n: 'Diário', tabs: [['next', 'Próximos'], ['hist', 'História'], ['miss', 'Missões'], ['car', 'Conquistas'], ['rec', 'Recordes'], ['guia', 'Guia de espécies'], ['mar', 'Boletim']] },
+];
 function openShop(atMarina) { shopAtMarina = !!atMarina; paused = true; $('marinaPanel').classList.remove('hide'); renderShop(); }
 function openMarina() { openShop(true); }
 function buyBtn(attr, price, label) { return `<button class="btn" ${attr} ${SV.money < price ? 'disabled' : ''}>${label || fmtR(price)}</button>`; }
@@ -3018,9 +3032,14 @@ function renderShop() {
   $('marinaPanel').querySelector('h2').textContent = at ? marinaName() : 'Loja Deep Spear';
   $('mSub').textContent = `Saldo: ${fmtR(SV.money)} · Combustível: ${Math.round(SV.fuel)}/${tankMax()} L · Fôlego: ${maxBreath()} s`;
   if (shopTab === 'guns' || shopTab === 'gear') shopTab = 'equip';
-  const tabs = [['sell', 'Vender pescado'], ['equip', 'Equipamentos'], ['apneia', 'Apneia'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['mar', AMZ ? 'Boletim do rio' : 'Boletim do mar'], ['viagem', 'Viagem'], ['extras', 'Extras'], ['online', '🌐 Online'], ['rank', '🏆 Ranking'], ['miss', 'Missões'], ['amigos', 'Amigos'], ['guia', 'Guia de espécies'], ['hist', '📖 História'], ['car', 'Carreira'], ['rec', 'Recordes']];
-  $('mTabs').innerHTML = tabs.map(([k, n]) => `<div class="tab ${k === shopTab ? 'on' : ''}" data-k="${k}">${n}</div>`).join('');
+  // 5 áreas, cada uma com suas abas (antes eram 17 abas soltas numa tela só)
+  const area = SHOP_AREAS.find(A => A.tabs.some(t => t[0] === shopTab)) || SHOP_AREAS[0];
+  if (!area.tabs.some(t => t[0] === shopTab)) shopTab = area.tabs[0][0];
+  SV.shopLast = SV.shopLast || {}; SV.shopLast[area.id] = shopTab;
+  $('mTabs').innerHTML = `<div class="areas">${SHOP_AREAS.map(A => `<div class="area ${A === area ? 'on' : ''}" data-area="${A.id}"><span>${A.ic}</span>${A.n}</div>`).join('')}</div>` +
+    `<div class="tabs sub">${area.tabs.map(([k, n]) => `<div class="tab ${k === shopTab ? 'on' : ''}" data-k="${k}">${n}</div>`).join('')}</div>`;
   $('mTabs').querySelectorAll('.tab').forEach(t => t.onclick = () => { shopTab = t.dataset.k; AU.click(); renderShop(); });
+  $('mTabs').querySelectorAll('.area').forEach(t => t.onclick = () => { const A = SHOP_AREAS.find(x => x.id === t.dataset.area); shopTab = (SV.shopLast || {})[A.id] || A.tabs[0][0]; AU.click(); renderShop(); });
   let h = '';
   if (shopTab === 'sell') {
     const rate = at ? 1 : 0.75;
@@ -3051,6 +3070,7 @@ function renderShop() {
   if (shopTab === 'rank') h = rankHTML();
   if (shopTab === 'viagem') h = travelHTML(at);
   if (shopTab === 'extras') h = extrasHTML(at);
+  if (shopTab === 'next') h = nextHTML();
   if (shopTab === 'hist') h = storyHTML();
   if (shopTab === 'car') h = careerHTML();
   if (shopTab === 'amigos') h = friendsHTML();
@@ -8318,6 +8338,17 @@ function updateConsole(dt) {
 // ---------- painel da esquerda enxuto: no barco só o nível e a história; na água, os dados do mergulho ----------
 function setupHudCompact() {
   for (const id of ['hDepth', 'hTime', 'hO2', 'o2bar', 'hBpm', 'hMax', 'hPrep']) { const e = $(id); if (!e) continue; (e.classList.contains('bar') || e.classList.contains('dep') ? e : e.parentElement).classList.add('hsw'); }
+}
+
+// ---------- Diário › Próximos: tudo o que dá prêmio, numa lista só ----------
+function nextHTML() {
+  const s = st(), rows = [];
+  if (s.ch < STORY.length) { const C = STORY[s.ch]; C.obj.forEach((o, i) => { if (!s.done[s.ch + '_' + i]) rows.push(['📖', objText(o), objProg(o, s), `capítulo ${s.ch + 1} · ${fmtR(C.reward)} ao terminar`]); }); }
+  ensureDaily().list.filter(m => !m.done).forEach(m => rows.push(['📅', m.t, m.ev === 'sell' ? `${fmtR(m.prog)} de ${fmtR(m.goal)}` : `${m.prog} de ${m.goal}`, `missão de hoje · ${fmtR(m.rew)}`]));
+  ACH.filter(a => !(SV.ach || {})[a.id]).slice(0, 3).forEach(a => rows.push(['🏆', a.n, '', `${a.d} · ${fmtR(a.r)}`]));
+  if (isWorldDay()) rows.unshift(['🌍', 'Hoje tem Mundial!', '', 'Competições › Campeonato e Mundial']);
+  return `<div class="it" style="margin-bottom:8px"><div class="d">Tudo o que dá prêmio agora: história, missões do dia e conquistas mais perto.</div></div><div class="list">` +
+    rows.map(([ic, t, p, d]) => `<div class="it" style="justify-content:flex-start;gap:10px"><span style="font-size:20px">${ic}</span><div style="flex:1"><div class="n">${t}${p ? ` <span class="d">· ${p}</span>` : ''}</div><div class="d">${d}</div></div></div>`).join('') + '</div>';
 }
 
 init();

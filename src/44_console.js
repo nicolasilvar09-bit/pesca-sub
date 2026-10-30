@@ -52,3 +52,14 @@ function updateConsole(dt) {
 function setupHudCompact() {
   for (const id of ['hDepth', 'hTime', 'hO2', 'o2bar', 'hBpm', 'hMax', 'hPrep']) { const e = $(id); if (!e) continue; (e.classList.contains('bar') || e.classList.contains('dep') ? e : e.parentElement).classList.add('hsw'); }
 }
+
+// ---------- Diário › Próximos: tudo o que dá prêmio, numa lista só ----------
+function nextHTML() {
+  const s = st(), rows = [];
+  if (s.ch < STORY.length) { const C = STORY[s.ch]; C.obj.forEach((o, i) => { if (!s.done[s.ch + '_' + i]) rows.push(['📖', objText(o), objProg(o, s), `capítulo ${s.ch + 1} · ${fmtR(C.reward)} ao terminar`]); }); }
+  ensureDaily().list.filter(m => !m.done).forEach(m => rows.push(['📅', m.t, m.ev === 'sell' ? `${fmtR(m.prog)} de ${fmtR(m.goal)}` : `${m.prog} de ${m.goal}`, `missão de hoje · ${fmtR(m.rew)}`]));
+  ACH.filter(a => !(SV.ach || {})[a.id]).slice(0, 3).forEach(a => rows.push(['🏆', a.n, '', `${a.d} · ${fmtR(a.r)}`]));
+  if (isWorldDay()) rows.unshift(['🌍', 'Hoje tem Mundial!', '', 'Competições › Campeonato e Mundial']);
+  return `<div class="it" style="margin-bottom:8px"><div class="d">Tudo o que dá prêmio agora: história, missões do dia e conquistas mais perto.</div></div><div class="list">` +
+    rows.map(([ic, t, p, d]) => `<div class="it" style="justify-content:flex-start;gap:10px"><span style="font-size:20px">${ic}</span><div style="flex:1"><div class="n">${t}${p ? ` <span class="d">· ${p}</span>` : ''}</div><div class="d">${d}</div></div></div>`).join('') + '</div>';
+}

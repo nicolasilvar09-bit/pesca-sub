@@ -532,6 +532,13 @@ function updateLight() {
 
 // ---------- loja / marina ----------
 let shopTab = 'sell', shopAtMarina = false;
+const SHOP_AREAS = [
+  { id: 'marina', ic: '⚓', n: 'Marina', tabs: [['sell', 'Vender pescado'], ['fuel', 'Combustível'], ['boats', 'Lanchas'], ['viagem', 'Viagem']] },
+  { id: 'equip', ic: '🎯', n: 'Equipamento', tabs: [['equip', 'Arbaletes e roupas'], ['apneia', 'Apneia'], ['extras', 'Extras']] },
+  { id: 'comp', ic: '🏆', n: 'Competições', tabs: [['comp', 'Campeonato e Mundial'], ['rank', 'Ranking online']] },
+  { id: 'social', ic: '👥', n: 'Social', tabs: [['online', 'Online e grupo'], ['amigos', 'Amigos']] },
+  { id: 'diario', ic: '📖', n: 'Diário', tabs: [['next', 'Próximos'], ['hist', 'História'], ['miss', 'Missões'], ['car', 'Conquistas'], ['rec', 'Recordes'], ['guia', 'Guia de espécies'], ['mar', 'Boletim']] },
+];
 function openShop(atMarina) { shopAtMarina = !!atMarina; paused = true; $('marinaPanel').classList.remove('hide'); renderShop(); }
 function openMarina() { openShop(true); }
 function buyBtn(attr, price, label) { return `<button class="btn" ${attr} ${SV.money < price ? 'disabled' : ''}>${label || fmtR(price)}</button>`; }
@@ -540,9 +547,14 @@ function renderShop() {
   $('marinaPanel').querySelector('h2').textContent = at ? marinaName() : 'Loja Deep Spear';
   $('mSub').textContent = `Saldo: ${fmtR(SV.money)} · Combustível: ${Math.round(SV.fuel)}/${tankMax()} L · Fôlego: ${maxBreath()} s`;
   if (shopTab === 'guns' || shopTab === 'gear') shopTab = 'equip';
-  const tabs = [['sell', 'Vender pescado'], ['equip', 'Equipamentos'], ['apneia', 'Apneia'], ['boats', 'Lanchas'], ['fuel', 'Combustível'], ['comp', 'Campeonato'], ['mar', AMZ ? 'Boletim do rio' : 'Boletim do mar'], ['viagem', 'Viagem'], ['extras', 'Extras'], ['online', '🌐 Online'], ['rank', '🏆 Ranking'], ['miss', 'Missões'], ['amigos', 'Amigos'], ['guia', 'Guia de espécies'], ['hist', '📖 História'], ['car', 'Carreira'], ['rec', 'Recordes']];
-  $('mTabs').innerHTML = tabs.map(([k, n]) => `<div class="tab ${k === shopTab ? 'on' : ''}" data-k="${k}">${n}</div>`).join('');
+  // 5 áreas, cada uma com suas abas (antes eram 17 abas soltas numa tela só)
+  const area = SHOP_AREAS.find(A => A.tabs.some(t => t[0] === shopTab)) || SHOP_AREAS[0];
+  if (!area.tabs.some(t => t[0] === shopTab)) shopTab = area.tabs[0][0];
+  SV.shopLast = SV.shopLast || {}; SV.shopLast[area.id] = shopTab;
+  $('mTabs').innerHTML = `<div class="areas">${SHOP_AREAS.map(A => `<div class="area ${A === area ? 'on' : ''}" data-area="${A.id}"><span>${A.ic}</span>${A.n}</div>`).join('')}</div>` +
+    `<div class="tabs sub">${area.tabs.map(([k, n]) => `<div class="tab ${k === shopTab ? 'on' : ''}" data-k="${k}">${n}</div>`).join('')}</div>`;
   $('mTabs').querySelectorAll('.tab').forEach(t => t.onclick = () => { shopTab = t.dataset.k; AU.click(); renderShop(); });
+  $('mTabs').querySelectorAll('.area').forEach(t => t.onclick = () => { const A = SHOP_AREAS.find(x => x.id === t.dataset.area); shopTab = (SV.shopLast || {})[A.id] || A.tabs[0][0]; AU.click(); renderShop(); });
   let h = '';
   if (shopTab === 'sell') {
     const rate = at ? 1 : 0.75;
@@ -573,6 +585,7 @@ function renderShop() {
   if (shopTab === 'rank') h = rankHTML();
   if (shopTab === 'viagem') h = travelHTML(at);
   if (shopTab === 'extras') h = extrasHTML(at);
+  if (shopTab === 'next') h = nextHTML();
   if (shopTab === 'hist') h = storyHTML();
   if (shopTab === 'car') h = careerHTML();
   if (shopTab === 'amigos') h = friendsHTML();

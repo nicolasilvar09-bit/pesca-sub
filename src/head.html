@@ -115,6 +115,13 @@ body.portrait #bPhoto{bottom:calc(166px + env(safe-area-inset-bottom));left:128p
 .card h2{margin:0 0 4px;font-size:20px}
 .card .sub{color:var(--muted);font-size:13px;margin-bottom:10px}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+#mTabs{display:block;margin:6px 0 10px}
+.areas{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
+.area{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:12px;font-weight:700;cursor:pointer;color:var(--muted)}
+.area span{font-size:20px;line-height:1}
+.area.on{background:rgba(47,208,192,.16);border-color:var(--acc2);color:var(--ink)}
+#mTabs .tabs.sub{margin:0}
+body.short .area{padding:5px 2px;font-size:11px;flex-direction:row;justify-content:center;gap:5px}body.short .area span{font-size:15px}
 .tab{padding:7px 12px;border-radius:18px;background:rgba(255,255,255,.07);border:1px solid var(--line);font-size:13px;cursor:pointer}
 .tabs.sub .tab{padding:5px 10px;font-size:12px}
 .it.eq{gap:12px;align-items:center}.thumb{width:96px;height:64px;border-radius:8px;object-fit:cover;flex:none;border:1px solid var(--line)}
