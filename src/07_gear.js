@@ -563,7 +563,7 @@ function renderShop() {
     h += engineHTML(at);
   }
   if (shopTab === 'comp') {
-    h = `<div class="it" style="margin-bottom:8px"><div><div class="n">Campeonato de pesca sub · 10 minutos${weekend() ? ' · <b style="color:var(--acc)">TORNEIO DO FIM DE SEMANA: PRÊMIOS EM DOBRO</b>' : ''}</div><div class="d">${AMZ ? '<b>Torneio do Tucunaré:</b> você contra 3 pescadores da região. Cada peixe na medida vale 1 ponto; tucunaré e dourado valem 2, e 3 se forem grandes. Empate decide pelo peso.' : 'Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso.'} Inscrição R$ 100. Prêmios: 1º R$ 900 · 2º R$ 350 · 3º R$ 150.</div></div></div><div class="list">` +
+    h = worldHTML(at) + `<div class="it" style="margin-bottom:8px"><div><div class="n">Campeonato de pesca sub · 10 minutos${weekend() ? ' · <b style="color:var(--acc)">TORNEIO DO FIM DE SEMANA: PRÊMIOS EM DOBRO</b>' : ''}</div><div class="d">${AMZ ? '<b>Torneio do Tucunaré:</b> você contra 3 pescadores da região. Cada peixe na medida vale 1 ponto; tucunaré e dourado valem 2, e 3 se forem grandes. Empate decide pelo peso.' : 'Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso.'} Inscrição R$ 100. Prêmios: 1º R$ 900 · 2º R$ 350 · 3º R$ 150.</div></div></div><div class="list">` +
       SPOTS.filter(s => s.r).map(s => `<div class="it"><div><div class="n">${s.name}</div><div class="d">${s.depth}</div></div><button class="btn gold" data-comp="${s.id}" ${COMP.on || SV.money < 100 ? 'disabled' : ''}>COMPETIR</button></div>`).join('') + '</div>' + duoHTML();
   }
   if (shopTab === 'miss') h = missionsHTML();
@@ -595,7 +595,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
-  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindFriends(B, on); bindDuo(on);
+  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindWorld(); bindFriends(B, on); bindDuo(on);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
@@ -634,7 +634,7 @@ function startComp(id, duo, live) {
   $('compHud').classList.remove('hide');
   if (!live) toast(`${AMZ ? 'Torneio do Tucunaré valendo! Tucunaré e dourado valem mais pontos. ' : ''}Valendo! 10 minutos na ${s.name}. Peixe abaixo da medida não conta.${COMP.mult > 1 ? ' Torneio do fim de semana: prêmio em dobro!' : ''}`, 5, 'gold'); AU.coin();
 }
-function compOnCatch(f) { if (!COMP.on) return; const pt = compPts(f); COMP.me.n += pt; COMP.me.kg += f.kg; if (pt > 1) toast(`+${pt} pontos no torneio!`, 2.5, 'gold'); liveCatch(f); }
+function compOnCatch(f) { if (!COMP.on) return; if (COMP.world) worldCatch(f); const pt = compPts(f); COMP.me.n += pt; COMP.me.kg += f.kg; if (pt > 1) toast(`+${pt} pontos no torneio!`, 2.5, 'gold'); liveCatch(f); }
 // ---------- pescador bot (campeonato e amigos) ----------
 // c: centro que ele patrulha {x, z, r}; onCatch(b, f) é chamado quando ele pega um peixe
 function stepBot(b, dt, t, c, onCatch) {
@@ -683,6 +683,7 @@ function stepBot(b, dt, t, c, onCatch) {
 function compBotCatch(b, f) { b.n += compPts(f); b.kg += f.kg; toast(`${b.name} pegou ${f.sp.name.toLowerCase()} de ${fmtKg(f.kg)} kg`, 2.2); }
 function updateComp(dt, t) {
   if (!COMP.on) return;
+  if (COMP.world) { worldUpdate(dt, t); return; } // Mundial tem placar e baterias próprios
   COMP.t -= dt;
   const s = COMP.spot;
   for (const b of COMP.bots) stepBot(b, dt, t, s, COMP.duo && b.team === 0 ? duoPartnerCatch : compBotCatch);
