@@ -1822,7 +1822,7 @@ function updateBoat(dt, t) {
   if (driving && !B.anchored) {
     const thIn = clamp(IN.jy, -0.35, 1);
     B.throttle = lerp(B.throttle, SV.fuel > 0 ? thIn : 0, clamp(dt * 2, 0, 1));
-    const maxS = boatNow().max * engineK();
+    const maxS = boatNow().max * engineK() * boatSpeedK();
     B.speed += (B.throttle * maxS - B.speed) * clamp(dt * (B.throttle > Math.abs(B.speed) / maxS ? 0.55 : 0.8), 0, 1);
     B.heading -= IN.jx * dt * (0.35 + 0.75 * Math.min(1, Math.abs(B.speed) / 6)) * (B.speed < -0.2 ? -1 : 1);
     SV.fuel = Math.max(0, SV.fuel - Math.abs(B.throttle) * dt * FUEL_RATE);
@@ -2183,7 +2183,7 @@ function step(dt) {
   updateDiver(dt, T); rideTick(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt); updateIntro(dt); updateRare2(dt); updateWorldScene(dt, T); updateStory(dt); updateConsole(dt);
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt); updateIntro(dt); updateRare2(dt); updateWorldScene(dt, T); updateStory(dt); updateConsole(dt); updateEcon2();
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -2928,7 +2928,7 @@ const BOATS = [
 ];
 const LIGHT_PRICE = 600;
 const suitNow = () => SUITS[SV.suit || 0], maskNow = () => MASKS[SV.mask || 0], boatNow = () => useVoad() ? VOAD : BOATS[SV.boat || 0];
-const tankMax = () => boatNow().tank;
+const tankMax = () => Math.round(boatNow().tank * (boatUp('tank') ? 1.5 : 1));
 const NAUF = { x: 40, z: -430 }, AVENT = { x: 640, z: -600 };
 
 // ---------- relevo extra (chamado dentro de H) ----------
@@ -3053,7 +3053,7 @@ function renderShop() {
   }
   if (shopTab === 'equip') h = equipHTML();
   if (shopTab === 'apneia') h = apneaHTML();
-  if (shopTab === 'boats') h = boatsHTML();
+  if (shopTab === 'boats') h = feeHTML() + boatsHTML() + boatUpHTML();
   if (shopTab === 'fuel') {
     const need = tankMax() - SV.fuel, cost = need * 6.5;
     h = at ? `<div class="list"><div class="it"><div><div class="n">Gasolina · ${Math.round(SV.fuel)}/${tankMax()} L</div><div class="d">R$ 6,50 por litro.</div></div><button class="btn" id="fill" ${need < 1 || SV.money < 7 ? 'disabled' : ''}>ENCHER ${fmtR(Math.min(cost, Math.max(0, SV.money)))}</button></div></div>`
@@ -3095,7 +3095,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
-  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindWorld(); bindStory(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
+  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindBoatUp(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindWorld(); bindStory(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
@@ -4199,7 +4199,7 @@ function addXP(n, why) {
   if (!n || n < 1) return;
   const l0 = level(); SV.xp = (SV.xp || 0) + Math.round(n); const l1 = level();
   if (l1 > l0) {
-    const prize = 120 * l1; SV.money += prize; AU.coin(); buzz([40, 60, 40, 60, 80]);
+    const prize = 60 * l1; // metade do antigo: nos níveis altos o prêmio ficava gordo demais SV.money += prize; AU.coin(); buzz([40, 60, 40, 60, 80]);
     toast(`NÍVEL ${l1}! ${rankName(l1)} · prêmio ${fmtR(prize)}`, 5, 'gold');
   }
   careerHUD();
@@ -4244,7 +4244,7 @@ function checkAch(dt) {
 }
 function careerHTML() {
   const l = level(), a = l > 1 ? xpFor(l - 1) : 0, b = xpFor(l), done = ACH.filter(x => (SV.ach || {})[x.id]).length;
-  return `<div class="it" style="margin-bottom:8px"><div style="flex:1"><div class="n">Nível ${l} · ${rankName(l)}</div><div class="d">${Math.round((SV.xp || 0) - a)} de ${b - a} XP para o nível ${l + 1} (prêmio ${fmtR(250 * (l + 1))}). XP vem de peixe vendido, missões, fotos e conquistas.</div><div class="bar"><i style="width:${Math.round(clamp(((SV.xp || 0) - a) / (b - a), 0, 1) * 100)}%"></i></div></div></div>
+  return `<div class="it" style="margin-bottom:8px"><div style="flex:1"><div class="n">Nível ${l} · ${rankName(l)}</div><div class="d">${Math.round((SV.xp || 0) - a)} de ${b - a} XP para o nível ${l + 1} (prêmio ${fmtR(60 * (l + 1))}). XP vem de peixe vendido, missões, fotos e conquistas.</div><div class="bar"><i style="width:${Math.round(clamp(((SV.xp || 0) - a) / (b - a), 0, 1) * 100)}%"></i></div></div></div>
     <div class="it" style="margin-bottom:8px"><div class="d">Recordes: ${fmtKg(SV.maxDepth || 0)} m de profundidade · ${Math.floor(SV.maxDive || 0)} s no maior mergulho · ${Object.keys(SV.visited || {}).length} pontos visitados · conquistas ${done}/${ACH.length}</div></div><div class="list">` +
     ACH.map(x => { const ok = (SV.ach || {})[x.id]; return `<div class="it"><div><div class="n" style="${ok ? '' : 'opacity:.6'}">${ok ? '🏆' : '🔒'} ${x.n}</div><div class="d">${x.d}</div></div><b style="color:${ok ? 'var(--acc)' : 'inherit'}">${ok ? 'FEITA' : fmtR(x.r)}</b></div>`; }).join('') + '</div>';
 }
@@ -8350,6 +8350,51 @@ function nextHTML() {
   if (isWorldDay()) rows.unshift(['🌍', 'Hoje tem Mundial!', '', 'Competições › Campeonato e Mundial']);
   return `<div class="it" style="margin-bottom:8px"><div class="d">Tudo o que dá prêmio agora: história, missões do dia e conquistas mais perto.</div></div><div class="list">` +
     rows.map(([ic, t, p, d]) => `<div class="it" style="justify-content:flex-start;gap:10px"><span style="font-size:20px">${ic}</span><div style="flex:1"><div class="n">${t}${p ? ` <span class="d">· ${p}</span>` : ''}</div><div class="d">${d}</div></div></div>`).join('') + '</div>';
+}
+
+// ================= economia: lancha grande custa por dia, prêmio de nível menor e coisas caras para mirar =================
+// equipamento de competição (o topo de cada categoria) e melhorias da lancha, para o dinheiro ter onde ir
+
+// ---------- equipamento de competição ----------
+GUNS.push(
+  { id: 'n120', name: 'Netuno Pro 120 carbono', len: 1.2, range: 8.2, bands: 3, power: 38, speed: 28, price: 9000, load: 1.0, wood: false, desc: 'Tubo de carbono, recarga rapidíssima e tiro preciso. A arma dos campeões de costão.' },
+  { id: 'n160', name: 'Netuno Mundial 160 roller', len: 1.6, range: 11.5, bands: 4, power: 95, speed: 32, price: 19000, load: 1.3, wood: true, desc: 'A mais forte do jogo: alcance de água azul e força para atum grande.' });
+SUITS.push({ name: 'Azul Profundo competição 7 mm', o2: 0.79, shy: 0.68, price: 9500, desc: 'Roupa usada no Mundial: a mais quente e a mais discreta. Gasta o menor fôlego.' });
+SUIT_LOOK.push({ camo: ['#16324a', '#0e2234', '#1d3a52', '#244a66', '#0a1826', '#2c5a78'] });
+FINS.push({ name: 'Nadadeira de competição carbono 110', k: 1.6, price: 8000, shy: 0.92 });
+FIN_DESC.push('Pá de carbono de 110 cm feita para o Mundial: a maior propulsão do jogo.');
+FIN_LOOK.push({ color: 0x0e2a44, map: true, rough: 0.25, metal: 0.25 });
+
+// ---------- melhorias da lancha (por lancha) ----------
+const BOAT_UP = [
+  { id: 'motor', name: 'Motor preparado', d: '+15% de velocidade máxima.', price: i => [3500, 6000, 9000, 14000][i] || 3500 },
+  { id: 'tank', name: 'Tanque extra', d: '+50% de combustível: vai mais longe sem voltar.', price: i => [1500, 2500, 4000, 6000][i] || 1500 },
+];
+const boatUp = (id, i = SV.boat || 0) => !useVoad() && !!((SV.boatUp || {})[i] || {})[id];
+const boatSpeedK = () => boatUp('motor') ? 1.15 : 1;
+function boatUpHTML() {
+  if (useVoad()) return '';
+  const i = SV.boat || 0;
+  return `<div class="n" style="margin:12px 0 6px">🔧 Melhorias da ${BOATS[i].name}</div><div class="list">` + BOAT_UP.map(u => `<div class="it"><div><div class="n">${u.name}</div><div class="d">${u.d}</div></div>${boatUp(u.id) ? '<span class="d">INSTALADO</span>' : buyBtn(`data-bup="${u.id}"`, u.price(i))}</div>`).join('') + '</div>';
+}
+function bindBoatUp(on, pay) {
+  on('[data-bup]', b => { const u = BOAT_UP.find(x => x.id === b.dataset.bup), i = SV.boat || 0; if (pay(u.price(i))) { SV.boatUp = SV.boatUp || {}; (SV.boatUp[i] = SV.boatUp[i] || {})[u.id] = true; toast(`${u.name} instalado!`, 3, 'gold'); } });
+}
+
+// ---------- diária da marina: quanto maior a lancha, mais cara a vaga ----------
+const MARINA_FEE = [0, 60, 150, 300];
+const marinaFee = () => useVoad() ? 0 : MARINA_FEE[SV.boat || 0] || 0;
+function updateEcon2() {
+  if (SV.feeDay == null) { SV.feeDay = SV.day; return; } // começa a contar agora (saves antigos não pagam atrasado)
+  if (SV.feeDay === SV.day) return;
+  const days = Math.max(1, Math.min(7, (SV.day || 1) - SV.feeDay)), fee = marinaFee() * days; SV.feeDay = SV.day;
+  if (!fee) return;
+  SV.money -= fee; save();
+  toast(`⚓ Diária da marina (vaga da ${BOATS[SV.boat || 0].name}): -${fmtR(fee)}${SV.money < 0 ? ' · saldo negativo: venda pescado ou use uma lancha menor' : ''}`, 5, SV.money < 0 ? 'bad' : '');
+}
+function feeHTML() {
+  const f = marinaFee();
+  return `<div class="it" style="margin-bottom:8px"><div class="d">⚓ Diária da marina: ${f ? `<b>${fmtR(f)} por dia</b> pela vaga da lancha atual` : 'grátis para a lancha 21 pés'} (26 pés ${fmtR(MARINA_FEE[1])}, 32 pés ${fmtR(MARINA_FEE[2])}, 38 pés ${fmtR(MARINA_FEE[3])}). Escolha a lancha do dia de acordo com o passeio.</div></div>`;
 }
 
 init();

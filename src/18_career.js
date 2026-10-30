@@ -9,7 +9,7 @@ function addXP(n, why) {
   if (!n || n < 1) return;
   const l0 = level(); SV.xp = (SV.xp || 0) + Math.round(n); const l1 = level();
   if (l1 > l0) {
-    const prize = 120 * l1; SV.money += prize; AU.coin(); buzz([40, 60, 40, 60, 80]);
+    const prize = 60 * l1; // metade do antigo: nos níveis altos o prêmio ficava gordo demais SV.money += prize; AU.coin(); buzz([40, 60, 40, 60, 80]);
     toast(`NÍVEL ${l1}! ${rankName(l1)} · prêmio ${fmtR(prize)}`, 5, 'gold');
   }
   careerHUD();
@@ -54,7 +54,7 @@ function checkAch(dt) {
 }
 function careerHTML() {
   const l = level(), a = l > 1 ? xpFor(l - 1) : 0, b = xpFor(l), done = ACH.filter(x => (SV.ach || {})[x.id]).length;
-  return `<div class="it" style="margin-bottom:8px"><div style="flex:1"><div class="n">Nível ${l} · ${rankName(l)}</div><div class="d">${Math.round((SV.xp || 0) - a)} de ${b - a} XP para o nível ${l + 1} (prêmio ${fmtR(250 * (l + 1))}). XP vem de peixe vendido, missões, fotos e conquistas.</div><div class="bar"><i style="width:${Math.round(clamp(((SV.xp || 0) - a) / (b - a), 0, 1) * 100)}%"></i></div></div></div>
+  return `<div class="it" style="margin-bottom:8px"><div style="flex:1"><div class="n">Nível ${l} · ${rankName(l)}</div><div class="d">${Math.round((SV.xp || 0) - a)} de ${b - a} XP para o nível ${l + 1} (prêmio ${fmtR(60 * (l + 1))}). XP vem de peixe vendido, missões, fotos e conquistas.</div><div class="bar"><i style="width:${Math.round(clamp(((SV.xp || 0) - a) / (b - a), 0, 1) * 100)}%"></i></div></div></div>
     <div class="it" style="margin-bottom:8px"><div class="d">Recordes: ${fmtKg(SV.maxDepth || 0)} m de profundidade · ${Math.floor(SV.maxDive || 0)} s no maior mergulho · ${Object.keys(SV.visited || {}).length} pontos visitados · conquistas ${done}/${ACH.length}</div></div><div class="list">` +
     ACH.map(x => { const ok = (SV.ach || {})[x.id]; return `<div class="it"><div><div class="n" style="${ok ? '' : 'opacity:.6'}">${ok ? '🏆' : '🔒'} ${x.n}</div><div class="d">${x.d}</div></div><b style="color:${ok ? 'var(--acc)' : 'inherit'}">${ok ? 'FEITA' : fmtR(x.r)}</b></div>`; }).join('') + '</div>';
 }

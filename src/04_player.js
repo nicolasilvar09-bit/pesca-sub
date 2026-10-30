@@ -193,7 +193,7 @@ function updateBoat(dt, t) {
   if (driving && !B.anchored) {
     const thIn = clamp(IN.jy, -0.35, 1);
     B.throttle = lerp(B.throttle, SV.fuel > 0 ? thIn : 0, clamp(dt * 2, 0, 1));
-    const maxS = boatNow().max * engineK();
+    const maxS = boatNow().max * engineK() * boatSpeedK();
     B.speed += (B.throttle * maxS - B.speed) * clamp(dt * (B.throttle > Math.abs(B.speed) / maxS ? 0.55 : 0.8), 0, 1);
     B.heading -= IN.jx * dt * (0.35 + 0.75 * Math.min(1, Math.abs(B.speed) / 6)) * (B.speed < -0.2 ? -1 : 1);
     SV.fuel = Math.max(0, SV.fuel - Math.abs(B.throttle) * dt * FUEL_RATE);
