@@ -267,7 +267,7 @@ function endWorld(rows) {
   const maxSp = Math.max(...rows.map(r => r.nsp)); if (br.nsp === maxSp && maxSp > 0) { prize += SPONSORS[1].val; extras.push(`🐠 ${SPONSORS[1].name} · mais espécies (${maxSp}): ${fmtR(SPONSORS[1].val)}`); }
   SV.worlds = SV.worlds || []; if (!SV.worlds.length) { prize += SPONSORS[2].val; extras.push(`⭐ ${SPONSORS[2].name} · melhor estreante: ${fmtR(SPONSORS[2].val)}`); }
   SV.worlds.push({ day: SV.day, reg: REGION, pos: pos + 1, pts: br.pts }); if (pos === 0) SV.worldTitles = (SV.worldTitles || 0) + 1;
-  SV.money += prize; addXP([2000, 1200, 800, 400][pos] || 200); save();
+  SV.money += prize; addXP([2000, 1200, 800, 400][pos] || 200); save(); storyEvent('world', pos);
   paused = true; $('marinaPanel').classList.remove('hide');
   $('marinaPanel').querySelector('h2').textContent = '🏆 Resultado do Mundial';
   $('mSub').textContent = pos === 0 ? 'CAMPEÕES MUNDIAIS! O Brasil é campeão!' : pos < 3 ? `Pódio! O Brasil ficou em ${pos + 1}º no Mundial.` : `O Brasil ficou em ${pos + 1}º de ${rows.length}.`;

@@ -24,7 +24,7 @@ const P = { mode: 'boat', pos: new V3(), vel: new V3(), yaw: 0, pitch: -0.1, und
 const BOAT = { pos: new V3(PIER.x + 8, 0, PIER.z1 - 8), heading: Math.PI, speed: 0, throttle: 0, anchored: false, mesh: null, camYaw: 0, camPitch: 0.28, roll: 0, pitch: 0 };
 // apneia estática: ganho de fôlego por nível (cada nível rende um pouco menos)
 const STATIC_STEPS = [10, 10, 8, 8, 6, 6, 5, 5];
-const maxBreath = () => 45 + STATIC_STEPS.slice(0, SV.apnea || 0).reduce((a, b) => a + b, 0) + (SV.restDay === SV.day ? 5 : 0);
+const maxBreath = () => 45 + STATIC_STEPS.slice(0, SV.apnea || 0).reduce((a, b) => a + b, 0) + (SV.restDay === SV.day ? 5 : 0) + (SV.story && SV.story.sp === 'azul' ? 5 : 0);
 let camUnder = false, camMurk = 0;
 
 function buildBoat() {
@@ -87,7 +87,7 @@ function catchFish(f) {
   P.stringer.push(tagCatch({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len }));
   if (!sp.ornamental) addXP(15 + f.kg * 12);
   if ((SV.tod || 12) >= 19 || (SV.tod || 12) < 5) SV.nightCatch = true;
-  compOnCatch(f); rankCatch(f); huntCatch(f);
+  compOnCatch(f); rankCatch(f); huntCatch(f); storyEvent('catch', f);
   if (!sp.ornamental) { mission('catch', { key: f.key }); mission('catchkg', { kg: f.kg }); if (GUN.waitShot) mission('wait'); }
   if (sp.rare) toast(`${sp.name}! Peixe raro na fieira.`, 4, 'gold'); else if (isTrophy(f)) toast(`Troféu! ${sp.name} acima do tamanho comum.`, 4, 'gold');
   if (sp.ornamental) toast(`${sp.name} é peixe ornamental, ninguém compra. Prefira deixar no mar.`, 4, 'bad');
