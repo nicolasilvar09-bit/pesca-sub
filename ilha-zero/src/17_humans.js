@@ -27,6 +27,7 @@ function loadHumans(onDone) {
   L.load('assets/chars/anims.glb', g => { for (const c of g.animations) HUM.clips[c.name] = c; done(); }, undefined, fail);
   for (const av of AVATARS) L.load(`assets/chars/${av.k}.glb`, g => { prepSource(g.scene); HUM.src[av.k] = g.scene; done(); }, undefined, fail);
   L.load('assets/plane.glb', g => { setPlaneModel(g.scene); done(); }, undefined, () => done());
+  left++; loadNature(L, () => done());
   left++; loadRealGuns(L, () => { for (const a of G.actors) if (a.model) refreshGun(a); vmKey = ''; for (const it of G.items) if (it.mesh) { scene.remove(it.mesh); it.mesh = null; } done(); });
 }
 // materiais mais leves (Lambert) e cores no mesmo espaço do resto do jogo

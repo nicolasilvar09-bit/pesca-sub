@@ -210,10 +210,17 @@ function stepMatch(dt) {
     actorTimers(a, dt);
     if (!a.alive) continue;
     if (a.veh) { if (a.bot) botInVeh(a, dt); continue; }
+    if (a.vault) { stepVault(a, dt); continue; }
     if (a.bot) botTick(a, dt);
     if (!a.alive || a.veh) continue;
     stepPhys(a, dt);
     a.lean += (a.leanT - a.lean) * Math.min(1, dt * 10);
   }
-  stepNades(dt); stepVehicles(dt); stepBullets(dt); stepCrates(dt); stepFx(dt);
+  // pessoas não se atravessam: empurra uma para longe da outra
+  const act = G.actors;
+  for (let i = 0; i < act.length; i++) { const a = act[i]; if (!a.alive || a.mode !== 'ground' || a.veh || a.vault) continue;
+    for (let j = i + 1; j < act.length; j++) { const b = act[j]; if (!b.alive || b.mode !== 'ground' || b.veh || b.vault) continue;
+      const dx = b.x - a.x, dz = b.z - a.z, d2 = dx * dx + dz * dz; if (d2 > 0.42 || d2 < 1e-6 || Math.abs(a.y - b.y) > 1.2) continue;
+      const d = Math.sqrt(d2), p = (0.65 - d) / 2 / d; a.x -= dx * p; a.z -= dz * p; b.x += dx * p; b.z += dz * p; } }
+  stepNades(dt); stepVehicles(dt); stepBullets(dt); stepFx2(dt); stepCrates(dt); stepFx(dt);
 }

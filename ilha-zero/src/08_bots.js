@@ -100,7 +100,9 @@ function botStuck(a, dt) {
     const b = bldAt(a.x, a.z, 0.5);
     if (b && a.y > groundH(a.x, a.z) + 2.2) ai.detA = Math.atan2(a.x - (b.x0 + b.x1) / 2, a.z - (b.z0 + b.z1) / 2); // em cima de prédio: vai para a borda
     else ai.detA = Math.atan2(ai.tx - a.x, ai.tz - a.z) + (Math.random() < 0.5 ? 1 : -1) * rr(1.2, 2.2);
-    ai.detT = rr(0.7, 1.3); ai.door = null; if (a.stance !== 'stand') a.stance = 'stand'; tryJump(a);
+    ai.detT = rr(0.7, 1.3); ai.door = null; if (a.stance !== 'stand') a.stance = 'stand';
+    // de frente para janela/muro baixo: pula por cima em vez de desviar
+    a.yaw = Math.atan2(-(ai.tx - a.x), -(ai.tz - a.z)); if (tryVault(a)) { ai.detT = 0; return; } tryJump(a);
   }
 }
 // ---------- decisão (4x por segundo) ----------

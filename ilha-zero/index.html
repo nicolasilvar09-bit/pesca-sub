@@ -5229,6 +5229,230 @@ THREE.SkeletonUtils = {
 };
 
 })();
+
+// Sky (Preetham) do three.js r149 (MIT)
+(function(){
+const {
+	BackSide,
+	BoxGeometry,
+	Mesh,
+	ShaderMaterial,
+	UniformsUtils,
+	Vector3
+} = THREE;
+
+/**
+ * Based on "A Practical Analytic Model for Daylight"
+ * aka The Preetham Model, the de facto standard analytic skydome model
+ * https://www.researchgate.net/publication/220720443_A_Practical_Analytic_Model_for_Daylight
+ *
+ * First implemented by Simon Wallner
+ * http://simonwallner.at/project/atmospheric-scattering/
+ *
+ * Improved by Martin Upitis
+ * http://blenderartists.org/forum/showthread.php?245954-preethams-sky-impementation-HDR
+ *
+ * Three.js integration by zz85 http://twitter.com/blurspline
+*/
+
+class Sky extends Mesh {
+
+	constructor() {
+
+		const shader = Sky.SkyShader;
+
+		const material = new ShaderMaterial( {
+			name: 'SkyShader',
+			fragmentShader: shader.fragmentShader,
+			vertexShader: shader.vertexShader,
+			uniforms: UniformsUtils.clone( shader.uniforms ),
+			side: BackSide,
+			depthWrite: false
+		} );
+
+		super( new BoxGeometry( 1, 1, 1 ), material );
+
+		this.isSky = true;
+
+	}
+
+}
+
+Sky.SkyShader = {
+
+	uniforms: {
+		'turbidity': { value: 2 },
+		'rayleigh': { value: 1 },
+		'mieCoefficient': { value: 0.005 },
+		'mieDirectionalG': { value: 0.8 },
+		'sunPosition': { value: new Vector3() },
+		'up': { value: new Vector3( 0, 1, 0 ) }
+	},
+
+	vertexShader: /* glsl */`
+		uniform vec3 sunPosition;
+		uniform float rayleigh;
+		uniform float turbidity;
+		uniform float mieCoefficient;
+		uniform vec3 up;
+
+		varying vec3 vWorldPosition;
+		varying vec3 vSunDirection;
+		varying float vSunfade;
+		varying vec3 vBetaR;
+		varying vec3 vBetaM;
+		varying float vSunE;
+
+		// constants for atmospheric scattering
+		const float e = 2.71828182845904523536028747135266249775724709369995957;
+		const float pi = 3.141592653589793238462643383279502884197169;
+
+		// wavelength of used primaries, according to preetham
+		const vec3 lambda = vec3( 680E-9, 550E-9, 450E-9 );
+		// this pre-calcuation replaces older TotalRayleigh(vec3 lambda) function:
+		// (8.0 * pow(pi, 3.0) * pow(pow(n, 2.0) - 1.0, 2.0) * (6.0 + 3.0 * pn)) / (3.0 * N * pow(lambda, vec3(4.0)) * (6.0 - 7.0 * pn))
+		const vec3 totalRayleigh = vec3( 5.804542996261093E-6, 1.3562911419845635E-5, 3.0265902468824876E-5 );
+
+		// mie stuff
+		// K coefficient for the primaries
+		const float v = 4.0;
+		const vec3 K = vec3( 0.686, 0.678, 0.666 );
+		// MieConst = pi * pow( ( 2.0 * pi ) / lambda, vec3( v - 2.0 ) ) * K
+		const vec3 MieConst = vec3( 1.8399918514433978E14, 2.7798023919660528E14, 4.0790479543861094E14 );
+
+		// earth shadow hack
+		// cutoffAngle = pi / 1.95;
+		const float cutoffAngle = 1.6110731556870734;
+		const float steepness = 1.5;
+		const float EE = 1000.0;
+
+		float sunIntensity( float zenithAngleCos ) {
+			zenithAngleCos = clamp( zenithAngleCos, -1.0, 1.0 );
+			return EE * max( 0.0, 1.0 - pow( e, -( ( cutoffAngle - acos( zenithAngleCos ) ) / steepness ) ) );
+		}
+
+		vec3 totalMie( float T ) {
+			float c = ( 0.2 * T ) * 10E-18;
+			return 0.434 * c * MieConst;
+		}
+
+		void main() {
+
+			vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+			vWorldPosition = worldPosition.xyz;
+
+			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+			gl_Position.z = gl_Position.w; // set z to camera.far
+
+			vSunDirection = normalize( sunPosition );
+
+			vSunE = sunIntensity( dot( vSunDirection, up ) );
+
+			vSunfade = 1.0 - clamp( 1.0 - exp( ( sunPosition.y / 450000.0 ) ), 0.0, 1.0 );
+
+			float rayleighCoefficient = rayleigh - ( 1.0 * ( 1.0 - vSunfade ) );
+
+			// extinction (absorbtion + out scattering)
+			// rayleigh coefficients
+			vBetaR = totalRayleigh * rayleighCoefficient;
+
+			// mie coefficients
+			vBetaM = totalMie( turbidity ) * mieCoefficient;
+
+		}`,
+
+	fragmentShader: /* glsl */`
+		varying vec3 vWorldPosition;
+		varying vec3 vSunDirection;
+		varying float vSunfade;
+		varying vec3 vBetaR;
+		varying vec3 vBetaM;
+		varying float vSunE;
+
+		uniform float mieDirectionalG;
+		uniform vec3 up;
+
+		const vec3 cameraPos = vec3( 0.0, 0.0, 0.0 );
+
+		// constants for atmospheric scattering
+		const float pi = 3.141592653589793238462643383279502884197169;
+
+		const float n = 1.0003; // refractive index of air
+		const float N = 2.545E25; // number of molecules per unit volume for air at 288.15K and 1013mb (sea level -45 celsius)
+
+		// optical length at zenith for molecules
+		const float rayleighZenithLength = 8.4E3;
+		const float mieZenithLength = 1.25E3;
+		// 66 arc seconds -> degrees, and the cosine of that
+		const float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;
+
+		// 3.0 / ( 16.0 * pi )
+		const float THREE_OVER_SIXTEENPI = 0.05968310365946075;
+		// 1.0 / ( 4.0 * pi )
+		const float ONE_OVER_FOURPI = 0.07957747154594767;
+
+		float rayleighPhase( float cosTheta ) {
+			return THREE_OVER_SIXTEENPI * ( 1.0 + pow( cosTheta, 2.0 ) );
+		}
+
+		float hgPhase( float cosTheta, float g ) {
+			float g2 = pow( g, 2.0 );
+			float inverse = 1.0 / pow( 1.0 - 2.0 * g * cosTheta + g2, 1.5 );
+			return ONE_OVER_FOURPI * ( ( 1.0 - g2 ) * inverse );
+		}
+
+		void main() {
+
+			vec3 direction = normalize( vWorldPosition - cameraPos );
+
+			// optical length
+			// cutoff angle at 90 to avoid singularity in next formula.
+			float zenithAngle = acos( max( 0.0, dot( up, direction ) ) );
+			float inverse = 1.0 / ( cos( zenithAngle ) + 0.15 * pow( 93.885 - ( ( zenithAngle * 180.0 ) / pi ), -1.253 ) );
+			float sR = rayleighZenithLength * inverse;
+			float sM = mieZenithLength * inverse;
+
+			// combined extinction factor
+			vec3 Fex = exp( -( vBetaR * sR + vBetaM * sM ) );
+
+			// in scattering
+			float cosTheta = dot( direction, vSunDirection );
+
+			float rPhase = rayleighPhase( cosTheta * 0.5 + 0.5 );
+			vec3 betaRTheta = vBetaR * rPhase;
+
+			float mPhase = hgPhase( cosTheta, mieDirectionalG );
+			vec3 betaMTheta = vBetaM * mPhase;
+
+			vec3 Lin = pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * ( 1.0 - Fex ), vec3( 1.5 ) );
+			Lin *= mix( vec3( 1.0 ), pow( vSunE * ( ( betaRTheta + betaMTheta ) / ( vBetaR + vBetaM ) ) * Fex, vec3( 1.0 / 2.0 ) ), clamp( pow( 1.0 - dot( up, vSunDirection ), 5.0 ), 0.0, 1.0 ) );
+
+			// nightsky
+			float theta = acos( direction.y ); // elevation --> y-axis, [-pi/2, pi/2]
+			float phi = atan( direction.z, direction.x ); // azimuth --> x-axis [-pi/2, pi/2]
+			vec2 uv = vec2( phi, theta ) / vec2( 2.0 * pi, pi ) + vec2( 0.5, 0.0 );
+			vec3 L0 = vec3( 0.1 ) * Fex;
+
+			// composition + solar disc
+			float sundisk = smoothstep( sunAngularDiameterCos, sunAngularDiameterCos + 0.00002, cosTheta );
+			L0 += ( vSunE * 19000.0 * Fex ) * sundisk;
+
+			vec3 texColor = ( Lin + L0 ) * 0.04 + vec3( 0.0, 0.0003, 0.00075 );
+
+			vec3 retColor = pow( texColor, vec3( 1.0 / ( 1.2 + ( 1.2 * vSunfade ) ) ) );
+
+			gl_FragColor = vec4( retColor, 1.0 );
+
+			#include <tonemapping_fragment>
+			#include <encodings_fragment>
+
+		}`
+
+};
+
+THREE.Sky = Sky;
+
+})();
 </script>
 <script>
 setTimeout(function(){
@@ -5751,7 +5975,7 @@ const warehouse = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, fh: 6, do
 })();
 
 // ---------- árvores, arbustos e pedras (instanciados: 1 desenho para todas) ----------
-const TREES = [];
+const TREES = [], NAT = {};
 (function nature() {
   const tr = [], rk = [], bu = [];
   for (let k = 0; k < 9000 && tr.length < 1300; k++) {
@@ -5783,7 +6007,8 @@ const TREES = [];
       dummy.position.set(x, h + th + 1.6 * s, z); dummy.scale.set(2.4 * s, 4 * s, 2.4 * s); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); crown.setMatrixAt(nc, dummy.matrix); crown.setColorAt(nc++, c.clone().offsetHSL(0, 0, -0.04));
       dummy.position.set(x, h + th + 3.8 * s, z); dummy.scale.set(1.7 * s, 3.4 * s, 1.7 * s); dummy.updateMatrix(); crown.setMatrixAt(nc, dummy.matrix); crown.setColorAt(nc++, c.clone().offsetHSL(0, 0, 0.04));
     }
-    addCollider(x - 0.3 * s, h, z - 0.3 * s, x + 0.3 * s, h + th + 3 * s, z + 0.3 * s, 'tree'); TREES.push([x, z]);
+    addCollider(x - 0.3 * s, h, z - 0.3 * s, x + 0.3 * s, h + th + 3 * s, z + 0.3 * s, 'tree');
+    TREES.push([x, z, h, s, round, i, round ? [nr - 3, nr - 2, nr - 1] : [nc - 2, nc - 1]]);
   });
   crown.count = nc; crown2.count = nr;
   const bush = new T.InstancedMesh(new T.IcosahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), bu.length);
@@ -5791,6 +6016,7 @@ const TREES = [];
   const rock = new T.InstancedMesh(new T.DodecahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), rk.length);
   rk.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.3 * s, z); dummy.scale.set(1.3 * s, s, 1.1 * s); dummy.rotation.set(WR(), WR() * 3, 0); dummy.updateMatrix(); rock.setMatrixAt(i, dummy.matrix); c.setHSL(0.08, 0.05, 0.46 + WR() * 0.12, 'srgb'); rock.setColorAt(i, c); addCollider(x - s, h - 0.5, z - 0.9 * s, x + s, h + 1.1 * s, z + 0.9 * s, 'rock'); });
   for (const m of [trunk, crown, crown2, bush, rock]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; scene.add(m); NATURE_MESH.push(m); }
+  Object.assign(NAT, { trunk, crown, crown2, bush, rock, bu, rk });
   // nuvens
   // nuvens fofas: cada uma é um cacho de 6 bolas, mais achatado embaixo
   const cl = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshLambertMaterial({ color: 0xffffff, emissive: 0x6d7682 }), 55 * 6);
@@ -6408,6 +6634,66 @@ function setStance(a, s) {
   a.stance = s;
 }
 
+// ---------- pular janela / saltar obstáculo / escalar (estilo PUBG) ----------
+const _vb = [];
+// coluna livre entre y0 e y1 no ponto (x,z)
+function columnFree(x, z, y0, y1, r) {
+  r = r || 0.26; boxesNear(x - r - 0.3, z - r - 0.3, x + r + 0.3, z + r + 0.3, _vb);
+  for (const b of _vb) if (b.y1 > y0 && b.y0 < y1 && x > b.x0 - r && x < b.x1 + r && z > b.z0 - r && z < b.z1 + r) return false;
+  return true;
+}
+// maior altura de obstáculo (caixa) na coluna, abaixo de "teto"
+function obstTop(x, z, base, ceil) {
+  boxesNear(x - 0.3, z - 0.3, x + 0.3, z + 0.3, _vb); let top = -1e9;
+  for (const b of _vb) if (x > b.x0 - 0.1 && x < b.x1 + 0.1 && z > b.z0 - 0.1 && z < b.z1 + 0.1 && b.y1 > base + STEP_H && b.y0 < base + 1.2 && b.y1 <= ceil && b.y1 > top) top = b.y1;
+  return top;
+}
+function supportAt(x, z, maxY) {
+  let s = groundH(x, z); boxesNear(x - 0.2, z - 0.2, x + 0.2, z + 0.2, _vb);
+  for (const b of _vb) if (x > b.x0 - 0.05 && x < b.x1 + 0.05 && z > b.z0 - 0.05 && z < b.z1 + 0.05 && b.y1 <= maxY + 0.01 && b.y1 > s) s = b.y1;
+  return s;
+}
+// devolve o plano do movimento ou null
+function vaultPlan(a) {
+  if (a.mode !== 'ground' || !a.onGround || a.knocked || a.veh || a.swim || a.vault) return null;
+  const fx = fwdX(a.yaw), fz = fwdZ(a.yaw), y = a.y;
+  for (let d = 0.4; d <= 1.0; d += 0.15) {
+    const px = a.x + fx * d, pz = a.z + fz * d, top = obstTop(px, pz, y, y + 2.7);
+    if (top < -1e8) continue;
+    const h = top - y;
+    if (h <= STEP_H || h > 2.65) return null;
+    // o caminho por cima do obstáculo precisa estar livre (janela: do peitoril para cima)
+    const clear = h <= 1.35 ? 0.85 : 1.7;
+    if (!columnFree(px, pz, top + 0.02, top + clear, 0.18)) return null;
+    // procura onde aterrissar do outro lado
+    for (let e = d + 0.35; e <= d + 1.9; e += 0.15) {
+      const lx = a.x + fx * e, lz = a.z + fz * e;
+      if (!columnFree(lx, lz, top + 0.02, top + clear, 0.22)) break;
+      const s = supportAt(lx, lz, top);
+      if (h <= 1.35 && s < top - 0.3 && columnFree(lx, lz, s + 0.05, s + 1.7, 0.25)) return { x: lx, z: lz, y: s, peak: top + 0.15, T: 0.6, kind: 'saltar' };
+      if (s >= top - 0.05 && columnFree(lx, lz, top + 0.05, top + 1.75, 0.25)) return { x: lx, z: lz, y: top, peak: top + 0.2, T: h > 1.35 ? 0.95 : 0.55, kind: h > 1.35 ? 'escalar' : 'subir' };
+    }
+    return null;
+  }
+  return null;
+}
+function tryVault(a) {
+  const p = vaultPlan(a); if (!p) return false;
+  a.vault = Object.assign(p, { t: 0, x0: a.x, y0: a.y, z0: a.z, st: a.stance });
+  a.stance = 'crouch'; a.vx = a.vz = a.vy = 0; a.ads = false; a.reloadT = 0; a.healT = 0;
+  if (a === G.player) { IN.adsOn = false; sfx('door'); }
+  return true;
+}
+function stepVault(a, dt) {
+  const v = a.vault; v.t += dt; const k = Math.min(1, v.t / v.T), e = smooth(k);
+  a.x = lerp(v.x0, v.x, e); a.z = lerp(v.z0, v.z, e);
+  // sobe rápido até o topo, passa por cima e desce
+  const up = Math.min(1, k / 0.45);
+  a.y = k < 0.6 ? lerp(v.y0, v.peak, smooth(up)) : lerp(v.peak, v.y, smooth((k - 0.6) / 0.4));
+  a.vx = (v.x - v.x0) / v.T; a.vz = (v.z - v.z0) / v.T;
+  if (k >= 1) { a.vault = null; a.y = v.y; a.vy = 0; a.onGround = true; a.vx *= 0.4; a.vz *= 0.4; a.stance = v.st === 'prone' ? 'stand' : v.st; }
+}
+
 // ================= combate: tiro com queda da bala, acertos (cabeça/corpo), proteção, cura, derrubado e abate =================
 const BUL = [];
 const _out = {};
@@ -6517,7 +6803,7 @@ function fireShot(a, ox, oy, oz, dx, dy, dz) {
   a.recoil = Math.min(a.recoil + 0.25, 2.5);
   a.kick = (a.kick || 0) + d.rec * mods.rec;
   if (d.burst) a.burstN++;
-  shotSound(a, d, mods.quiet);
+  shotSound(a, d, mods.quiet); muzzleFlash(a, mods.quiet);
   if (a === G.player) { G.flash = 0.05; G.camKick = (G.camKick || 0) + d.rec * mods.rec; }
   else if (!mods.quiet) a.lastShotT = G.matchT;
   if (w.mag === 0 && a.bot) startReload(a);
@@ -6547,7 +6833,7 @@ function stepBullets(dt) {
       hurt(ha.a, b.dmg * fall * (ha.head ? b.head : 1) * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn);
       BUL.splice(i, 1); continue;
     }
-    if (ts < len) { puff(b.x + dx * ts, b.y + dy * ts, b.z + dz * ts, '#d8cfb8', 0.3, 0.5); BUL.splice(i, 1); continue; }
+    if (ts < len) { const hx = b.x + dx * ts, hy = b.y + dy * ts, hz = b.z + dz * ts; puff(hx, hy, hz, '#d8cfb8', 0.3, 0.5); if (RAY_BOX) bulletDecal(hx, hy, hz, RAY_BOX); BUL.splice(i, 1); continue; }
     b.x += sx; b.y += sy; b.z += sz;
     if (b.life > 2.6 || b.y < -20) { BUL.splice(i, 1); continue; }
     if (n < TRC_N && b.life > 0.02) { const j = n++ * 6; trcPos[j] = b.px; trcPos[j + 1] = b.py; trcPos[j + 2] = b.pz; trcPos[j + 3] = b.x; trcPos[j + 4] = b.y; trcPos[j + 5] = b.z; }
@@ -6765,7 +7051,9 @@ function botStuck(a, dt) {
     const b = bldAt(a.x, a.z, 0.5);
     if (b && a.y > groundH(a.x, a.z) + 2.2) ai.detA = Math.atan2(a.x - (b.x0 + b.x1) / 2, a.z - (b.z0 + b.z1) / 2); // em cima de prédio: vai para a borda
     else ai.detA = Math.atan2(ai.tx - a.x, ai.tz - a.z) + (Math.random() < 0.5 ? 1 : -1) * rr(1.2, 2.2);
-    ai.detT = rr(0.7, 1.3); ai.door = null; if (a.stance !== 'stand') a.stance = 'stand'; tryJump(a);
+    ai.detT = rr(0.7, 1.3); ai.door = null; if (a.stance !== 'stand') a.stance = 'stand';
+    // de frente para janela/muro baixo: pula por cima em vez de desviar
+    a.yaw = Math.atan2(-(ai.tx - a.x), -(ai.tz - a.z)); if (tryVault(a)) { ai.detT = 0; return; } tryJump(a);
   }
 }
 // ---------- decisão (4x por segundo) ----------
@@ -7192,12 +7480,19 @@ function stepMatch(dt) {
     actorTimers(a, dt);
     if (!a.alive) continue;
     if (a.veh) { if (a.bot) botInVeh(a, dt); continue; }
+    if (a.vault) { stepVault(a, dt); continue; }
     if (a.bot) botTick(a, dt);
     if (!a.alive || a.veh) continue;
     stepPhys(a, dt);
     a.lean += (a.leanT - a.lean) * Math.min(1, dt * 10);
   }
-  stepNades(dt); stepVehicles(dt); stepBullets(dt); stepCrates(dt); stepFx(dt);
+  // pessoas não se atravessam: empurra uma para longe da outra
+  const act = G.actors;
+  for (let i = 0; i < act.length; i++) { const a = act[i]; if (!a.alive || a.mode !== 'ground' || a.veh || a.vault) continue;
+    for (let j = i + 1; j < act.length; j++) { const b = act[j]; if (!b.alive || b.mode !== 'ground' || b.veh || b.vault) continue;
+      const dx = b.x - a.x, dz = b.z - a.z, d2 = dx * dx + dz * dz; if (d2 > 0.42 || d2 < 1e-6 || Math.abs(a.y - b.y) > 1.2) continue;
+      const d = Math.sqrt(d2), p = (0.65 - d) / 2 / d; a.x -= dx * p; a.z -= dz * p; b.x += dx * p; b.z += dz * p; } }
+  stepNades(dt); stepVehicles(dt); stepBullets(dt); stepFx2(dt); stepCrates(dt); stepFx(dt);
 }
 
 // ================= jogador: controles, mira, coice, câmera (1ª e 3ª pessoa), lunetas e arma na mão =================
@@ -7372,7 +7667,7 @@ function updateCamera(dt) {
     VM.rotation.set(p.reloadT > 0 ? -0.5 : 0, 0, 0);
   }
   if (G.shake > 0) { G.shake -= dt; camera.rotation.x += gauss() * 0.012 * G.shake; camera.rotation.y += gauss() * 0.012 * G.shake; }
-  SKY.position.copy(camera.position);
+  SKY.position.copy(camera.position); if (typeof SKY2 !== 'undefined' && SKY2) SKY2.position.copy(camera.position);
   return hide;
 }
 
@@ -7439,7 +7734,7 @@ function btnDown(id) {
   if (!p) return;
   if (id === 'fireR' || id === 'fireL') { IN.fire = true; return; }
   if (id === 'ads') { IN.adsOn = !IN.adsOn; return; }
-  if (id === 'jump') { tryJump(p); return; }
+  if (id === 'jump') { if (!tryVault(p)) tryJump(p); return; }
   if (id === 'crouch') { setStance(p, 'crouch'); return; }
   if (id === 'prone') { setStance(p, 'prone'); return; }
   if (id === 'reload') { startReload(p); return; }
@@ -7461,7 +7756,7 @@ const KEY = {};
 addEventListener('keydown', e => {
   if (G.phase !== 'match' || e.target.tagName === 'INPUT') return;
   const k = e.key.toLowerCase(); if (KEY[k]) return; KEY[k] = true; const p = G.player;
-  if (k === ' ') tryJump(p); else if (k === 'c') setStance(p, 'crouch'); else if (k === 'z') setStance(p, 'prone'); else if (k === 'r') startReload(p);
+  if (k === ' ') { if (!tryVault(p)) tryJump(p); } else if (k === 'c') setStance(p, 'crouch'); else if (k === 'z') setStance(p, 'prone'); else if (k === 'r') startReload(p);
   else if (k === 'q') pLean(-1); else if (k === 'e') pLean(1); else if (k === 'f') { const c = ctx(); if (p.mode !== 'ground' || c.knocked || c.crate) pAct(); else { const n = nearList()[0]; if (n) pPickup(n.it, n.c); } }
   else if (k === 'tab') { e.preventDefault(); if ($('bagP').classList.contains('hidden')) { G.openCrate = null; openBag(); } else closePanels(); }
   else if (k === 'm') toggleMap(); else if (k === 'v') btnDown('view'); else if (k === 'h') { const hk = ['MED', 'FAK', 'BAND', 'PAIN', 'ENERGY'].find(x => canHeal(p, x)); if (hk) pHeal(hk); }
@@ -7540,6 +7835,7 @@ function updateHud(dt) {
   $('b_leanL').classList.toggle('on', p.leanT < 0); $('b_leanR').classList.toggle('on', p.leanT > 0);
   $('b_crouch').classList.toggle('on', p.stance === 'crouch'); $('b_prone').classList.toggle('on', p.stance === 'prone'); $('b_ads').classList.toggle('on', IN.adsOn);
   $('b_view').textContent = G.view.fpp ? '1P' : '3P';
+  { const vp = alive && !air ? vaultPlan(p) : null, jb = $('b_jump'), lab = vp ? `<b>${vp.kind.toUpperCase()}</b>` : '⤒'; if (jb.innerHTML !== lab) jb.innerHTML = lab; jb.classList.toggle('on', !!vp); }
   $('wslots').classList.toggle('hidden', !alive || air);
   // lista de itens no chão (toque para pegar)
   const nl = alive && !air ? nearList().slice(0, 7) : [];
@@ -7728,7 +8024,7 @@ function lobbyCamera(dt) {
   camera.position.set(LOB.x - fx * d + rx * 1.3, LOB.y + 1.6, LOB.z - fz * d + rz * 1.3);
   camera.lookAt(LOB.x + rx * 1.3 * 0.6, LOB.y + 1.05, LOB.z + rz * 0.6);
   if (Math.abs(camera.fov - 50) > 0.1) { camera.fov = 50; camera.updateProjectionMatrix(); }
-  SKY.position.copy(camera.position);
+  SKY.position.copy(camera.position); if (typeof SKY2 !== 'undefined' && SKY2) SKY2.position.copy(camera.position);
   humanFrame();
   for (const a of LOB.actors) { a.pitch = Math.sin(LOB.t * 0.8 + a.id) * 0.05 - 0.15; animateModel(a, dt, camera.position.x, camera.position.z, false); }
   VM.visible = false;
@@ -7930,7 +8226,7 @@ function addVehicle(k, x, z, yaw) {
   v.mesh = new T.Mesh(vehGeo(k, col), MAT.world); v.mesh.rotation.order = 'YXZ'; v.mesh.castShadow = v.mesh.receiveShadow = true; scene.add(v.mesh);
   VEH.push(v); syncVehMesh(v); return v;
 }
-function syncVehMesh(v) { v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.set(v.pitch, v.yaw, v.roll); }
+function syncVehMesh(v) { v.mesh.position.set(v.x, v.y + (v.bob || 0), v.z); v.mesh.rotation.set(v.pitch + (v.pOff || 0), v.yaw, v.roll + (v.rOff || 0)); }
 const vfx = v => -Math.sin(v.yaw), vfz = v => -Math.cos(v.yaw);
 // altura de apoio (terreno ou plataforma baixa, como o píer)
 function vSup(x, z, y) {
@@ -8017,10 +8313,17 @@ function stepVehicles(dt) {
     if (v.y > gy + 0.3) { v.air = true; v.vy -= 20 * dt; v.y += v.vy * dt; }
     if (v.y <= gy + 0.3) {
       if (v.air && v.vy < -9) { vehHurt(v, (-v.vy - 9) * 30, null); for (const a of v.seats) if (a) hurt(a, (-v.vy - 9) * 2, null, false, 'queda'); }
+      if (v.air) v.bobV = (v.bobV || 0) + v.vy * 0.06; // quica ao cair
       const ny = gy; v.vy = v.air ? 0 : clamp((ny - v.y) / Math.max(dt, 1e-3), -30, 30); v.y = ny; v.air = false;
       v.pitch += (Math.atan2(hF - hB, a0 * 2) - v.pitch) * Math.min(1, dt * 10);
       v.roll += (Math.atan2(hR - hL, d.hw * 2) - v.roll) * Math.min(1, dt * 10);
     }
+    // suspensão: frente afunda ao frear, traseira ao acelerar, carroceria inclina na curva, mola amortecida
+    { const acc = (v.sp - (v.lastSp == null ? v.sp : v.lastSp)) / Math.max(dt, 1e-3); v.lastSp = v.sp; const kS = Math.min(1, dt * 6), soft = v.k === 'moto' ? 0.4 : 1;
+      v.pOff = (v.pOff || 0) + (clamp(acc * 0.009, -0.09, 0.09) * soft - (v.pOff || 0)) * kS;
+      const rollT = v.k === 'moto' ? clamp(v.str * Math.min(1, Math.abs(v.sp) / 12) * 0.45, -0.45, 0.45) : clamp(-v.str * v.sp * 0.0055, -0.1, 0.1);
+      v.rOff = (v.rOff || 0) + (rollT - (v.rOff || 0)) * Math.min(1, dt * 5);
+      v.bobV = ((v.bobV || 0) - (v.bob || 0) * 90 * dt) * Math.exp(-dt * 6); v.bob = clamp((v.bob || 0) + v.bobV * dt, -0.25, 0.25); }
     if (v.dead) { syncVehMesh(v); continue; }
     // motor
     if (!v.air) {
@@ -8385,7 +8688,7 @@ function shadowFollow(x, y, z) {
 }
 // chamado todo quadro
 function gfxStep(dt, fx, fy, fz) {
-  GFX.t += dt; GRASS_U.value = GFX.t; if (GFX.water) GFX.water.uniforms.uT.value = GFX.t;
+  GFX.t += dt; GRASS_U.value = GFX.t; if (typeof natureStep === 'function') natureStep(dt, fx, fz); if (GFX.water) GFX.water.uniforms.uT.value = GFX.t;
   shadowFollow(fx, fy, fz);
   if (GFX.grassOn && Math.hypot(fx - GFX.gx, fz - GFX.gz) > 8) refreshGrass(fx, fz);
 }
@@ -8419,6 +8722,7 @@ function loadHumans(onDone) {
   L.load('assets/chars/anims.glb', g => { for (const c of g.animations) HUM.clips[c.name] = c; done(); }, undefined, fail);
   for (const av of AVATARS) L.load(`assets/chars/${av.k}.glb`, g => { prepSource(g.scene); HUM.src[av.k] = g.scene; done(); }, undefined, fail);
   L.load('assets/plane.glb', g => { setPlaneModel(g.scene); done(); }, undefined, () => done());
+  left++; loadNature(L, () => done());
   left++; loadRealGuns(L, () => { for (const a of G.actors) if (a.model) refreshGun(a); vmKey = ''; for (const it of G.items) if (it.mesh) { scene.remove(it.mesh); it.mesh = null; } done(); });
 }
 // materiais mais leves (Lambert) e cores no mesmo espaço do resto do jogo
@@ -8731,6 +9035,133 @@ function botNade(a) {
 }
 function clearNades() { for (const n of NADES) scene.remove(n.m); for (const s of SMOKES) scene.remove(s.grp); NADES.length = SMOKES.length = FIRES.length = 0; }
 
+// ================= natureza de verdade (Quaternius Ultimate Nature Pack, CC0): árvores e arbustos perto, pedras em toda a ilha; céu realista =================
+const NATR = { ready: false, types: {}, near: new Set(), cx: 1e9, cz: 1e9 };
+const TREE_ROUND = ['CommonTree_3', 'CommonTree_4', 'BirchTree_2'], TREE_PINE = ['PineTree_2', 'PineTree_4'], TREE_PALM = ['PalmTree_2'];
+const BUSHES = ['Bush_1', 'Bush_2'], ROCKS = ['Rock_1', 'Rock_2', 'Rock_3', 'Rock_4', 'Rock_5', 'Rock_Moss_1', 'Rock_Moss_2'];
+const NEAR_R = 115;
+const ZERO_M = new T.Matrix4().makeScale(0, 0, 0);
+// folhas balançando de leve (a base fica parada)
+const NAT_WIND = { value: 0 };
+function natMat() {
+  const m = new T.MeshLambertMaterial({ vertexColors: true });
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uT = NAT_WIND;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT;').replace('#include <begin_vertex>', `#include <begin_vertex>
+      #ifdef USE_INSTANCING
+      float ph = instanceMatrix[3][0] * 0.13 + instanceMatrix[3][2] * 0.07;
+      float hh = max(position.y - 0.3, 0.0);
+      transformed.x += sin(uT * 1.3 + ph) * 0.025 * hh * hh; transformed.z += cos(uT * 1.1 + ph) * 0.02 * hh * hh;
+      #endif`);
+  };
+  m.customProgramCacheKey = () => 'natwind';
+  return m;
+}
+// junta as peças do modelo numa geometria só com a cor de cada material, altura 1 e base no chão
+function natGeo(scn) {
+  scn.updateMatrixWorld(true); const parts = [];
+  scn.traverse(o => { if (!o.isMesh) return; const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); parts.push({ g, c: (Array.isArray(o.material) ? o.material[0] : o.material).color.clone() }); });
+  const box = new T.Box3(); for (const p of parts) { p.g.computeBoundingBox(); box.union(p.g.boundingBox); }
+  const c = box.getCenter(new T.Vector3()), h = box.max.y - box.min.y;
+  const geo = mergeParts(parts.map(p => ({ g: p.g, c: p.c })));
+  geo.translate(-c.x, -box.min.y, -c.z); geo.scale(1 / h, 1 / h, 1 / h); geo.computeBoundingSphere();
+  return geo;
+}
+function loadNature(L, done) {
+  const all = [...TREE_ROUND, ...TREE_PINE, ...TREE_PALM, ...BUSHES, ...ROCKS]; let left = all.length;
+  for (const k of all) L.load(`assets/nature/${k}.glb`, g => { NATR.types[k] = natGeo(g.scene); if (--left === 0) setupNature(done); }, undefined, () => { if (--left === 0) setupNature(done); });
+}
+const _nd = new T.Object3D();
+function setupNature(done) {
+  const mat = natMat(), mk = (k, n) => { if (!NATR.types[k]) return null; const m = new T.InstancedMesh(NATR.types[k], mat, n); m.count = 0; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; scene.add(m); return m; };
+  NATR.inst = {}; for (const k of [...TREE_ROUND, ...TREE_PINE, ...TREE_PALM, ...BUSHES]) NATR.inst[k] = mk(k, 420);
+  // guarda as matrizes originais das árvores simples (para esconder/mostrar)
+  NATR.orig = {}; for (const n of ['trunk', 'crown', 'crown2', 'bush']) NATR.orig[n] = NAT[n].instanceMatrix.array.slice();
+  // pedras: troca todas de uma vez (são leves)
+  const rk = NAT.rk || [], groups = {};
+  rk.forEach((r, i) => { const k = ROCKS[(i * 7 + 3) % ROCKS.length]; (groups[k] = groups[k] || []).push(r); });
+  for (const k in groups) {
+    if (!NATR.types[k]) continue; const m = new T.InstancedMesh(NATR.types[k], new T.MeshLambertMaterial({ vertexColors: true }), groups[k].length);
+    groups[k].forEach(([x, h, z, s], i) => { _nd.position.set(x, h - 0.25 * s, z); _nd.rotation.set(0, (x * 3.1 + z) % 6.28, 0); _nd.scale.set(2.6 * s, 2.1 * s, 2.4 * s); _nd.updateMatrix(); m.setMatrixAt(i, _nd.matrix); });
+    m.castShadow = m.receiveShadow = true; scene.add(m);
+  }
+  if (Object.keys(groups).length && NATR.types[ROCKS[0]]) NAT.rock.visible = false;
+  NATR.ready = true; NATR.cx = 1e9; if (done) done();
+}
+const hsh = (x, z) => { const s = Math.sin(x * 12.99 + z * 78.23) * 43758.5; return s - Math.floor(s); };
+// perto da câmera: árvores e arbustos de verdade; longe: os simples (leves)
+function refreshNature(cx, cz) {
+  if (!NATR.ready) return;
+  NATR.cx = cx; NATR.cz = cz;
+  const tm = NAT.trunk.instanceMatrix, cm = NAT.crown.instanceMatrix, c2 = NAT.crown2.instanceMatrix, bm = NAT.bush.instanceMatrix;
+  tm.array.set(NATR.orig.trunk); cm.array.set(NATR.orig.crown); c2.array.set(NATR.orig.crown2); bm.array.set(NATR.orig.bush);
+  for (const k in NATR.inst) if (NATR.inst[k]) NATR.inst[k].count = 0;
+  const put = (k, x, y, z, h, rot) => { const m = NATR.inst[k]; if (!m || m.count >= 420) return false; _nd.position.set(x, y, z); _nd.rotation.set(0, rot, 0); _nd.scale.setScalar(h); _nd.updateMatrix(); m.setMatrixAt(m.count++, _nd.matrix); return true; };
+  const R = [55, 95, 130][SET.quality] || 95, R2 = R * R;
+  for (const t of TREES) {
+    const [x, z, h, s, round, ti, idx] = t; if ((x - cx) ** 2 + (z - cz) ** 2 > R2) continue;
+    const r = hsh(x, z), beach = h < 6 && Math.hypot(x, z) > 380;
+    const k = beach ? TREE_PALM[0] : round ? TREE_ROUND[Math.floor(r * TREE_ROUND.length)] : TREE_PINE[Math.floor(r * TREE_PINE.length)];
+    if (!put(k, x, h - 0.05, z, (round ? 6.6 : 8.2) * s * (0.9 + r * 0.25), r * 6.28)) continue;
+    ZERO_M.toArray(tm.array, ti * 16); for (const j of idx) ZERO_M.toArray(round ? c2.array : cm.array, j * 16);
+  }
+  (NAT.bu || []).forEach(([x, h, z, s], i) => { if ((x - cx) ** 2 + (z - cz) ** 2 > R2) return; const r = hsh(x, z); if (put(BUSHES[Math.floor(r * BUSHES.length)], x, h - 0.05, z, 1.5 * s, r * 6.28)) ZERO_M.toArray(bm.array, i * 16); });
+  tm.needsUpdate = cm.needsUpdate = c2.needsUpdate = bm.needsUpdate = true;
+  for (const k in NATR.inst) if (NATR.inst[k]) NATR.inst[k].instanceMatrix.needsUpdate = true;
+}
+function natureStep(dt, fx, fz) { NAT_WIND.value += dt; if (NATR.ready && Math.hypot(fx - NATR.cx, fz - NATR.cz) > 14) refreshNature(fx, fz); }
+
+// ---------- céu realista (dispersão atmosférica) ----------
+const SKY2 = (() => {
+  if (!T.Sky) return null;
+  const s = new T.Sky(); s.scale.setScalar(4000); const u = s.material.uniforms;
+  u.turbidity.value = 6.5; u.rayleigh.value = 1.4; u.mieCoefficient.value = 0.006; u.mieDirectionalG.value = 0.82;
+  u.sunPosition.value.copy(SUN_DIR); s.material.fog = false; s.renderOrder = -10; scene.add(s);
+  SKY.material.visible = false; // o antigo some; o disco do sol continua como brilho
+  return s;
+})();
+
+// ================= efeitos: clarão do cano e marcas de bala nas paredes =================
+const FLASH = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.25, 'rgba(255,200,90,0.9)'); gr.addColorStop(1, 'rgba(255,120,20,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const tex = new T.CanvasTexture(cv), pool = [];
+  for (let i = 0; i < 14; i++) { const s = new T.Sprite(new T.SpriteMaterial({ map: tex, blending: T.AdditiveBlending, depthWrite: false, transparent: true, fog: false })); s.visible = false; s.renderOrder = 3; scene.add(s); pool.push({ s, t: 0 }); }
+  return { pool, i: 0 };
+})();
+const _mz = new T.Vector3();
+function muzzleFlash(a, quiet) {
+  if (quiet) return;
+  const w = curW(a); if (!w) return;
+  let src = null;
+  if (a === G.player && VM.visible) src = vmGun; else if (a.model && a.model.gun && a.model.gun.visible && a.model.g.visible) src = a.model.gun;
+  if (!src) return;
+  src.updateMatrixWorld(true); src.localToWorld(_mz.set(0, 0.012, (GUN_MUZ[w.k] || -0.6) - 0.03));
+  if (_mz.distanceTo(camera.position) > 160) return;
+  const f = FLASH.pool[FLASH.i = (FLASH.i + 1) % FLASH.pool.length];
+  f.s.position.copy(_mz); const sz = wdef(w).cls === 'pistol' ? 0.22 : 0.38; f.s.scale.set(sz, sz, sz); f.s.material.rotation = Math.random() * 6.28; f.s.visible = true; f.t = 0.045;
+}
+const DECAL = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 32; const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(10,10,10,0.95)'); gr.addColorStop(0.35, 'rgba(25,22,20,0.8)'); gr.addColorStop(1, 'rgba(40,35,30,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+  const mat = new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  const geo = new T.PlaneGeometry(0.11, 0.11), pool = [];
+  for (let i = 0; i < 70; i++) { const m = new T.Mesh(geo, mat); m.visible = false; scene.add(m); pool.push(m); }
+  return { pool, i: 0 };
+})();
+const _dn = new T.Vector3();
+// marca de bala no ponto (x,y,z) da caixa b (normal = face mais próxima)
+function bulletDecal(x, y, z, b) {
+  if (!b || (x - camera.position.x) ** 2 + (z - camera.position.z) ** 2 > 90 * 90) return;
+  const d = [[Math.abs(x - b.x0), -1, 0, 0], [Math.abs(x - b.x1), 1, 0, 0], [Math.abs(y - b.y0), 0, -1, 0], [Math.abs(y - b.y1), 0, 1, 0], [Math.abs(z - b.z0), 0, 0, -1], [Math.abs(z - b.z1), 0, 0, 1]].sort((p, q) => p[0] - q[0])[0];
+  const m = DECAL.pool[DECAL.i = (DECAL.i + 1) % DECAL.pool.length];
+  m.position.set(x + d[1] * 0.012, y + d[2] * 0.012, z + d[3] * 0.012); _dn.set(x + d[1], y + d[2], z + d[3]); m.lookAt(_dn); m.rotateZ(Math.random() * 6.28); m.visible = true;
+  puff(x, y, z, '#ffcf7a', 0.06, 0.12);
+}
+function stepFx2(dt) { for (const f of FLASH.pool) if (f.s.visible && (f.t -= dt) <= 0) f.s.visible = false; }
+
 // ================= início =================
 G.mode = SET.mode || 'squad'; G.diff = SET.diff || 'mix';
 applyQuality();
@@ -8743,7 +9174,7 @@ loadHumans(() => {
 });
 $('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__G = { G, IN, ZONE, BLD, BOX, TOWNS, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
+window.__G = { G, IN, ZONE, BLD, BOX, TOWNS, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
 
 }, 30);
 </script>

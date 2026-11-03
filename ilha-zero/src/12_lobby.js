@@ -28,7 +28,7 @@ function lobbyCamera(dt) {
   camera.position.set(LOB.x - fx * d + rx * 1.3, LOB.y + 1.6, LOB.z - fz * d + rz * 1.3);
   camera.lookAt(LOB.x + rx * 1.3 * 0.6, LOB.y + 1.05, LOB.z + rz * 0.6);
   if (Math.abs(camera.fov - 50) > 0.1) { camera.fov = 50; camera.updateProjectionMatrix(); }
-  SKY.position.copy(camera.position);
+  SKY.position.copy(camera.position); if (typeof SKY2 !== 'undefined' && SKY2) SKY2.position.copy(camera.position);
   humanFrame();
   for (const a of LOB.actors) { a.pitch = Math.sin(LOB.t * 0.8 + a.id) * 0.05 - 0.15; animateModel(a, dt, camera.position.x, camera.position.z, false); }
   VM.visible = false;

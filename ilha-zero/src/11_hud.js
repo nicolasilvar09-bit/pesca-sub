@@ -61,7 +61,7 @@ function btnDown(id) {
   if (!p) return;
   if (id === 'fireR' || id === 'fireL') { IN.fire = true; return; }
   if (id === 'ads') { IN.adsOn = !IN.adsOn; return; }
-  if (id === 'jump') { tryJump(p); return; }
+  if (id === 'jump') { if (!tryVault(p)) tryJump(p); return; }
   if (id === 'crouch') { setStance(p, 'crouch'); return; }
   if (id === 'prone') { setStance(p, 'prone'); return; }
   if (id === 'reload') { startReload(p); return; }
@@ -83,7 +83,7 @@ const KEY = {};
 addEventListener('keydown', e => {
   if (G.phase !== 'match' || e.target.tagName === 'INPUT') return;
   const k = e.key.toLowerCase(); if (KEY[k]) return; KEY[k] = true; const p = G.player;
-  if (k === ' ') tryJump(p); else if (k === 'c') setStance(p, 'crouch'); else if (k === 'z') setStance(p, 'prone'); else if (k === 'r') startReload(p);
+  if (k === ' ') { if (!tryVault(p)) tryJump(p); } else if (k === 'c') setStance(p, 'crouch'); else if (k === 'z') setStance(p, 'prone'); else if (k === 'r') startReload(p);
   else if (k === 'q') pLean(-1); else if (k === 'e') pLean(1); else if (k === 'f') { const c = ctx(); if (p.mode !== 'ground' || c.knocked || c.crate) pAct(); else { const n = nearList()[0]; if (n) pPickup(n.it, n.c); } }
   else if (k === 'tab') { e.preventDefault(); if ($('bagP').classList.contains('hidden')) { G.openCrate = null; openBag(); } else closePanels(); }
   else if (k === 'm') toggleMap(); else if (k === 'v') btnDown('view'); else if (k === 'h') { const hk = ['MED', 'FAK', 'BAND', 'PAIN', 'ENERGY'].find(x => canHeal(p, x)); if (hk) pHeal(hk); }
@@ -162,6 +162,7 @@ function updateHud(dt) {
   $('b_leanL').classList.toggle('on', p.leanT < 0); $('b_leanR').classList.toggle('on', p.leanT > 0);
   $('b_crouch').classList.toggle('on', p.stance === 'crouch'); $('b_prone').classList.toggle('on', p.stance === 'prone'); $('b_ads').classList.toggle('on', IN.adsOn);
   $('b_view').textContent = G.view.fpp ? '1P' : '3P';
+  { const vp = alive && !air ? vaultPlan(p) : null, jb = $('b_jump'), lab = vp ? `<b>${vp.kind.toUpperCase()}</b>` : '⤒'; if (jb.innerHTML !== lab) jb.innerHTML = lab; jb.classList.toggle('on', !!vp); }
   $('wslots').classList.toggle('hidden', !alive || air);
   // lista de itens no chão (toque para pegar)
   const nl = alive && !air ? nearList().slice(0, 7) : [];

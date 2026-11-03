@@ -170,6 +170,6 @@ function updateCamera(dt) {
     VM.rotation.set(p.reloadT > 0 ? -0.5 : 0, 0, 0);
   }
   if (G.shake > 0) { G.shake -= dt; camera.rotation.x += gauss() * 0.012 * G.shake; camera.rotation.y += gauss() * 0.012 * G.shake; }
-  SKY.position.copy(camera.position);
+  SKY.position.copy(camera.position); if (typeof SKY2 !== 'undefined' && SKY2) SKY2.position.copy(camera.position);
   return hide;
 }

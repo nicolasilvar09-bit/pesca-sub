@@ -107,7 +107,7 @@ function fireShot(a, ox, oy, oz, dx, dy, dz) {
   a.recoil = Math.min(a.recoil + 0.25, 2.5);
   a.kick = (a.kick || 0) + d.rec * mods.rec;
   if (d.burst) a.burstN++;
-  shotSound(a, d, mods.quiet);
+  shotSound(a, d, mods.quiet); muzzleFlash(a, mods.quiet);
   if (a === G.player) { G.flash = 0.05; G.camKick = (G.camKick || 0) + d.rec * mods.rec; }
   else if (!mods.quiet) a.lastShotT = G.matchT;
   if (w.mag === 0 && a.bot) startReload(a);
@@ -137,7 +137,7 @@ function stepBullets(dt) {
       hurt(ha.a, b.dmg * fall * (ha.head ? b.head : 1) * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn);
       BUL.splice(i, 1); continue;
     }
-    if (ts < len) { puff(b.x + dx * ts, b.y + dy * ts, b.z + dz * ts, '#d8cfb8', 0.3, 0.5); BUL.splice(i, 1); continue; }
+    if (ts < len) { const hx = b.x + dx * ts, hy = b.y + dy * ts, hz = b.z + dz * ts; puff(hx, hy, hz, '#d8cfb8', 0.3, 0.5); if (RAY_BOX) bulletDecal(hx, hy, hz, RAY_BOX); BUL.splice(i, 1); continue; }
     b.x += sx; b.y += sy; b.z += sz;
     if (b.life > 2.6 || b.y < -20) { BUL.splice(i, 1); continue; }
     if (n < TRC_N && b.life > 0.02) { const j = n++ * 6; trcPos[j] = b.px; trcPos[j + 1] = b.py; trcPos[j + 2] = b.pz; trcPos[j + 3] = b.x; trcPos[j + 4] = b.y; trcPos[j + 5] = b.z; }

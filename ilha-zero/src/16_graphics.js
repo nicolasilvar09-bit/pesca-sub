@@ -258,7 +258,7 @@ function shadowFollow(x, y, z) {
 }
 // chamado todo quadro
 function gfxStep(dt, fx, fy, fz) {
-  GFX.t += dt; GRASS_U.value = GFX.t; if (GFX.water) GFX.water.uniforms.uT.value = GFX.t;
+  GFX.t += dt; GRASS_U.value = GFX.t; if (typeof natureStep === 'function') natureStep(dt, fx, fz); if (GFX.water) GFX.water.uniforms.uT.value = GFX.t;
   shadowFollow(fx, fy, fz);
   if (GFX.grassOn && Math.hypot(fx - GFX.gx, fz - GFX.gz) > 8) refreshGrass(fx, fz);
 }

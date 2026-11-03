@@ -24,5 +24,9 @@ Obtidas via https://github.com/KrishBharadwaj5678/Gunify e https://github.com/Dr
 - S&W M625: "Smith & Wesson Revolver M625" por SchrisArt — https://sketchfab.com/3d-models/smith-wesson-revolver-m625-073b7ba2570b4ebca78c87dc9b9a8184
 Alterações: orientação e escala normalizadas, malha simplificada, texturas reduzidas para 512 px (JPEG), material trocado.
 
+## Natureza: Quaternius Ultimate Nature Pack (CC0 1.0)
+https://quaternius.com/packs/ultimatenature.html (arquivos via https://github.com/trebeljahr/quaternius-showcase)
+Árvores, arbustos e pedras. Domínio público: crédito não obrigatório.
+
 ## Todo o resto (mapa, prédios, demais armas, veículos, efeitos, sons)
 Feito por código dentro do jogo.

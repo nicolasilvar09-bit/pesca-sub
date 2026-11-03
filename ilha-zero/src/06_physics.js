@@ -67,3 +67,63 @@ function setStance(a, s) {
   }
   a.stance = s;
 }
+
+// ---------- pular janela / saltar obstáculo / escalar (estilo PUBG) ----------
+const _vb = [];
+// coluna livre entre y0 e y1 no ponto (x,z)
+function columnFree(x, z, y0, y1, r) {
+  r = r || 0.26; boxesNear(x - r - 0.3, z - r - 0.3, x + r + 0.3, z + r + 0.3, _vb);
+  for (const b of _vb) if (b.y1 > y0 && b.y0 < y1 && x > b.x0 - r && x < b.x1 + r && z > b.z0 - r && z < b.z1 + r) return false;
+  return true;
+}
+// maior altura de obstáculo (caixa) na coluna, abaixo de "teto"
+function obstTop(x, z, base, ceil) {
+  boxesNear(x - 0.3, z - 0.3, x + 0.3, z + 0.3, _vb); let top = -1e9;
+  for (const b of _vb) if (x > b.x0 - 0.1 && x < b.x1 + 0.1 && z > b.z0 - 0.1 && z < b.z1 + 0.1 && b.y1 > base + STEP_H && b.y0 < base + 1.2 && b.y1 <= ceil && b.y1 > top) top = b.y1;
+  return top;
+}
+function supportAt(x, z, maxY) {
+  let s = groundH(x, z); boxesNear(x - 0.2, z - 0.2, x + 0.2, z + 0.2, _vb);
+  for (const b of _vb) if (x > b.x0 - 0.05 && x < b.x1 + 0.05 && z > b.z0 - 0.05 && z < b.z1 + 0.05 && b.y1 <= maxY + 0.01 && b.y1 > s) s = b.y1;
+  return s;
+}
+// devolve o plano do movimento ou null
+function vaultPlan(a) {
+  if (a.mode !== 'ground' || !a.onGround || a.knocked || a.veh || a.swim || a.vault) return null;
+  const fx = fwdX(a.yaw), fz = fwdZ(a.yaw), y = a.y;
+  for (let d = 0.4; d <= 1.0; d += 0.15) {
+    const px = a.x + fx * d, pz = a.z + fz * d, top = obstTop(px, pz, y, y + 2.7);
+    if (top < -1e8) continue;
+    const h = top - y;
+    if (h <= STEP_H || h > 2.65) return null;
+    // o caminho por cima do obstáculo precisa estar livre (janela: do peitoril para cima)
+    const clear = h <= 1.35 ? 0.85 : 1.7;
+    if (!columnFree(px, pz, top + 0.02, top + clear, 0.18)) return null;
+    // procura onde aterrissar do outro lado
+    for (let e = d + 0.35; e <= d + 1.9; e += 0.15) {
+      const lx = a.x + fx * e, lz = a.z + fz * e;
+      if (!columnFree(lx, lz, top + 0.02, top + clear, 0.22)) break;
+      const s = supportAt(lx, lz, top);
+      if (h <= 1.35 && s < top - 0.3 && columnFree(lx, lz, s + 0.05, s + 1.7, 0.25)) return { x: lx, z: lz, y: s, peak: top + 0.15, T: 0.6, kind: 'saltar' };
+      if (s >= top - 0.05 && columnFree(lx, lz, top + 0.05, top + 1.75, 0.25)) return { x: lx, z: lz, y: top, peak: top + 0.2, T: h > 1.35 ? 0.95 : 0.55, kind: h > 1.35 ? 'escalar' : 'subir' };
+    }
+    return null;
+  }
+  return null;
+}
+function tryVault(a) {
+  const p = vaultPlan(a); if (!p) return false;
+  a.vault = Object.assign(p, { t: 0, x0: a.x, y0: a.y, z0: a.z, st: a.stance });
+  a.stance = 'crouch'; a.vx = a.vz = a.vy = 0; a.ads = false; a.reloadT = 0; a.healT = 0;
+  if (a === G.player) { IN.adsOn = false; sfx('door'); }
+  return true;
+}
+function stepVault(a, dt) {
+  const v = a.vault; v.t += dt; const k = Math.min(1, v.t / v.T), e = smooth(k);
+  a.x = lerp(v.x0, v.x, e); a.z = lerp(v.z0, v.z, e);
+  // sobe rápido até o topo, passa por cima e desce
+  const up = Math.min(1, k / 0.45);
+  a.y = k < 0.6 ? lerp(v.y0, v.peak, smooth(up)) : lerp(v.peak, v.y, smooth((k - 0.6) / 0.4));
+  a.vx = (v.x - v.x0) / v.T; a.vz = (v.z - v.z0) / v.T;
+  if (k >= 1) { a.vault = null; a.y = v.y; a.vy = 0; a.onGround = true; a.vx *= 0.4; a.vz *= 0.4; a.stance = v.st === 'prone' ? 'stand' : v.st; }
+}

@@ -58,7 +58,7 @@ function addVehicle(k, x, z, yaw) {
   v.mesh = new T.Mesh(vehGeo(k, col), MAT.world); v.mesh.rotation.order = 'YXZ'; v.mesh.castShadow = v.mesh.receiveShadow = true; scene.add(v.mesh);
   VEH.push(v); syncVehMesh(v); return v;
 }
-function syncVehMesh(v) { v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.set(v.pitch, v.yaw, v.roll); }
+function syncVehMesh(v) { v.mesh.position.set(v.x, v.y + (v.bob || 0), v.z); v.mesh.rotation.set(v.pitch + (v.pOff || 0), v.yaw, v.roll + (v.rOff || 0)); }
 const vfx = v => -Math.sin(v.yaw), vfz = v => -Math.cos(v.yaw);
 // altura de apoio (terreno ou plataforma baixa, como o píer)
 function vSup(x, z, y) {
@@ -145,10 +145,17 @@ function stepVehicles(dt) {
     if (v.y > gy + 0.3) { v.air = true; v.vy -= 20 * dt; v.y += v.vy * dt; }
     if (v.y <= gy + 0.3) {
       if (v.air && v.vy < -9) { vehHurt(v, (-v.vy - 9) * 30, null); for (const a of v.seats) if (a) hurt(a, (-v.vy - 9) * 2, null, false, 'queda'); }
+      if (v.air) v.bobV = (v.bobV || 0) + v.vy * 0.06; // quica ao cair
       const ny = gy; v.vy = v.air ? 0 : clamp((ny - v.y) / Math.max(dt, 1e-3), -30, 30); v.y = ny; v.air = false;
       v.pitch += (Math.atan2(hF - hB, a0 * 2) - v.pitch) * Math.min(1, dt * 10);
       v.roll += (Math.atan2(hR - hL, d.hw * 2) - v.roll) * Math.min(1, dt * 10);
     }
+    // suspensão: frente afunda ao frear, traseira ao acelerar, carroceria inclina na curva, mola amortecida
+    { const acc = (v.sp - (v.lastSp == null ? v.sp : v.lastSp)) / Math.max(dt, 1e-3); v.lastSp = v.sp; const kS = Math.min(1, dt * 6), soft = v.k === 'moto' ? 0.4 : 1;
+      v.pOff = (v.pOff || 0) + (clamp(acc * 0.009, -0.09, 0.09) * soft - (v.pOff || 0)) * kS;
+      const rollT = v.k === 'moto' ? clamp(v.str * Math.min(1, Math.abs(v.sp) / 12) * 0.45, -0.45, 0.45) : clamp(-v.str * v.sp * 0.0055, -0.1, 0.1);
+      v.rOff = (v.rOff || 0) + (rollT - (v.rOff || 0)) * Math.min(1, dt * 5);
+      v.bobV = ((v.bobV || 0) - (v.bob || 0) * 90 * dt) * Math.exp(-dt * 6); v.bob = clamp((v.bob || 0) + v.bobV * dt, -0.25, 0.25); }
     if (v.dead) { syncVehMesh(v); continue; }
     // motor
     if (!v.air) {

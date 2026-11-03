@@ -73,6 +73,17 @@ Q/E inclina, R recarrega, F pega/age, H cura, Tab mochila, M mapa, V 1ª/3ª pes
 - **Mais itens**: escopetas S1897, S686 e S12K (calibre 12, estrangulador e pente estendido), granada, granada de fumaça
   (bloqueia a visão dos bots), coquetel molotov e seringa de adrenalina. Bots também jogam granadas.
 
+## Pular janela, gráfico e física (atualização)
+- **Pular janela / saltar / escalar** (estilo PUBG): no botão de pular, de frente para janela, muro baixo ou caixa, o personagem
+  passa por cima ou entra pela janela; obstáculos de até 2,6 m (containers, muros) dá para escalar. O botão mostra
+  SALTAR, SUBIR ou ESCALAR quando é possível. Bots também usam para entrar nas casas.
+- **Natureza de verdade** (Quaternius Ultimate Nature Pack, CC0): árvores, pinheiros, bétulas, palmeiras na praia e arbustos
+  perto da câmera (com vento nas folhas) e pedras reais em toda a ilha. Longe ficam as árvores simples (mais leves).
+- **Céu realista** com dispersão atmosférica (modelo Preetham).
+- **Clarão no cano** a cada tiro e **marcas de bala** nas paredes, com faísca.
+- **Física**: suspensão dos veículos (afunda ao frear, empina ao acelerar, inclina na curva, quica ao cair; a moto deita na
+  curva) e as pessoas não se atravessam mais.
+
 ## Próximas fases
 3. Helicóptero
 4. Multijogador online: lobby com amigos (convite por link/código, como no Deep Spear), partidas com bots completando
