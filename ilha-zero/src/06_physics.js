@@ -29,7 +29,12 @@ function stepPhys(a, dt) {
     if (nx > b.x0 - 0.2 && nx < b.x1 + 0.2 && nz > b.z0 - 0.2 && nz < b.z1 + 0.2 && b.y0 > base + 0.2 && b.y0 < ny + h) { ny = b.y0 - h; a.vy = 0; }
   }
   const landV = a.vy;
-  if (ny <= sup) { ny = sup; if (!a.onGround && landV < -13 && a.mode === 'ground') hurt(a, (-landV - 13) * 7, null, false, 'queda'); a.vy = 0; a.onGround = true; }
+  if (ny <= sup) { ny = sup;
+    if (!a.onGround && a.mode === 'ground') {
+      if (landV < -13) hurt(a, (-landV - 13) * 7, null, false, 'queda');
+      if (landV < -4.5) { a.landK = clamp((-landV - 3) / 10, 0.15, 1); a.landAt = G.t; } // amortece a queda: joelho dobra, câmera desce, anda mais devagar
+    }
+    a.vy = 0; a.onGround = true; }
   else if (a.onGround && ny - sup < 0.55 && a.vy <= 0) { ny = sup; a.vy = 0; }
   else a.onGround = false;
   // água funda: nada na superfície
@@ -47,14 +52,24 @@ function moveSpeed(a, sprint) {
   if (a.boost > 60) s *= 1.05;
   return s;
 }
+// movimento com peso (estilo PUBG): acelera em ~0,3 s, freia um pouco mais rápido, sobe ladeira mais devagar
 function applyMove(a, dt, wx, wz, speed) { // wx,wz = direção no mundo (comprimento 0..1)
-  const k = Math.min(1, dt * (a.onGround ? 12 : 2));
-  a.vx += (wx * speed - a.vx) * k; a.vz += (wz * speed - a.vz) * k;
+  const wl = Math.hypot(wx, wz);
+  if (a.onGround && !a.swim && wl > 0.05 && speed > 0 && a.y - groundH(a.x, a.z) < 0.15) {
+    const ux = wx / wl, uz = wz / wl, g = (groundH(a.x + ux * 0.6, a.z + uz * 0.6) - groundH(a.x, a.z)) / 0.6;
+    if (g > 0.22) speed *= clamp(1 - (g - 0.22) * 0.85, 0.45, 1); // ladeira acima
+    else if (g < -0.5) speed *= 1.06; // ladeira abaixo, embala um pouco
+  }
+  if (a.landAt != null) { const lt = G.t - a.landAt; if (lt < 0.45) speed *= 1 - (a.landK || 0) * 0.55 * (1 - lt / 0.45); }
+  const tx = wx * speed, tz = wz * speed, cur2 = a.vx * a.vx + a.vz * a.vz;
+  const rate = !a.onGround ? 1.6 : a.swim ? 3 : tx * tx + tz * tz > cur2 + 0.01 ? 8.5 : 11;
+  const k = 1 - Math.exp(-dt * rate);
+  a.vx += (tx - a.vx) * k; a.vz += (tz - a.vz) * k;
 }
 function tryJump(a) {
   if (!a.onGround || a.knocked || a.swim) return;
   if (a.stance !== 'stand') { a.stance = a.stance === 'prone' ? 'crouch' : 'stand'; return; }
-  a.vy = 5.6; a.onGround = false;
+  a.vy = 5.3; a.onGround = false; a.jumpAt = G.t;
 }
 function setStance(a, s) {
   if (a.knocked || a.swim) return;

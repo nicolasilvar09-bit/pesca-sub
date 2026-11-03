@@ -132,6 +132,24 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   else if (sp < 0.4) tw.idle = 1;
   else if (sp < 3.6 || cr || prone) tw.walk = 1;
   else { const k = clamp((sp - 3.6) / 1.6, 0, 1); tw.run = k; tw.walk = 1 - k; }
+  // corpo gira atrasado em relação à mira (como no PUBG): parado, o tronco torce até ~60° e depois os pés acompanham
+  const free = a.mode === 'ground' && !a.veh && !prone && !a.swim;
+  if (m.byaw == null || !free) { m.byaw = a.yaw; m.turn = false; }
+  else {
+    let dy = wrapA(a.yaw - m.byaw);
+    if (Math.abs(dy) > 1.35) { m.byaw = wrapA(a.yaw - Math.sign(dy) * 1.35); dy = Math.sign(dy) * 1.35; }
+    if (sp > 0.4) { m.byaw += dy * Math.min(1, dt * 11); m.turn = false; }
+    else { if (Math.abs(dy) > 0.95) m.turn = true; if (m.turn) { m.byaw += dy * Math.min(1, dt * 6.5); if (Math.abs(dy) < 0.08) m.turn = false; } }
+    m.byaw = wrapA(m.byaw);
+  }
+  const yawOff = wrapA(a.yaw - m.byaw); m.g.rotation.set(0, m.byaw, 0);
+  if (m.turn && tw.idle > 0.5 && !cr) { tw.idle = 0.4; tw.walk = 0.6; } // passinhos ao girar parado
+  // velocidade de giro e aceleração: o corpo inclina nas curvas e ao arrancar/frear
+  const yv = m.lyaw == null ? 0 : wrapA(a.yaw - m.lyaw) / Math.max(dt, 1e-3); m.lyaw = a.yaw;
+  m.yv = (m.yv || 0) + (clamp(yv, -6, 6) - (m.yv || 0)) * Math.min(1, dt * 6);
+  const acc = m.lsp == null ? 0 : (sp - m.lsp) / Math.max(dt, 1e-3); m.lsp = sp;
+  m.acc2 = (m.acc2 || 0) + (clamp(acc, -25, 25) - (m.acc2 || 0)) * Math.min(1, dt * 5);
+  m.runK = (m.runK || 0) + ((sp > 5.6 && a.onGround ? 1 : 0) - (m.runK || 0)) * Math.min(1, dt * 5);
   const k = Math.min(1, dt * 8);
   for (const n in m.act) { m.w[n] += (tw[n] - m.w[n]) * k; m.act[n].setEffectiveWeight(m.w[n]); }
   // direção do movimento em relação para onde olha: de lado gira as pernas, de ré anda ao contrário
@@ -142,7 +160,7 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
     if (Math.abs(ang) > 1.9) { back = true; twistT = clamp(wrapA(ang - Math.PI), -0.9, 0.9); } else twistT = clamp(ang, -1.1, 1.1);
   }
   m.twist = (m.twist || 0) + (twistT - (m.twist || 0)) * Math.min(1, dt * 7);
-  if (m.act.walk) m.act.walk.timeScale = clamp(sp / (cr ? 1.1 : 1.45), 0.5, 2.2) * (back ? -1 : 1);
+  if (m.act.walk) m.act.walk.timeScale = m.turn && sp < 0.4 ? 1.1 : clamp(sp / (cr ? 1.1 : 1.45), 0.5, 2.2) * (back ? -1 : 1);
   if (m.act.run) m.act.run.timeScale = clamp(sp / 5.2, 0.7, 1.5) * (back ? -1 : 1);
   // de longe atualiza a animação a cada 2 quadros
   m.acc = (m.acc || 0) + dt; m.fr = (m.fr || 0) + 1;
@@ -153,10 +171,14 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   const wa = m.act.walk && m.w.walk > 0.2 ? m.act.walk : m.act.run && m.w.run > 0.2 ? m.act.run : null;
   const ph = wa ? wa.time / wa.getClip().duration * Math.PI * 4 : 0, bob = Math.min(1, sp / 5);
   // corpo deitado / caindo / agachado andando
+  // transições suaves: deitar leva ~0,7 s, agachar andando desce aos poucos, aterrissar dobra o joelho
+  m.pk = (m.pk == null ? (prone ? 1 : 0) : m.pk) + ((prone ? 1 : 0) - (m.pk || 0)) * Math.min(1, dt * 3.8);
+  m.cy = (m.cy || 0) + ((cr && sp >= 0.6 ? -0.32 : 0) - (m.cy || 0)) * Math.min(1, dt * 9);
+  const ld = a.mode === 'ground' ? landDip(a) : 0;
   m.root.position.set(0, 0, 0); m.root.rotation.set(0, Math.PI, 0);
-  if (prone) { m.root.rotation.set(-Math.PI / 2, Math.PI, 0); m.root.position.set(0, 0.16, 0); }
+  if (m.pk > 0.01 && a.mode === 'ground') { m.root.rotation.set(-Math.PI / 2 * m.pk, Math.PI, 0); m.root.position.set(0, 0.16 * m.pk - Math.sin(m.pk * Math.PI) * 0.3, 0); }
   else if (a.mode === 'fall') m.root.rotation.set(-1.25, Math.PI, 0);
-  else if (cr && sp >= 0.6) m.root.position.y = -0.32;
+  if (!prone) m.root.position.y += m.cy - ld * 0.2;
   if (Math.abs(m.twist) > 0.01 && !prone && a.mode === 'ground') m.root.rotation.y = Math.PI - m.twist;
   m.g.updateMatrixWorld(true);
   const B = m.b, yaw = a.yaw, pitch = a.pitch;
@@ -165,6 +187,13 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   if (!prone && a.mode === 'ground' && !a.veh) {
     if (B.Bip01_Spine && Math.abs(m.twist) > 0.01) rotWorld(B.Bip01_Spine, _UP, m.twist * 0.9); // tronco volta a olhar para a mira
     if (B.Bip01_Spine && a.lean) rotWorld(B.Bip01_Spine, _F, a.lean * 0.38);
+    if (B.Bip01_Spine && Math.abs(yawOff) > 0.01) { rotWorld(B.Bip01_Spine, _UP, yawOff * 0.5); if (B.Bip01_Spine1) rotWorld(B.Bip01_Spine1, _UP, yawOff * 0.3); }
+    if (B.Bip01_Spine) { // corrida inclina para frente; curva inclina para dentro; arrancada/freada balança o tronco
+      const bank = clamp(-m.yv * 0.035, -0.16, 0.16) * Math.min(1, sp / 4), pitchB = -m.runK * 0.16 - clamp(m.acc2 * 0.012, -0.1, 0.1);
+      if (Math.abs(bank) > 0.003) rotWorld(B.Bip01_Spine, _F, bank);
+      if (Math.abs(pitchB) > 0.003) rotWorld(B.Bip01_Spine, _R, pitchB);
+    }
+    if (ld > 0.01) for (const s of ['L', 'R']) { const th = B[`Bip01_${s}_Thigh`], ca = B[`Bip01_${s}_Calf`]; if (th && ca) { rotWorld(th, _R, 0.75 * ld); rotWorld(ca, _R, -1.2 * ld); } }
     if (B.Bip01_Spine1) { rotWorld(B.Bip01_Spine1, _F, Math.sin(ph) * 0.045 * bob); rotWorld(B.Bip01_Spine1, _UP, Math.sin(ph) * 0.05 * bob); }
     if (B.Bip01_Spine2 && sp < 0.4) rotWorld(B.Bip01_Spine2, _R, Math.sin(G.t * 1.7 + a.id) * 0.018); // respiração
     if (B.Bip01_Spine1 && (m.kickV > 0.01 || hitK > 0)) rotWorld(B.Bip01_Spine1, _R, m.kickV * 0.035 - hitK * 0.16);

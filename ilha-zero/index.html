@@ -5519,7 +5519,7 @@ const G = {
 
 // configurações e estatísticas do jogador (ficam no aparelho)
 const SET_KEY = 'ilhazero_v1';
-const SET = Object.assign({ name: 'Jogador', char: 0, sens: 1, adsSens: 0.8, quality: 1, view: 'tpp', vol: 0.8, mode: 'squad', diff: 'mix', matches: 0, wins: 0, kills: 0, best: 0, dmg: 0 },
+const SET = Object.assign({ name: 'Jogador', char: 0, sens: 1, adsSens: 0.8, quality: 1, fov: 90, view: 'tpp', vol: 0.8, mode: 'squad', diff: 'mix', matches: 0, wins: 0, kills: 0, best: 0, dmg: 0 },
   (() => { try { return JSON.parse(localStorage.getItem(SET_KEY) || '{}'); } catch (e) { return {}; } })());
 function saveSet(cloud) { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) { } if (cloud !== false && typeof cloudPush === 'function') cloudPush(); }
 
@@ -5533,7 +5533,8 @@ function toast(msg, s = 2.2, cls = '') {
 // ================= cena: renderizador, câmera, luz, céu e utilitários de geometria =================
 const renderer = new T.WebGLRenderer({ canvas: $('cv'), antialias: false, powerPreference: 'high-performance' });
 renderer.outputEncoding = T.sRGBEncoding; renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.92;
-const QUAL = [{ pr: 0.75, fog: 700, shadow: 0, grass: 0 }, { pr: 1.25, fog: 1000, shadow: 1024, grass: 1 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1 }];
+const QUAL = [{ pr: 0.75, fog: 700, shadow: 0, grass: 0, post: 0 }, { pr: 1.25, fog: 1000, shadow: 1024, grass: 1, post: 1 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1, post: 1 }];
+var DYN = 1; // escala de resolução dinâmica (baixa sozinha se o celular não segurar o FPS)
 const scene = new T.Scene();
 const SKY_C = new T.Color(0xc3ced6); // névoa atmosférica azul-acinzentada
 scene.background = SKY_C.clone();
@@ -5546,11 +5547,16 @@ const sun = new T.DirectionalLight(0xffe2b8, 1.9); sun.position.set(320, 330, 18
 
 function applyQuality() {
   const q = QUAL[SET.quality] || QUAL[1];
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr));
   scene.fog.far = q.fog; scene.fog.near = q.fog * 0.12;
+  applyRes();
+  if (typeof gfxQuality === 'function') gfxQuality(q);
+}
+function applyRes() {
+  const q = QUAL[SET.quality] || QUAL[1];
+  renderer.setPixelRatio(Math.max(0.5, Math.min(window.devicePixelRatio || 1, q.pr) * DYN));
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  if (typeof gfxQuality === 'function') gfxQuality(q);
+  if (typeof postResize === 'function') postResize();
 }
 addEventListener('resize', applyQuality);
 
@@ -6620,7 +6626,12 @@ function stepPhys(a, dt) {
     if (nx > b.x0 - 0.2 && nx < b.x1 + 0.2 && nz > b.z0 - 0.2 && nz < b.z1 + 0.2 && b.y0 > base + 0.2 && b.y0 < ny + h) { ny = b.y0 - h; a.vy = 0; }
   }
   const landV = a.vy;
-  if (ny <= sup) { ny = sup; if (!a.onGround && landV < -13 && a.mode === 'ground') hurt(a, (-landV - 13) * 7, null, false, 'queda'); a.vy = 0; a.onGround = true; }
+  if (ny <= sup) { ny = sup;
+    if (!a.onGround && a.mode === 'ground') {
+      if (landV < -13) hurt(a, (-landV - 13) * 7, null, false, 'queda');
+      if (landV < -4.5) { a.landK = clamp((-landV - 3) / 10, 0.15, 1); a.landAt = G.t; } // amortece a queda: joelho dobra, câmera desce, anda mais devagar
+    }
+    a.vy = 0; a.onGround = true; }
   else if (a.onGround && ny - sup < 0.55 && a.vy <= 0) { ny = sup; a.vy = 0; }
   else a.onGround = false;
   // água funda: nada na superfície
@@ -6638,14 +6649,24 @@ function moveSpeed(a, sprint) {
   if (a.boost > 60) s *= 1.05;
   return s;
 }
+// movimento com peso (estilo PUBG): acelera em ~0,3 s, freia um pouco mais rápido, sobe ladeira mais devagar
 function applyMove(a, dt, wx, wz, speed) { // wx,wz = direção no mundo (comprimento 0..1)
-  const k = Math.min(1, dt * (a.onGround ? 12 : 2));
-  a.vx += (wx * speed - a.vx) * k; a.vz += (wz * speed - a.vz) * k;
+  const wl = Math.hypot(wx, wz);
+  if (a.onGround && !a.swim && wl > 0.05 && speed > 0 && a.y - groundH(a.x, a.z) < 0.15) {
+    const ux = wx / wl, uz = wz / wl, g = (groundH(a.x + ux * 0.6, a.z + uz * 0.6) - groundH(a.x, a.z)) / 0.6;
+    if (g > 0.22) speed *= clamp(1 - (g - 0.22) * 0.85, 0.45, 1); // ladeira acima
+    else if (g < -0.5) speed *= 1.06; // ladeira abaixo, embala um pouco
+  }
+  if (a.landAt != null) { const lt = G.t - a.landAt; if (lt < 0.45) speed *= 1 - (a.landK || 0) * 0.55 * (1 - lt / 0.45); }
+  const tx = wx * speed, tz = wz * speed, cur2 = a.vx * a.vx + a.vz * a.vz;
+  const rate = !a.onGround ? 1.6 : a.swim ? 3 : tx * tx + tz * tz > cur2 + 0.01 ? 8.5 : 11;
+  const k = 1 - Math.exp(-dt * rate);
+  a.vx += (tx - a.vx) * k; a.vz += (tz - a.vz) * k;
 }
 function tryJump(a) {
   if (!a.onGround || a.knocked || a.swim) return;
   if (a.stance !== 'stand') { a.stance = a.stance === 'prone' ? 'crouch' : 'stand'; return; }
-  a.vy = 5.6; a.onGround = false;
+  a.vy = 5.3; a.onGround = false; a.jumpAt = G.t;
 }
 function setStance(a, s) {
   if (a.knocked || a.swim) return;
@@ -7551,7 +7572,10 @@ function stepMatch(dt) {
 const IN = { mx: 0, my: 0, sprint: false, ldx: 0, ldy: 0, fire: false, adsOn: false, act: false, hold: {} };
 const camDir = new T.Vector3(), _cp = {}, _ep = {}, _near2 = [];
 G.recAcc = 0; G.camKick = 0; G.flash = 0; G.zoomFar = false;
-const fovFor = z => 2 * Math.atan(Math.tan(37.5 * Math.PI / 180) / z) * 180 / Math.PI;
+// campo de visão como no PUBG: definido na horizontal (o celular é bem largo), convertido para o vertical da câmera
+const vfov = h => clamp(2 * Math.atan(Math.tan(h * Math.PI / 360) / camera.aspect) * 180 / Math.PI, 44, 80);
+const hipV = () => vfov(SET.fov || 90);
+const fovFor = z => 2 * Math.atan(Math.tan(hipV() * Math.PI / 360) / Math.max(1.15, z)) * 180 / Math.PI;
 
 // arma em 1ª pessoa (presa na câmera)
 const VM = new T.Group(); camera.add(VM);
@@ -7677,6 +7701,8 @@ function ctx() {
 }
 
 // ---------- câmera ----------
+// quanto o corpo "afunda" logo depois de aterrissar (0..1)
+function landDip(a) { if (a.landAt == null) return 0; const t = G.t - a.landAt; if (t < 0 || t > 0.5) return 0; return (a.landK || 0) * Math.sin(Math.min(1, t / 0.5) * Math.PI) * (t < 0.12 ? 1 : 1 - (t - 0.12) / 0.38 * 0.4); }
 function updateCamera(dt) {
   const v = G.view, p = G.player;
   let tgt = p.alive ? p : v.spect && v.spect.alive ? v.spect : null;
@@ -7684,7 +7710,7 @@ function updateCamera(dt) {
   let yaw = v.yaw, pitch = v.pitch;
   if (tgt && tgt !== p) { yaw = tgt.yaw; pitch = tgt.pitch * 0.5 - 0.1; }
   const cp = Math.cos(pitch); camDir.set(fwdX(yaw) * cp, Math.sin(pitch), fwdZ(yaw) * cp);
-  let fov = 75, fpp = false, hide = false;
+  let fov = vfov((SET.fov || 90) + 4), fpp = false, hide = false;
   const w = p.alive ? curW(p) : null, zoom = p.alive && p.ads && w ? sightZoom(w) : 1;
   G.zoomFar = zoom >= 3;
   if (!tgt) { // morto: câmera parada olhando o lugar
@@ -7698,15 +7724,35 @@ function updateCamera(dt) {
     camera.position.set(px - camDir.x * d, py - camDir.y * d, pz - camDir.z * d); camera.rotation.set(pitch, yaw, 0);
     if (camera.position.y < groundH(camera.position.x, camera.position.z) + 0.4) camera.position.y = groundH(camera.position.x, camera.position.z) + 0.4;
   } else if (tgt === p && (p.ads || v.fpp) && p.mode === 'ground' && !p.knocked) {
-    eyePos(p, _cp); camera.position.set(_cp.x + camDir.x * 0.12, _cp.y, _cp.z + camDir.z * 0.12); camera.rotation.set(pitch, yaw, -p.lean * 0.18);
-    fov = p.ads ? fovFor(zoom) : 78; fpp = true; hide = true;
+    eyePos(p, _cp);
+    // 1ª pessoa: cabeça balança com os passos, desce ao aterrissar, segue suave na troca de postura
+    const sp = Math.hypot(p.vx, p.vz), bk = p.onGround ? Math.min(1, sp / 5) * (p.ads ? 0.25 : 1) : 0;
+    v.bob = (v.bob || 0) + dt * sp * 1.75; const land = landDip(p);
+    if (v.eyeY == null || Math.abs(v.eyeY - _cp.y) > 2) v.eyeY = _cp.y; v.eyeY += (_cp.y - v.eyeY) * (1 - Math.exp(-dt * 14));
+    const rx = Math.cos(yaw), rz = -Math.sin(yaw), bx2 = Math.cos(v.bob) * 0.018 * bk;
+    camera.position.set(_cp.x + camDir.x * 0.12 + rx * bx2, v.eyeY + Math.abs(Math.sin(v.bob)) * 0.03 * bk - land * 0.11, _cp.z + camDir.z * 0.12 + rz * bx2);
+    camera.rotation.set(pitch - land * 0.03, yaw, -p.lean * 0.18 + Math.cos(v.bob) * 0.006 * bk);
+    v.piv = null; fov = p.ads ? fovFor(zoom) : vfov((SET.fov || 90) + 5); fpp = true; hide = true;
   } else {
-    const air = tgt.mode !== 'ground', dist = air ? (tgt.mode === 'chute' ? 7 : 5.5) : tgt.knocked ? 3.2 : 3.0, rx = Math.cos(yaw), rz = -Math.sin(yaw);
-    const sh = air ? 0 : 0.85;
-    const px = tgt.x + rx * sh, py = tgt.y + (air ? 1.4 : tgt.knocked || tgt.stance === 'prone' ? 0.9 : tgt.stance === 'crouch' ? 1.4 : 1.75), pz = tgt.z + rz * sh;
+    // 3ª pessoa estilo PUBG: por cima do ombro direito, segue o corpo com leve atraso (sem tremer nos degraus),
+    // desliza junto ao inclinar e encosta na parede de forma suave
+    const air = tgt.mode !== 'ground', rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    const sprint = !air && Math.hypot(tgt.vx, tgt.vz) > 5.6;
+    let dist = air ? (tgt.mode === 'chute' ? 7 : 5.5) : tgt.knocked ? 3.2 : tgt.stance === 'prone' ? 2.6 : sprint ? 3.25 : 3.0;
+    if (!air && pitch < -0.4) dist *= 1 + (-pitch - 0.4) * 0.35; // olhando para baixo afasta um pouco
+    const lean = tgt.lean || 0, sh = air ? 0 : 0.72 + lean * 0.42;
+    const tx = tgt.x + rx * sh, tz = tgt.z + rz * sh;
+    const ty = tgt.y + (air ? 1.4 : tgt.knocked || tgt.stance === 'prone' ? 0.85 : tgt.stance === 'crouch' ? 1.35 : 1.72) - Math.abs(lean) * 0.08 - landDip(tgt) * 0.16;
+    if (!v.piv || v.pivT !== tgt || Math.hypot(v.piv.x - tx, v.piv.z - tz) > 4 || Math.abs(v.piv.y - ty) > 4) { v.piv = { x: tx, y: ty, z: tz }; v.pivT = tgt; v.cd = dist; }
+    const kh = 1 - Math.exp(-dt * (air ? 12 : 26)), kv = 1 - Math.exp(-dt * 9);
+    v.piv.x += (tx - v.piv.x) * kh; v.piv.z += (tz - v.piv.z) * kh; v.piv.y += (ty - v.piv.y) * kv;
+    const px = v.piv.x, py = v.piv.y, pz = v.piv.z;
     let d = dist; const t = rayStatic(px, py, pz, -camDir.x, -camDir.y, -camDir.z, dist + 0.3); if (t < dist + 0.3) d = Math.max(0.3, t - 0.3);
-    camera.position.set(px - camDir.x * d, py - camDir.y * d, pz - camDir.z * d); camera.rotation.set(pitch, yaw, 0);
-    if (camera.position.y < groundH(camera.position.x, camera.position.z) + 0.3) camera.position.y = groundH(camera.position.x, camera.position.z) + 0.3;
+    if (v.cd == null || d < v.cd) v.cd = d; else v.cd = Math.min(d, v.cd + dt * 3.5); // encosta na hora, volta devagar
+    camera.position.set(px - camDir.x * v.cd, py - camDir.y * v.cd, pz - camDir.z * v.cd); camera.rotation.set(pitch, yaw, 0);
+    if (sprint && tgt.onGround) { v.bob = (v.bob || 0) + dt * 11; camera.position.y += Math.sin(v.bob) * 0.012; camera.rotation.z = Math.cos(v.bob * 0.5) * 0.004; }
+    const gh = groundH(camera.position.x, camera.position.z); if (camera.position.y < gh + 0.3) camera.position.y = gh + 0.3;
+    fov = hipV();
   }
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 18); if (Math.abs(camera.fov - fov) < 0.3) camera.fov = fov; camera.updateProjectionMatrix(); }
   // arma na mão (1ª pessoa)
@@ -7715,8 +7761,16 @@ function updateCamera(dt) {
   if (VM.visible) {
     const key = gunKey(w); if (key !== vmKey) { vmKey = key; setGunVisual(vmGun, w.k); dressGun(vmGun, w); }
     const kick = Math.min(0.08, G.recAcc * 0.6), bob = Math.sin(p.walk * 1) * Math.min(1, Math.hypot(p.vx, p.vz) / 4) * 0.012;
-    if (p.ads) { const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y; VM.position.set(0, -top, -0.22 + kick); } else VM.position.set(0.2, -0.19 + bob, -0.3 + kick);
-    VM.rotation.set(p.reloadT > 0 ? -0.5 : 0, 0, 0);
+    // a arma atrasa um pouco ao virar (peso), balança com os passos e abaixa correndo
+    const dy = wrapA(yaw - (v.lyaw == null ? yaw : v.lyaw)), dp = pitch - (v.lpit == null ? pitch : v.lpit); v.lyaw = yaw; v.lpit = pitch;
+    const sk = 1 - Math.exp(-dt * 9), am = p.ads ? 0.25 : 1;
+    v.swx = ((v.swx || 0) + clamp(dy, -0.1, 0.1) * am) * (1 - sk); v.swy = ((v.swy || 0) + clamp(dp, -0.1, 0.1) * am) * (1 - sk);
+    const spr = Math.hypot(p.vx, p.vz) > 5.6 && !p.ads ? 1 : 0; v.vmRun = (v.vmRun || 0) + (spr - (v.vmRun || 0)) * Math.min(1, dt * 7);
+    const bb = Math.min(1, Math.hypot(p.vx, p.vz) / 5) * (p.onGround ? 1 : 0) * (p.ads ? 0.15 : 1), ph = v.bob || 0, land = landDip(p);
+    const bobX = Math.cos(ph) * 0.012 * bb, bobY = -Math.abs(Math.sin(ph)) * 0.012 * bb + Math.sin(G.t * 1.6) * 0.002 - land * 0.025;
+    if (p.ads) { const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y; VM.position.set(v.swx * 0.05 + bobX * 0.3, -top + v.swy * 0.04 + bobY * 0.3, -0.22 + kick); }
+    else VM.position.set(0.2 + v.swx * 0.35 + bobX - v.vmRun * 0.06, -0.19 + bob * 0 + v.swy * 0.25 + bobY - v.vmRun * 0.05, -0.3 + kick + v.vmRun * 0.03);
+    VM.rotation.set((p.reloadT > 0 ? -0.5 : 0) - v.swy * 0.6 - v.vmRun * 0.35, v.swx * 0.9 + v.vmRun * 0.5, v.swx * 0.5 + v.vmRun * 0.25);
   }
   if (G.shake > 0) { G.shake -= dt; camera.rotation.x += gauss() * 0.012 * G.shake; camera.rotation.y += gauss() * 0.012 * G.shake; }
   SKY.position.copy(camera.position); if (typeof SKY2 !== 'undefined' && SKY2) SKY2.position.copy(camera.position);
@@ -8023,12 +8077,13 @@ function openMenu() {
   $('menuP').innerHTML = `<div class="box"><h3>Configurações</h3>
   <label>Sensibilidade <input type="range" min="0.3" max="2.5" step="0.05" value="${SET.sens}" id="sSens"></label>
   <label>Sensibilidade na mira <input type="range" min="0.3" max="2" step="0.05" value="${SET.adsSens}" id="sAds"></label>
+  <label>Campo de visão <input type="range" min="75" max="105" step="1" value="${SET.fov || 90}" id="sFov"></label>
   <label>Gráficos <select id="sQ"><option value="0">Leve</option><option value="1">Médio</option><option value="2">Alto</option></select></label>
   <label>Volume <input type="range" min="0" max="1" step="0.05" value="${SET.vol}" id="sVol"></label>
   <div class="row"><button id="mBack" class="btn">VOLTAR AO JOGO</button><button id="mQuit" class="btn red">SAIR DA PARTIDA</button></div></div>`;
   $('sQ').value = SET.quality;
   $('sSens').oninput = e => { SET.sens = +e.target.value; saveSet(); }; $('sAds').oninput = e => { SET.adsSens = +e.target.value; saveSet(); };
-  $('sVol').oninput = e => { SET.vol = +e.target.value; saveSet(); }; $('sQ').onchange = e => { SET.quality = +e.target.value; saveSet(); applyQuality(); };
+  $('sVol').oninput = e => { SET.vol = +e.target.value; saveSet(); }; $('sFov').oninput = e => { SET.fov = +e.target.value; saveSet(); }; $('sQ').onchange = e => { SET.quality = +e.target.value; saveSet(); applyQuality(); };
   $('mBack').onclick = () => closePanels();
   $('mQuit').onclick = () => { closePanels(); if (!G.result && G.player.alive) { G.place = G.actors.filter(a => a.alive && a.team !== G.player.team).length + 1; } toLobby(); };
 }
@@ -8225,7 +8280,7 @@ function frame(now) {
     updateHud(dt);
   } else { lobbyCamera(dt); gfxStep(dt, LOB.x, LOB.y, LOB.z); }
   // com painel aberto cobrindo a tela, desenha o 3D só de vez em quando (alivia o celular)
-  if (!(G.phase === 'match' && panelOpen()) || (fpsN % 6 === 0)) renderer.render(scene, camera);
+  if (!(G.phase === 'match' && panelOpen()) || (fpsN % 6 === 0)) drawScene();
   fpsN++; if ((fpsT += dt) > 1) { G.fps = fpsN / fpsT; fpsN = 0; fpsT = 0; }
 }
 
@@ -8584,12 +8639,12 @@ patchNoise(MAT.terrain, 'terrain'); patchNoise(MAT.world, 'wall');
   const data = new Uint8Array(GN * GN * 4);
   for (let n = 0; n < GN * GN; n++) { const d = clamp(-H[n] / 16, 0, 1) * 255; data[n * 4] = d; data[n * 4 + 1] = d; data[n * 4 + 2] = d; data[n * 4 + 3] = 255; }
   const tex = new T.DataTexture(data, GN, GN, T.RGBAFormat); tex.magFilter = tex.minFilter = T.LinearFilter; tex.needsUpdate = true;
-  const uni = T.UniformsUtils.merge([T.UniformsLib.fog, { uT: { value: 0 }, uSun: { value: SUN_DIR.clone() }, uSky: { value: new T.Color(0xb5c6d2) } }]);
+  const uni = T.UniformsUtils.merge([T.UniformsLib.fog, { uT: { value: 0 }, uSun: { value: SUN_DIR.clone() }, uSky: { value: new T.Color(0xb5c6d2) }, uLin: { value: 0 } }]);
   uni.uDepth = { value: tex };
   const mat = new T.ShaderMaterial({
     uniforms: uni, fog: true, transparent: true, depthWrite: false,
     vertexShader: `varying vec3 vWP;\n#include <fog_pars_vertex>\nvoid main(){ vec4 wp = modelMatrix * vec4(position, 1.0); vWP = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}`,
-    fragmentShader: `uniform float uT; uniform sampler2D uDepth; uniform vec3 uSun; uniform vec3 uSky; varying vec3 vWP;\n#include <fog_pars_fragment>\n${GLSL_NOISE}
+    fragmentShader: `uniform float uT; uniform float uLin; uniform sampler2D uDepth; uniform vec3 uSun; uniform vec3 uSky; varying vec3 vWP;\n#include <fog_pars_fragment>\n${GLSL_NOISE}
 void main(){
   vec2 uv = (vWP.xz + ${HALF.toFixed(1)}) / ${MAP.toFixed(1)}; float depth = 1.0;
   if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) depth = texture2D(uDepth, uv).r;
@@ -8607,6 +8662,7 @@ void main(){
   float foam = smoothstep(0.045, 0.0, depth - wave * 0.02) * (0.6 + 0.4 * vn(p * 1.5 + uT * 0.6));
   col = mix(col, vec3(0.92, 0.93, 0.9), clamp(foam, 0.0, 1.0) * 0.6);
   float alpha = mix(0.5, 0.93, smoothstep(0.0, 0.3, depth)); alpha = max(alpha, foam);
+  if (uLin > 0.5) col = pow(col, vec3(2.2)); // com pós-processamento a cena é gravada em cor linear
   gl_FragColor = vec4(col, alpha);
   #include <fog_fragment>
 }`,
@@ -8900,6 +8956,24 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   else if (sp < 0.4) tw.idle = 1;
   else if (sp < 3.6 || cr || prone) tw.walk = 1;
   else { const k = clamp((sp - 3.6) / 1.6, 0, 1); tw.run = k; tw.walk = 1 - k; }
+  // corpo gira atrasado em relação à mira (como no PUBG): parado, o tronco torce até ~60° e depois os pés acompanham
+  const free = a.mode === 'ground' && !a.veh && !prone && !a.swim;
+  if (m.byaw == null || !free) { m.byaw = a.yaw; m.turn = false; }
+  else {
+    let dy = wrapA(a.yaw - m.byaw);
+    if (Math.abs(dy) > 1.35) { m.byaw = wrapA(a.yaw - Math.sign(dy) * 1.35); dy = Math.sign(dy) * 1.35; }
+    if (sp > 0.4) { m.byaw += dy * Math.min(1, dt * 11); m.turn = false; }
+    else { if (Math.abs(dy) > 0.95) m.turn = true; if (m.turn) { m.byaw += dy * Math.min(1, dt * 6.5); if (Math.abs(dy) < 0.08) m.turn = false; } }
+    m.byaw = wrapA(m.byaw);
+  }
+  const yawOff = wrapA(a.yaw - m.byaw); m.g.rotation.set(0, m.byaw, 0);
+  if (m.turn && tw.idle > 0.5 && !cr) { tw.idle = 0.4; tw.walk = 0.6; } // passinhos ao girar parado
+  // velocidade de giro e aceleração: o corpo inclina nas curvas e ao arrancar/frear
+  const yv = m.lyaw == null ? 0 : wrapA(a.yaw - m.lyaw) / Math.max(dt, 1e-3); m.lyaw = a.yaw;
+  m.yv = (m.yv || 0) + (clamp(yv, -6, 6) - (m.yv || 0)) * Math.min(1, dt * 6);
+  const acc = m.lsp == null ? 0 : (sp - m.lsp) / Math.max(dt, 1e-3); m.lsp = sp;
+  m.acc2 = (m.acc2 || 0) + (clamp(acc, -25, 25) - (m.acc2 || 0)) * Math.min(1, dt * 5);
+  m.runK = (m.runK || 0) + ((sp > 5.6 && a.onGround ? 1 : 0) - (m.runK || 0)) * Math.min(1, dt * 5);
   const k = Math.min(1, dt * 8);
   for (const n in m.act) { m.w[n] += (tw[n] - m.w[n]) * k; m.act[n].setEffectiveWeight(m.w[n]); }
   // direção do movimento em relação para onde olha: de lado gira as pernas, de ré anda ao contrário
@@ -8910,7 +8984,7 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
     if (Math.abs(ang) > 1.9) { back = true; twistT = clamp(wrapA(ang - Math.PI), -0.9, 0.9); } else twistT = clamp(ang, -1.1, 1.1);
   }
   m.twist = (m.twist || 0) + (twistT - (m.twist || 0)) * Math.min(1, dt * 7);
-  if (m.act.walk) m.act.walk.timeScale = clamp(sp / (cr ? 1.1 : 1.45), 0.5, 2.2) * (back ? -1 : 1);
+  if (m.act.walk) m.act.walk.timeScale = m.turn && sp < 0.4 ? 1.1 : clamp(sp / (cr ? 1.1 : 1.45), 0.5, 2.2) * (back ? -1 : 1);
   if (m.act.run) m.act.run.timeScale = clamp(sp / 5.2, 0.7, 1.5) * (back ? -1 : 1);
   // de longe atualiza a animação a cada 2 quadros
   m.acc = (m.acc || 0) + dt; m.fr = (m.fr || 0) + 1;
@@ -8921,10 +8995,14 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   const wa = m.act.walk && m.w.walk > 0.2 ? m.act.walk : m.act.run && m.w.run > 0.2 ? m.act.run : null;
   const ph = wa ? wa.time / wa.getClip().duration * Math.PI * 4 : 0, bob = Math.min(1, sp / 5);
   // corpo deitado / caindo / agachado andando
+  // transições suaves: deitar leva ~0,7 s, agachar andando desce aos poucos, aterrissar dobra o joelho
+  m.pk = (m.pk == null ? (prone ? 1 : 0) : m.pk) + ((prone ? 1 : 0) - (m.pk || 0)) * Math.min(1, dt * 3.8);
+  m.cy = (m.cy || 0) + ((cr && sp >= 0.6 ? -0.32 : 0) - (m.cy || 0)) * Math.min(1, dt * 9);
+  const ld = a.mode === 'ground' ? landDip(a) : 0;
   m.root.position.set(0, 0, 0); m.root.rotation.set(0, Math.PI, 0);
-  if (prone) { m.root.rotation.set(-Math.PI / 2, Math.PI, 0); m.root.position.set(0, 0.16, 0); }
+  if (m.pk > 0.01 && a.mode === 'ground') { m.root.rotation.set(-Math.PI / 2 * m.pk, Math.PI, 0); m.root.position.set(0, 0.16 * m.pk - Math.sin(m.pk * Math.PI) * 0.3, 0); }
   else if (a.mode === 'fall') m.root.rotation.set(-1.25, Math.PI, 0);
-  else if (cr && sp >= 0.6) m.root.position.y = -0.32;
+  if (!prone) m.root.position.y += m.cy - ld * 0.2;
   if (Math.abs(m.twist) > 0.01 && !prone && a.mode === 'ground') m.root.rotation.y = Math.PI - m.twist;
   m.g.updateMatrixWorld(true);
   const B = m.b, yaw = a.yaw, pitch = a.pitch;
@@ -8933,6 +9011,13 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   if (!prone && a.mode === 'ground' && !a.veh) {
     if (B.Bip01_Spine && Math.abs(m.twist) > 0.01) rotWorld(B.Bip01_Spine, _UP, m.twist * 0.9); // tronco volta a olhar para a mira
     if (B.Bip01_Spine && a.lean) rotWorld(B.Bip01_Spine, _F, a.lean * 0.38);
+    if (B.Bip01_Spine && Math.abs(yawOff) > 0.01) { rotWorld(B.Bip01_Spine, _UP, yawOff * 0.5); if (B.Bip01_Spine1) rotWorld(B.Bip01_Spine1, _UP, yawOff * 0.3); }
+    if (B.Bip01_Spine) { // corrida inclina para frente; curva inclina para dentro; arrancada/freada balança o tronco
+      const bank = clamp(-m.yv * 0.035, -0.16, 0.16) * Math.min(1, sp / 4), pitchB = -m.runK * 0.16 - clamp(m.acc2 * 0.012, -0.1, 0.1);
+      if (Math.abs(bank) > 0.003) rotWorld(B.Bip01_Spine, _F, bank);
+      if (Math.abs(pitchB) > 0.003) rotWorld(B.Bip01_Spine, _R, pitchB);
+    }
+    if (ld > 0.01) for (const s of ['L', 'R']) { const th = B[`Bip01_${s}_Thigh`], ca = B[`Bip01_${s}_Calf`]; if (th && ca) { rotWorld(th, _R, 0.75 * ld); rotWorld(ca, _R, -1.2 * ld); } }
     if (B.Bip01_Spine1) { rotWorld(B.Bip01_Spine1, _F, Math.sin(ph) * 0.045 * bob); rotWorld(B.Bip01_Spine1, _UP, Math.sin(ph) * 0.05 * bob); }
     if (B.Bip01_Spine2 && sp < 0.4) rotWorld(B.Bip01_Spine2, _R, Math.sin(G.t * 1.7 + a.id) * 0.018); // respiração
     if (B.Bip01_Spine1 && (m.kickV > 0.01 || hitK > 0)) rotWorld(B.Bip01_Spine1, _R, m.kickV * 0.035 - hitK * 0.16);
@@ -9304,7 +9389,7 @@ async function addFriendCode(code) {
 async function renameOnline() { if (!ON.me || ON.me.name === myName()) return; ON.me.name = myName(); try { await sbFetch(`/rest/v1/profiles?id=eq.${ON.s.uid}`, { method: 'PATCH', body: JSON.stringify({ name: myName() }) }); } catch (e) { } wsTrack(); }
 
 // ---------- progresso na nuvem (se a tabela iz_saves existir; senão fica só no aparelho) ----------
-const CLOUD_K = ['name', 'char', 'sens', 'adsSens', 'quality', 'view', 'vol', 'mode', 'diff', 'matches', 'wins', 'kills', 'best', 'dmg'];
+const CLOUD_K = ['name', 'char', 'sens', 'adsSens', 'quality', 'fov', 'view', 'vol', 'mode', 'diff', 'matches', 'wins', 'kills', 'best', 'dmg'];
 let cloudOk = false, cloudT = 0;
 async function cloudLoad() {
   try {
@@ -9607,6 +9692,75 @@ function netPeerGone(uid) { const a = G.actors.find(x => x.uid === uid); if (a &
 function netEnd() { G.net.on = false; G.net.shots.length = 0; }
 // começa a conexão assim que o jogo abre (não atrapalha jogar sem internet)
 setTimeout(onlineStart, 1500);
+
+// ================= pós-processamento: antisserrilhado (MSAA), curva de cinema, cor estilo PUBG, nitidez, vinheta =================
+// a cena (já com a curva de cinema ACES) é desenhada numa textura com 4 amostras por pixel; depois um único passe
+// aplica nitidez, cor e vinheta e manda para a tela.
+// sem WebGL2/float (celular muito antigo) cai no desenho direto de antes.
+var PP = null;
+function postSupported() {
+  try { return renderer.capabilities.isWebGL2 && (renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float')); } catch (e) { return false; }
+}
+function postInit() {
+  if (PP) return PP;
+  const rt = new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType, samples: 4, depthBuffer: true, stencilBuffer: true }); // com stencil a profundidade é de 24 bits (16 bits dá faixas no chão visto de longe)
+  const mat = new T.ShaderMaterial({
+    uniforms: { tD: { value: rt.texture }, uPx: { value: new T.Vector2(1, 1) }, uSharp: { value: 0.2 }, uVig: { value: 0.42 }, uGrade: { value: 1 } },
+    depthTest: false, depthWrite: false,
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: `uniform sampler2D tD; uniform vec2 uPx; uniform float uSharp; uniform float uVig; uniform float uGrade; varying vec2 vUv;
+vec3 ppSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
+void main(){
+  vec3 c = texture2D(tD, vUv).rgb;
+  // nitidez leve (recupera detalhe perdido na resolução reduzida do celular)
+  vec3 n = texture2D(tD, vUv + vec2(uPx.x, 0.0)).rgb + texture2D(tD, vUv - vec2(uPx.x, 0.0)).rgb + texture2D(tD, vUv + vec2(0.0, uPx.y)).rgb + texture2D(tD, vUv - vec2(0.0, uPx.y)).rgb;
+  c = clamp(c + (c - n * 0.25) * uSharp, c * 0.6, c * 1.6 + 0.02);
+  c = clamp(c, 0.0, 1.0);
+  // cor estilo PUBG: um pouco mais saturada, sombras levemente frias, luz do sol levemente quente
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+  vec3 g = mix(vec3(l), c, 1.0 + 0.16 * (1.0 - smoothstep(0.15, 0.6, sat))); // vibração: realça cor apagada sem estourar a forte
+  g *= mix(vec3(0.97, 0.995, 1.035), vec3(1.025, 1.005, 0.985), smoothstep(0.05, 0.5, l) * (1.0 - smoothstep(0.6, 0.9, l)));
+  c = mix(c, g, uGrade);
+  c = ppSRGB(clamp(c, 0.0, 1.0));
+  c = mix(c, c * c * (3.0 - 2.0 * c), 0.12 * uGrade); // contraste em S suave
+  vec2 q = vUv - 0.5; c *= 1.0 - dot(q, q) * uVig;
+  gl_FragColor = vec4(c, 1.0);
+}`,
+  });
+  const quad = new T.Mesh(new T.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
+  const sc = new T.Scene(); sc.add(quad);
+  PP = window.__PP = { rt, mat, sc, cam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1), on: false, lt: 0, cool: 0, v: new T.Vector2() };
+  return PP;
+}
+function postResize() {
+  if (!PP) return;
+  renderer.getDrawingBufferSize(PP.v); PP.rt.setSize(Math.max(4, PP.v.x), Math.max(4, PP.v.y));
+  PP.mat.uniforms.uPx.value.set(1 / Math.max(4, PP.v.x), 1 / Math.max(4, PP.v.y));
+  PP.mat.uniforms.uSharp.value = renderer.getPixelRatio() < 1.5 ? 0.28 : 0.16;
+}
+function postWanted() { const q = QUAL[SET.quality] || QUAL[1]; return !!q.post && !window.__noPost && postSupported(); }
+function drawScene() {
+  const want = postWanted();
+  if (want && !PP) { postInit(); postResize(); }
+  if (PP && PP.on !== want) { PP.on = want; if (GFX.water) GFX.water.uniforms.uLin.value = want ? 1 : 0; scene.fog.color.copy(SKY_C); scene.background.copy(SKY_C); if (want) { scene.fog.color.convertSRGBToLinear(); scene.background.convertSRGBToLinear(); } } // névoa: mesma cor final na tela com ou sem o passe
+  if (PP && PP.on) {
+    renderer.setRenderTarget(PP.rt); renderer.render(scene, camera);
+    renderer.setRenderTarget(null); renderer.render(PP.sc, PP.cam);
+  } else renderer.render(scene, camera);
+  dynRes();
+}
+// resolução dinâmica: se cair abaixo de ~38 FPS reduz a resolução aos poucos; com folga, volta
+function dynRes() {
+  const now = performance.now();
+  if (!dynRes.t) dynRes.t = now;
+  if (now - dynRes.t < 2500 || G.phase !== 'match' || !G.fps) return;
+  dynRes.t = now;
+  let d = DYN;
+  if (G.fps < 38 && DYN > 0.6) d = Math.max(0.6, DYN - 0.1);
+  else if (G.fps > 55 && DYN < 1) d = Math.min(1, DYN + 0.05);
+  if (d !== DYN) { DYN = d; applyRes(); }
+}
 
 // ================= início =================
 G.mode = SET.mode || 'squad'; G.diff = SET.diff || 'mix';

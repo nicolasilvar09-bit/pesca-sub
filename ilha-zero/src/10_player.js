@@ -2,7 +2,10 @@
 const IN = { mx: 0, my: 0, sprint: false, ldx: 0, ldy: 0, fire: false, adsOn: false, act: false, hold: {} };
 const camDir = new T.Vector3(), _cp = {}, _ep = {}, _near2 = [];
 G.recAcc = 0; G.camKick = 0; G.flash = 0; G.zoomFar = false;
-const fovFor = z => 2 * Math.atan(Math.tan(37.5 * Math.PI / 180) / z) * 180 / Math.PI;
+// campo de visão como no PUBG: definido na horizontal (o celular é bem largo), convertido para o vertical da câmera
+const vfov = h => clamp(2 * Math.atan(Math.tan(h * Math.PI / 360) / camera.aspect) * 180 / Math.PI, 44, 80);
+const hipV = () => vfov(SET.fov || 90);
+const fovFor = z => 2 * Math.atan(Math.tan(hipV() * Math.PI / 360) / Math.max(1.15, z)) * 180 / Math.PI;
 
 // arma em 1ª pessoa (presa na câmera)
 const VM = new T.Group(); camera.add(VM);
@@ -128,6 +131,8 @@ function ctx() {
 }
 
 // ---------- câmera ----------
+// quanto o corpo "afunda" logo depois de aterrissar (0..1)
+function landDip(a) { if (a.landAt == null) return 0; const t = G.t - a.landAt; if (t < 0 || t > 0.5) return 0; return (a.landK || 0) * Math.sin(Math.min(1, t / 0.5) * Math.PI) * (t < 0.12 ? 1 : 1 - (t - 0.12) / 0.38 * 0.4); }
 function updateCamera(dt) {
   const v = G.view, p = G.player;
   let tgt = p.alive ? p : v.spect && v.spect.alive ? v.spect : null;
@@ -135,7 +140,7 @@ function updateCamera(dt) {
   let yaw = v.yaw, pitch = v.pitch;
   if (tgt && tgt !== p) { yaw = tgt.yaw; pitch = tgt.pitch * 0.5 - 0.1; }
   const cp = Math.cos(pitch); camDir.set(fwdX(yaw) * cp, Math.sin(pitch), fwdZ(yaw) * cp);
-  let fov = 75, fpp = false, hide = false;
+  let fov = vfov((SET.fov || 90) + 4), fpp = false, hide = false;
   const w = p.alive ? curW(p) : null, zoom = p.alive && p.ads && w ? sightZoom(w) : 1;
   G.zoomFar = zoom >= 3;
   if (!tgt) { // morto: câmera parada olhando o lugar
@@ -149,15 +154,35 @@ function updateCamera(dt) {
     camera.position.set(px - camDir.x * d, py - camDir.y * d, pz - camDir.z * d); camera.rotation.set(pitch, yaw, 0);
     if (camera.position.y < groundH(camera.position.x, camera.position.z) + 0.4) camera.position.y = groundH(camera.position.x, camera.position.z) + 0.4;
   } else if (tgt === p && (p.ads || v.fpp) && p.mode === 'ground' && !p.knocked) {
-    eyePos(p, _cp); camera.position.set(_cp.x + camDir.x * 0.12, _cp.y, _cp.z + camDir.z * 0.12); camera.rotation.set(pitch, yaw, -p.lean * 0.18);
-    fov = p.ads ? fovFor(zoom) : 78; fpp = true; hide = true;
+    eyePos(p, _cp);
+    // 1ª pessoa: cabeça balança com os passos, desce ao aterrissar, segue suave na troca de postura
+    const sp = Math.hypot(p.vx, p.vz), bk = p.onGround ? Math.min(1, sp / 5) * (p.ads ? 0.25 : 1) : 0;
+    v.bob = (v.bob || 0) + dt * sp * 1.75; const land = landDip(p);
+    if (v.eyeY == null || Math.abs(v.eyeY - _cp.y) > 2) v.eyeY = _cp.y; v.eyeY += (_cp.y - v.eyeY) * (1 - Math.exp(-dt * 14));
+    const rx = Math.cos(yaw), rz = -Math.sin(yaw), bx2 = Math.cos(v.bob) * 0.018 * bk;
+    camera.position.set(_cp.x + camDir.x * 0.12 + rx * bx2, v.eyeY + Math.abs(Math.sin(v.bob)) * 0.03 * bk - land * 0.11, _cp.z + camDir.z * 0.12 + rz * bx2);
+    camera.rotation.set(pitch - land * 0.03, yaw, -p.lean * 0.18 + Math.cos(v.bob) * 0.006 * bk);
+    v.piv = null; fov = p.ads ? fovFor(zoom) : vfov((SET.fov || 90) + 5); fpp = true; hide = true;
   } else {
-    const air = tgt.mode !== 'ground', dist = air ? (tgt.mode === 'chute' ? 7 : 5.5) : tgt.knocked ? 3.2 : 3.0, rx = Math.cos(yaw), rz = -Math.sin(yaw);
-    const sh = air ? 0 : 0.85;
-    const px = tgt.x + rx * sh, py = tgt.y + (air ? 1.4 : tgt.knocked || tgt.stance === 'prone' ? 0.9 : tgt.stance === 'crouch' ? 1.4 : 1.75), pz = tgt.z + rz * sh;
+    // 3ª pessoa estilo PUBG: por cima do ombro direito, segue o corpo com leve atraso (sem tremer nos degraus),
+    // desliza junto ao inclinar e encosta na parede de forma suave
+    const air = tgt.mode !== 'ground', rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    const sprint = !air && Math.hypot(tgt.vx, tgt.vz) > 5.6;
+    let dist = air ? (tgt.mode === 'chute' ? 7 : 5.5) : tgt.knocked ? 3.2 : tgt.stance === 'prone' ? 2.6 : sprint ? 3.25 : 3.0;
+    if (!air && pitch < -0.4) dist *= 1 + (-pitch - 0.4) * 0.35; // olhando para baixo afasta um pouco
+    const lean = tgt.lean || 0, sh = air ? 0 : 0.72 + lean * 0.42;
+    const tx = tgt.x + rx * sh, tz = tgt.z + rz * sh;
+    const ty = tgt.y + (air ? 1.4 : tgt.knocked || tgt.stance === 'prone' ? 0.85 : tgt.stance === 'crouch' ? 1.35 : 1.72) - Math.abs(lean) * 0.08 - landDip(tgt) * 0.16;
+    if (!v.piv || v.pivT !== tgt || Math.hypot(v.piv.x - tx, v.piv.z - tz) > 4 || Math.abs(v.piv.y - ty) > 4) { v.piv = { x: tx, y: ty, z: tz }; v.pivT = tgt; v.cd = dist; }
+    const kh = 1 - Math.exp(-dt * (air ? 12 : 26)), kv = 1 - Math.exp(-dt * 9);
+    v.piv.x += (tx - v.piv.x) * kh; v.piv.z += (tz - v.piv.z) * kh; v.piv.y += (ty - v.piv.y) * kv;
+    const px = v.piv.x, py = v.piv.y, pz = v.piv.z;
     let d = dist; const t = rayStatic(px, py, pz, -camDir.x, -camDir.y, -camDir.z, dist + 0.3); if (t < dist + 0.3) d = Math.max(0.3, t - 0.3);
-    camera.position.set(px - camDir.x * d, py - camDir.y * d, pz - camDir.z * d); camera.rotation.set(pitch, yaw, 0);
-    if (camera.position.y < groundH(camera.position.x, camera.position.z) + 0.3) camera.position.y = groundH(camera.position.x, camera.position.z) + 0.3;
+    if (v.cd == null || d < v.cd) v.cd = d; else v.cd = Math.min(d, v.cd + dt * 3.5); // encosta na hora, volta devagar
+    camera.position.set(px - camDir.x * v.cd, py - camDir.y * v.cd, pz - camDir.z * v.cd); camera.rotation.set(pitch, yaw, 0);
+    if (sprint && tgt.onGround) { v.bob = (v.bob || 0) + dt * 11; camera.position.y += Math.sin(v.bob) * 0.012; camera.rotation.z = Math.cos(v.bob * 0.5) * 0.004; }
+    const gh = groundH(camera.position.x, camera.position.z); if (camera.position.y < gh + 0.3) camera.position.y = gh + 0.3;
+    fov = hipV();
   }
   if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 18); if (Math.abs(camera.fov - fov) < 0.3) camera.fov = fov; camera.updateProjectionMatrix(); }
   // arma na mão (1ª pessoa)
@@ -166,8 +191,16 @@ function updateCamera(dt) {
   if (VM.visible) {
     const key = gunKey(w); if (key !== vmKey) { vmKey = key; setGunVisual(vmGun, w.k); dressGun(vmGun, w); }
     const kick = Math.min(0.08, G.recAcc * 0.6), bob = Math.sin(p.walk * 1) * Math.min(1, Math.hypot(p.vx, p.vz) / 4) * 0.012;
-    if (p.ads) { const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y; VM.position.set(0, -top, -0.22 + kick); } else VM.position.set(0.2, -0.19 + bob, -0.3 + kick);
-    VM.rotation.set(p.reloadT > 0 ? -0.5 : 0, 0, 0);
+    // a arma atrasa um pouco ao virar (peso), balança com os passos e abaixa correndo
+    const dy = wrapA(yaw - (v.lyaw == null ? yaw : v.lyaw)), dp = pitch - (v.lpit == null ? pitch : v.lpit); v.lyaw = yaw; v.lpit = pitch;
+    const sk = 1 - Math.exp(-dt * 9), am = p.ads ? 0.25 : 1;
+    v.swx = ((v.swx || 0) + clamp(dy, -0.1, 0.1) * am) * (1 - sk); v.swy = ((v.swy || 0) + clamp(dp, -0.1, 0.1) * am) * (1 - sk);
+    const spr = Math.hypot(p.vx, p.vz) > 5.6 && !p.ads ? 1 : 0; v.vmRun = (v.vmRun || 0) + (spr - (v.vmRun || 0)) * Math.min(1, dt * 7);
+    const bb = Math.min(1, Math.hypot(p.vx, p.vz) / 5) * (p.onGround ? 1 : 0) * (p.ads ? 0.15 : 1), ph = v.bob || 0, land = landDip(p);
+    const bobX = Math.cos(ph) * 0.012 * bb, bobY = -Math.abs(Math.sin(ph)) * 0.012 * bb + Math.sin(G.t * 1.6) * 0.002 - land * 0.025;
+    if (p.ads) { const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y; VM.position.set(v.swx * 0.05 + bobX * 0.3, -top + v.swy * 0.04 + bobY * 0.3, -0.22 + kick); }
+    else VM.position.set(0.2 + v.swx * 0.35 + bobX - v.vmRun * 0.06, -0.19 + bob * 0 + v.swy * 0.25 + bobY - v.vmRun * 0.05, -0.3 + kick + v.vmRun * 0.03);
+    VM.rotation.set((p.reloadT > 0 ? -0.5 : 0) - v.swy * 0.6 - v.vmRun * 0.35, v.swx * 0.9 + v.vmRun * 0.5, v.swx * 0.5 + v.vmRun * 0.25);
   }
   if (G.shake > 0) { G.shake -= dt; camera.rotation.x += gauss() * 0.012 * G.shake; camera.rotation.y += gauss() * 0.012 * G.shake; }
   SKY.position.copy(camera.position); if (typeof SKY2 !== 'undefined' && SKY2) SKY2.position.copy(camera.position);

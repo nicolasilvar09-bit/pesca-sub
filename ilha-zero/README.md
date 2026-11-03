@@ -105,3 +105,11 @@ Código em `src/` (módulos numerados, juntados em ordem). Gerar e testar antes 
 python3 build.py && node tests/smoke.js
 ```
 O teste compila o JavaScript e simula partidas inteiras (esquadrão e solo) num navegador sem tela.
+
+## Imagem, câmera, física e movimento (estilo PUBG)
+- **Imagem**: antisserrilhado MSAA 4x, nitidez leve, cor mais viva sem estourar, contraste suave e vinheta (Médio e Alto); resolução dinâmica que baixa sozinha se o FPS cair
+- **Câmera 3ª pessoa**: por cima do ombro, segue o corpo com leve atraso (não treme em degraus), desliza junto ao inclinar, encosta na parede e volta devagar, afasta um pouco correndo e olhando para baixo
+- **Câmera 1ª pessoa**: balanço da cabeça com os passos, arma com peso (atrasa ao virar), arma abaixa correndo, câmera afunda ao aterrissar
+- **Campo de visão** ajustável (75–105) nas configurações, medido na horizontal como no PUBG
+- **Física**: aceleração e freada com inércia, mais lento subindo ladeira, aterrissagem amortecida (anda devagar por um instante)
+- **Corpo**: parado, o tronco gira até ~60° antes dos pés acompanharem (com passinhos); deitar e agachar com transição suave; joelho dobra ao aterrissar; inclina para frente correndo, para dentro nas curvas e balança ao arrancar/frear

@@ -65,7 +65,7 @@ async function addFriendCode(code) {
 async function renameOnline() { if (!ON.me || ON.me.name === myName()) return; ON.me.name = myName(); try { await sbFetch(`/rest/v1/profiles?id=eq.${ON.s.uid}`, { method: 'PATCH', body: JSON.stringify({ name: myName() }) }); } catch (e) { } wsTrack(); }
 
 // ---------- progresso na nuvem (se a tabela iz_saves existir; senão fica só no aparelho) ----------
-const CLOUD_K = ['name', 'char', 'sens', 'adsSens', 'quality', 'view', 'vol', 'mode', 'diff', 'matches', 'wins', 'kills', 'best', 'dmg'];
+const CLOUD_K = ['name', 'char', 'sens', 'adsSens', 'quality', 'fov', 'view', 'vol', 'mode', 'diff', 'matches', 'wins', 'kills', 'best', 'dmg'];
 let cloudOk = false, cloudT = 0;
 async function cloudLoad() {
   try {

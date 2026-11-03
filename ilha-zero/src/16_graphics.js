@@ -81,12 +81,12 @@ patchNoise(MAT.terrain, 'terrain'); patchNoise(MAT.world, 'wall');
   const data = new Uint8Array(GN * GN * 4);
   for (let n = 0; n < GN * GN; n++) { const d = clamp(-H[n] / 16, 0, 1) * 255; data[n * 4] = d; data[n * 4 + 1] = d; data[n * 4 + 2] = d; data[n * 4 + 3] = 255; }
   const tex = new T.DataTexture(data, GN, GN, T.RGBAFormat); tex.magFilter = tex.minFilter = T.LinearFilter; tex.needsUpdate = true;
-  const uni = T.UniformsUtils.merge([T.UniformsLib.fog, { uT: { value: 0 }, uSun: { value: SUN_DIR.clone() }, uSky: { value: new T.Color(0xb5c6d2) } }]);
+  const uni = T.UniformsUtils.merge([T.UniformsLib.fog, { uT: { value: 0 }, uSun: { value: SUN_DIR.clone() }, uSky: { value: new T.Color(0xb5c6d2) }, uLin: { value: 0 } }]);
   uni.uDepth = { value: tex };
   const mat = new T.ShaderMaterial({
     uniforms: uni, fog: true, transparent: true, depthWrite: false,
     vertexShader: `varying vec3 vWP;\n#include <fog_pars_vertex>\nvoid main(){ vec4 wp = modelMatrix * vec4(position, 1.0); vWP = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}`,
-    fragmentShader: `uniform float uT; uniform sampler2D uDepth; uniform vec3 uSun; uniform vec3 uSky; varying vec3 vWP;\n#include <fog_pars_fragment>\n${GLSL_NOISE}
+    fragmentShader: `uniform float uT; uniform float uLin; uniform sampler2D uDepth; uniform vec3 uSun; uniform vec3 uSky; varying vec3 vWP;\n#include <fog_pars_fragment>\n${GLSL_NOISE}
 void main(){
   vec2 uv = (vWP.xz + ${HALF.toFixed(1)}) / ${MAP.toFixed(1)}; float depth = 1.0;
   if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) depth = texture2D(uDepth, uv).r;
@@ -104,6 +104,7 @@ void main(){
   float foam = smoothstep(0.045, 0.0, depth - wave * 0.02) * (0.6 + 0.4 * vn(p * 1.5 + uT * 0.6));
   col = mix(col, vec3(0.92, 0.93, 0.9), clamp(foam, 0.0, 1.0) * 0.6);
   float alpha = mix(0.5, 0.93, smoothstep(0.0, 0.3, depth)); alpha = max(alpha, foam);
+  if (uLin > 0.5) col = pow(col, vec3(2.2)); // com pós-processamento a cena é gravada em cor linear
   gl_FragColor = vec4(col, alpha);
   #include <fog_fragment>
 }`,

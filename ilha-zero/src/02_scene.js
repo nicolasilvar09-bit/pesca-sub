@@ -1,7 +1,8 @@
 // ================= cena: renderizador, câmera, luz, céu e utilitários de geometria =================
 const renderer = new T.WebGLRenderer({ canvas: $('cv'), antialias: false, powerPreference: 'high-performance' });
 renderer.outputEncoding = T.sRGBEncoding; renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.92;
-const QUAL = [{ pr: 0.75, fog: 700, shadow: 0, grass: 0 }, { pr: 1.25, fog: 1000, shadow: 1024, grass: 1 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1 }];
+const QUAL = [{ pr: 0.75, fog: 700, shadow: 0, grass: 0, post: 0 }, { pr: 1.25, fog: 1000, shadow: 1024, grass: 1, post: 1 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1, post: 1 }];
+var DYN = 1; // escala de resolução dinâmica (baixa sozinha se o celular não segurar o FPS)
 const scene = new T.Scene();
 const SKY_C = new T.Color(0xc3ced6); // névoa atmosférica azul-acinzentada
 scene.background = SKY_C.clone();
@@ -14,11 +15,16 @@ const sun = new T.DirectionalLight(0xffe2b8, 1.9); sun.position.set(320, 330, 18
 
 function applyQuality() {
   const q = QUAL[SET.quality] || QUAL[1];
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr));
   scene.fog.far = q.fog; scene.fog.near = q.fog * 0.12;
+  applyRes();
+  if (typeof gfxQuality === 'function') gfxQuality(q);
+}
+function applyRes() {
+  const q = QUAL[SET.quality] || QUAL[1];
+  renderer.setPixelRatio(Math.max(0.5, Math.min(window.devicePixelRatio || 1, q.pr) * DYN));
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  if (typeof gfxQuality === 'function') gfxQuality(q);
+  if (typeof postResize === 'function') postResize();
 }
 addEventListener('resize', applyQuality);
 

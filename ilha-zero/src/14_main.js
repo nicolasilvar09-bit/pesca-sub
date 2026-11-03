@@ -33,6 +33,6 @@ function frame(now) {
     updateHud(dt);
   } else { lobbyCamera(dt); gfxStep(dt, LOB.x, LOB.y, LOB.z); }
   // com painel aberto cobrindo a tela, desenha o 3D só de vez em quando (alivia o celular)
-  if (!(G.phase === 'match' && panelOpen()) || (fpsN % 6 === 0)) renderer.render(scene, camera);
+  if (!(G.phase === 'match' && panelOpen()) || (fpsN % 6 === 0)) drawScene();
   fpsN++; if ((fpsT += dt) > 1) { G.fps = fpsN / fpsT; fpsN = 0; fpsT = 0; }
 }

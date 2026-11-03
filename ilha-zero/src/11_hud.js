@@ -298,12 +298,13 @@ function openMenu() {
   $('menuP').innerHTML = `<div class="box"><h3>Configurações</h3>
   <label>Sensibilidade <input type="range" min="0.3" max="2.5" step="0.05" value="${SET.sens}" id="sSens"></label>
   <label>Sensibilidade na mira <input type="range" min="0.3" max="2" step="0.05" value="${SET.adsSens}" id="sAds"></label>
+  <label>Campo de visão <input type="range" min="75" max="105" step="1" value="${SET.fov || 90}" id="sFov"></label>
   <label>Gráficos <select id="sQ"><option value="0">Leve</option><option value="1">Médio</option><option value="2">Alto</option></select></label>
   <label>Volume <input type="range" min="0" max="1" step="0.05" value="${SET.vol}" id="sVol"></label>
   <div class="row"><button id="mBack" class="btn">VOLTAR AO JOGO</button><button id="mQuit" class="btn red">SAIR DA PARTIDA</button></div></div>`;
   $('sQ').value = SET.quality;
   $('sSens').oninput = e => { SET.sens = +e.target.value; saveSet(); }; $('sAds').oninput = e => { SET.adsSens = +e.target.value; saveSet(); };
-  $('sVol').oninput = e => { SET.vol = +e.target.value; saveSet(); }; $('sQ').onchange = e => { SET.quality = +e.target.value; saveSet(); applyQuality(); };
+  $('sVol').oninput = e => { SET.vol = +e.target.value; saveSet(); }; $('sFov').oninput = e => { SET.fov = +e.target.value; saveSet(); }; $('sQ').onchange = e => { SET.quality = +e.target.value; saveSet(); applyQuality(); };
   $('mBack').onclick = () => closePanels();
   $('mQuit').onclick = () => { closePanels(); if (!G.result && G.player.alive) { G.place = G.actors.filter(a => a.alive && a.team !== G.player.team).length + 1; } toLobby(); };
 }
