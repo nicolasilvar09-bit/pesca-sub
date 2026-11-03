@@ -13,7 +13,7 @@ function freshK(f) {
   const h = nowH() - f.at;
   return f.ice ? clamp(1 - Math.max(0, h - 12) / 6 * 0.03, 0.5, 1) : clamp(1 - Math.max(0, h - 4) / 6 * 0.12, 0.35, 1);
 }
-const fishVal = f => f.kg * SPECIES[f.key].price * freshK(f);
+const fishVal = f => f.kg * SPECIES[f.key].price * freshK(f) * ecoK(); // selo de pescador consciente e cota real valorizam
 const freshTag = f => { const k = freshK(f); return k > 0.95 ? '🟢 fresco' : k > 0.75 ? '🟡 bom' : k > 0.5 ? '🟠 passando' : '🔴 quase estragado'; };
 // marca hora e gelo em cada peixe que entra na fieira
 function tagCatch(o) { o.at = nowH(); o.ice = iceOn(); return o; }

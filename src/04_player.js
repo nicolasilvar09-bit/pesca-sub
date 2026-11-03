@@ -81,14 +81,16 @@ function catchFish(f) {
   const sp = f.sp, cm = Math.round(f.len * 100);
   GUN.fish = null; f.remove();
   RESPAWN.push({ key: f.key, spot: f.spot.id, n: sp.school ? Math.round(rand(3, 6)) : 1, t: performance.now() / 1000 + rand(90, 160) });
-  if (noTakeAt(f.pos)) { SV.money -= 500; toast(`Área de preservação (piscinas naturais): aqui é só foto! ${sp.name} apreendido e multa de R$ 500.`, 5, 'bad'); AU.bad(); save(); return; }
-  if (sp.protected) { SV.money -= 1000; toast(`${sp.name.toUpperCase()}, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
-  if (f.len < sp.min) { SV.money -= 200; toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
-  P.stringer.push(tagCatch({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len }));
+  if (noTakeAt(f.pos)) { SV.money -= 500; ecoFine(); toast(`Área de preservação (piscinas naturais): aqui é só foto! ${sp.name} apreendido e multa de R$ 500.`, 5, 'bad'); AU.bad(); save(); return; }
+  if (sp.protected) { SV.money -= 1000; ecoFine(); toast(`${sp.name.toUpperCase()}, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
+  if (f.len < sp.min) { SV.money -= 200; ecoFine(); toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
+  if (ecoCheck(f)) return; // defeso ou cota do dia
+  P.stringer.push(tagCatch({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len })); ecoCatch(f.kg);
+  const rec = !sp.ornamental && !!SV.best[f.key] && SV.best[f.key] < f.kg && f.kg > 1;
   if (!sp.ornamental) addXP(15 + f.kg * 12);
   if ((SV.tod || 12) >= 19 || (SV.tod || 12) < 5) SV.nightCatch = true;
   compOnCatch(f); rankCatch(f); huntCatch(f); storyEvent('catch', f);
-  if (!sp.ornamental) { mission('catch', { key: f.key }); mission('catchkg', { kg: f.kg }); if (GUN.waitShot) mission('wait'); }
+  if (!sp.ornamental) { mission('catch', { key: f.key, spot: f.spot && f.spot.id }); mission('catchkg', { kg: f.kg }); mission('catchsp', { key: f.key }); mission('kg', { v: f.kg }); if (isTrophy(f)) mission('trophy'); if (GUN.waitShot) mission('wait'); albumAdd(f, rec); }
   if (sp.rare) toast(`${sp.name}! Peixe raro na fieira.`, 4, 'gold'); else if (isTrophy(f)) toast(`Troféu! ${sp.name} acima do tamanho comum.`, 4, 'gold');
   if (sp.ornamental) toast(`${sp.name} é peixe ornamental, ninguém compra. Prefira deixar no mar.`, 4, 'bad');
   toast(`${sp.name} · ${cm} cm · ${fmtKg(f.kg)} kg`, 3.5, 'gold'); AU.coin();

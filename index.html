@@ -84,6 +84,13 @@ html,body{margin:0;height:100%;height:100dvh;position:fixed;inset:0;width:100%;o
 #bJump{right:96px;bottom:10px;width:76px;height:76px;font-size:12px;background:rgba(47,208,192,.4)}
 #bLight{left:calc(130px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:9px;background:rgba(255,220,120,.25)}#bLight.on{background:rgba(255,220,120,.6)}
 body.short #bLight{left:calc(114px + env(safe-area-inset-left));bottom:146px;width:46px;height:46px}body.portrait #bLight{left:128px;bottom:calc(166px + env(safe-area-inset-bottom));width:48px;height:48px}
+#shareBtn{position:absolute;left:50%;bottom:calc(112px + env(safe-area-inset-bottom));transform:translateX(-50%);pointer-events:auto!important;background:linear-gradient(#ffc040,#e89a10);color:#2a1a00;font-weight:800;font-size:13px;text-align:center;line-height:1.2;padding:8px 16px;border-radius:22px;box-shadow:0 4px 14px rgba(0,0,0,.4);animation:pulse 1.4s infinite;z-index:6}
+#shareBtn small{font-weight:600;font-size:10px}
+#shareBox{position:fixed;inset:0;z-index:95;background:rgba(0,8,12,.86);display:grid;place-items:center;pointer-events:auto;padding:12px}
+#shareBox .shw{width:min(94vw,420px);max-height:96vh;display:flex;flex-direction:column;gap:8px;align-items:stretch}
+#shareBox img{width:100%;max-height:72vh;object-fit:contain;border-radius:12px;border:1px solid var(--line)}
+#shareBox .d{text-align:center;color:var(--muted);font-size:12px}
+#shareBox .row2{justify-content:center;margin-top:0}
 #bMarina{right:184px;bottom:10px;width:76px;height:76px;font-size:12px;background:rgba(255,176,32,.5)}
 #bView{position:absolute;left:calc(70px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px}
 #bPhoto{position:absolute;left:calc(130px + env(safe-area-inset-left));bottom:182px;width:52px;height:52px;font-size:10px;background:rgba(110,190,255,.42)}
@@ -1718,14 +1725,16 @@ function catchFish(f) {
   const sp = f.sp, cm = Math.round(f.len * 100);
   GUN.fish = null; f.remove();
   RESPAWN.push({ key: f.key, spot: f.spot.id, n: sp.school ? Math.round(rand(3, 6)) : 1, t: performance.now() / 1000 + rand(90, 160) });
-  if (noTakeAt(f.pos)) { SV.money -= 500; toast(`Área de preservação (piscinas naturais): aqui é só foto! ${sp.name} apreendido e multa de R$ 500.`, 5, 'bad'); AU.bad(); save(); return; }
-  if (sp.protected) { SV.money -= 1000; toast(`${sp.name.toUpperCase()}, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
-  if (f.len < sp.min) { SV.money -= 200; toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
-  P.stringer.push(tagCatch({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len }));
+  if (noTakeAt(f.pos)) { SV.money -= 500; ecoFine(); toast(`Área de preservação (piscinas naturais): aqui é só foto! ${sp.name} apreendido e multa de R$ 500.`, 5, 'bad'); AU.bad(); save(); return; }
+  if (sp.protected) { SV.money -= 1000; ecoFine(); toast(`${sp.name.toUpperCase()}, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
+  if (f.len < sp.min) { SV.money -= 200; ecoFine(); toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
+  if (ecoCheck(f)) return; // defeso ou cota do dia
+  P.stringer.push(tagCatch({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len })); ecoCatch(f.kg);
+  const rec = !sp.ornamental && !!SV.best[f.key] && SV.best[f.key] < f.kg && f.kg > 1;
   if (!sp.ornamental) addXP(15 + f.kg * 12);
   if ((SV.tod || 12) >= 19 || (SV.tod || 12) < 5) SV.nightCatch = true;
   compOnCatch(f); rankCatch(f); huntCatch(f); storyEvent('catch', f);
-  if (!sp.ornamental) { mission('catch', { key: f.key }); mission('catchkg', { kg: f.kg }); if (GUN.waitShot) mission('wait'); }
+  if (!sp.ornamental) { mission('catch', { key: f.key, spot: f.spot && f.spot.id }); mission('catchkg', { kg: f.kg }); mission('catchsp', { key: f.key }); mission('kg', { v: f.kg }); if (isTrophy(f)) mission('trophy'); if (GUN.waitShot) mission('wait'); albumAdd(f, rec); }
   if (sp.rare) toast(`${sp.name}! Peixe raro na fieira.`, 4, 'gold'); else if (isTrophy(f)) toast(`Troféu! ${sp.name} acima do tamanho comum.`, 4, 'gold');
   if (sp.ornamental) toast(`${sp.name} é peixe ornamental, ninguém compra. Prefira deixar no mar.`, 4, 'bad');
   toast(`${sp.name} · ${cm} cm · ${fmtKg(f.kg)} kg`, 3.5, 'gold'); AU.coin();
@@ -2126,7 +2135,7 @@ function updateHUD(dt) {
   show('cross', swim); show('bands', swim); show('bView', swim || P.mode === 'boat'); document.body.classList.toggle('inboat', P.mode === 'boat'); show('bPhoto', swim && P.under && !!SV.cam); show('bCall', swim && P.under); show('bEq', swim && P.under && !OPT.autoEq); $('bCall').style.opacity = callCD > 0 ? 0.45 : ''; show('bShop', !swim); show('compass', !COMP.on); show('fuelChip', true);
   introHideButtons(); rideHUD();
   const aim = aimOnFish(); $('cross').classList.toggle('ok', !!(aim && aim.ok));
-  const al = $('aimLbl'); if (aim) { al.textContent = `${aim.f.sp.rare ? '★ RARO · ' : isTrophy(aim.f) ? '★ TROFÉU · ' : ''}${aim.f.sp.name} · ~${Math.round(aim.f.len * 100 / 5) * 5} cm${aim.ok ? '' : ' · longe'}`; al.classList.remove('hide'); } else al.classList.add('hide');
+  const al = $('aimLbl'); if (aim) { al.textContent = `${defesoOf(aim.f.key) ? '⛔ DEFESO · ' : aim.f.sp.rare ? '★ RARO · ' : isTrophy(aim.f) ? '★ TROFÉU · ' : ''}${aim.f.sp.name} · ~${Math.round(aim.f.len * 100 / 5) * 5} cm${aim.ok ? '' : ' · longe'}`; al.classList.remove('hide'); } else al.classList.add('hide');
   const fighting = GUN.state === 'hooked' && GUN.fish && GUN.fish.fight > 0;
   show('fight', fighting); if (fighting) { $('fFill').style.width = clamp(GUN.fish.fight / GUN.fight0, 0, 1) * 100 + '%'; fightHUD(); }
   // máscara / alerta
@@ -2191,7 +2200,7 @@ function step(dt) {
   updateDiver(dt, T); rideTick(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt); updateIntro(dt); updateRare2(dt); updateWorldScene(dt, T); updateStory(dt); updateConsole(dt); updateBoatLights(dt, T); updateEcon2();
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt); updateIntro(dt); updateRare2(dt); updateWorldScene(dt, T); updateStory(dt); updateConsole(dt); updateBoatLights(dt, T); updateShareBtn(dt); ecoDayRoll(); updateEcon2();
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -2248,7 +2257,7 @@ async function init() {
   initRenderer(); sky = buildSky(); await yieldUI(); buildTerrain(); await yieldUI(); buildWater(); buildRocksAndDecor(); await yieldUI(); buildLand(); mergeMarina(); bakeShallow(); buildFX(); await yieldUI();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); await yieldUI(); buildLife(); initExtra(); await yieldUI();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); setupRide(); setupHudCompact(); setupBoatLights(); $('menu').classList.add('live');
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); setupRide(); setupHudCompact(); setupBoatLights(); setupShare(); $('menu').classList.add('live');
   $('playBtn').onclick = startGame;
   ON.ready = true;
   // ganchos para os testes automáticos (tests/smoke.js)
@@ -3029,9 +3038,9 @@ let shopTab = 'sell', shopAtMarina = false;
 const SHOP_AREAS = [
   { id: 'marina', ic: '⚓', n: 'Marina', tabs: [['sell', 'Vender pescado'], ['fuel', 'Combustível'], ['boats', 'Lanchas'], ['viagem', 'Viagem']] },
   { id: 'equip', ic: '🎯', n: 'Equipamento', tabs: [['equip', 'Arbaletes e roupas'], ['apneia', 'Apneia'], ['extras', 'Extras']] },
-  { id: 'comp', ic: '🏆', n: 'Competições', tabs: [['comp', 'Campeonato e Mundial'], ['rank', 'Ranking online']] },
+  { id: 'comp', ic: '🏆', n: 'Competições', tabs: [['comp', 'Campeonato e Mundial'], ['chal', 'Desafio da semana'], ['rank', 'Ranking online']] },
   { id: 'social', ic: '👥', n: 'Social', tabs: [['online', 'Online e grupo'], ['amigos', 'Amigos']] },
-  { id: 'diario', ic: '📖', n: 'Diário', tabs: [['next', 'Próximos'], ['hist', 'História'], ['miss', 'Missões'], ['car', 'Conquistas'], ['rec', 'Recordes'], ['guia', 'Guia de espécies'], ['mar', 'Boletim']] },
+  { id: 'diario', ic: '📖', n: 'Diário', tabs: [['next', 'Próximos'], ['hist', 'História'], ['miss', 'Missões'], ['album', 'Álbum'], ['eco', 'Pesca consciente'], ['car', 'Conquistas'], ['rec', 'Recordes'], ['guia', 'Guia de espécies'], ['mar', 'Boletim']] },
 ];
 function openShop(atMarina) { shopAtMarina = !!atMarina; paused = true; $('marinaPanel').classList.remove('hide'); renderShop(); }
 function openMarina() { openShop(true); }
@@ -3077,6 +3086,9 @@ function renderShop() {
   if (shopTab === 'guia') h = guideHTML();
   if (shopTab === 'online') h = onlineHTML();
   if (shopTab === 'rank') h = rankHTML();
+  if (shopTab === 'chal') h = chalHTML();
+  if (shopTab === 'album') h = albumHTML();
+  if (shopTab === 'eco') h = ecoHTML();
   if (shopTab === 'viagem') h = travelHTML(at);
   if (shopTab === 'extras') h = extrasHTML(at);
   if (shopTab === 'next') h = nextHTML();
@@ -3103,7 +3115,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
-  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindBoatUp(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindWorld(); bindStory(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
+  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindBoatUp(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindChal(); bindAlbum(B); bindEco(); bindWorld(); bindStory(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
@@ -3122,7 +3134,7 @@ function placeRig(r, pos, yaw, pitch, under, mv, kick) {
 // ---------- campeonato ----------
 const COMP = { on: false, t: 0, spot: null, bots: [], me: { n: 0, kg: 0 } };
 const BOT_DEF = AMZ ? [['Raimundo', 0x1b1e22], ['Jacira', 0x23304a], ['Seu Bené', 0x3b2b1e]] : NE ? [['Zé Jangadeiro', 0x1b1e22], ['Marinalva', 0x23304a], ['Cícero do Pontal', 0x3b2b1e]] : [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
-const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && f.state !== 'hooked' && f.state !== 'dead';
+const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && !defesoOf(f.key) && f.state !== 'hooked' && f.state !== 'dead';
 function startComp(id, duo, live) {
   const s = spotById(id); if (!s || COMP.on) return;
   const fee = live ? 0 : duo ? 200 : 100;
@@ -3221,12 +3233,14 @@ function updateComp(dt, t) {
   // placar
   const rows = COMP.guest ? guestRows() : COMP.duo ? duoRows() : [{ name: 'Você', n: COMP.me.n, kg: COMP.me.kg, me: true }, ...COMP.lives.map(l => ({ name: l.name, n: l.n, kg: l.kg })), ...COMP.bots.map(b => ({ name: b.name, n: b.n, kg: b.kg }))].sort((a, b) => b.n - a.n || b.kg - a.kg);
   const mm = Math.max(0, Math.ceil(COMP.t)), tt = `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}`;
-  compHudSet(`⏱ ${tt}`, COMP.t < 60, rows.map(r => ({ label: r.name, val: `${r.n}${AMZ ? ' pts' : ''} · ${fmtKg(r.kg)} kg`, me: r.me })));
+  compHudSet(`${COMP.weekly ? '🎯 Desafio · ' : '⏱ '}${tt}`, COMP.t < 60, rows.map(r => ({ label: r.name, val: `${r.n}${AMZ ? ' pts' : ''} · ${fmtKg(r.kg)} kg`, me: r.me })));
   if (COMP.guest ? COMP.t < -20 : COMP.t <= 0) endComp(rows); // o convidado espera o fim mandado pelo anfitrião
 }
 function endComp(rows) {
   COMP.on = false; $('compHud').classList.add('hide');
   for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
+  if (COMP.weekly) { chalEnd(); return; }
+  mission('comp');
   if (COMP.mate) duoHostEnd(rows);
   const duo = COMP.duo, PR = (COMP.live && !COMP.guest ? (COMP.lives.length > 1 ? [800, 350, 150, 0] : [500, 200]) : duo ? [1800, 700, 0] : [900, 350, 150, 0]).map(v => v * COMP.mult), pos = rows.findIndex(r => r.me), prize = PR[pos];
   if (duo) duo.friend.xp = (duo.friend.xp || 0) + (pos === 0 ? 150 : 60);
@@ -3264,26 +3278,20 @@ function ensureDaily() {
   save(); return SV.daily;
 }
 function mission(ev, data = {}) {
+  weekEv(ev, data); // as da semana contam os mesmos eventos
   const D = ensureDaily(); let changed = false;
   for (const m of D.list) {
-    if (m.done || m.ev !== ev) continue;
-    let inc = 0;
-    if (ev === 'catch') inc = !m.key || m.key === data.key ? 1 : 0;
-    else if (ev === 'catchkg') inc = data.kg >= m.kg ? 1 : 0;
-    else if (ev === 'depth') inc = data.d >= m.d ? 1 : 0;
-    else if (ev === 'sell') inc = data.v;
-    else inc = 1;
-    if (!inc) continue;
+    const inc = missionStep(m, ev, data); if (!inc) continue;
     m.prog = Math.min(m.goal, m.prog + inc); changed = true;
-    if (m.prog >= m.goal) { m.done = true; SV.money += m.rew; addXP(m.rew / 4); toast(`Missão cumprida: ${m.t}! +${fmtR(m.rew)}`, 4, 'gold'); AU.coin(); buzz([40, 60, 40]); }
+    if (m.prog >= m.goal) { m.done = true; SV.money += m.rew; addXP(m.rew / 4); toast(`Missão cumprida: ${m.t}! +${fmtR(m.rew)}`, 4, 'gold'); AU.coin(); buzz([40, 60, 40]); if (D.list.every(x => x.done)) dailyAllDone(); }
     else if (ev !== 'sell') toast(`Missão: ${m.t} (${m.prog}/${m.goal})`, 2.5);
   }
   if (changed) save();
 }
 function missionsHTML() {
   const D = ensureDaily();
-  return `<div class="it" style="margin-bottom:8px"><div class="d">Três missões novas por dia. A recompensa entra direto no saldo.</div></div><div class="list">` +
-    D.list.map(m => `<div class="it"><div style="flex:1"><div class="n">${m.done ? '✓ ' : ''}${m.t}</div><div class="d">${m.ev === 'sell' ? fmtR(m.prog) + ' de ' + fmtR(m.goal) : m.prog + ' de ' + m.goal} · recompensa ${fmtR(m.rew)}</div><div class="bar"><i style="width:${Math.round(m.prog / m.goal * 100)}%"></i></div></div><b style="color:${m.done ? 'var(--acc)' : 'inherit'}">${m.done ? 'FEITA' : ''}</b></div>`).join('') + '</div>';
+  return `<div class="it" style="margin-bottom:8px"><div class="d">Três missões novas por dia de jogo. A recompensa entra direto no saldo.</div></div><div class="list">` +
+    D.list.map(m => `<div class="it"><div style="flex:1"><div class="n">${m.done ? '✓ ' : ''}${m.t}</div><div class="d">${m.ev === 'sell' ? fmtR(m.prog) + ' de ' + fmtR(m.goal) : m.prog + ' de ' + m.goal} · recompensa ${fmtR(m.rew)}</div><div class="bar"><i style="width:${Math.round(m.prog / m.goal * 100)}%"></i></div></div><b style="color:${m.done ? 'var(--acc)' : 'inherit'}">${m.done ? 'FEITA' : ''}</b></div>`).join('') + '</div>' + weeklyHTML();
 }
 
 // ---------- peixes raros: aviso ao avistar ----------
@@ -3579,7 +3587,7 @@ function takePhoto() {
   SV.money += pay + (first ? 150 : 0); addXP(pay / 4 + (first ? 40 : 0));
   toast(`Foto: ${name}${o.len ? ' · ~' + Math.round(o.len * 100) + ' cm' : ''} · nota ${score} · revista paga ${fmtR(pay)}${rep ? ' (já fotografou hoje)' : ''}`, 3.5, 'gold');
   if (first) toast(`${name} entrou no guia de espécies! +${fmtR(150)}`, 3.5, 'gold');
-  AU.coin(); save();
+  mission('photo', { key }); AU.coin(); save();
 }
 
 // guia: uma ficha por espécie, revelada quando pescada ou fotografada
@@ -6218,7 +6226,7 @@ function freshK(f) {
   const h = nowH() - f.at;
   return f.ice ? clamp(1 - Math.max(0, h - 12) / 6 * 0.03, 0.5, 1) : clamp(1 - Math.max(0, h - 4) / 6 * 0.12, 0.35, 1);
 }
-const fishVal = f => f.kg * SPECIES[f.key].price * freshK(f);
+const fishVal = f => f.kg * SPECIES[f.key].price * freshK(f) * ecoK(); // selo de pescador consciente e cota real valorizam
 const freshTag = f => { const k = freshK(f); return k > 0.95 ? '🟢 fresco' : k > 0.75 ? '🟡 bom' : k > 0.5 ? '🟠 passando' : '🔴 quase estragado'; };
 // marca hora e gelo em cada peixe que entra na fieira
 function tagCatch(o) { o.at = nowH(); o.ice = iceOn(); return o; }
@@ -6353,7 +6361,7 @@ function updateFisc(dt, t) {
 }
 function inspect() {
   if (licOk()) { toast('✅ Fiscalização: licença de pesca em dia e pescado dentro da medida. Bom mergulho!', 4, 'gold'); return; }
-  const lost = P.stringer.length; SV.money -= 400; P.stringer = [];
+  const lost = P.stringer.length; SV.money -= 400; ecoFine(); P.stringer = [];
   toast(`❌ Fiscalização: pescando sem licença! Multa de R$ 400${lost ? ` e ${lost} peixe(s) da fieira apreendidos` : ''}. Compre a licença na loja (aba Extras).`, 7, 'bad'); AU.bad(); save();
 }
 
@@ -7050,6 +7058,7 @@ function updateTips(dt) {
   if (aim) {
     const s = aim.f.sp;
     if (s.protected) tipOnce('prot', `${s.name} é espécie protegida: atirar dá multa pesada. Só foto!`, 'bad');
+    else if (defesoOf(aim.f.key)) tipOnce('defeso', `${s.name} está em ${defesoOf(aim.f.key).n.toLowerCase()}: atirar dá multa. Veja Diário › Pesca consciente.`, 'bad');
     else if (aim.f.len < s.min) tipOnce('small', `Esse ${s.name.toLowerCase()} está abaixo da medida mínima (${Math.round(s.min * 100)} cm). Atirar dá multa: espere um maior.`, 'bad');
     else if (s.ornamental) tipOnce('orn', `${s.name} é peixe ornamental: ninguém compra. Deixe no mar.`);
   }
@@ -7994,7 +8003,7 @@ function worldUpdate(dt, t) {
 }
 function endWorld(rows) {
   const w = COMP.world; COMP.on = false; COMP.world = null; $('compHud').classList.add('hide');
-  for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
+  for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = []; mission('comp');
   if (WORLD.undress) { WORLD.undress(); WORLD.undress = null; } applyGear(); // volta para a sua roupa
   for (const id in ON.remotes) { const R = ON.remotes[id]; if (R.kitOff) { R.kitOff(); R.kitOff = null; } }
   const pos = Math.max(0, rows.findIndex(r => r.me)), PR = [15000, 8000, 5000, 2000, 2000, 1000, 1000, 500, 500, 500, 500, 500], br = rows[pos];
@@ -8578,6 +8587,324 @@ function updateBoatLights(dt, t) {
     a.needsUpdate = true;
   }
 }
+
+// ================= foto da pesca para compartilhar: cartão com o peixe, peso, lugar e seu nome =================
+// cada peixe bom entra no álbum (Diário › Álbum); o botão 📸 gera o cartão e abre o compartilhar do celular
+const SHARE = { url: 'nicolasilvar09-bit.github.io/pesca-sub', btnT: 0, last: null, blob: null, wasPaused: false };
+const REGION_NAME = { cv: 'Costa Verde · RJ', ne: 'Costa dos Corais · AL/PE', amz: 'Baixo Tapajós · PA' };
+const shareWorthy = (f, rec) => rec || isTrophy(f) || f.sp.rare || f.kg >= 2.5;
+function albumAdd(f, rec) {
+  const e = { key: f.key, cm: Math.round(f.len * 100), kg: Math.round(f.kg * 100) / 100, spot: (f.spot && f.spot.name) || '', region: REGION, day: SV.day || 1, date: Date.now(), trophy: isTrophy(f), rec: !!rec, rare: !!f.sp.rare };
+  SV.album = [e, ...(SV.album || [])].slice(0, 40);
+  if (!shareWorthy(f, rec)) return;
+  SHARE.last = e; SHARE.btnT = 12; show('shareBtn', true); $('shareBtn').innerHTML = `📸 COMPARTILHAR<br><small>${SPECIES[f.key].name} · ${fmtKg(f.kg)} kg</small>`;
+}
+function updateShareBtn(dt) { if (SHARE.btnT > 0 && (SHARE.btnT -= dt) <= 0) show('shareBtn', false); }
+
+// peixe renderizado sozinho, de lado, com fundo transparente
+function fishRender(key, W, Hh) {
+  const sp = SPECIES[key], rt = new THREE.WebGLRenderTarget(W, Hh), sc = new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xe8f6ff, 0x24404a, 1.5)); const dl = new THREE.DirectionalLight(0xffffff, 1.6); dl.position.set(1, 4, 5); sc.add(dl);
+  const m = new THREE.Mesh(fishGeo(shapeOf(key, sp.shape), false), new THREE.MeshStandardMaterial({ map: fishTex(key), roughness: 0.36, metalness: 0.25, side: THREE.DoubleSide }));
+  m.rotation.set(0.05, -0.18, 0.04); sc.add(m); m.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(m), c = box.getCenter(new V3()), s = box.getSize(new V3());
+  const cam = new THREE.PerspectiveCamera(24, W / Hh, 0.01, 50), half = Math.max(s.x / (W / Hh), s.y) * 0.56;
+  cam.position.set(c.x, c.y + half * 0.15, c.z + half / Math.tan(12 * Math.PI / 180)); cam.lookAt(c);
+  const oc = renderer.getClearColor(new THREE.Color()), oa = renderer.getClearAlpha();
+  renderer.setClearColor(0x000000, 0); renderer.setRenderTarget(rt); renderer.clear(); renderer.render(sc, cam);
+  const buf = new Uint8Array(W * Hh * 4); renderer.readRenderTargetPixels(rt, 0, 0, W, Hh, buf); renderer.setRenderTarget(null); renderer.setClearColor(oc, oa);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = Hh; const g = cv.getContext('2d'), img = g.createImageData(W, Hh);
+  // o alvo é linear: corrige para sRGB, senão o peixe sai escuro
+  for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+    const i = ((Hh - 1 - y) * W + x) * 4, o = (y * W + x) * 4, a = buf[i + 3];
+    for (let k = 0; k < 3; k++) img.data[o + k] = a ? Math.min(255, 255 * Math.pow(buf[i + k] / 255, 1 / 2.2)) : 0;
+    img.data[o + 3] = a;
+  }
+  g.putImageData(img, 0, 0); rt.dispose(); m.geometry.dispose(); m.material.dispose();
+  return cv;
+}
+function shareCard(e) {
+  const W = 1080, Hh = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = Hh; const g = cv.getContext('2d'), sp = SPECIES[e.key];
+  const F = (w, s, f = 'system-ui,-apple-system,Segoe UI,Roboto,sans-serif') => `${w} ${s}px ${f}`;
+  // mar: degradê, raios de sol e bolhas
+  const bg = g.createLinearGradient(0, 0, 0, Hh); bg.addColorStop(0, '#0d6a86'); bg.addColorStop(0.45, '#08415a'); bg.addColorStop(1, '#021018'); g.fillStyle = bg; g.fillRect(0, 0, W, Hh);
+  const r = mulberry(e.date % 100000);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 7; i++) { const x = r() * W, w = 40 + r() * 120, gr = g.createLinearGradient(0, 0, 0, Hh * 0.8); gr.addColorStop(0, 'rgba(180,240,255,.13)'); gr.addColorStop(1, 'rgba(180,240,255,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + w, 0); g.lineTo(x + w * 2.4 - 200, Hh * 0.8); g.lineTo(x - 200, Hh * 0.8); g.closePath(); g.fill(); }
+  for (let i = 0; i < 40; i++) { const x = r() * W, y = r() * Hh, rr = 2 + r() * 7; g.strokeStyle = `rgba(200,245,255,${0.12 + r() * 0.2})`; g.lineWidth = 2; g.beginPath(); g.arc(x, y, rr, 0, TAU); g.stroke(); }
+  g.globalCompositeOperation = 'source-over';
+  // cabeçalho
+  g.fillStyle = '#fff'; g.font = F('900', 58); g.textBaseline = 'top'; g.fillText('DEEP SPEAR', 64, 60);
+  g.fillStyle = 'rgba(200,240,250,.75)'; g.font = F('600', 28); g.fillText('PESCA SUB', 68, 126);
+  g.textAlign = 'right'; g.fillText(REGION_NAME[e.region] || '', W - 64, 72); g.font = F('500', 26); g.fillText(new Date(e.date).toLocaleDateString('pt-BR'), W - 64, 110); g.textAlign = 'left';
+  // selos
+  const tags = [e.rec && '🏅 RECORDE PESSOAL', e.trophy && '🏆 TROFÉU', e.rare && '★ PEIXE RARO'].filter(Boolean);
+  let tx = 64; g.font = F('800', 30);
+  for (const t of tags) { const w = g.measureText(t).width + 44; g.fillStyle = '#ffb020'; rr(g, tx, 196, w, 56, 28); g.fill(); g.fillStyle = '#2a1a00'; g.fillText(t, tx + 22, 208); tx += w + 16; }
+  // o peixe
+  const fw = 1000, fh = 520, fish = fishRender(e.key, fw, fh), fy = 290;
+  const sh = g.createRadialGradient(W / 2, fy + fh * 0.9, 10, W / 2, fy + fh * 0.9, 420); sh.addColorStop(0, 'rgba(0,0,0,.45)'); sh.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = sh; g.save(); g.scale(1, 0.18); g.fillRect(0, (fy + fh * 0.9) / 0.18 - 420, W, 840); g.restore();
+  g.drawImage(fish, (W - fw) / 2, fy);
+  // nome
+  g.fillStyle = '#fff'; g.font = F('900', 84); g.fillText(sp.name, 64, 840);
+  const info = SP_INFO[e.key];
+  if (info) { g.fillStyle = 'rgba(200,240,250,.7)'; g.font = F('italic 400', 34, 'Georgia,serif'); g.fillText(info[0], 66, 936); }
+  // números
+  const box = (x, lab, val) => { g.fillStyle = 'rgba(2,16,24,.6)'; rr(g, x, 1000, 300, 150, 22); g.fill(); g.strokeStyle = 'rgba(47,208,192,.5)'; g.lineWidth = 2; g.stroke(); g.fillStyle = 'rgba(200,240,250,.7)'; g.font = F('700', 24); g.fillText(lab, x + 24, 1022); g.fillStyle = '#fff'; g.font = F('900', val.length > 12 ? 34 : 52); g.fillText(val, x + 24, 1066, 262); };
+  box(64, 'PESO', fmtKg(e.kg) + ' kg'); box(390, 'TAMANHO', e.cm + ' cm'); box(716, 'LOCAL', e.spot || '—');
+  g.fillStyle = '#7cf0a8'; g.font = F('700', 28); g.fillText(`✓ Na medida (mínimo ${Math.round(sp.min * 100)} cm) · pescado por ${myName()}`, 64, 1182, W - 128);
+  // rodapé
+  g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(0, Hh - 104, W, 104);
+  g.textAlign = 'center'; g.fillStyle = 'rgba(220,245,250,.8)'; g.font = F('600', 24); g.fillText('JOGUE GRÁTIS NO NAVEGADOR', W / 2, Hh - 88); g.fillStyle = '#2fd0c0'; g.font = F('800', 34); g.fillText(SHARE.url, W / 2, Hh - 54); g.textAlign = 'left';
+  return cv;
+}
+function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function shareOpen(e) {
+  if (!e || !SPECIES[e.key]) return;
+  SHARE.wasPaused = paused; paused = true; SHARE.blob = null; show('shareBtn', false); SHARE.btnT = 0;
+  const cv = shareCard(e), box = $('shareBox'), sp = SPECIES[e.key];
+  box.innerHTML = `<div class="shw"><img src="${cv.toDataURL('image/jpeg', 0.9)}" alt=""><div class="d">Mande para os amigos no WhatsApp, Instagram ou onde quiser.</div>
+    <div class="row2"><button class="btn alt" id="shClose">FECHAR</button><button class="btn alt" id="shSave">BAIXAR</button><button class="btn gold" id="shGo">COMPARTILHAR</button></div></div>`;
+  box.classList.remove('hide');
+  cv.toBlob(b => SHARE.blob = b, 'image/jpeg', 0.9);
+  const name = `deep-spear-${e.key}-${fmtKg(e.kg).replace(',', '-')}kg.jpg`, text = `Peguei um(a) ${sp.name} de ${fmtKg(e.kg)} kg${e.spot ? ' na ' + e.spot : ''} no Deep Spear! 🤿 https://${SHARE.url}/`;
+  const save2 = () => { const a = document.createElement('a'); a.href = cv.toDataURL('image/jpeg', 0.9); a.download = name; document.body.appendChild(a); a.click(); a.remove(); };
+  $('shClose').onclick = () => { box.classList.add('hide'); paused = SHARE.wasPaused; AU.click(); };
+  $('shSave').onclick = () => { save2(); AU.click(); };
+  $('shGo').onclick = async () => {
+    AU.click(); const file = SHARE.blob && new File([SHARE.blob], name, { type: 'image/jpeg' });
+    try {
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], text, title: 'Deep Spear' });
+      else if (navigator.share) { save2(); await navigator.share({ text, title: 'Deep Spear' }); }
+      else { save2(); toast('Imagem baixada: é só mandar para os amigos.', 3); }
+    } catch (err) { if (err && err.name !== 'AbortError') { save2(); toast('Imagem baixada: é só mandar para os amigos.', 3); } }
+  };
+}
+function albumHTML() {
+  const A = SV.album || [];
+  if (!A.length) return '<div class="it"><div class="d">Seu álbum ainda está vazio. Cada peixe que você pescar aparece aqui, e os melhores ganham um cartão para compartilhar.</div></div>';
+  return '<div class="it" style="margin-bottom:8px"><div class="d">Seus últimos peixes. Toque em 📸 para gerar o cartão e mandar para os amigos.</div></div><div class="list">' +
+    A.map((e, i) => `<div class="it"><div style="flex:1"><div class="n">${e.rec ? '🏅 ' : e.trophy ? '🏆 ' : ''}${(SPECIES[e.key] || { name: e.key }).name} · ${fmtKg(e.kg)} kg</div><div class="d">${e.cm} cm${e.spot ? ' · ' + e.spot : ''} · ${REGION_NAME[e.region] || ''} · dia ${e.day}</div></div>${SPECIES[e.key] ? `<button class="btn" data-share="${i}">📸</button>` : ''}</div>`).join('') + '</div>';
+}
+function bindAlbum(B) { B.querySelectorAll('[data-share]').forEach(b => b.onclick = () => { closePanels(); shareOpen((SV.album || [])[+b.dataset.share]); SHARE.wasPaused = false; }); }
+function setupShare() {
+  const b = document.createElement('div'); b.id = 'shareBtn'; b.className = 'hide';
+  b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); shareOpen(SHARE.last); });
+  $('btns').appendChild(b);
+  const box = document.createElement('div'); box.id = 'shareBox'; box.className = 'hide'; document.body.appendChild(box);
+}
+
+// ================= missões: mais tipos no dia, bônus por fechar as 3, sequência e missões da semana =================
+// as do dia trocam a cada dia de jogo; as da semana seguem a semana real (renovam na segunda, junto com o ranking)
+
+// ---------- novos tipos de missão do dia ----------
+MISSION_POOL[0] = r => { const k = r.pick((NE ? ['guaiuba', 'ariaco', 'cavala', 'saramunete', 'garoupagato', 'pargo', 'cioba', 'xareu', 'sargo', 'badejo'] : AMZ ? ['tucunare', 'pacu', 'tambaqui', 'aruana', 'matrinxa', 'surubim', 'traira', 'jaraqui', 'douradorio', 'cachorra', 'pescada', 'apapa', 'aracu', 'bicudario'] : ['sargo', 'marimba', 'salema', 'garoupa', 'robalo', 'xareu', 'pampo', 'badejo', 'caranha', 'cocoroca', 'cioba', 'olhete', 'cangulo']).filter(k => SPECIES[k] && !defesoOf(k))), n = SPECIES[k].school ? 3 : 1; return { t: `Pegue ${n} ${SPECIES[k].name} dentro da medida`, ev: 'catch', key: k, goal: n, rew: 200 + n * 90 }; };
+MISSION_POOL.push(
+  r => { const s = r.pick(SPOTS.filter(s => s.r && !noTakeAt(s))); return { t: `Pegue 2 peixes na ${s.name}`, ev: 'catch', spot: s.id, goal: 2, rew: 420 }; },
+  () => SV.cam ? { t: 'Fotografe 2 espécies diferentes', ev: 'photo', goal: 2, rew: 380, seen: [] } : { t: 'Pegue um peixe de 4 kg ou mais', ev: 'catchkg', kg: 4, goal: 1, rew: 380 },
+  () => ({ t: 'Pegue 3 espécies diferentes no dia', ev: 'catchsp', goal: 3, rew: 380, seen: [] }),
+);
+// as 3 do dia feitas: bônus que cresce com a sequência de dias
+function dailyAllDone() {
+  const st = SV.dstreak = SV.dstreak || { last: 0, n: 0 }, d = SV.day || 1;
+  if (st.last === d) return;
+  st.n = st.last === d - 1 ? st.n + 1 : 1; st.last = d;
+  const bonus = 250 + 60 * Math.min(st.n - 1, 6);
+  SV.money += bonus; addXP(bonus / 3);
+  toast(`🔥 As 3 missões do dia feitas! Bônus ${fmtR(bonus)}${st.n > 1 ? ` · ${st.n} dias seguidos` : ''}`, 5, 'gold'); AU.coin();
+  weekEv('daily');
+}
+
+// ---------- missões da semana ----------
+const WEEK_POOL = [
+  r => { const n = r.pick([20, 30, 40]); return { t: `Pegue ${n} peixes dentro da medida`, ev: 'catch', goal: n, rew: n * 60 }; },
+  r => { const kg = r.pick([40, 60, 90]); return { t: `Pesque ${kg} kg na semana`, ev: 'kg', goal: kg, rew: kg * 30 }; },
+  r => { const n = r.pick([6, 8, 10]); return { t: `Pegue ${n} espécies diferentes`, ev: 'catchsp', goal: n, rew: n * 220, seen: [] }; },
+  r => { const n = r.pick([3, 5]); return { t: `Feche as 3 missões do dia em ${n} dias`, ev: 'daily', goal: n, rew: n * 500 }; },
+  () => ({ t: 'Jogue o Desafio da semana (Competições)', ev: 'chal', goal: 1, rew: 900 }),
+  r => { const n = r.pick([2, 3]); return { t: `Participe de ${n} campeonatos`, ev: 'comp', goal: n, rew: n * 450 }; },
+  r => { const n = r.pick([4, 6]); return { t: `Fotografe ${n} espécies diferentes`, ev: 'photo', goal: n, rew: n * 260, seen: [] }; },
+  r => { const d = r.pick([18, 22, 26]); return { t: `Mergulhe até ${d} m`, ev: 'depth', d, goal: 1, rew: d * 70 }; },
+  () => ({ t: 'Pegue um peixe-troféu (acima do tamanho comum)', ev: 'trophy', goal: 1, rew: 1500 }),
+];
+function ensureWeekly() {
+  const wk = weekKey();
+  if (SV.weekly && SV.weekly.wk === wk) return SV.weekly;
+  const seed = [...wk].reduce((s, c) => s * 31 + c.charCodeAt(0), 11) >>> 0, m = mulberry(seed), r = { pick: a => a[Math.floor(m() * a.length)] };
+  const idx = [...WEEK_POOL.keys()].filter(i => SV.cam || i !== 6);
+  for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(m() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+  SV.weekly = { wk, list: idx.slice(0, 3).map(i => Object.assign(WEEK_POOL[i](r), { prog: 0, done: false })) };
+  return SV.weekly;
+}
+// avança uma missão (do dia ou da semana); devolve true se mexeu
+function missionStep(m, ev, data) {
+  if (m.done || m.ev !== ev) return 0;
+  if (ev === 'catch') return (!m.key || m.key === data.key) && (!m.spot || m.spot === data.spot) ? 1 : 0;
+  if (ev === 'catchkg') return data.kg >= m.kg ? 1 : 0;
+  if (ev === 'depth') return data.d >= m.d ? 1 : 0;
+  if (ev === 'sell' || ev === 'kg') return data.v;
+  if (ev === 'photo' || ev === 'catchsp') { if (m.seen.includes(data.key)) return 0; m.seen.push(data.key); return 1; }
+  return 1;
+}
+function weekEv(ev, data = {}) {
+  const W = ensureWeekly(); let ch = false;
+  for (const m of W.list) {
+    const inc = missionStep(m, ev, data); if (!inc) continue;
+    m.prog = Math.min(m.goal, m.prog + inc); ch = true;
+    if (m.prog >= m.goal) { m.done = true; SV.money += m.rew; addXP(m.rew / 3); toast(`⭐ Missão da semana cumprida: ${m.t}! +${fmtR(m.rew)}`, 5, 'gold'); AU.coin(); buzz([40, 60, 40, 60, 40]); }
+  }
+  if (ch) save();
+}
+function weekLeft() { const d = new Date(), wd = d.getDay() || 7, left = 8 - wd; return left <= 1 ? 'renova amanhã' : `renova em ${left} dias`; }
+function weeklyHTML() {
+  const W = ensureWeekly(), st = SV.dstreak || { n: 0, last: 0 }, alive = st.last >= (SV.day || 1) - 1 ? st.n : 0;
+  return `<div class="n" style="margin:14px 0 6px">⭐ Missões da semana <span class="d">· ${weekLeft()} (segunda-feira)</span></div><div class="list">` +
+    W.list.map(m => `<div class="it"><div style="flex:1"><div class="n">${m.done ? '✓ ' : ''}${m.t}</div><div class="d">${m.ev === 'kg' ? fmtKg(m.prog) + ' de ' + m.goal + ' kg' : Math.floor(m.prog) + ' de ' + m.goal} · recompensa ${fmtR(m.rew)}</div><div class="bar"><i style="width:${Math.round(m.prog / m.goal * 100)}%"></i></div></div><b style="color:${m.done ? 'var(--acc)' : 'inherit'}">${m.done ? 'FEITA' : ''}</b></div>`).join('') + '</div>' +
+    `<div class="it" style="margin-top:8px"><div class="d">🔥 Feche as 3 missões do dia para ganhar bônus: ${fmtR(250)} no primeiro dia, e mais ${fmtR(60)} por dia seguido (até ${fmtR(610)}).${alive > 0 ? ` <b style="color:var(--acc2)">Sequência atual: ${alive} dia(s).</b>` : ''}</div></div>`;
+}
+
+// ================= desafio da semana online: mesmo lugar, mesmo horário e mesmo tempo para todo mundo =================
+// cada um joga quando puder; vale o peso total de peixes na medida em 8 minutos. O melhor resultado da semana
+// vai para o ranking (tabela "records", tipo 'fish' com espécie 'desafio_<destino>', que o servidor só deixa subir)
+const CH_TIME = 480, CH_HOUR = 9;
+const CH = { rows: null, key: '', busy: false, err: '' };
+const chalSp = () => 'desafio_' + REGION;
+function chalSpot() {
+  const wk = weekKey(), list = SPOTS.filter(s => s.r && !noTakeAt(s)).sort((a, b) => a.id < b.id ? -1 : 1);
+  const m = mulberry([...(wk + REGION)].reduce((s, c) => s * 31 + c.charCodeAt(0), 5) >>> 0);
+  return list[Math.floor(m() * list.length)];
+}
+function chalMe() { const wk = weekKey(); if (!SV.chal || SV.chal.wk !== wk) SV.chal = { wk, best: 0, tries: 0, paid: false }; return SV.chal; }
+function startChal() {
+  const s = chalSpot(); if (!s || COMP.on) return;
+  closePanels();
+  SV.tod = CH_HOUR; // todo mundo joga com a mesma luz
+  startComp(s.id, null, []); if (!COMP.on) return;
+  COMP.lobby = false; COMP.weekly = { wk: weekKey() }; COMP.t = CH_TIME; chalMe().tries++;
+  const lead = CH.rows && CH.rows[0];
+  toast(`🎯 Desafio da semana valendo! 8 minutos na ${s.name}. Vale o peso total de peixe na medida.${lead ? ` Líder: ${rkEsc(lead.name)} com ${fmtKg(lead.value)} kg.` : ''}`, 6, 'gold');
+}
+async function chalPost(kg) {
+  if (!ON.s || kg <= 0) return;
+  const row = { uid: ON.s.uid, kind: 'fish', species: chalSp(), week: weekKey(), region: REGION, name: myName(), value: Math.min(399, Math.round(kg * 100) / 100) };
+  try { await sbFetch('/rest/v1/records', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify([row]) }); } catch (e) { }
+}
+async function chalLoad(force) {
+  if (!ON.s || CH.busy) return;
+  const key = weekKey() + REGION; if (!force && CH.key === key && (CH.rows || CH.err)) return;
+  CH.busy = true; CH.key = key;
+  try {
+    const me = chalMe(); if (me.best > 0) await chalPost(me.best);
+    CH.rows = await sbFetch(`/rest/v1/records?select=uid,name,value&kind=eq.fish&species=eq.${chalSp()}&week=eq.${weekKey()}&order=value.desc&limit=50`) || []; CH.err = '';
+  } catch (e) { CH.rows = null; CH.err = rkOff(e) ? 'off' : e.message; }
+  CH.busy = false; if (shopTab === 'chal' && !$('marinaPanel').classList.contains('hide')) renderShop();
+}
+function chalEnd() {
+  const kg = Math.round(COMP.me.kg * 100) / 100, n = COMP.me.n, me = chalMe(), rec = kg > me.best;
+  COMP.weekly = null; let prize = 0;
+  if (!me.paid && kg > 0) { me.paid = true; prize += 300; }
+  if (rec && me.tries > 1 && kg > 0) prize += 200;
+  if (rec) me.best = kg;
+  SV.money += prize; addXP(150 + kg * 10); mission('chal'); save();
+  chalPost(me.best).then(() => chalLoad(true));
+  paused = true; $('marinaPanel').classList.remove('hide');
+  $('marinaPanel').querySelector('h2').textContent = 'Desafio da semana';
+  $('mSub').textContent = rec && kg > 0 ? `Novo melhor resultado: ${fmtKg(kg)} kg!` : `Você fez ${fmtKg(kg)} kg. Seu melhor da semana continua ${fmtKg(me.best)} kg.`;
+  $('mTabs').innerHTML = '';
+  $('mBody').innerHTML = `<div class="it"><div><div class="n">${n} peixe(s) na medida · ${fmtKg(kg)} kg</div><div class="d">${prize ? `Prêmio de ${fmtR(prize)} no saldo. ` : ''}${ON.s ? 'Seu melhor resultado já foi para o ranking do desafio (Competições › Desafio da semana).' : 'Entre online para o resultado ir para o ranking.'} Os peixes continuam na fieira para vender.</div></div></div>
+    <div class="row2"><span></span><button class="btn gold" id="chRank">VER RANKING</button></div>`;
+  $('chRank').onclick = () => { shopTab = 'chal'; openShop(false); };
+  AU.coin();
+}
+function chalHTML() {
+  const s = chalSpot(), me = chalMe();
+  if (ON.s) setTimeout(chalLoad, 0);
+  let h = `<div class="it" style="margin-bottom:8px;flex-direction:column;align-items:stretch;gap:6px">
+    <div class="n">🎯 Desafio da semana · ${s ? s.name : ''} <span class="d">(${s ? s.depth : ''})</span></div>
+    <div class="d">O mesmo desafio para todos os jogadores: começa às ${CH_HOUR}h na ${s ? s.name : ''}, 8 minutos, sem adversários na água. Vale o <b>peso total</b> de peixe dentro da medida. Jogue quantas vezes quiser: só o seu melhor resultado entra no ranking. Muda toda segunda-feira (${weekLeft()}).</div>
+    <div class="d">Prêmio: ${fmtR(300)} na primeira tentativa da semana com peixe, e ${fmtR(200)} cada vez que bater o seu recorde.</div>
+    <div class="row2"><span>Seu melhor: <b style="color:var(--acc)">${me.best ? fmtKg(me.best) + ' kg' : '—'}</b> · ${me.tries} tentativa(s)</span><button class="btn gold" id="chGo" ${COMP.on ? 'disabled' : ''}>JOGAR DESAFIO</button></div></div>`;
+  if (!ON.s) return h + '<div class="it"><div class="d">Conectando ao servidor... o ranking aparece assim que entrar online.</div></div>';
+  if (CH.err === 'off') return h + '<div class="it"><div class="d">O ranking ainda não foi ativado no servidor.</div></div>';
+  if (CH.err) return h + `<div class="it"><div class="d">Não deu para carregar: ${rkEsc(CH.err)}</div></div>`;
+  if (!CH.rows) return h + '<div class="it"><div class="d">Carregando ranking...</div></div>';
+  const seen = new Set(), rows = CH.rows.filter(x => !seen.has(x.uid) && seen.add(x.uid)), fr = new Set(ON.friends.map(f => f.id)), mine = rows.findIndex(r => r.uid === ON.s.uid);
+  const medal = i => ['🥇', '🥈', '🥉'][i] || `${i + 1}º`;
+  h += '<div class="list">' + (rows.length ? rows.slice(0, 20).map((r, i) => `<div class="it" ${r.uid === ON.s.uid ? 'style="border-color:var(--acc)"' : ''}><span class="av" style="background:${i < 3 ? '#8a6a1a' : '#24414f'}">${medal(i)}</span><div style="flex:1"><div class="n">${rkEsc(r.name)}${r.uid === ON.s.uid ? ' <span class="d">(você)</span>' : fr.has(r.uid) ? ' <span class="d">(amigo)</span>' : ''}</div></div><b>${fmtKg(r.value)} kg</b></div>`).join('')
+    : '<div class="it"><div class="d">Ninguém jogou ainda esta semana. Seja o primeiro!</div></div>') + '</div>';
+  if (mine >= 20) h += `<div class="it" style="margin-top:8px;border-color:var(--acc)"><div class="n">Você está em ${mine + 1}º · ${fmtKg(rows[mine].value)} kg</div></div>`;
+  return h;
+}
+function bindChal() { const b = $('chGo'); if (b) b.onclick = () => { AU.click(); startChal(); }; }
+
+// ================= pesca consciente: defeso, selo do pescador consciente e cota diária opcional =================
+// o defeso segue o calendário real (mês de hoje). As datas são regras do jogo, inspiradas nas reais:
+// na vida real, confira sempre as regras do seu estado.
+const DEFESO = {
+  cv: [{ keys: ['garoupa'], from: [11, 1], to: [2, 28], n: 'Defeso da garoupa', why: 'A garoupa desova no verão e cresce devagar: sem ela não tem garoupa grande amanhã.' }],
+  ne: [{ keys: ['cioba'], from: [11, 1], to: [1, 31], n: 'Defeso da cioba', why: 'Na época de desova as ciobas se juntam nos parcéis e ficam fáceis demais de pegar.' }],
+  amz: [{ keys: ['tambaqui', 'matrinxa', 'pacu', 'jaraqui', 'aracu'], from: [11, 15], to: [3, 15], n: 'Piracema', why: 'Os cardumes sobem o rio para desovar. É a regra mais importante da pesca no Amazonas.' }],
+};
+const ECO_FINE = 600, COTA_KG = 10;
+const mdNum = (m, d) => m * 100 + d;
+function defesoOn(D, dt = new Date()) { const t = mdNum(dt.getMonth() + 1, dt.getDate()), a = mdNum(...D.from), b = mdNum(...D.to); return a <= b ? t >= a && t <= b : t >= a || t <= b; }
+function defesoOf(key) { for (const D of DEFESO[REGION] || []) if (D.keys.includes(key) && defesoOn(D)) return D; return null; }
+const mdTxt = ([m, d]) => `${d} de ${['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][m - 1]}`;
+
+// ---------- selo do pescador consciente: dias seguidos pescando sem multa ----------
+const ECO_LV = [{ d: 0, n: 'Sem selo', k: 0 }, { d: 3, n: 'Bronze', k: 0.05 }, { d: 7, n: 'Prata', k: 0.1 }, { d: 15, n: 'Ouro', k: 0.15 }];
+function eco() { if (!SV.eco) SV.eco = { streak: 0, best: 0, fines: 0, day: SV.day || 1, fined: false, caught: false }; return SV.eco; }
+const ecoLv = () => { const s = eco().streak; let L = ECO_LV[0]; for (const x of ECO_LV) if (s >= x.d) L = x; return L; };
+// multiplicador do preço de venda: selo + regras reais de cota
+const ecoK = () => 1 + ecoLv().k + (SV.realRules ? 0.25 : 0);
+function ecoDayRoll() {
+  const E = eco(); if (E.day === (SV.day || 1)) return;
+  if (E.caught && !E.fined) {
+    const before = ecoLv(); E.streak++; E.best = Math.max(E.best, E.streak); const after = ecoLv();
+    if (after !== before) toast(`🌱 Selo Pescador Consciente ${after.n}! ${E.streak} dias pescando sem multa: o pescado vale +${Math.round(after.k * 100)}%.`, 6, 'gold');
+  }
+  E.day = SV.day || 1; E.fined = false; E.caught = false;
+}
+function ecoFine() {
+  const E = eco(), had = E.streak >= 3; E.fines++; E.fined = true; E.streak = 0;
+  if (had) setTimeout(() => toast('🌱 Você perdeu o Selo Pescador Consciente. Pesque sem multa por 3 dias para recuperar.', 5, 'bad'), 1200);
+}
+function ecoCatch(kg) { const E = eco(); E.caught = true; if (SV.realRules) { const C = cota(); C.kg += kg; } }
+
+// ---------- cota diária (opcional, Diário › Pesca consciente): 10 kg + 1 exemplar por dia ----------
+function cota() { if (!SV.cota || SV.cota.day !== (SV.day || 1)) SV.cota = { day: SV.day || 1, kg: 0 }; return SV.cota; }
+const cotaFull = () => SV.realRules && cota().kg >= COTA_KG;
+
+// chamado no catchFish antes de pôr o peixe na fieira: true = apreendido
+function ecoCheck(f) {
+  const sp = f.sp, D = defesoOf(f.key);
+  if (D) { SV.money -= ECO_FINE; ecoFine(); toast(`${sp.name} está em ${D.n.toLowerCase()} (até ${mdTxt(D.to)})! Peixe apreendido e multa de ${fmtR(ECO_FINE)}.`, 6, 'bad'); AU.bad(); save(); return true; }
+  if (cotaFull()) { SV.money -= 300; ecoFine(); toast(`Cota do dia estourada (${COTA_KG} kg + 1 peixe já na conta)! Peixe apreendido e multa de ${fmtR(300)}. Volte amanhã.`, 6, 'bad'); AU.bad(); save(); return true; }
+  return false;
+}
+function ecoHTML() {
+  const E = eco(), L = ecoLv(), nx = ECO_LV.find(x => x.d > E.streak), defs = DEFESO[REGION] || [];
+  let h = `<div class="it" style="margin-bottom:8px"><div style="flex:1"><div class="n">🌱 Selo Pescador Consciente · <b style="color:${L.k ? 'var(--acc2)' : 'inherit'}">${L.n}</b></div>
+    <div class="d">${E.streak} dia(s) seguidos pescando sem nenhuma multa${L.k ? ` · seu pescado vale <b>+${Math.round(L.k * 100)}%</b> na venda` : ''}.${nx ? ` Faltam ${nx.d - E.streak} dia(s) para o selo ${nx.n} (+${Math.round(nx.k * 100)}%).` : ' Nível máximo!'} Qualquer multa zera a sequência. Melhor sequência: ${E.best} dia(s).</div>
+    <div class="bar"><i style="width:${nx ? Math.round(E.streak / nx.d * 100) : 100}%"></i></div></div></div>`;
+  h += `<div class="n" style="margin:12px 0 6px">📅 Defeso neste destino</div><div class="list">` + (defs.length ? defs.map(D => {
+    const on = defesoOn(D);
+    return `<div class="it"><div style="flex:1"><div class="n">${D.n} · ${mdTxt(D.from)} a ${mdTxt(D.to)} ${on ? '· <b style="color:var(--bad)">EM VIGOR AGORA</b>' : '· fora de época'}</div><div class="d">${D.keys.filter(k => SPECIES[k]).map(k => SPECIES[k].name).join(', ')}. ${D.why} ${on ? `Atirar dá multa de ${fmtR(ECO_FINE)}.` : ''}</div></div></div>`;
+  }).join('') : '<div class="it"><div class="d">Nenhum defeso neste destino.</div></div>') + '</div>';
+  const prot = Object.keys(SPECIES).filter(k => SPECIES[k].protected && spInRegion(k)).map(k => SPECIES[k].name);
+  h += `<div class="n" style="margin:12px 0 6px">📏 Regras que dão multa</div><div class="list">
+    <div class="it"><div class="d"><b>Medida mínima</b> de cada espécie (lista em Diário › Recordes): peixe pequeno ainda não se reproduziu. Multa ${fmtR(200)}.</div></div>
+    <div class="it"><div class="d"><b>Espécies protegidas</b>, só foto: ${prot.join(', ') || '—'}. Multa ${fmtR(1000)}.</div></div>
+    ${NE ? `<div class="it"><div class="d"><b>Área de preservação</b> das piscinas naturais: só foto. Multa ${fmtR(500)}.</div></div>` : ''}
+    <div class="it"><div class="d"><b>Licença de pesca</b> em dia (LOJA › Extras): ${licOk() ? '<b style="color:var(--acc)">válida</b>' : '<b style="color:var(--bad)">vencida</b>'}. Sem ela, multa de ${fmtR(400)} e a fieira é apreendida.</div></div></div>`;
+  const C = cota();
+  h += `<div class="n" style="margin:12px 0 6px">⚖️ Cota diária (opcional)</div><div class="it"><div style="flex:1"><div class="n">Regras reais de cota: ${COTA_KG} kg + 1 peixe por dia ${SV.realRules ? '· <b style="color:var(--acc)">LIGADA</b>' : ''}</div>
+    <div class="d">Como na pesca amadora de verdade: depois de ${COTA_KG} kg no dia, só vale mais um peixe. Em troca, todo o seu pescado vale <b>+25%</b>.${SV.realRules ? ` Hoje: ${fmtKg(C.kg)} de ${COTA_KG} kg${C.kg >= COTA_KG ? ' · <b style="color:var(--bad)">cota cheia, só amanhã</b>' : ''}.` : ''}</div></div>
+    <button class="btn ${SV.realRules ? 'alt' : 'gold'}" id="ecoCota">${SV.realRules ? 'DESLIGAR' : 'LIGAR'}</button></div>`;
+  h += '<div class="it" style="margin-top:8px"><div class="d">As datas de defeso do jogo são inspiradas nas regras reais, mas mudam de estado para estado. Na vida real, confira sempre as regras locais antes de pescar.</div></div>';
+  return h;
+}
+function bindEco() { const b = $('ecoCota'); if (b) b.onclick = () => { SV.realRules = !SV.realRules; AU.click(); toast(SV.realRules ? `Cota real ligada: ${COTA_KG} kg + 1 peixe por dia, pescado +25%.` : 'Cota real desligada.', 3); save(); renderShop(); }; }
 
 init();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { });

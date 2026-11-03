@@ -21,26 +21,20 @@ function ensureDaily() {
   save(); return SV.daily;
 }
 function mission(ev, data = {}) {
+  weekEv(ev, data); // as da semana contam os mesmos eventos
   const D = ensureDaily(); let changed = false;
   for (const m of D.list) {
-    if (m.done || m.ev !== ev) continue;
-    let inc = 0;
-    if (ev === 'catch') inc = !m.key || m.key === data.key ? 1 : 0;
-    else if (ev === 'catchkg') inc = data.kg >= m.kg ? 1 : 0;
-    else if (ev === 'depth') inc = data.d >= m.d ? 1 : 0;
-    else if (ev === 'sell') inc = data.v;
-    else inc = 1;
-    if (!inc) continue;
+    const inc = missionStep(m, ev, data); if (!inc) continue;
     m.prog = Math.min(m.goal, m.prog + inc); changed = true;
-    if (m.prog >= m.goal) { m.done = true; SV.money += m.rew; addXP(m.rew / 4); toast(`Missão cumprida: ${m.t}! +${fmtR(m.rew)}`, 4, 'gold'); AU.coin(); buzz([40, 60, 40]); }
+    if (m.prog >= m.goal) { m.done = true; SV.money += m.rew; addXP(m.rew / 4); toast(`Missão cumprida: ${m.t}! +${fmtR(m.rew)}`, 4, 'gold'); AU.coin(); buzz([40, 60, 40]); if (D.list.every(x => x.done)) dailyAllDone(); }
     else if (ev !== 'sell') toast(`Missão: ${m.t} (${m.prog}/${m.goal})`, 2.5);
   }
   if (changed) save();
 }
 function missionsHTML() {
   const D = ensureDaily();
-  return `<div class="it" style="margin-bottom:8px"><div class="d">Três missões novas por dia. A recompensa entra direto no saldo.</div></div><div class="list">` +
-    D.list.map(m => `<div class="it"><div style="flex:1"><div class="n">${m.done ? '✓ ' : ''}${m.t}</div><div class="d">${m.ev === 'sell' ? fmtR(m.prog) + ' de ' + fmtR(m.goal) : m.prog + ' de ' + m.goal} · recompensa ${fmtR(m.rew)}</div><div class="bar"><i style="width:${Math.round(m.prog / m.goal * 100)}%"></i></div></div><b style="color:${m.done ? 'var(--acc)' : 'inherit'}">${m.done ? 'FEITA' : ''}</b></div>`).join('') + '</div>';
+  return `<div class="it" style="margin-bottom:8px"><div class="d">Três missões novas por dia de jogo. A recompensa entra direto no saldo.</div></div><div class="list">` +
+    D.list.map(m => `<div class="it"><div style="flex:1"><div class="n">${m.done ? '✓ ' : ''}${m.t}</div><div class="d">${m.ev === 'sell' ? fmtR(m.prog) + ' de ' + fmtR(m.goal) : m.prog + ' de ' + m.goal} · recompensa ${fmtR(m.rew)}</div><div class="bar"><i style="width:${Math.round(m.prog / m.goal * 100)}%"></i></div></div><b style="color:${m.done ? 'var(--acc)' : 'inherit'}">${m.done ? 'FEITA' : ''}</b></div>`).join('') + '</div>' + weeklyHTML();
 }
 
 // ---------- peixes raros: aviso ao avistar ----------

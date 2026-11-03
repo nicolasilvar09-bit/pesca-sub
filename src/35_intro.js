@@ -63,6 +63,7 @@ function updateTips(dt) {
   if (aim) {
     const s = aim.f.sp;
     if (s.protected) tipOnce('prot', `${s.name} é espécie protegida: atirar dá multa pesada. Só foto!`, 'bad');
+    else if (defesoOf(aim.f.key)) tipOnce('defeso', `${s.name} está em ${defesoOf(aim.f.key).n.toLowerCase()}: atirar dá multa. Veja Diário › Pesca consciente.`, 'bad');
     else if (aim.f.len < s.min) tipOnce('small', `Esse ${s.name.toLowerCase()} está abaixo da medida mínima (${Math.round(s.min * 100)} cm). Atirar dá multa: espere um maior.`, 'bad');
     else if (s.ornamental) tipOnce('orn', `${s.name} é peixe ornamental: ninguém compra. Deixe no mar.`);
   }

@@ -94,7 +94,7 @@ function updateFisc(dt, t) {
 }
 function inspect() {
   if (licOk()) { toast('✅ Fiscalização: licença de pesca em dia e pescado dentro da medida. Bom mergulho!', 4, 'gold'); return; }
-  const lost = P.stringer.length; SV.money -= 400; P.stringer = [];
+  const lost = P.stringer.length; SV.money -= 400; ecoFine(); P.stringer = [];
   toast(`❌ Fiscalização: pescando sem licença! Multa de R$ 400${lost ? ` e ${lost} peixe(s) da fieira apreendidos` : ''}. Compre a licença na loja (aba Extras).`, 7, 'bad'); AU.bad(); save();
 }
 

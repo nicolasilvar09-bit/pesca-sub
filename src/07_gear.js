@@ -535,9 +535,9 @@ let shopTab = 'sell', shopAtMarina = false;
 const SHOP_AREAS = [
   { id: 'marina', ic: '⚓', n: 'Marina', tabs: [['sell', 'Vender pescado'], ['fuel', 'Combustível'], ['boats', 'Lanchas'], ['viagem', 'Viagem']] },
   { id: 'equip', ic: '🎯', n: 'Equipamento', tabs: [['equip', 'Arbaletes e roupas'], ['apneia', 'Apneia'], ['extras', 'Extras']] },
-  { id: 'comp', ic: '🏆', n: 'Competições', tabs: [['comp', 'Campeonato e Mundial'], ['rank', 'Ranking online']] },
+  { id: 'comp', ic: '🏆', n: 'Competições', tabs: [['comp', 'Campeonato e Mundial'], ['chal', 'Desafio da semana'], ['rank', 'Ranking online']] },
   { id: 'social', ic: '👥', n: 'Social', tabs: [['online', 'Online e grupo'], ['amigos', 'Amigos']] },
-  { id: 'diario', ic: '📖', n: 'Diário', tabs: [['next', 'Próximos'], ['hist', 'História'], ['miss', 'Missões'], ['car', 'Conquistas'], ['rec', 'Recordes'], ['guia', 'Guia de espécies'], ['mar', 'Boletim']] },
+  { id: 'diario', ic: '📖', n: 'Diário', tabs: [['next', 'Próximos'], ['hist', 'História'], ['miss', 'Missões'], ['album', 'Álbum'], ['eco', 'Pesca consciente'], ['car', 'Conquistas'], ['rec', 'Recordes'], ['guia', 'Guia de espécies'], ['mar', 'Boletim']] },
 ];
 function openShop(atMarina) { shopAtMarina = !!atMarina; paused = true; $('marinaPanel').classList.remove('hide'); renderShop(); }
 function openMarina() { openShop(true); }
@@ -583,6 +583,9 @@ function renderShop() {
   if (shopTab === 'guia') h = guideHTML();
   if (shopTab === 'online') h = onlineHTML();
   if (shopTab === 'rank') h = rankHTML();
+  if (shopTab === 'chal') h = chalHTML();
+  if (shopTab === 'album') h = albumHTML();
+  if (shopTab === 'eco') h = ecoHTML();
   if (shopTab === 'viagem') h = travelHTML(at);
   if (shopTab === 'extras') h = extrasHTML(at);
   if (shopTab === 'next') h = nextHTML();
@@ -609,7 +612,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
-  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindBoatUp(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindWorld(); bindStory(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
+  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindBoatUp(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindChal(); bindAlbum(B); bindEco(); bindWorld(); bindStory(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
@@ -628,7 +631,7 @@ function placeRig(r, pos, yaw, pitch, under, mv, kick) {
 // ---------- campeonato ----------
 const COMP = { on: false, t: 0, spot: null, bots: [], me: { n: 0, kg: 0 } };
 const BOT_DEF = AMZ ? [['Raimundo', 0x1b1e22], ['Jacira', 0x23304a], ['Seu Bené', 0x3b2b1e]] : NE ? [['Zé Jangadeiro', 0x1b1e22], ['Marinalva', 0x23304a], ['Cícero do Pontal', 0x3b2b1e]] : [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
-const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && f.state !== 'hooked' && f.state !== 'dead';
+const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && !defesoOf(f.key) && f.state !== 'hooked' && f.state !== 'dead';
 function startComp(id, duo, live) {
   const s = spotById(id); if (!s || COMP.on) return;
   const fee = live ? 0 : duo ? 200 : 100;
@@ -727,12 +730,14 @@ function updateComp(dt, t) {
   // placar
   const rows = COMP.guest ? guestRows() : COMP.duo ? duoRows() : [{ name: 'Você', n: COMP.me.n, kg: COMP.me.kg, me: true }, ...COMP.lives.map(l => ({ name: l.name, n: l.n, kg: l.kg })), ...COMP.bots.map(b => ({ name: b.name, n: b.n, kg: b.kg }))].sort((a, b) => b.n - a.n || b.kg - a.kg);
   const mm = Math.max(0, Math.ceil(COMP.t)), tt = `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, '0')}`;
-  compHudSet(`⏱ ${tt}`, COMP.t < 60, rows.map(r => ({ label: r.name, val: `${r.n}${AMZ ? ' pts' : ''} · ${fmtKg(r.kg)} kg`, me: r.me })));
+  compHudSet(`${COMP.weekly ? '🎯 Desafio · ' : '⏱ '}${tt}`, COMP.t < 60, rows.map(r => ({ label: r.name, val: `${r.n}${AMZ ? ' pts' : ''} · ${fmtKg(r.kg)} kg`, me: r.me })));
   if (COMP.guest ? COMP.t < -20 : COMP.t <= 0) endComp(rows); // o convidado espera o fim mandado pelo anfitrião
 }
 function endComp(rows) {
   COMP.on = false; $('compHud').classList.add('hide');
   for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
+  if (COMP.weekly) { chalEnd(); return; }
+  mission('comp');
   if (COMP.mate) duoHostEnd(rows);
   const duo = COMP.duo, PR = (COMP.live && !COMP.guest ? (COMP.lives.length > 1 ? [800, 350, 150, 0] : [500, 200]) : duo ? [1800, 700, 0] : [900, 350, 150, 0]).map(v => v * COMP.mult), pos = rows.findIndex(r => r.me), prize = PR[pos];
   if (duo) duo.friend.xp = (duo.friend.xp || 0) + (pos === 0 ? 150 : 60);

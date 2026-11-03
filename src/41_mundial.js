@@ -260,7 +260,7 @@ function worldUpdate(dt, t) {
 }
 function endWorld(rows) {
   const w = COMP.world; COMP.on = false; COMP.world = null; $('compHud').classList.add('hide');
-  for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = [];
+  for (const b of COMP.bots) scene.remove(b.rig.root); COMP.bots = []; mission('comp');
   if (WORLD.undress) { WORLD.undress(); WORLD.undress = null; } applyGear(); // volta para a sua roupa
   for (const id in ON.remotes) { const R = ON.remotes[id]; if (R.kitOff) { R.kitOff(); R.kitOff = null; } }
   const pos = Math.max(0, rows.findIndex(r => r.me)), PR = [15000, 8000, 5000, 2000, 2000, 1000, 1000, 500, 500, 500, 500, 500], br = rows[pos];
