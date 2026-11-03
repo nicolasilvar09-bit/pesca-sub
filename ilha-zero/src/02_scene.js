@@ -1,20 +1,21 @@
 // ================= cena: renderizador, câmera, luz, céu e utilitários de geometria =================
 const renderer = new T.WebGLRenderer({ canvas: $('cv'), antialias: false, powerPreference: 'high-performance' });
-const QUAL = [{ pr: 0.75, fog: 650, shadow: 0, grass: 0 }, { pr: 1.25, fog: 950, shadow: 1024, grass: 1 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1 }];
+renderer.outputEncoding = T.sRGBEncoding; renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.92;
+const QUAL = [{ pr: 0.75, fog: 700, shadow: 0, grass: 0 }, { pr: 1.25, fog: 1000, shadow: 1024, grass: 1 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1 }];
 const scene = new T.Scene();
-const SKY_C = new T.Color(0xbfe9ff);
+const SKY_C = new T.Color(0xc3ced6); // névoa atmosférica azul-acinzentada
 scene.background = SKY_C.clone();
-scene.fog = new T.Fog(SKY_C, 180, 950);
+scene.fog = new T.Fog(SKY_C, 120, 950);
 const camera = new T.PerspectiveCamera(75, innerWidth / innerHeight, 0.06, 2600);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
-scene.add(new T.HemisphereLight(0xd8efff, 0x58803a, 0.6));
-const sun = new T.DirectionalLight(0xfff0d0, 0.78); sun.position.set(320, 520, 180); scene.add(sun);
+const HEMI = new T.HemisphereLight(0xbfd6ee, 0x6b6150, 0.85); scene.add(HEMI);
+const sun = new T.DirectionalLight(0xffe2b8, 1.9); sun.position.set(320, 330, 180); scene.add(sun); // sol quente e mais baixo
 
 function applyQuality() {
   const q = QUAL[SET.quality] || QUAL[1];
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr));
-  scene.fog.far = q.fog; scene.fog.near = q.fog * 0.2;
+  scene.fog.far = q.fog; scene.fog.near = q.fog * 0.12;
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   if (typeof gfxQuality === 'function') gfxQuality(q);
@@ -24,8 +25,8 @@ addEventListener('resize', applyQuality);
 // céu em degradê (azul vivo em cima, claro no horizonte)
 const SKY = (() => {
   const g = new T.SphereGeometry(2300, 24, 12), p = g.attributes.position, c = [];
-  const top = new T.Color(0x2f8fff), hor = new T.Color(0xcdeeff), tmp = new T.Color();
-  for (let i = 0; i < p.count; i++) { const k = clamp(p.getY(i) / 2300 * 2.4, 0, 1); tmp.copy(hor).lerp(top, k); c.push(tmp.r, tmp.g, tmp.b); }
+  const top = new T.Color(0x4f86c6), hor = new T.Color(0xd3dde3), tmp = new T.Color();
+  for (let i = 0; i < p.count; i++) { const k = Math.pow(clamp(p.getY(i) / 2300 * 1.8, 0, 1), 0.7); tmp.copy(hor).lerp(top, k); c.push(tmp.r, tmp.g, tmp.b); }
   g.setAttribute('color', new T.Float32BufferAttribute(c, 3));
   const m = new T.Mesh(g, new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide, fog: false, depthWrite: false }));
   m.renderOrder = -10; scene.add(m); return m;

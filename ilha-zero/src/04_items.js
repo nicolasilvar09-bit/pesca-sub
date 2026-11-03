@@ -8,7 +8,8 @@ const AMMO = {
 };
 // cls: pistol | smg | ar | dmr | sr.  dmg = dano no corpo; v = velocidade da bala (m/s); rel = recarga (s); rec = coice
 const WEAP = {
-  M9: { n: 'M9', cls: 'pistol', ammo: '9mm', dmg: 24, rpm: 420, v: 380, mag: 15, emag: 20, rel: 1.9, rec: 0.7, tier: 1 },
+  M17: { n: 'M17 (SIG P320)', cls: 'pistol', ammo: '9mm', dmg: 25, rpm: 420, v: 380, mag: 17, emag: 21, rel: 1.9, rec: 0.7, tier: 1 },
+  M625: { n: 'S&W M625', cls: 'pistol', ammo: '45', dmg: 55, rpm: 170, v: 260, mag: 6, emag: 6, rel: 2.6, rec: 1.4, tier: 1 },
   M1911: { n: 'M1911', cls: 'pistol', ammo: '45', dmg: 40, rpm: 300, v: 250, mag: 7, emag: 12, rel: 2.0, rec: 1.0, tier: 1 },
   G18C: { n: 'G18C', cls: 'pistol', ammo: '9mm', dmg: 22, rpm: 1000, v: 375, mag: 17, emag: 33, rel: 2.1, rec: 0.6, auto: true, tier: 1 },
   UMP45: { n: 'UMP45', cls: 'smg', ammo: '45', dmg: 37, rpm: 650, v: 360, mag: 25, emag: 35, rel: 3.0, rec: 0.55, auto: true, tier: 1 },
@@ -17,10 +18,11 @@ const WEAP = {
   AKM: { n: 'AKM', cls: 'ar', ammo: '762', dmg: 47, rpm: 600, v: 715, mag: 30, emag: 40, rel: 2.9, rec: 1.45, auto: true, tier: 1 },
   M416: { n: 'M416', cls: 'ar', ammo: '556', dmg: 41, rpm: 700, v: 880, mag: 30, emag: 40, rel: 2.6, rec: 1.0, auto: true, tier: 2 },
   'SCAR-L': { n: 'SCAR-L', cls: 'ar', ammo: '556', dmg: 41, rpm: 625, v: 870, mag: 30, emag: 40, rel: 2.7, rec: 1.0, auto: true, tier: 2 },
-  M16A4: { n: 'M16A4', cls: 'ar', ammo: '556', dmg: 42, rpm: 800, v: 900, mag: 30, emag: 40, rel: 2.5, rec: 0.9, burst: 3, tier: 2 },
+  M16A2: { n: 'M16A2', cls: 'ar', ammo: '556', dmg: 42, rpm: 800, v: 900, mag: 30, emag: 40, rel: 2.5, rec: 0.9, burst: 3, tier: 2 },
   SKS: { n: 'SKS', cls: 'dmr', ammo: '762', dmg: 53, rpm: 220, v: 800, mag: 10, emag: 20, rel: 2.9, rec: 1.6, tier: 2 },
   MINI14: { n: 'Mini 14', cls: 'dmr', ammo: '556', dmg: 46, rpm: 260, v: 990, mag: 20, emag: 30, rel: 3.0, rec: 1.0, tier: 2 },
   KAR98K: { n: 'Kar98k', cls: 'sr', ammo: '762', dmg: 79, rpm: 35, v: 760, mag: 5, emag: 5, rel: 3.6, rec: 2.4, bolt: true, tier: 2 },
+  MOSIN: { n: 'Mosin-Nagant', cls: 'sr', ammo: '762', dmg: 77, rpm: 36, v: 800, mag: 5, emag: 5, rel: 3.6, rec: 2.3, bolt: true, fixedZoom: 3.5, tier: 2 },
   M24: { n: 'M24', cls: 'sr', ammo: '762', dmg: 76, rpm: 38, v: 790, mag: 5, emag: 7, rel: 3.4, rec: 2.2, bolt: true, tier: 3 },
   // só no drop do avião
   AUG: { n: 'AUG A3', cls: 'ar', ammo: '556', dmg: 41, rpm: 750, v: 940, mag: 30, emag: 40, rel: 2.8, rec: 0.75, auto: true, tier: 4 },
@@ -82,15 +84,15 @@ const wdef = w => WEAP[w.k];
 const magSize = w => w.att.mag ? WEAP[w.k].emag : WEAP[w.k].mag;
 function attFits(w, ak) {
   const a = ATT[ak], d = WEAP[w.k]; if (!a) return false;
-  if (a.slot === 'sight') return a.zoom <= CLS[d.cls].maxZoom;
+  if (a.slot === 'sight') return !d.fixedZoom && a.zoom <= CLS[d.cls].maxZoom;
   return a.cls.includes(d.cls);
 }
 
 // ---------- tabelas de saque ----------
 const POOL = {
-  1: { w: [['M9', 6], ['M1911', 5], ['G18C', 3], ['UMP45', 7], ['MP5K', 6], ['UZI', 6], ['AKM', 6], ['M416', 3], ['SKS', 2], ['KAR98K', 1.5], ['MINI14', 1.5]], gear: [[1, 7], [2, 3]], sight: [['RED', 5], ['HOLO', 5], ['X2', 4], ['X3', 1], ['X4', 0.6]] },
-  2: { w: [['M9', 2], ['UMP45', 5], ['MP5K', 4], ['UZI', 3], ['AKM', 7], ['M416', 6], ['SCAR-L', 6], ['M16A4', 4], ['SKS', 3], ['MINI14', 3], ['KAR98K', 3], ['M24', 0.6]], gear: [[1, 4], [2, 5], [3, 1]], sight: [['RED', 4], ['HOLO', 4], ['X2', 4], ['X3', 3], ['X4', 3], ['X6', 1], ['X8', 0.4]] },
-  3: { w: [['AKM', 6], ['M416', 7], ['SCAR-L', 7], ['M16A4', 4], ['SKS', 4], ['MINI14', 4], ['KAR98K', 4], ['M24', 3], ['UMP45', 2]], gear: [[1, 1], [2, 5], [3, 4]], sight: [['HOLO', 3], ['X2', 3], ['X3', 3], ['X4', 4], ['X6', 3], ['X8', 2], ['X10', 0.3]] },
+  1: { w: [['M17', 5], ['M625', 2], ['M1911', 5], ['G18C', 3], ['UMP45', 7], ['MP5K', 6], ['UZI', 6], ['AKM', 6], ['M416', 3], ['SKS', 2], ['KAR98K', 1.5], ['MINI14', 1.5]], gear: [[1, 7], [2, 3]], sight: [['RED', 5], ['HOLO', 5], ['X2', 4], ['X3', 1], ['X4', 0.6]] },
+  2: { w: [['M17', 2], ['M625', 1], ['UMP45', 5], ['MP5K', 4], ['UZI', 3], ['AKM', 7], ['M416', 6], ['SCAR-L', 6], ['M16A2', 4], ['SKS', 3], ['MINI14', 3], ['KAR98K', 3], ['MOSIN', 2.5], ['M24', 0.6]], gear: [[1, 4], [2, 5], [3, 1]], sight: [['RED', 4], ['HOLO', 4], ['X2', 4], ['X3', 3], ['X4', 3], ['X6', 1], ['X8', 0.4]] },
+  3: { w: [['AKM', 6], ['M416', 7], ['SCAR-L', 7], ['M16A2', 4], ['SKS', 4], ['MINI14', 4], ['KAR98K', 4], ['MOSIN', 3], ['M24', 3], ['UMP45', 2]], gear: [[1, 1], [2, 5], [3, 4]], sight: [['HOLO', 3], ['X2', 3], ['X3', 3], ['X4', 4], ['X6', 3], ['X8', 2], ['X10', 0.3]] },
 };
 const OTHER_ATT = ['COMP_AR', 'SUP_AR', 'COMP_SMG', 'SUP_SMG', 'GRIP', 'GRIP', 'EMAG_AR', 'EMAG_SMG', 'EMAG_SR', 'SUP_SR'];
 function rollLoot(tier) {
@@ -158,7 +160,7 @@ const GUNS = {
   'SCAR-L': () => [Bc(0, 0.015, -0.1, 0.056, 0.076, 0.48, GC_.tan), Bc(0, 0.06, -0.1, 0.026, 0.012, 0.46, '#2a2620'), Bc(0, -0.03, 0.04, 0.05, 0.042, 0.18, GC_.tan), Cz(0, 0.01, -0.44, 0.0095, 0.14, GC_.st), Cz(0, 0.01, -0.53, 0.014, 0.05, GC_.bk),
     Bc(0, -0.055, -0.06, 0.032, 0.04, 0.066, GC_.tan), Bc(0, -0.12, -0.07, 0.026, 0.12, 0.06, GC_.bk, -0.15), Bc(0, -0.085, 0.085, 0.031, 0.1, 0.04, GC_.bk, 0.3), Bc(0.035, 0.035, 0.0, 0.014, 0.012, 0.03, GC_.bk),
     Bc(0, 0.0, 0.25, 0.046, 0.07, 0.2, GC_.tan), Bc(0, -0.03, 0.35, 0.046, 0.13, 0.03, GC_.tan), Bc(0, 0.04, 0.24, 0.036, 0.024, 0.13, GC_.tan)],
-  M16A4: () => [Bc(0, 0.01, -0.03, 0.05, 0.06, 0.3, GC_.bk), Bc(0, -0.032, 0.03, 0.044, 0.04, 0.18, GC_.pl), Bc(0, 0.047, -0.08, 0.024, 0.012, 0.3, '#141518'), Cz(0, 0.006, -0.34, 0.03, 0.3, GC_.pl, 6),
+  M16A2: () => [Bc(0, 0.01, -0.03, 0.05, 0.06, 0.3, GC_.bk), Bc(0, -0.032, 0.03, 0.044, 0.04, 0.18, GC_.pl), Bc(0, 0.047, -0.08, 0.024, 0.012, 0.3, '#141518'), Cz(0, 0.006, -0.34, 0.03, 0.3, GC_.pl, 6),
     Cz(0, 0.006, -0.62, 0.0095, 0.3, GC_.st), Bc(0, 0.045, -0.53, 0.01, 0.06, 0.018, GC_.bk), Cz(0, 0.006, -0.79, 0.013, 0.05, GC_.bk), Bc(0, -0.05, -0.06, 0.032, 0.04, 0.066, GC_.bk), Bc(0, -0.115, -0.07, 0.026, 0.12, 0.06, GC_.bk, -0.15),
     Bc(0, -0.085, 0.085, 0.031, 0.1, 0.04, GC_.pl, 0.3), Bc(0, -0.01, 0.3, 0.044, 0.08, 0.26, GC_.pl, 0.06), Bc(0, -0.03, 0.43, 0.046, 0.11, 0.015, GC_.bk)],
   AUG: () => [Bc(0, -0.02, 0.06, 0.07, 0.1, 0.44, GC_.od), Bc(0, 0.035, -0.1, 0.05, 0.03, 0.38, GC_.od), Cz(0, 0.005, -0.38, 0.012, 0.36, GC_.st), Cz(0, 0.005, -0.57, 0.015, 0.04, GC_.bk),
@@ -184,16 +186,36 @@ const GUNS = {
     Bc(0, -0.075, -0.035, 0.026, 0.07, 0.05, GC_.st, -0.25), Bc(0, -0.13, -0.05, 0.025, 0.06, 0.048, GC_.st, -0.5), Bc(0, -0.075, 0.07, 0.03, 0.09, 0.04, GC_.pl, 0.25), Bc(0, 0.06, 0.06, 0.012, 0.02, 0.03, GC_.st)],
   UZI: () => [Bc(0, 0.005, -0.02, 0.05, 0.07, 0.28, GC_.st), Bc(0, 0.045, -0.02, 0.04, 0.012, 0.24, GC_.st), Cz(0, 0.01, -0.19, 0.011, 0.06, GC_.st), Bc(0, -0.1, 0.03, 0.03, 0.16, 0.045, GC_.bk, 0.12),
     Bc(0, -0.04, -0.06, 0.008, 0.012, 0.07, GC_.st), Bc(0.02, 0.0, 0.2, 0.006, 0.05, 0.14, GC_.st), Bc(-0.02, 0.0, 0.2, 0.006, 0.05, 0.14, GC_.st), Bc(0, -0.01, 0.27, 0.046, 0.06, 0.012, GC_.st)],
-  M9: () => [Bc(0, 0.02, -0.03, 0.03, 0.034, 0.2, GC_.bk), Cz(0, 0.024, -0.135, 0.009, 0.02, GC_.st), Bc(0, -0.006, -0.06, 0.028, 0.022, 0.14, GC_.bk), Bc(0, -0.06, 0.045, 0.032, 0.1, 0.045, '#3b2c22', 0.25), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.bk), Bc(0, 0.04, 0.06, 0.012, 0.01, 0.01, GC_.bk)],
+  M17: () => [Bc(0, 0.02, -0.03, 0.03, 0.034, 0.2, GC_.bk), Cz(0, 0.024, -0.135, 0.009, 0.02, GC_.st), Bc(0, -0.006, -0.06, 0.028, 0.022, 0.14, GC_.bk), Bc(0, -0.06, 0.045, 0.032, 0.1, 0.045, '#3b2c22', 0.25), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.bk), Bc(0, 0.04, 0.06, 0.012, 0.01, 0.01, GC_.bk)],
   M1911: () => [Bc(0, 0.02, -0.03, 0.03, 0.034, 0.21, GC_.bl), Bc(0, -0.006, -0.05, 0.028, 0.022, 0.15, GC_.bl), Bc(0, -0.06, 0.045, 0.033, 0.1, 0.044, '#7a4a28', 0.25), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.bl), Bc(0, 0.025, 0.075, 0.01, 0.012, 0.012, GC_.bl)],
   G18C: () => [Bc(0, 0.02, -0.03, 0.03, 0.032, 0.19, GC_.bk), Bc(0, -0.006, -0.05, 0.029, 0.024, 0.15, GC_.pl), Bc(0, -0.065, 0.045, 0.032, 0.11, 0.046, GC_.pl, 0.2), Bc(0, -0.13, 0.06, 0.028, 0.06, 0.04, GC_.bk, 0.2), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.pl)],
 };
-const MUZ = { AKM: -0.74, M416: -0.66, 'SCAR-L': -0.55, M16A4: -0.81, AUG: -0.59, GROZA: -0.44, KAR98K: -0.75, M24: -0.72, AWM: -0.83, SKS: -0.68, MINI14: -0.63, UMP45: -0.29, MP5K: -0.23, UZI: -0.22, M9: -0.145, M1911: -0.14, G18C: -0.13 };
+const MUZ = { AKM: -0.74, M416: -0.66, 'SCAR-L': -0.55, M16A2: -0.81, MOSIN: -0.86, M625: -0.19, AUG: -0.59, GROZA: -0.44, KAR98K: -0.75, M24: -0.72, AWM: -0.83, SKS: -0.68, MINI14: -0.63, UMP45: -0.29, MP5K: -0.23, UZI: -0.22, M17: -0.16, M1911: -0.14, G18C: -0.13 };
 function gunGeo(k) {
   if (GUNGEO[k]) return GUNGEO[k];
   GUN_MUZ[k] = MUZ[k] || -0.6; GUN_TOP[k] = WEAP[k].cls === 'pistol' ? 0.04 : 0.06;
-  return GUNGEO[k] = mergeParts((GUNS[k] || GUNS.M416)().filter(p => p.c.length === 7));
+  const alias = { MOSIN: 'KAR98K', M625: 'M1911' };
+  return GUNGEO[k] = mergeParts((GUNS[k] || GUNS[alias[k]] || GUNS.M416)().filter(p => p.c.length === 7));
 }
+// modelos de verdade (Sketchfab, CC BY 4.0): ficam como filho do objeto da arma
+const REALGUN = { AKM: { f: 'akm', fore: -0.3 }, M16A2: { f: 'm16a2', fore: -0.36 }, MOSIN: { f: 'mosin', fore: -0.42 }, M17: { f: 'p226', fore: 0.02 }, M625: { f: 'm625', fore: 0.02 } };
+const EMPTY_GEO = new T.BufferGeometry();
+function loadRealGuns(L, done) {
+  const ks = Object.keys(REALGUN); let left = ks.length;
+  for (const k of ks) L.load(`assets/guns/${REALGUN[k].f}.glb`, g => {
+    const o = g.scene; o.traverse(n => { if (!n.isMesh) return; const m = n.material; n.material = new T.MeshPhongMaterial({ map: m.map || null, normalMap: m.normalMap || null, color: m.map ? 0xffffff : m.color, shininess: 38, specular: 0x2a2a2a }); if (n.material.map) n.material.map.encoding = T.sRGBEncoding; n.castShadow = true; });
+    const b = new T.Box3().setFromObject(o); REALGUN[k].obj = o; GUN_MUZ[k] = b.min.z; GUN_TOP[k] = b.max.y - 0.006;
+    for (const id in GUNGEO) if (id === k) delete GUNGEO[id];
+    if (--left === 0) done();
+  }, undefined, () => { if (--left === 0) done(); });
+}
+function setGunVisual(mesh, k) {
+  for (let i = mesh.children.length - 1; i >= 0; i--) if (mesh.children[i].userData.real) mesh.remove(mesh.children[i]);
+  const r = REALGUN[k];
+  if (r && r.obj) { mesh.geometry = EMPTY_GEO; const c = r.obj.clone(); c.userData.real = 1; mesh.add(c); }
+  else mesh.geometry = gunGeo(k);
+}
+const foreOf = k => REALGUN[k] && REALGUN[k].obj ? REALGUN[k].fore : WEAP[k].cls === 'pistol' ? 0.02 : -0.32;
 // acessórios visíveis na arma (mira em cima, silenciador/compensador no cano, empunhadura embaixo)
 const ATTGEO = {};
 function attGeo(ak) {
@@ -228,7 +250,7 @@ const IGEO = {};
 function itemGeo(k) {
   if (IGEO[k]) return IGEO[k];
   const inf = itemInfo(k); let p;
-  if (inf.type === 'weapon') return IGEO[k] = gunGeo(k.slice(2));
+  if (inf.type === 'weapon') return gunGeo(k.slice(2));
   if (inf.type === 'ammo') p = [bx(-0.14, 0, -0.1, 0.28, 0.14, 0.2, inf.d.c), bx(-0.12, 0.14, -0.08, 0.24, 0.02, 0.16, '#ffffff')];
   else if (inf.type === 'heal') {
     const c = inf.d.c;
@@ -251,7 +273,7 @@ function updateItemVisuals(dt, cx, cz) {
   for (const it of G.items) {
     const near = (it.x - cx) ** 2 + (it.z - cz) ** 2 < R2;
     if (near && !it.mesh) {
-      const m = it.mesh = new T.Mesh(itemGeo(it.k), MAT.item);
+      const m = it.mesh = new T.Mesh(itemGeo(it.k), MAT.item); if (it.k.startsWith('w:')) setGunVisual(m, it.k.slice(2));
       m.position.set(it.x, it.y + (it.k.startsWith('w:') ? 0.06 : 0), it.z);
       m.rotation.set(it.k.startsWith('w:') ? Math.PI / 2 * 0 : 0, (it.x * 7 + it.z * 13) % 6.28, it.k.startsWith('w:') ? Math.PI / 2 : 0);
       m.scale.setScalar(1.25); scene.add(m);

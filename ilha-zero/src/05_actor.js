@@ -176,7 +176,7 @@ function buildModel(a) {
 }
 function rebuildBody(a) { const m = a.model; if (!m) return; if (m.human) { updateHumanGear(a); return; } m.body.geometry.dispose(); m.body.geometry = bodyGeo(a.look, a); }
 const gunKey = w => w ? w.k + '|' + (w.att.sight || '') + (w.att.muzzle || '') + (w.att.grip || '') : '';
-function refreshGun(a) { const m = a.model; if (!m) return; const w = curW(a); m.gun.visible = !!w; m.gunKey = gunKey(w); if (w) { m.gun.geometry = gunGeo(w.k); dressGun(m.gun, w); } }
+function refreshGun(a) { const m = a.model; if (!m) return; const w = curW(a); m.gun.visible = !!w; m.gunKey = gunKey(w); if (w) { setGunVisual(m.gun, w.k); dressGun(m.gun, w); } }
 function syncGun(a) { const m = a.model; if (m && m.gunKey !== gunKey(curW(a))) refreshGun(a); }
 function removeModel(a) { if (a.model) { scene.remove(a.model.g); if (a.model.body) a.model.body.geometry.dispose(); if (a.model.mixer) a.model.mixer.stopAllAction(); a.model = null; } }
 

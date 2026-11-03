@@ -1,5 +1,7 @@
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
+// cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
+T.ColorManagement.legacyMode = false;
 const MAP = 1280, HALF = MAP / 2, CELL = 5, GN = MAP / CELL + 1; // ilha de ~1,1 km dentro de 1,28 km
 const GRAV = 9.81;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;

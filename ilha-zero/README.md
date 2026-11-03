@@ -54,6 +54,13 @@ Q/E inclina, R recarrega, F pega/age, H cura, Tab mochila, M mapa, V 1ª/3ª pes
 - **Casas e prédios com materiais**: tijolo à vista, reboco, telhas, placas de concreto, tábuas de madeira, chapa ondulada e vidro nas janelas.
 - Os modelos ficam em `assets/` (cerca de 10 MB) e carregam enquanto o lobby aparece. Créditos em `assets/CREDITS.md`.
 
+## Luz e armas reais (atualização)
+- **Iluminação no estilo PUBG**: cores no espaço certo com curva de cor de cinema (ACES), sol quente mais baixo com sombras suaves
+  e longas, névoa atmosférica azul-acinzentada e paleta natural (verde oliva, tijolo marrom, concreto, mar escuro).
+- **Armas com modelos reais** (Sketchfab, CC BY 4.0): AKM, M16A2, Mosin-Nagant (com luneta PU 3,5x fixa), M17 (SIG P320) e
+  revólver S&W M625, com texturas de verdade, na mão dos personagens, no chão e em 1ª pessoa (mira alinhada no aparelho da arma).
+  As demais continuam modeladas por código até termos modelos com licença livre.
+
 ## Próximas fases
 3. Helicóptero
 4. Multijogador online: lobby com amigos (convite por link/código, como no Deep Spear), partidas com bots completando

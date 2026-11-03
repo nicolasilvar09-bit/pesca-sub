@@ -14,5 +14,15 @@ https://github.com/amvlab/aircraft-models — modelo "A320_nologo".
 Licença: Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/).
 Alterações: orientação e escala ajustadas no jogo.
 
-## Todo o resto (mapa, prédios, armas, veículos, efeitos, sons)
+## Armas (Sketchfab, todas CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/)
+Obtidas via https://github.com/KrishBharadwaj5678/Gunify e https://github.com/Dragon20C/Godot-4.X-Fps-Controller
+(autor e licença conferidos nos metadados de cada arquivo).
+- AKM: "Weathered AK47" por mikelkel2 — https://sketchfab.com/3d-models/weathered-ak47-c95a94e9c68340ff8b0ea49dc3ff81c2
+- M16A2: "AR Rifle 10" por TORI106 — https://sketchfab.com/TORI106
+- Mosin-Nagant: "Mosin-Nagant Lowpoly" por Carlos Rivera (mr5ombra) — https://sketchfab.com/3d-models/mosin-nagant-lowpoly-8a7e8ab02e444f73ad16f46685ec8350
+- M17 (SIG P320): "SIG Sauer Handgun" por Michael Egorov (Lagsalot) — https://sketchfab.com/3d-models/sig-sauer-handgun-60a8cea2656640f3b4e0968650a2167b
+- S&W M625: "Smith & Wesson Revolver M625" por SchrisArt — https://sketchfab.com/3d-models/smith-wesson-revolver-m625-073b7ba2570b4ebca78c87dc9b9a8184
+Alterações: orientação e escala normalizadas, malha simplificada, texturas reduzidas para 512 px (JPEG), material trocado.
+
+## Todo o resto (mapa, prédios, demais armas, veículos, efeitos, sons)
 Feito por código dentro do jogo.

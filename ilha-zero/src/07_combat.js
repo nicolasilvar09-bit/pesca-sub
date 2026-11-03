@@ -73,7 +73,7 @@ function weaponMods(w) {
   for (const s of ['muzzle', 'grip']) { const k = w.att[s]; if (k) { rec *= ATT[k].rec || 1; quiet = quiet || !!ATT[k].quiet; } }
   return { rec, quiet };
 }
-function sightZoom(w) { return w && w.att.sight ? ATT[w.att.sight].zoom : 1.1; }
+function sightZoom(w) { return w && w.att.sight ? ATT[w.att.sight].zoom : w && WEAP[w.k].fixedZoom ? WEAP[w.k].fixedZoom : 1.1; }
 function spreadOf(a, w) {
   const c = CLS[wdef(w).cls], moving = Math.hypot(a.vx, a.vz) > 1;
   let s = a.ads ? c.ads : c.hip;

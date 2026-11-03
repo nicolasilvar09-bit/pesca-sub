@@ -1,6 +1,6 @@
 // ================= gráficos: sombras, mar com ondas e espuma, grama ao vento, estradas pintadas, postes, sol e textura procedural =================
 const GFX = { t: 0, grassOn: false, shadow: 0, gx: 1e9, gz: 1e9 };
-const SUN_DIR = new T.Vector3(320, 520, 180).normalize();
+const SUN_DIR = new T.Vector3(320, 330, 180).normalize();
 const GLSL_NOISE = `
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
@@ -81,7 +81,7 @@ patchNoise(MAT.terrain, 'terrain'); patchNoise(MAT.world, 'wall');
   const data = new Uint8Array(GN * GN * 4);
   for (let n = 0; n < GN * GN; n++) { const d = clamp(-H[n] / 16, 0, 1) * 255; data[n * 4] = d; data[n * 4 + 1] = d; data[n * 4 + 2] = d; data[n * 4 + 3] = 255; }
   const tex = new T.DataTexture(data, GN, GN, T.RGBAFormat); tex.magFilter = tex.minFilter = T.LinearFilter; tex.needsUpdate = true;
-  const uni = T.UniformsUtils.merge([T.UniformsLib.fog, { uT: { value: 0 }, uSun: { value: SUN_DIR.clone() }, uSky: { value: new T.Color(0x9fdcff) } }]);
+  const uni = T.UniformsUtils.merge([T.UniformsLib.fog, { uT: { value: 0 }, uSun: { value: SUN_DIR.clone() }, uSky: { value: new T.Color(0xb5c6d2) } }]);
   uni.uDepth = { value: tex };
   const mat = new T.ShaderMaterial({
     uniforms: uni, fog: true, transparent: true, depthWrite: false,
@@ -96,13 +96,13 @@ void main(){
   vec3 n = normalize(vec3(dx * 0.35, 1.0, dz * 0.35));
   vec3 V = normalize(cameraPosition - vWP);
   float fres = pow(1.0 - max(dot(n, V), 0.0), 3.0);
-  vec3 col = mix(vec3(0.33, 0.95, 0.86), vec3(0.06, 0.74, 0.9), smoothstep(0.0, 0.12, depth));
-  col = mix(col, vec3(0.02, 0.38, 0.78), smoothstep(0.12, 0.65, depth));
+  vec3 col = mix(vec3(0.42, 0.66, 0.6), vec3(0.17, 0.44, 0.52), smoothstep(0.0, 0.12, depth));
+  col = mix(col, vec3(0.08, 0.25, 0.36), smoothstep(0.12, 0.65, depth));
   col = mix(col, uSky, fres * 0.55);
-  vec3 Hh = normalize(uSun + V); col += pow(max(dot(n, Hh), 0.0), 140.0) * 1.6;
+  vec3 Hh = normalize(uSun + V); col += pow(max(dot(n, Hh), 0.0), 160.0) * vec3(1.4, 1.25, 1.0);
   float wave = sin(uT * 1.4 - depth * 90.0) * 0.5 + 0.5;
   float foam = smoothstep(0.045, 0.0, depth - wave * 0.02) * (0.6 + 0.4 * vn(p * 1.5 + uT * 0.6));
-  col = mix(col, vec3(1.0), clamp(foam, 0.0, 1.0) * 0.9);
+  col = mix(col, vec3(0.92, 0.93, 0.9), clamp(foam, 0.0, 1.0) * 0.6);
   float alpha = mix(0.5, 0.93, smoothstep(0.0, 0.3, depth)); alpha = max(alpha, foam);
   gl_FragColor = vec4(col, alpha);
   #include <fog_fragment>
@@ -207,10 +207,10 @@ function windMat() {
   return m;
 }
 const GRASS_N = 6500, FLOWER_N = 700;
-const grassM = new T.InstancedMesh(tuftGeo(6, 0.28, 0.55, '#2f8a22', '#a8e85c'), windMat(), GRASS_N);
-const flowerM = new T.InstancedMesh(tuftGeo(2, 0.3, 0.42, '#2f8a22', '#6cc644', true), windMat(), FLOWER_N);
+const grassM = new T.InstancedMesh(tuftGeo(6, 0.28, 0.55, '#3f5a24', '#93a74e'), windMat(), GRASS_N);
+const flowerM = new T.InstancedMesh(tuftGeo(2, 0.3, 0.42, '#3f5a24', '#7d9a44', true), windMat(), FLOWER_N);
 grassM.frustumCulled = flowerM.frustumCulled = false; grassM.count = flowerM.count = 0; scene.add(grassM, flowerM);
-const FLOWER_C = ['#ffd23f', '#ff5fa2', '#ffffff', '#b388ff', '#ff7043', '#40c4ff'].map(c => new T.Color(c));
+const FLOWER_C = ['#e8d66a', '#e9e4d8', '#c9a8d8', '#d8c05a', '#f0f0e8', '#b9c870'].map(c => new T.Color(c));
 const hash2 = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
 function grassAt(x, z) {
   const i = Math.round((x + HALF) / CELL), j = Math.round((z + HALF) / CELL);
@@ -240,7 +240,7 @@ function refreshGrass(cx, cz) {
 function gfxQuality(q) {
   const sh = q.shadow || 0;
   if (sh !== GFX.shadow) {
-    GFX.shadow = sh; renderer.shadowMap.enabled = sh > 0; renderer.shadowMap.type = T.PCFShadowMap;
+    GFX.shadow = sh; renderer.shadowMap.enabled = sh > 0; renderer.shadowMap.type = T.PCFSoftShadowMap;
     sun.castShadow = sh > 0;
     if (sh) { if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } sun.shadow.mapSize.set(sh, sh); const c = sun.shadow.camera; c.left = c.bottom = -60; c.right = c.top = 60; c.near = 20; c.far = 900; c.updateProjectionMatrix(); sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.06; }
     scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); });

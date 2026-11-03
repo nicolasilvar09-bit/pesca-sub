@@ -70,8 +70,8 @@ const townAt = (x, z, pad = 0) => TOWNS.find(t => Math.hypot(t.x - x, t.z - z) <
 // ---------- malha do terreno ----------
 (function buildTerrain() {
   const pos = new Float32Array(GN * GN * 3), col = new Float32Array(GN * GN * 3), c = new T.Color();
-  const sand = new T.Color('#efd38a'), wet = new T.Color('#d8bf7c'), road = new T.Color('#5d6068'), line = new T.Color('#f3e7a0');
-  const pave = new T.Color('#b9b2a3'), rock = new T.Color('#8f8a82'), g1 = new T.Color('#52c043'), g2 = new T.Color('#9ad65a'), g3 = new T.Color('#3fa83e');
+  const sand = new T.Color('#b8a77e'), wet = new T.Color('#a89a72'), road = new T.Color('#4a4b4e'), line = new T.Color('#d9d2a8');
+  const pave = new T.Color('#86837c'), rock = new T.Color('#85827c'), g1 = new T.Color('#617a3c'), g2 = new T.Color('#8a8f52'), g3 = new T.Color('#4f6933');
   for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
     const k = j * GN + i, x = -HALF + i * CELL, z = -HALF + j * CELL, h = H[k];
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
@@ -93,7 +93,7 @@ const townAt = (x, z, pad = 0) => TOWNS.find(t => Math.hypot(t.x - x, t.z - z) <
   g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('color', new T.BufferAttribute(col, 3));
   g.setIndex(new T.BufferAttribute(idx, 1)); g.computeVertexNormals();
   TERRAIN = new T.Mesh(g, MAT.terrain); scene.add(TERRAIN);
-  const water = WATER = new T.Mesh(new T.PlaneGeometry(5000, 5000), new T.MeshLambertMaterial({ color: 0x23b5e8, transparent: true, opacity: 0.84 }));
+  const water = WATER = new T.Mesh(new T.PlaneGeometry(5000, 5000), new T.MeshLambertMaterial({ color: 0x2a6f8f, transparent: true, opacity: 0.84 }));
   water.rotation.x = -Math.PI / 2; water.position.y = 0; scene.add(water);
 })();
 
@@ -220,8 +220,8 @@ function addGable(x0, z0, x1, z1, y, h, color) {
 
 // ---------- prédios ----------
 const BLD = []; // {x0,z0,x1,z1,y,top,floors,fh,doors:[{ox,oz,ix,iz}],spots:[[x,y,z]],tier}
-const WALL = ['#ffd6a5', '#fdffb6', '#caffbf', '#9bf6ff', '#a0c4ff', '#ffc6ff', '#ffadad', '#f9c74f', '#90be6d', '#f8961e', '#4cc9f0', '#f72585', '#b5179e', '#ffb3c6'];
-const ROOF = ['#b5452c', '#9c3b26', '#c0603a', '#8a4b2d', '#5a5f66', '#46514a', '#a0522d'];
+const WALL = ['#cfc6b4', '#bfb39b', '#a9b3a6', '#c9b8a0', '#b7a891', '#d6cdb9', '#9da7a8', '#c2a98a', '#e0d6c2', '#a8a08e', '#b9c0b0', '#d2bfa0'];
+const ROOF = ['#7e3a2a', '#6e3424', '#8a4a32', '#5e4030', '#4c5056', '#3e463f', '#74422c'];
 const WT = 0.25;
 // parede com aberturas (portas e janelas). axis 'x' = parede corre no eixo x
 function wallRun(axis, c0, c1, a0, a1, y0, y1, ops, color) {
@@ -248,7 +248,7 @@ function slabWithHole(x0, z0, x1, z1, y0, y1, hole, color) {
 function building(o) {
   const w = o.w, d = o.d, x0 = o.x - w / 2, x1 = o.x + w / 2, z0 = o.z - d / 2, z1 = o.z + d / 2;
   const wm = o.wallMat != null ? o.wallMat : (o.roof === 'gable' ? (WR() < 0.35 ? 1 : 0) : (WR() < 0.5 ? 3 : 1));
-  const fh = o.fh || 3.2, floors = o.floors || 1, col = wm === 1 && !o.col ? wpk(['#b5543c', '#a6492f', '#c2683f', '#9e5a3c', '#b8704a']) : o.col || wpk(WALL), gy = groundH(o.x, o.z);
+  const fh = o.fh || 3.2, floors = o.floors || 1, col = wm === 1 && !o.col ? wpk(['#8e4a36', '#7f4330', '#93573c', '#7a4c3a', '#8a5a44']) : o.col || wpk(WALL), gy = groundH(o.x, o.z);
   const y0 = gy + 0.15, top = y0 + floors * fh;
   const B = { x0, z0, x1, z1, y: y0, top, floors, fh, doors: [], spots: [], tier: o.tier || 1 };
   addBox(x0 - 0.3, gy - 2, z0 - 0.3, x1 + 0.3, y0, z1 + 0.3, '#9c958a', { mat: 3 }); // base
@@ -315,7 +315,7 @@ function building(o) {
   BLD.push(B); return B;
 }
 // caixas/containers de cobertura
-const CONT = ['#e63946', '#2a9d8f', '#f4a261', '#457b9d', '#ffbe0b', '#8338ec', '#3a86ff', '#06d6a0'];
+const CONT = ['#8a3a32', '#3e6b6a', '#9a7a3a', '#4c5c72', '#6b7552', '#7a4a3a', '#5a6670'];
 function container(x, z, along, stack) {
   const gy = groundH(x, z), w = along === 'x' ? 6 : 2.4, d = along === 'x' ? 2.4 : 6;
   for (let s = 0; s < (stack || 1); s++) addBox(x - w / 2, gy + s * 2.6, z - d / 2, x + w / 2, gy + (s + 1) * 2.6, z + d / 2, wpk(CONT), { mat: 5 });
@@ -410,7 +410,7 @@ const TREES = [];
   tr.forEach(([x, h, z, s], i) => {
     const th = 2.6 * s; dummy.position.set(x, h + th / 2, z); dummy.scale.set(s, th, s); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); trunk.setMatrixAt(i, dummy.matrix);
     const round = NZ.n(x / 60, z / 60) > 0.1;
-    c.setHSL(round ? 0.22 + WR() * 0.08 : 0.3 + WR() * 0.06, 0.65, 0.33 + WR() * 0.12);
+    c.setHSL(round ? 0.2 + WR() * 0.07 : 0.27 + WR() * 0.06, 0.42, 0.24 + WR() * 0.09, 'srgb');
     if (round) { // copa redonda: 3 bolos de folhas
       for (const [ox, oy, oz, k] of [[0, 1.6, 0, 1], [0.9, 1.1, 0.4, 0.7], [-0.7, 1.2, -0.6, 0.72]]) {
         dummy.position.set(x + ox * s, h + th + oy * s, z + oz * s); dummy.scale.set(2.2 * s * k, 1.9 * s * k, 2.2 * s * k); dummy.rotation.set(WR(), WR(), 0); dummy.updateMatrix(); crown2.setMatrixAt(nr, dummy.matrix);
@@ -424,13 +424,13 @@ const TREES = [];
   });
   crown.count = nc; crown2.count = nr;
   const bush = new T.InstancedMesh(new T.IcosahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), bu.length);
-  bu.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.4 * s, z); dummy.scale.set(1.3 * s, 0.9 * s, 1.3 * s); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); bush.setMatrixAt(i, dummy.matrix); c.setHSL(0.25 + WR() * 0.1, 0.7, 0.36 + WR() * 0.1); bush.setColorAt(i, c); });
+  bu.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.4 * s, z); dummy.scale.set(1.3 * s, 0.9 * s, 1.3 * s); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); bush.setMatrixAt(i, dummy.matrix); c.setHSL(0.22 + WR() * 0.08, 0.42, 0.27 + WR() * 0.08, 'srgb'); bush.setColorAt(i, c); });
   const rock = new T.InstancedMesh(new T.DodecahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), rk.length);
-  rk.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.3 * s, z); dummy.scale.set(1.3 * s, s, 1.1 * s); dummy.rotation.set(WR(), WR() * 3, 0); dummy.updateMatrix(); rock.setMatrixAt(i, dummy.matrix); c.setHSL(0.08, 0.06, 0.5 + WR() * 0.15); rock.setColorAt(i, c); addCollider(x - s, h - 0.5, z - 0.9 * s, x + s, h + 1.1 * s, z + 0.9 * s, 'rock'); });
+  rk.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.3 * s, z); dummy.scale.set(1.3 * s, s, 1.1 * s); dummy.rotation.set(WR(), WR() * 3, 0); dummy.updateMatrix(); rock.setMatrixAt(i, dummy.matrix); c.setHSL(0.08, 0.05, 0.46 + WR() * 0.12, 'srgb'); rock.setColorAt(i, c); addCollider(x - s, h - 0.5, z - 0.9 * s, x + s, h + 1.1 * s, z + 0.9 * s, 'rock'); });
   for (const m of [trunk, crown, crown2, bush, rock]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; scene.add(m); NATURE_MESH.push(m); }
   // nuvens
   // nuvens fofas: cada uma é um cacho de 6 bolas, mais achatado embaixo
-  const cl = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshLambertMaterial({ color: 0xffffff, emissive: 0x9aa7b8 }), 55 * 6);
+  const cl = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshLambertMaterial({ color: 0xffffff, emissive: 0x6d7682 }), 55 * 6);
   let ci = 0;
   for (let i = 0; i < 55; i++) {
     const cx = wr(-1300, 1300), cy = wr(330, 430), cz = wr(-1300, 1300), sc = wr(0.7, 1.4);

@@ -1,10 +1,10 @@
 // ================= veículos: jipe, sedã, buggy e moto — dirigir, passageiros, atropelar, dano e explosão =================
 // hl/hw = meio comprimento/largura; seats = [direita, trás, altura do assento]; max em m/s
 const VDEF = {
-  jipe: { n: 'Jipe', hp: 1500, max: 25, acc: 8, turn: 1.15, hl: 2.2, hw: 1.0, h: 1.9, seats: [[-0.42, -0.15, 0.55], [0.42, -0.15, 0.55], [-0.42, 0.85, 0.6], [0.42, 0.85, 0.6]], cols: ['#2e7d32', '#f9a825', '#6d4c41', '#1565c0'] },
-  seda: { n: 'Sedã', hp: 1100, max: 29, acc: 10, turn: 1.2, hl: 2.25, hw: 0.95, h: 1.5, seats: [[-0.4, -0.1, 0.45], [0.4, -0.1, 0.45], [-0.4, 0.8, 0.45], [0.4, 0.8, 0.45]], cols: ['#e53935', '#ffffff', '#00acc1', '#8e24aa', '#fdd835'] },
-  buggy: { n: 'Buggy', hp: 900, max: 28, acc: 11, turn: 1.45, hl: 1.6, hw: 0.95, h: 1.4, seats: [[-0.38, 0.1, 0.45], [0.38, 0.1, 0.45]], cols: ['#ff6d00', '#00e676', '#2979ff'] },
-  moto: { n: 'Moto', hp: 550, max: 33, acc: 12, turn: 1.9, hl: 1.0, hw: 0.35, h: 1.2, seats: [[0, 0.0, 0.85], [0, 0.5, 0.95]], cols: ['#ff1744', '#00e5ff', '#76ff03', '#ffab00', '#d500f9'] },
+  jipe: { n: 'Jipe', hp: 1500, max: 25, acc: 8, turn: 1.15, hl: 2.2, hw: 1.0, h: 1.9, seats: [[-0.42, -0.15, 0.55], [0.42, -0.15, 0.55], [-0.42, 0.85, 0.6], [0.42, 0.85, 0.6]], cols: ['#4b5a3a', '#6b5d43', '#3d4a52', '#5a4a3a'] },
+  seda: { n: 'Sedã', hp: 1100, max: 29, acc: 10, turn: 1.2, hl: 2.25, hw: 0.95, h: 1.5, seats: [[-0.4, -0.1, 0.45], [0.4, -0.1, 0.45], [-0.4, 0.8, 0.45], [0.4, 0.8, 0.45]], cols: ['#8c2f2a', '#d8d8d2', '#2f5a6a', '#3a3d42', '#9a8a5a'] },
+  buggy: { n: 'Buggy', hp: 900, max: 28, acc: 11, turn: 1.45, hl: 1.6, hw: 0.95, h: 1.4, seats: [[-0.38, 0.1, 0.45], [0.38, 0.1, 0.45]], cols: ['#b0632a', '#5a6b3a', '#3a5a7a'] },
+  moto: { n: 'Moto', hp: 550, max: 33, acc: 12, turn: 1.9, hl: 1.0, hw: 0.35, h: 1.2, seats: [[0, 0.0, 0.85], [0, 0.5, 0.95]], cols: ['#8a2a22', '#2a2c30', '#4a5a6a', '#6a5a3a'] },
 };
 const VEH = [];
 function vehGeo(k, col) {

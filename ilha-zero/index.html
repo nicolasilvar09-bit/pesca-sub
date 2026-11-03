@@ -5228,6 +5228,8 @@ THREE.SkeletonUtils = {
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
+// cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
+T.ColorManagement.legacyMode = false;
 const MAP = 1280, HALF = MAP / 2, CELL = 5, GN = MAP / CELL + 1; // ilha de ~1,1 km dentro de 1,28 km
 const GRAV = 9.81;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -5280,21 +5282,22 @@ function toast(msg, s = 2.2, cls = '') {
 
 // ================= cena: renderizador, câmera, luz, céu e utilitários de geometria =================
 const renderer = new T.WebGLRenderer({ canvas: $('cv'), antialias: false, powerPreference: 'high-performance' });
-const QUAL = [{ pr: 0.75, fog: 650, shadow: 0, grass: 0 }, { pr: 1.25, fog: 950, shadow: 1024, grass: 1 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1 }];
+renderer.outputEncoding = T.sRGBEncoding; renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.92;
+const QUAL = [{ pr: 0.75, fog: 700, shadow: 0, grass: 0 }, { pr: 1.25, fog: 1000, shadow: 1024, grass: 1 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1 }];
 const scene = new T.Scene();
-const SKY_C = new T.Color(0xbfe9ff);
+const SKY_C = new T.Color(0xc3ced6); // névoa atmosférica azul-acinzentada
 scene.background = SKY_C.clone();
-scene.fog = new T.Fog(SKY_C, 180, 950);
+scene.fog = new T.Fog(SKY_C, 120, 950);
 const camera = new T.PerspectiveCamera(75, innerWidth / innerHeight, 0.06, 2600);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
-scene.add(new T.HemisphereLight(0xd8efff, 0x58803a, 0.6));
-const sun = new T.DirectionalLight(0xfff0d0, 0.78); sun.position.set(320, 520, 180); scene.add(sun);
+const HEMI = new T.HemisphereLight(0xbfd6ee, 0x6b6150, 0.85); scene.add(HEMI);
+const sun = new T.DirectionalLight(0xffe2b8, 1.9); sun.position.set(320, 330, 180); scene.add(sun); // sol quente e mais baixo
 
 function applyQuality() {
   const q = QUAL[SET.quality] || QUAL[1];
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pr));
-  scene.fog.far = q.fog; scene.fog.near = q.fog * 0.2;
+  scene.fog.far = q.fog; scene.fog.near = q.fog * 0.12;
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   if (typeof gfxQuality === 'function') gfxQuality(q);
@@ -5304,8 +5307,8 @@ addEventListener('resize', applyQuality);
 // céu em degradê (azul vivo em cima, claro no horizonte)
 const SKY = (() => {
   const g = new T.SphereGeometry(2300, 24, 12), p = g.attributes.position, c = [];
-  const top = new T.Color(0x2f8fff), hor = new T.Color(0xcdeeff), tmp = new T.Color();
-  for (let i = 0; i < p.count; i++) { const k = clamp(p.getY(i) / 2300 * 2.4, 0, 1); tmp.copy(hor).lerp(top, k); c.push(tmp.r, tmp.g, tmp.b); }
+  const top = new T.Color(0x4f86c6), hor = new T.Color(0xd3dde3), tmp = new T.Color();
+  for (let i = 0; i < p.count; i++) { const k = Math.pow(clamp(p.getY(i) / 2300 * 1.8, 0, 1), 0.7); tmp.copy(hor).lerp(top, k); c.push(tmp.r, tmp.g, tmp.b); }
   g.setAttribute('color', new T.Float32BufferAttribute(c, 3));
   const m = new T.Mesh(g, new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide, fog: false, depthWrite: false }));
   m.renderOrder = -10; scene.add(m); return m;
@@ -5418,8 +5421,8 @@ const townAt = (x, z, pad = 0) => TOWNS.find(t => Math.hypot(t.x - x, t.z - z) <
 // ---------- malha do terreno ----------
 (function buildTerrain() {
   const pos = new Float32Array(GN * GN * 3), col = new Float32Array(GN * GN * 3), c = new T.Color();
-  const sand = new T.Color('#efd38a'), wet = new T.Color('#d8bf7c'), road = new T.Color('#5d6068'), line = new T.Color('#f3e7a0');
-  const pave = new T.Color('#b9b2a3'), rock = new T.Color('#8f8a82'), g1 = new T.Color('#52c043'), g2 = new T.Color('#9ad65a'), g3 = new T.Color('#3fa83e');
+  const sand = new T.Color('#b8a77e'), wet = new T.Color('#a89a72'), road = new T.Color('#4a4b4e'), line = new T.Color('#d9d2a8');
+  const pave = new T.Color('#86837c'), rock = new T.Color('#85827c'), g1 = new T.Color('#617a3c'), g2 = new T.Color('#8a8f52'), g3 = new T.Color('#4f6933');
   for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
     const k = j * GN + i, x = -HALF + i * CELL, z = -HALF + j * CELL, h = H[k];
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
@@ -5441,7 +5444,7 @@ const townAt = (x, z, pad = 0) => TOWNS.find(t => Math.hypot(t.x - x, t.z - z) <
   g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('color', new T.BufferAttribute(col, 3));
   g.setIndex(new T.BufferAttribute(idx, 1)); g.computeVertexNormals();
   TERRAIN = new T.Mesh(g, MAT.terrain); scene.add(TERRAIN);
-  const water = WATER = new T.Mesh(new T.PlaneGeometry(5000, 5000), new T.MeshLambertMaterial({ color: 0x23b5e8, transparent: true, opacity: 0.84 }));
+  const water = WATER = new T.Mesh(new T.PlaneGeometry(5000, 5000), new T.MeshLambertMaterial({ color: 0x2a6f8f, transparent: true, opacity: 0.84 }));
   water.rotation.x = -Math.PI / 2; water.position.y = 0; scene.add(water);
 })();
 
@@ -5568,8 +5571,8 @@ function addGable(x0, z0, x1, z1, y, h, color) {
 
 // ---------- prédios ----------
 const BLD = []; // {x0,z0,x1,z1,y,top,floors,fh,doors:[{ox,oz,ix,iz}],spots:[[x,y,z]],tier}
-const WALL = ['#ffd6a5', '#fdffb6', '#caffbf', '#9bf6ff', '#a0c4ff', '#ffc6ff', '#ffadad', '#f9c74f', '#90be6d', '#f8961e', '#4cc9f0', '#f72585', '#b5179e', '#ffb3c6'];
-const ROOF = ['#b5452c', '#9c3b26', '#c0603a', '#8a4b2d', '#5a5f66', '#46514a', '#a0522d'];
+const WALL = ['#cfc6b4', '#bfb39b', '#a9b3a6', '#c9b8a0', '#b7a891', '#d6cdb9', '#9da7a8', '#c2a98a', '#e0d6c2', '#a8a08e', '#b9c0b0', '#d2bfa0'];
+const ROOF = ['#7e3a2a', '#6e3424', '#8a4a32', '#5e4030', '#4c5056', '#3e463f', '#74422c'];
 const WT = 0.25;
 // parede com aberturas (portas e janelas). axis 'x' = parede corre no eixo x
 function wallRun(axis, c0, c1, a0, a1, y0, y1, ops, color) {
@@ -5596,7 +5599,7 @@ function slabWithHole(x0, z0, x1, z1, y0, y1, hole, color) {
 function building(o) {
   const w = o.w, d = o.d, x0 = o.x - w / 2, x1 = o.x + w / 2, z0 = o.z - d / 2, z1 = o.z + d / 2;
   const wm = o.wallMat != null ? o.wallMat : (o.roof === 'gable' ? (WR() < 0.35 ? 1 : 0) : (WR() < 0.5 ? 3 : 1));
-  const fh = o.fh || 3.2, floors = o.floors || 1, col = wm === 1 && !o.col ? wpk(['#b5543c', '#a6492f', '#c2683f', '#9e5a3c', '#b8704a']) : o.col || wpk(WALL), gy = groundH(o.x, o.z);
+  const fh = o.fh || 3.2, floors = o.floors || 1, col = wm === 1 && !o.col ? wpk(['#8e4a36', '#7f4330', '#93573c', '#7a4c3a', '#8a5a44']) : o.col || wpk(WALL), gy = groundH(o.x, o.z);
   const y0 = gy + 0.15, top = y0 + floors * fh;
   const B = { x0, z0, x1, z1, y: y0, top, floors, fh, doors: [], spots: [], tier: o.tier || 1 };
   addBox(x0 - 0.3, gy - 2, z0 - 0.3, x1 + 0.3, y0, z1 + 0.3, '#9c958a', { mat: 3 }); // base
@@ -5663,7 +5666,7 @@ function building(o) {
   BLD.push(B); return B;
 }
 // caixas/containers de cobertura
-const CONT = ['#e63946', '#2a9d8f', '#f4a261', '#457b9d', '#ffbe0b', '#8338ec', '#3a86ff', '#06d6a0'];
+const CONT = ['#8a3a32', '#3e6b6a', '#9a7a3a', '#4c5c72', '#6b7552', '#7a4a3a', '#5a6670'];
 function container(x, z, along, stack) {
   const gy = groundH(x, z), w = along === 'x' ? 6 : 2.4, d = along === 'x' ? 2.4 : 6;
   for (let s = 0; s < (stack || 1); s++) addBox(x - w / 2, gy + s * 2.6, z - d / 2, x + w / 2, gy + (s + 1) * 2.6, z + d / 2, wpk(CONT), { mat: 5 });
@@ -5758,7 +5761,7 @@ const TREES = [];
   tr.forEach(([x, h, z, s], i) => {
     const th = 2.6 * s; dummy.position.set(x, h + th / 2, z); dummy.scale.set(s, th, s); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); trunk.setMatrixAt(i, dummy.matrix);
     const round = NZ.n(x / 60, z / 60) > 0.1;
-    c.setHSL(round ? 0.22 + WR() * 0.08 : 0.3 + WR() * 0.06, 0.65, 0.33 + WR() * 0.12);
+    c.setHSL(round ? 0.2 + WR() * 0.07 : 0.27 + WR() * 0.06, 0.42, 0.24 + WR() * 0.09, 'srgb');
     if (round) { // copa redonda: 3 bolos de folhas
       for (const [ox, oy, oz, k] of [[0, 1.6, 0, 1], [0.9, 1.1, 0.4, 0.7], [-0.7, 1.2, -0.6, 0.72]]) {
         dummy.position.set(x + ox * s, h + th + oy * s, z + oz * s); dummy.scale.set(2.2 * s * k, 1.9 * s * k, 2.2 * s * k); dummy.rotation.set(WR(), WR(), 0); dummy.updateMatrix(); crown2.setMatrixAt(nr, dummy.matrix);
@@ -5772,13 +5775,13 @@ const TREES = [];
   });
   crown.count = nc; crown2.count = nr;
   const bush = new T.InstancedMesh(new T.IcosahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), bu.length);
-  bu.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.4 * s, z); dummy.scale.set(1.3 * s, 0.9 * s, 1.3 * s); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); bush.setMatrixAt(i, dummy.matrix); c.setHSL(0.25 + WR() * 0.1, 0.7, 0.36 + WR() * 0.1); bush.setColorAt(i, c); });
+  bu.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.4 * s, z); dummy.scale.set(1.3 * s, 0.9 * s, 1.3 * s); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); bush.setMatrixAt(i, dummy.matrix); c.setHSL(0.22 + WR() * 0.08, 0.42, 0.27 + WR() * 0.08, 'srgb'); bush.setColorAt(i, c); });
   const rock = new T.InstancedMesh(new T.DodecahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), rk.length);
-  rk.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.3 * s, z); dummy.scale.set(1.3 * s, s, 1.1 * s); dummy.rotation.set(WR(), WR() * 3, 0); dummy.updateMatrix(); rock.setMatrixAt(i, dummy.matrix); c.setHSL(0.08, 0.06, 0.5 + WR() * 0.15); rock.setColorAt(i, c); addCollider(x - s, h - 0.5, z - 0.9 * s, x + s, h + 1.1 * s, z + 0.9 * s, 'rock'); });
+  rk.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.3 * s, z); dummy.scale.set(1.3 * s, s, 1.1 * s); dummy.rotation.set(WR(), WR() * 3, 0); dummy.updateMatrix(); rock.setMatrixAt(i, dummy.matrix); c.setHSL(0.08, 0.05, 0.46 + WR() * 0.12, 'srgb'); rock.setColorAt(i, c); addCollider(x - s, h - 0.5, z - 0.9 * s, x + s, h + 1.1 * s, z + 0.9 * s, 'rock'); });
   for (const m of [trunk, crown, crown2, bush, rock]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; scene.add(m); NATURE_MESH.push(m); }
   // nuvens
   // nuvens fofas: cada uma é um cacho de 6 bolas, mais achatado embaixo
-  const cl = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshLambertMaterial({ color: 0xffffff, emissive: 0x9aa7b8 }), 55 * 6);
+  const cl = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshLambertMaterial({ color: 0xffffff, emissive: 0x6d7682 }), 55 * 6);
   let ci = 0;
   for (let i = 0; i < 55; i++) {
     const cx = wr(-1300, 1300), cy = wr(330, 430), cz = wr(-1300, 1300), sc = wr(0.7, 1.4);
@@ -5806,7 +5809,8 @@ const AMMO = {
 };
 // cls: pistol | smg | ar | dmr | sr.  dmg = dano no corpo; v = velocidade da bala (m/s); rel = recarga (s); rec = coice
 const WEAP = {
-  M9: { n: 'M9', cls: 'pistol', ammo: '9mm', dmg: 24, rpm: 420, v: 380, mag: 15, emag: 20, rel: 1.9, rec: 0.7, tier: 1 },
+  M17: { n: 'M17 (SIG P320)', cls: 'pistol', ammo: '9mm', dmg: 25, rpm: 420, v: 380, mag: 17, emag: 21, rel: 1.9, rec: 0.7, tier: 1 },
+  M625: { n: 'S&W M625', cls: 'pistol', ammo: '45', dmg: 55, rpm: 170, v: 260, mag: 6, emag: 6, rel: 2.6, rec: 1.4, tier: 1 },
   M1911: { n: 'M1911', cls: 'pistol', ammo: '45', dmg: 40, rpm: 300, v: 250, mag: 7, emag: 12, rel: 2.0, rec: 1.0, tier: 1 },
   G18C: { n: 'G18C', cls: 'pistol', ammo: '9mm', dmg: 22, rpm: 1000, v: 375, mag: 17, emag: 33, rel: 2.1, rec: 0.6, auto: true, tier: 1 },
   UMP45: { n: 'UMP45', cls: 'smg', ammo: '45', dmg: 37, rpm: 650, v: 360, mag: 25, emag: 35, rel: 3.0, rec: 0.55, auto: true, tier: 1 },
@@ -5815,10 +5819,11 @@ const WEAP = {
   AKM: { n: 'AKM', cls: 'ar', ammo: '762', dmg: 47, rpm: 600, v: 715, mag: 30, emag: 40, rel: 2.9, rec: 1.45, auto: true, tier: 1 },
   M416: { n: 'M416', cls: 'ar', ammo: '556', dmg: 41, rpm: 700, v: 880, mag: 30, emag: 40, rel: 2.6, rec: 1.0, auto: true, tier: 2 },
   'SCAR-L': { n: 'SCAR-L', cls: 'ar', ammo: '556', dmg: 41, rpm: 625, v: 870, mag: 30, emag: 40, rel: 2.7, rec: 1.0, auto: true, tier: 2 },
-  M16A4: { n: 'M16A4', cls: 'ar', ammo: '556', dmg: 42, rpm: 800, v: 900, mag: 30, emag: 40, rel: 2.5, rec: 0.9, burst: 3, tier: 2 },
+  M16A2: { n: 'M16A2', cls: 'ar', ammo: '556', dmg: 42, rpm: 800, v: 900, mag: 30, emag: 40, rel: 2.5, rec: 0.9, burst: 3, tier: 2 },
   SKS: { n: 'SKS', cls: 'dmr', ammo: '762', dmg: 53, rpm: 220, v: 800, mag: 10, emag: 20, rel: 2.9, rec: 1.6, tier: 2 },
   MINI14: { n: 'Mini 14', cls: 'dmr', ammo: '556', dmg: 46, rpm: 260, v: 990, mag: 20, emag: 30, rel: 3.0, rec: 1.0, tier: 2 },
   KAR98K: { n: 'Kar98k', cls: 'sr', ammo: '762', dmg: 79, rpm: 35, v: 760, mag: 5, emag: 5, rel: 3.6, rec: 2.4, bolt: true, tier: 2 },
+  MOSIN: { n: 'Mosin-Nagant', cls: 'sr', ammo: '762', dmg: 77, rpm: 36, v: 800, mag: 5, emag: 5, rel: 3.6, rec: 2.3, bolt: true, fixedZoom: 3.5, tier: 2 },
   M24: { n: 'M24', cls: 'sr', ammo: '762', dmg: 76, rpm: 38, v: 790, mag: 5, emag: 7, rel: 3.4, rec: 2.2, bolt: true, tier: 3 },
   // só no drop do avião
   AUG: { n: 'AUG A3', cls: 'ar', ammo: '556', dmg: 41, rpm: 750, v: 940, mag: 30, emag: 40, rel: 2.8, rec: 0.75, auto: true, tier: 4 },
@@ -5880,15 +5885,15 @@ const wdef = w => WEAP[w.k];
 const magSize = w => w.att.mag ? WEAP[w.k].emag : WEAP[w.k].mag;
 function attFits(w, ak) {
   const a = ATT[ak], d = WEAP[w.k]; if (!a) return false;
-  if (a.slot === 'sight') return a.zoom <= CLS[d.cls].maxZoom;
+  if (a.slot === 'sight') return !d.fixedZoom && a.zoom <= CLS[d.cls].maxZoom;
   return a.cls.includes(d.cls);
 }
 
 // ---------- tabelas de saque ----------
 const POOL = {
-  1: { w: [['M9', 6], ['M1911', 5], ['G18C', 3], ['UMP45', 7], ['MP5K', 6], ['UZI', 6], ['AKM', 6], ['M416', 3], ['SKS', 2], ['KAR98K', 1.5], ['MINI14', 1.5]], gear: [[1, 7], [2, 3]], sight: [['RED', 5], ['HOLO', 5], ['X2', 4], ['X3', 1], ['X4', 0.6]] },
-  2: { w: [['M9', 2], ['UMP45', 5], ['MP5K', 4], ['UZI', 3], ['AKM', 7], ['M416', 6], ['SCAR-L', 6], ['M16A4', 4], ['SKS', 3], ['MINI14', 3], ['KAR98K', 3], ['M24', 0.6]], gear: [[1, 4], [2, 5], [3, 1]], sight: [['RED', 4], ['HOLO', 4], ['X2', 4], ['X3', 3], ['X4', 3], ['X6', 1], ['X8', 0.4]] },
-  3: { w: [['AKM', 6], ['M416', 7], ['SCAR-L', 7], ['M16A4', 4], ['SKS', 4], ['MINI14', 4], ['KAR98K', 4], ['M24', 3], ['UMP45', 2]], gear: [[1, 1], [2, 5], [3, 4]], sight: [['HOLO', 3], ['X2', 3], ['X3', 3], ['X4', 4], ['X6', 3], ['X8', 2], ['X10', 0.3]] },
+  1: { w: [['M17', 5], ['M625', 2], ['M1911', 5], ['G18C', 3], ['UMP45', 7], ['MP5K', 6], ['UZI', 6], ['AKM', 6], ['M416', 3], ['SKS', 2], ['KAR98K', 1.5], ['MINI14', 1.5]], gear: [[1, 7], [2, 3]], sight: [['RED', 5], ['HOLO', 5], ['X2', 4], ['X3', 1], ['X4', 0.6]] },
+  2: { w: [['M17', 2], ['M625', 1], ['UMP45', 5], ['MP5K', 4], ['UZI', 3], ['AKM', 7], ['M416', 6], ['SCAR-L', 6], ['M16A2', 4], ['SKS', 3], ['MINI14', 3], ['KAR98K', 3], ['MOSIN', 2.5], ['M24', 0.6]], gear: [[1, 4], [2, 5], [3, 1]], sight: [['RED', 4], ['HOLO', 4], ['X2', 4], ['X3', 3], ['X4', 3], ['X6', 1], ['X8', 0.4]] },
+  3: { w: [['AKM', 6], ['M416', 7], ['SCAR-L', 7], ['M16A2', 4], ['SKS', 4], ['MINI14', 4], ['KAR98K', 4], ['MOSIN', 3], ['M24', 3], ['UMP45', 2]], gear: [[1, 1], [2, 5], [3, 4]], sight: [['HOLO', 3], ['X2', 3], ['X3', 3], ['X4', 4], ['X6', 3], ['X8', 2], ['X10', 0.3]] },
 };
 const OTHER_ATT = ['COMP_AR', 'SUP_AR', 'COMP_SMG', 'SUP_SMG', 'GRIP', 'GRIP', 'EMAG_AR', 'EMAG_SMG', 'EMAG_SR', 'SUP_SR'];
 function rollLoot(tier) {
@@ -5956,7 +5961,7 @@ const GUNS = {
   'SCAR-L': () => [Bc(0, 0.015, -0.1, 0.056, 0.076, 0.48, GC_.tan), Bc(0, 0.06, -0.1, 0.026, 0.012, 0.46, '#2a2620'), Bc(0, -0.03, 0.04, 0.05, 0.042, 0.18, GC_.tan), Cz(0, 0.01, -0.44, 0.0095, 0.14, GC_.st), Cz(0, 0.01, -0.53, 0.014, 0.05, GC_.bk),
     Bc(0, -0.055, -0.06, 0.032, 0.04, 0.066, GC_.tan), Bc(0, -0.12, -0.07, 0.026, 0.12, 0.06, GC_.bk, -0.15), Bc(0, -0.085, 0.085, 0.031, 0.1, 0.04, GC_.bk, 0.3), Bc(0.035, 0.035, 0.0, 0.014, 0.012, 0.03, GC_.bk),
     Bc(0, 0.0, 0.25, 0.046, 0.07, 0.2, GC_.tan), Bc(0, -0.03, 0.35, 0.046, 0.13, 0.03, GC_.tan), Bc(0, 0.04, 0.24, 0.036, 0.024, 0.13, GC_.tan)],
-  M16A4: () => [Bc(0, 0.01, -0.03, 0.05, 0.06, 0.3, GC_.bk), Bc(0, -0.032, 0.03, 0.044, 0.04, 0.18, GC_.pl), Bc(0, 0.047, -0.08, 0.024, 0.012, 0.3, '#141518'), Cz(0, 0.006, -0.34, 0.03, 0.3, GC_.pl, 6),
+  M16A2: () => [Bc(0, 0.01, -0.03, 0.05, 0.06, 0.3, GC_.bk), Bc(0, -0.032, 0.03, 0.044, 0.04, 0.18, GC_.pl), Bc(0, 0.047, -0.08, 0.024, 0.012, 0.3, '#141518'), Cz(0, 0.006, -0.34, 0.03, 0.3, GC_.pl, 6),
     Cz(0, 0.006, -0.62, 0.0095, 0.3, GC_.st), Bc(0, 0.045, -0.53, 0.01, 0.06, 0.018, GC_.bk), Cz(0, 0.006, -0.79, 0.013, 0.05, GC_.bk), Bc(0, -0.05, -0.06, 0.032, 0.04, 0.066, GC_.bk), Bc(0, -0.115, -0.07, 0.026, 0.12, 0.06, GC_.bk, -0.15),
     Bc(0, -0.085, 0.085, 0.031, 0.1, 0.04, GC_.pl, 0.3), Bc(0, -0.01, 0.3, 0.044, 0.08, 0.26, GC_.pl, 0.06), Bc(0, -0.03, 0.43, 0.046, 0.11, 0.015, GC_.bk)],
   AUG: () => [Bc(0, -0.02, 0.06, 0.07, 0.1, 0.44, GC_.od), Bc(0, 0.035, -0.1, 0.05, 0.03, 0.38, GC_.od), Cz(0, 0.005, -0.38, 0.012, 0.36, GC_.st), Cz(0, 0.005, -0.57, 0.015, 0.04, GC_.bk),
@@ -5982,16 +5987,36 @@ const GUNS = {
     Bc(0, -0.075, -0.035, 0.026, 0.07, 0.05, GC_.st, -0.25), Bc(0, -0.13, -0.05, 0.025, 0.06, 0.048, GC_.st, -0.5), Bc(0, -0.075, 0.07, 0.03, 0.09, 0.04, GC_.pl, 0.25), Bc(0, 0.06, 0.06, 0.012, 0.02, 0.03, GC_.st)],
   UZI: () => [Bc(0, 0.005, -0.02, 0.05, 0.07, 0.28, GC_.st), Bc(0, 0.045, -0.02, 0.04, 0.012, 0.24, GC_.st), Cz(0, 0.01, -0.19, 0.011, 0.06, GC_.st), Bc(0, -0.1, 0.03, 0.03, 0.16, 0.045, GC_.bk, 0.12),
     Bc(0, -0.04, -0.06, 0.008, 0.012, 0.07, GC_.st), Bc(0.02, 0.0, 0.2, 0.006, 0.05, 0.14, GC_.st), Bc(-0.02, 0.0, 0.2, 0.006, 0.05, 0.14, GC_.st), Bc(0, -0.01, 0.27, 0.046, 0.06, 0.012, GC_.st)],
-  M9: () => [Bc(0, 0.02, -0.03, 0.03, 0.034, 0.2, GC_.bk), Cz(0, 0.024, -0.135, 0.009, 0.02, GC_.st), Bc(0, -0.006, -0.06, 0.028, 0.022, 0.14, GC_.bk), Bc(0, -0.06, 0.045, 0.032, 0.1, 0.045, '#3b2c22', 0.25), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.bk), Bc(0, 0.04, 0.06, 0.012, 0.01, 0.01, GC_.bk)],
+  M17: () => [Bc(0, 0.02, -0.03, 0.03, 0.034, 0.2, GC_.bk), Cz(0, 0.024, -0.135, 0.009, 0.02, GC_.st), Bc(0, -0.006, -0.06, 0.028, 0.022, 0.14, GC_.bk), Bc(0, -0.06, 0.045, 0.032, 0.1, 0.045, '#3b2c22', 0.25), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.bk), Bc(0, 0.04, 0.06, 0.012, 0.01, 0.01, GC_.bk)],
   M1911: () => [Bc(0, 0.02, -0.03, 0.03, 0.034, 0.21, GC_.bl), Bc(0, -0.006, -0.05, 0.028, 0.022, 0.15, GC_.bl), Bc(0, -0.06, 0.045, 0.033, 0.1, 0.044, '#7a4a28', 0.25), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.bl), Bc(0, 0.025, 0.075, 0.01, 0.012, 0.012, GC_.bl)],
   G18C: () => [Bc(0, 0.02, -0.03, 0.03, 0.032, 0.19, GC_.bk), Bc(0, -0.006, -0.05, 0.029, 0.024, 0.15, GC_.pl), Bc(0, -0.065, 0.045, 0.032, 0.11, 0.046, GC_.pl, 0.2), Bc(0, -0.13, 0.06, 0.028, 0.06, 0.04, GC_.bk, 0.2), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.pl)],
 };
-const MUZ = { AKM: -0.74, M416: -0.66, 'SCAR-L': -0.55, M16A4: -0.81, AUG: -0.59, GROZA: -0.44, KAR98K: -0.75, M24: -0.72, AWM: -0.83, SKS: -0.68, MINI14: -0.63, UMP45: -0.29, MP5K: -0.23, UZI: -0.22, M9: -0.145, M1911: -0.14, G18C: -0.13 };
+const MUZ = { AKM: -0.74, M416: -0.66, 'SCAR-L': -0.55, M16A2: -0.81, MOSIN: -0.86, M625: -0.19, AUG: -0.59, GROZA: -0.44, KAR98K: -0.75, M24: -0.72, AWM: -0.83, SKS: -0.68, MINI14: -0.63, UMP45: -0.29, MP5K: -0.23, UZI: -0.22, M17: -0.16, M1911: -0.14, G18C: -0.13 };
 function gunGeo(k) {
   if (GUNGEO[k]) return GUNGEO[k];
   GUN_MUZ[k] = MUZ[k] || -0.6; GUN_TOP[k] = WEAP[k].cls === 'pistol' ? 0.04 : 0.06;
-  return GUNGEO[k] = mergeParts((GUNS[k] || GUNS.M416)().filter(p => p.c.length === 7));
+  const alias = { MOSIN: 'KAR98K', M625: 'M1911' };
+  return GUNGEO[k] = mergeParts((GUNS[k] || GUNS[alias[k]] || GUNS.M416)().filter(p => p.c.length === 7));
 }
+// modelos de verdade (Sketchfab, CC BY 4.0): ficam como filho do objeto da arma
+const REALGUN = { AKM: { f: 'akm', fore: -0.3 }, M16A2: { f: 'm16a2', fore: -0.36 }, MOSIN: { f: 'mosin', fore: -0.42 }, M17: { f: 'p226', fore: 0.02 }, M625: { f: 'm625', fore: 0.02 } };
+const EMPTY_GEO = new T.BufferGeometry();
+function loadRealGuns(L, done) {
+  const ks = Object.keys(REALGUN); let left = ks.length;
+  for (const k of ks) L.load(`assets/guns/${REALGUN[k].f}.glb`, g => {
+    const o = g.scene; o.traverse(n => { if (!n.isMesh) return; const m = n.material; n.material = new T.MeshPhongMaterial({ map: m.map || null, normalMap: m.normalMap || null, color: m.map ? 0xffffff : m.color, shininess: 38, specular: 0x2a2a2a }); if (n.material.map) n.material.map.encoding = T.sRGBEncoding; n.castShadow = true; });
+    const b = new T.Box3().setFromObject(o); REALGUN[k].obj = o; GUN_MUZ[k] = b.min.z; GUN_TOP[k] = b.max.y - 0.006;
+    for (const id in GUNGEO) if (id === k) delete GUNGEO[id];
+    if (--left === 0) done();
+  }, undefined, () => { if (--left === 0) done(); });
+}
+function setGunVisual(mesh, k) {
+  for (let i = mesh.children.length - 1; i >= 0; i--) if (mesh.children[i].userData.real) mesh.remove(mesh.children[i]);
+  const r = REALGUN[k];
+  if (r && r.obj) { mesh.geometry = EMPTY_GEO; const c = r.obj.clone(); c.userData.real = 1; mesh.add(c); }
+  else mesh.geometry = gunGeo(k);
+}
+const foreOf = k => REALGUN[k] && REALGUN[k].obj ? REALGUN[k].fore : WEAP[k].cls === 'pistol' ? 0.02 : -0.32;
 // acessórios visíveis na arma (mira em cima, silenciador/compensador no cano, empunhadura embaixo)
 const ATTGEO = {};
 function attGeo(ak) {
@@ -6026,7 +6051,7 @@ const IGEO = {};
 function itemGeo(k) {
   if (IGEO[k]) return IGEO[k];
   const inf = itemInfo(k); let p;
-  if (inf.type === 'weapon') return IGEO[k] = gunGeo(k.slice(2));
+  if (inf.type === 'weapon') return gunGeo(k.slice(2));
   if (inf.type === 'ammo') p = [bx(-0.14, 0, -0.1, 0.28, 0.14, 0.2, inf.d.c), bx(-0.12, 0.14, -0.08, 0.24, 0.02, 0.16, '#ffffff')];
   else if (inf.type === 'heal') {
     const c = inf.d.c;
@@ -6049,7 +6074,7 @@ function updateItemVisuals(dt, cx, cz) {
   for (const it of G.items) {
     const near = (it.x - cx) ** 2 + (it.z - cz) ** 2 < R2;
     if (near && !it.mesh) {
-      const m = it.mesh = new T.Mesh(itemGeo(it.k), MAT.item);
+      const m = it.mesh = new T.Mesh(itemGeo(it.k), MAT.item); if (it.k.startsWith('w:')) setGunVisual(m, it.k.slice(2));
       m.position.set(it.x, it.y + (it.k.startsWith('w:') ? 0.06 : 0), it.z);
       m.rotation.set(it.k.startsWith('w:') ? Math.PI / 2 * 0 : 0, (it.x * 7 + it.z * 13) % 6.28, it.k.startsWith('w:') ? Math.PI / 2 : 0);
       m.scale.setScalar(1.25); scene.add(m);
@@ -6235,7 +6260,7 @@ function buildModel(a) {
 }
 function rebuildBody(a) { const m = a.model; if (!m) return; if (m.human) { updateHumanGear(a); return; } m.body.geometry.dispose(); m.body.geometry = bodyGeo(a.look, a); }
 const gunKey = w => w ? w.k + '|' + (w.att.sight || '') + (w.att.muzzle || '') + (w.att.grip || '') : '';
-function refreshGun(a) { const m = a.model; if (!m) return; const w = curW(a); m.gun.visible = !!w; m.gunKey = gunKey(w); if (w) { m.gun.geometry = gunGeo(w.k); dressGun(m.gun, w); } }
+function refreshGun(a) { const m = a.model; if (!m) return; const w = curW(a); m.gun.visible = !!w; m.gunKey = gunKey(w); if (w) { setGunVisual(m.gun, w.k); dressGun(m.gun, w); } }
 function syncGun(a) { const m = a.model; if (m && m.gunKey !== gunKey(curW(a))) refreshGun(a); }
 function removeModel(a) { if (a.model) { scene.remove(a.model.g); if (a.model.body) a.model.body.geometry.dispose(); if (a.model.mixer) a.model.mixer.stopAllAction(); a.model = null; } }
 
@@ -6425,7 +6450,7 @@ function weaponMods(w) {
   for (const s of ['muzzle', 'grip']) { const k = w.att[s]; if (k) { rec *= ATT[k].rec || 1; quiet = quiet || !!ATT[k].quiet; } }
   return { rec, quiet };
 }
-function sightZoom(w) { return w && w.att.sight ? ATT[w.att.sight].zoom : 1.1; }
+function sightZoom(w) { return w && w.att.sight ? ATT[w.att.sight].zoom : w && WEAP[w.k].fixedZoom ? WEAP[w.k].fixedZoom : 1.1; }
 function spreadOf(a, w) {
   const c = CLS[wdef(w).cls], moving = Math.hypot(a.vx, a.vz) > 1;
   let s = a.ads ? c.ads : c.hip;
@@ -7140,7 +7165,7 @@ const fovFor = z => 2 * Math.atan(Math.tan(37.5 * Math.PI / 180) / z) * 180 / Ma
 const VM = new T.Group(); camera.add(VM);
 const vmGun = new T.Mesh(gunGeo('M416'), MAT.view); VM.add(vmGun);
 const vmArms = new T.Mesh(mergeParts([bx(-0.035, -0.16, -0.02, 0.07, 0.07, 0.09, '#e0ac69'), bx(-0.04, -0.17, 0.07, 0.08, 0.08, 0.12, '#2f80ed'), bx(-0.035, -0.11, -0.5, 0.07, 0.06, 0.09, '#e0ac69')]), MAT.view);
-VM.add(vmArms); VM.visible = false; VM.scale.setScalar(0.62);
+vmArms.visible = false; VM.add(vmArms); VM.visible = false; VM.scale.setScalar(0.62);
 let vmKey = '';
 
 function playerStep(dt) {
@@ -7294,9 +7319,9 @@ function updateCamera(dt) {
   const scoped = p.ads && zoom >= 2;
   VM.visible = fpp && !!w && !scoped && p.healT <= 0;
   if (VM.visible) {
-    const key = gunKey(w); if (key !== vmKey) { vmKey = key; vmGun.geometry = gunGeo(w.k); dressGun(vmGun, w); }
+    const key = gunKey(w); if (key !== vmKey) { vmKey = key; setGunVisual(vmGun, w.k); dressGun(vmGun, w); }
     const kick = Math.min(0.08, G.recAcc * 0.6), bob = Math.sin(p.walk * 1) * Math.min(1, Math.hypot(p.vx, p.vz) / 4) * 0.012;
-    if (p.ads) VM.position.set(0, -0.085 - (w.att.sight ? 0.02 : 0), -0.2 + kick); else VM.position.set(0.2, -0.19 + bob, -0.3 + kick);
+    if (p.ads) { const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y; VM.position.set(0, -top, -0.22 + kick); } else VM.position.set(0.2, -0.19 + bob, -0.3 + kick);
     VM.rotation.set(p.reloadT > 0 ? -0.5 : 0, 0, 0);
   }
   SKY.position.copy(camera.position);
@@ -7510,8 +7535,8 @@ const MAPC = document.createElement('canvas'); MAPC.width = MAPC.height = 512;
   for (let j = 0; j < 512; j++) for (let i = 0; i < 512; i++) {
     const x = -HALF + i / 512 * MAP, z = -HALF + j / 512 * MAP, h = groundH(x, z), k = (j * 512 + i) * 4;
     let c;
-    if (h < 0) c = h < -6 ? [32, 140, 210] : [70, 185, 230]; else if (h < 1.6) c = [240, 220, 150];
-    else if (roadDist(x, z) < 4) c = [110, 110, 115]; else { const s = clamp(h / 60, 0, 1); c = [lerp(90, 160, s), lerp(190, 170, s), lerp(80, 110, s)]; }
+    if (h < 0) c = h < -6 ? [38, 78, 104] : [70, 120, 128]; else if (h < 1.6) c = [190, 176, 135];
+    else if (roadDist(x, z) < 4) c = [92, 92, 96]; else { const s = clamp(h / 60, 0, 1); c = [lerp(104, 140, s), lerp(138, 136, s), lerp(70, 100, s)]; }
     img.data[k] = c[0]; img.data[k + 1] = c[1]; img.data[k + 2] = c[2]; img.data[k + 3] = 255;
   }
   g.putImageData(img, 0, 0);
@@ -7776,10 +7801,10 @@ function frame(now) {
 // ================= veículos: jipe, sedã, buggy e moto — dirigir, passageiros, atropelar, dano e explosão =================
 // hl/hw = meio comprimento/largura; seats = [direita, trás, altura do assento]; max em m/s
 const VDEF = {
-  jipe: { n: 'Jipe', hp: 1500, max: 25, acc: 8, turn: 1.15, hl: 2.2, hw: 1.0, h: 1.9, seats: [[-0.42, -0.15, 0.55], [0.42, -0.15, 0.55], [-0.42, 0.85, 0.6], [0.42, 0.85, 0.6]], cols: ['#2e7d32', '#f9a825', '#6d4c41', '#1565c0'] },
-  seda: { n: 'Sedã', hp: 1100, max: 29, acc: 10, turn: 1.2, hl: 2.25, hw: 0.95, h: 1.5, seats: [[-0.4, -0.1, 0.45], [0.4, -0.1, 0.45], [-0.4, 0.8, 0.45], [0.4, 0.8, 0.45]], cols: ['#e53935', '#ffffff', '#00acc1', '#8e24aa', '#fdd835'] },
-  buggy: { n: 'Buggy', hp: 900, max: 28, acc: 11, turn: 1.45, hl: 1.6, hw: 0.95, h: 1.4, seats: [[-0.38, 0.1, 0.45], [0.38, 0.1, 0.45]], cols: ['#ff6d00', '#00e676', '#2979ff'] },
-  moto: { n: 'Moto', hp: 550, max: 33, acc: 12, turn: 1.9, hl: 1.0, hw: 0.35, h: 1.2, seats: [[0, 0.0, 0.85], [0, 0.5, 0.95]], cols: ['#ff1744', '#00e5ff', '#76ff03', '#ffab00', '#d500f9'] },
+  jipe: { n: 'Jipe', hp: 1500, max: 25, acc: 8, turn: 1.15, hl: 2.2, hw: 1.0, h: 1.9, seats: [[-0.42, -0.15, 0.55], [0.42, -0.15, 0.55], [-0.42, 0.85, 0.6], [0.42, 0.85, 0.6]], cols: ['#4b5a3a', '#6b5d43', '#3d4a52', '#5a4a3a'] },
+  seda: { n: 'Sedã', hp: 1100, max: 29, acc: 10, turn: 1.2, hl: 2.25, hw: 0.95, h: 1.5, seats: [[-0.4, -0.1, 0.45], [0.4, -0.1, 0.45], [-0.4, 0.8, 0.45], [0.4, 0.8, 0.45]], cols: ['#8c2f2a', '#d8d8d2', '#2f5a6a', '#3a3d42', '#9a8a5a'] },
+  buggy: { n: 'Buggy', hp: 900, max: 28, acc: 11, turn: 1.45, hl: 1.6, hw: 0.95, h: 1.4, seats: [[-0.38, 0.1, 0.45], [0.38, 0.1, 0.45]], cols: ['#b0632a', '#5a6b3a', '#3a5a7a'] },
+  moto: { n: 'Moto', hp: 550, max: 33, acc: 12, turn: 1.9, hl: 1.0, hw: 0.35, h: 1.2, seats: [[0, 0.0, 0.85], [0, 0.5, 0.95]], cols: ['#8a2a22', '#2a2c30', '#4a5a6a', '#6a5a3a'] },
 };
 const VEH = [];
 function vehGeo(k, col) {
@@ -8030,7 +8055,7 @@ function botInVeh(a, dt) {
 
 // ================= gráficos: sombras, mar com ondas e espuma, grama ao vento, estradas pintadas, postes, sol e textura procedural =================
 const GFX = { t: 0, grassOn: false, shadow: 0, gx: 1e9, gz: 1e9 };
-const SUN_DIR = new T.Vector3(320, 520, 180).normalize();
+const SUN_DIR = new T.Vector3(320, 330, 180).normalize();
 const GLSL_NOISE = `
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
@@ -8111,7 +8136,7 @@ patchNoise(MAT.terrain, 'terrain'); patchNoise(MAT.world, 'wall');
   const data = new Uint8Array(GN * GN * 4);
   for (let n = 0; n < GN * GN; n++) { const d = clamp(-H[n] / 16, 0, 1) * 255; data[n * 4] = d; data[n * 4 + 1] = d; data[n * 4 + 2] = d; data[n * 4 + 3] = 255; }
   const tex = new T.DataTexture(data, GN, GN, T.RGBAFormat); tex.magFilter = tex.minFilter = T.LinearFilter; tex.needsUpdate = true;
-  const uni = T.UniformsUtils.merge([T.UniformsLib.fog, { uT: { value: 0 }, uSun: { value: SUN_DIR.clone() }, uSky: { value: new T.Color(0x9fdcff) } }]);
+  const uni = T.UniformsUtils.merge([T.UniformsLib.fog, { uT: { value: 0 }, uSun: { value: SUN_DIR.clone() }, uSky: { value: new T.Color(0xb5c6d2) } }]);
   uni.uDepth = { value: tex };
   const mat = new T.ShaderMaterial({
     uniforms: uni, fog: true, transparent: true, depthWrite: false,
@@ -8126,13 +8151,13 @@ void main(){
   vec3 n = normalize(vec3(dx * 0.35, 1.0, dz * 0.35));
   vec3 V = normalize(cameraPosition - vWP);
   float fres = pow(1.0 - max(dot(n, V), 0.0), 3.0);
-  vec3 col = mix(vec3(0.33, 0.95, 0.86), vec3(0.06, 0.74, 0.9), smoothstep(0.0, 0.12, depth));
-  col = mix(col, vec3(0.02, 0.38, 0.78), smoothstep(0.12, 0.65, depth));
+  vec3 col = mix(vec3(0.42, 0.66, 0.6), vec3(0.17, 0.44, 0.52), smoothstep(0.0, 0.12, depth));
+  col = mix(col, vec3(0.08, 0.25, 0.36), smoothstep(0.12, 0.65, depth));
   col = mix(col, uSky, fres * 0.55);
-  vec3 Hh = normalize(uSun + V); col += pow(max(dot(n, Hh), 0.0), 140.0) * 1.6;
+  vec3 Hh = normalize(uSun + V); col += pow(max(dot(n, Hh), 0.0), 160.0) * vec3(1.4, 1.25, 1.0);
   float wave = sin(uT * 1.4 - depth * 90.0) * 0.5 + 0.5;
   float foam = smoothstep(0.045, 0.0, depth - wave * 0.02) * (0.6 + 0.4 * vn(p * 1.5 + uT * 0.6));
-  col = mix(col, vec3(1.0), clamp(foam, 0.0, 1.0) * 0.9);
+  col = mix(col, vec3(0.92, 0.93, 0.9), clamp(foam, 0.0, 1.0) * 0.6);
   float alpha = mix(0.5, 0.93, smoothstep(0.0, 0.3, depth)); alpha = max(alpha, foam);
   gl_FragColor = vec4(col, alpha);
   #include <fog_fragment>
@@ -8237,10 +8262,10 @@ function windMat() {
   return m;
 }
 const GRASS_N = 6500, FLOWER_N = 700;
-const grassM = new T.InstancedMesh(tuftGeo(6, 0.28, 0.55, '#2f8a22', '#a8e85c'), windMat(), GRASS_N);
-const flowerM = new T.InstancedMesh(tuftGeo(2, 0.3, 0.42, '#2f8a22', '#6cc644', true), windMat(), FLOWER_N);
+const grassM = new T.InstancedMesh(tuftGeo(6, 0.28, 0.55, '#3f5a24', '#93a74e'), windMat(), GRASS_N);
+const flowerM = new T.InstancedMesh(tuftGeo(2, 0.3, 0.42, '#3f5a24', '#7d9a44', true), windMat(), FLOWER_N);
 grassM.frustumCulled = flowerM.frustumCulled = false; grassM.count = flowerM.count = 0; scene.add(grassM, flowerM);
-const FLOWER_C = ['#ffd23f', '#ff5fa2', '#ffffff', '#b388ff', '#ff7043', '#40c4ff'].map(c => new T.Color(c));
+const FLOWER_C = ['#e8d66a', '#e9e4d8', '#c9a8d8', '#d8c05a', '#f0f0e8', '#b9c870'].map(c => new T.Color(c));
 const hash2 = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
 function grassAt(x, z) {
   const i = Math.round((x + HALF) / CELL), j = Math.round((z + HALF) / CELL);
@@ -8270,7 +8295,7 @@ function refreshGrass(cx, cz) {
 function gfxQuality(q) {
   const sh = q.shadow || 0;
   if (sh !== GFX.shadow) {
-    GFX.shadow = sh; renderer.shadowMap.enabled = sh > 0; renderer.shadowMap.type = T.PCFShadowMap;
+    GFX.shadow = sh; renderer.shadowMap.enabled = sh > 0; renderer.shadowMap.type = T.PCFSoftShadowMap;
     sun.castShadow = sh > 0;
     if (sh) { if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } sun.shadow.mapSize.set(sh, sh); const c = sun.shadow.camera; c.left = c.bottom = -60; c.right = c.top = 60; c.near = 20; c.far = 900; c.updateProjectionMatrix(); sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.06; }
     scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); });
@@ -8322,13 +8347,14 @@ function loadHumans(onDone) {
   L.load('assets/chars/anims.glb', g => { for (const c of g.animations) HUM.clips[c.name] = c; done(); }, undefined, fail);
   for (const av of AVATARS) L.load(`assets/chars/${av.k}.glb`, g => { prepSource(g.scene); HUM.src[av.k] = g.scene; done(); }, undefined, fail);
   L.load('assets/plane.glb', g => { setPlaneModel(g.scene); done(); }, undefined, () => done());
+  left++; loadRealGuns(L, () => { for (const a of G.actors) if (a.model) refreshGun(a); vmKey = ''; for (const it of G.items) if (it.mesh) { scene.remove(it.mesh); it.mesh = null; } done(); });
 }
 // materiais mais leves (Lambert) e cores no mesmo espaço do resto do jogo
 function prepSource(s) {
   s.traverse(o => {
     if (!o.isMesh) return;
     const m = o.material, nm = new T.MeshLambertMaterial({ name: m.name, map: m.map || null, alphaTest: m.alphaTest || 0, side: m.side, transparent: false });
-    if (nm.map) { nm.map.encoding = T.LinearEncoding; nm.map.anisotropy = 2; }
+    if (nm.map) { nm.map.encoding = T.sRGBEncoding; nm.map.anisotropy = 2; }
     o.material = nm; o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
   });
 }
@@ -8470,7 +8496,7 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
     const rel = a.reloadT > 0;
     m.gun.position.copy(m.g.worldToLocal(P.clone())); m.gun.rotation.set(pitch + (rel ? -0.5 : 0), 0, rel ? 0.5 : 0);
     m.gun.updateMatrixWorld(true);
-    const grip = m.gun.localToWorld(new T.Vector3(0, -0.08, 0.06)), fore = m.gun.localToWorld(new T.Vector3(0, -0.06, pistol ? 0.02 : -0.32));
+    const grip = m.gun.localToWorld(new T.Vector3(0, -0.08, 0.06)), fore = m.gun.localToWorld(new T.Vector3(0, -0.06, foreOf(w.k)));
     ik2(B.Bip01_R_UpperArm, B.Bip01_R_Forearm, B.Bip01_R_Hand, grip, _pole.set(0, -1, 0).addScaledVector(_R, 0.7));
     ik2(B.Bip01_L_UpperArm, B.Bip01_L_Forearm, B.Bip01_L_Hand, rel ? m.gun.localToWorld(new T.Vector3(0, -0.16, -0.1)) : fore, _pole.set(0, -1, 0).addScaledVector(_R, -0.6));
   }
@@ -8488,7 +8514,7 @@ function setPlaneModel(src) {
   // queremos a cauda em +z (o avião anda para -z)
   wrap.rotation.y = alongX ? (tailSign > 0 ? -Math.PI / 2 : Math.PI / 2) : (tailSign > 0 ? 0 : Math.PI);
   wrap.scale.setScalar(s);
-  src.traverse(o => { if (o.isMesh) { const m = o.material; o.material = new T.MeshLambertMaterial({ map: m.map || null, color: m.map ? 0xffffff : m.color }); if (o.material.map) o.material.map.encoding = T.LinearEncoding; o.castShadow = false; } });
+  src.traverse(o => { if (o.isMesh) { const m = o.material; o.material = new T.MeshLambertMaterial({ map: m.map || null, color: m.map ? 0xffffff : m.color }); if (o.material.map) o.material.map.encoding = T.sRGBEncoding; o.castShadow = false; } });
   for (const P of [PLANE, DROPP]) {
     const w2 = P === PLANE ? wrap : wrap.clone();
     P.m.geometry = new T.BufferGeometry(); P.m.add(w2);

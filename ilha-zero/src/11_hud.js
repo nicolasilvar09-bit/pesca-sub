@@ -205,8 +205,8 @@ const MAPC = document.createElement('canvas'); MAPC.width = MAPC.height = 512;
   for (let j = 0; j < 512; j++) for (let i = 0; i < 512; i++) {
     const x = -HALF + i / 512 * MAP, z = -HALF + j / 512 * MAP, h = groundH(x, z), k = (j * 512 + i) * 4;
     let c;
-    if (h < 0) c = h < -6 ? [32, 140, 210] : [70, 185, 230]; else if (h < 1.6) c = [240, 220, 150];
-    else if (roadDist(x, z) < 4) c = [110, 110, 115]; else { const s = clamp(h / 60, 0, 1); c = [lerp(90, 160, s), lerp(190, 170, s), lerp(80, 110, s)]; }
+    if (h < 0) c = h < -6 ? [38, 78, 104] : [70, 120, 128]; else if (h < 1.6) c = [190, 176, 135];
+    else if (roadDist(x, z) < 4) c = [92, 92, 96]; else { const s = clamp(h / 60, 0, 1); c = [lerp(104, 140, s), lerp(138, 136, s), lerp(70, 100, s)]; }
     img.data[k] = c[0]; img.data[k + 1] = c[1]; img.data[k + 2] = c[2]; img.data[k + 3] = 255;
   }
   g.putImageData(img, 0, 0);

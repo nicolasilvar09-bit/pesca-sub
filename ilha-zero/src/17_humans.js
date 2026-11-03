@@ -27,13 +27,14 @@ function loadHumans(onDone) {
   L.load('assets/chars/anims.glb', g => { for (const c of g.animations) HUM.clips[c.name] = c; done(); }, undefined, fail);
   for (const av of AVATARS) L.load(`assets/chars/${av.k}.glb`, g => { prepSource(g.scene); HUM.src[av.k] = g.scene; done(); }, undefined, fail);
   L.load('assets/plane.glb', g => { setPlaneModel(g.scene); done(); }, undefined, () => done());
+  left++; loadRealGuns(L, () => { for (const a of G.actors) if (a.model) refreshGun(a); vmKey = ''; for (const it of G.items) if (it.mesh) { scene.remove(it.mesh); it.mesh = null; } done(); });
 }
 // materiais mais leves (Lambert) e cores no mesmo espaço do resto do jogo
 function prepSource(s) {
   s.traverse(o => {
     if (!o.isMesh) return;
     const m = o.material, nm = new T.MeshLambertMaterial({ name: m.name, map: m.map || null, alphaTest: m.alphaTest || 0, side: m.side, transparent: false });
-    if (nm.map) { nm.map.encoding = T.LinearEncoding; nm.map.anisotropy = 2; }
+    if (nm.map) { nm.map.encoding = T.sRGBEncoding; nm.map.anisotropy = 2; }
     o.material = nm; o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
   });
 }
@@ -175,7 +176,7 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
     const rel = a.reloadT > 0;
     m.gun.position.copy(m.g.worldToLocal(P.clone())); m.gun.rotation.set(pitch + (rel ? -0.5 : 0), 0, rel ? 0.5 : 0);
     m.gun.updateMatrixWorld(true);
-    const grip = m.gun.localToWorld(new T.Vector3(0, -0.08, 0.06)), fore = m.gun.localToWorld(new T.Vector3(0, -0.06, pistol ? 0.02 : -0.32));
+    const grip = m.gun.localToWorld(new T.Vector3(0, -0.08, 0.06)), fore = m.gun.localToWorld(new T.Vector3(0, -0.06, foreOf(w.k)));
     ik2(B.Bip01_R_UpperArm, B.Bip01_R_Forearm, B.Bip01_R_Hand, grip, _pole.set(0, -1, 0).addScaledVector(_R, 0.7));
     ik2(B.Bip01_L_UpperArm, B.Bip01_L_Forearm, B.Bip01_L_Hand, rel ? m.gun.localToWorld(new T.Vector3(0, -0.16, -0.1)) : fore, _pole.set(0, -1, 0).addScaledVector(_R, -0.6));
   }
@@ -193,7 +194,7 @@ function setPlaneModel(src) {
   // queremos a cauda em +z (o avião anda para -z)
   wrap.rotation.y = alongX ? (tailSign > 0 ? -Math.PI / 2 : Math.PI / 2) : (tailSign > 0 ? 0 : Math.PI);
   wrap.scale.setScalar(s);
-  src.traverse(o => { if (o.isMesh) { const m = o.material; o.material = new T.MeshLambertMaterial({ map: m.map || null, color: m.map ? 0xffffff : m.color }); if (o.material.map) o.material.map.encoding = T.LinearEncoding; o.castShadow = false; } });
+  src.traverse(o => { if (o.isMesh) { const m = o.material; o.material = new T.MeshLambertMaterial({ map: m.map || null, color: m.map ? 0xffffff : m.color }); if (o.material.map) o.material.map.encoding = T.sRGBEncoding; o.castShadow = false; } });
   for (const P of [PLANE, DROPP]) {
     const w2 = P === PLANE ? wrap : wrap.clone();
     P.m.geometry = new T.BufferGeometry(); P.m.add(w2);
