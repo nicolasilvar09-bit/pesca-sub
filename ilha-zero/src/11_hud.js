@@ -26,9 +26,12 @@ function onDown(e) {
   if (!inGame()) return;
   if (e.target.closest && e.target.closest('#pick')) return;
   if (e.pointerType === 'mouse') { if (document.pointerLockElement !== $('cv')) { try { $('cv').requestPointerLock(); } catch (x) { } } else if (e.button === 0) IN.fire = true; else if (e.button === 2) IN.adsOn = !IN.adsOn; return; }
-  if (e.clientX < innerWidth * 0.42 && joyId === null && e.clientY > innerHeight * 0.3) {
-    joyId = e.pointerId; joyOx = e.clientX; joyOy = e.clientY; PT[e.pointerId] = { k: 'joy' };
-    const j = $('joy'); j.style.left = (joyOx - 60) + 'px'; j.style.top = (joyOy - 60) + 'px'; j.classList.add('on');
+  const jr = $('joy').getBoundingClientRect(), jd = Math.hypot(e.clientX - (jr.left + jr.width / 2), e.clientY - (jr.top + jr.height / 2));
+  if (joyId === null && jd < 115 && !$('joy').classList.contains('hidden')) {
+    // joystick fixo: o centro é sempre o do círculo na tela; o dedo só arrasta a bolinha
+    const j = $('joy'), r = j.getBoundingClientRect();
+    joyId = e.pointerId; joyOx = r.left + r.width / 2; joyOy = r.top + r.height / 2; PT[e.pointerId] = { k: 'joy' };
+    j.classList.add('on'); onMove(e);
   } else PT[e.pointerId] = { k: 'look', x: e.clientX, y: e.clientY };
 }
 function onMove(e) {
