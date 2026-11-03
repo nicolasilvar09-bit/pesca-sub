@@ -11,3 +11,5 @@ loadHumans(() => {
 $('loading').classList.add('hidden');
 requestAnimationFrame(frame);
 window.__G = { G, IN, ZONE, BLD, BOX, TOWNS, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
+// instala como app / funciona sem internet
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });

@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Ilha Zero · Battle Royale</title>
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="brand/icon-32.png">
+<link rel="apple-touch-icon" href="brand/icon-180.png">
 <style>
 :root{--y:#ffd23f;--r:#ff4d6d;--b:#3ec7ff;--g:#3ee07a;--bg:rgba(10,14,34,.55);--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;touch-action:none}
@@ -9175,6 +9177,8 @@ loadHumans(() => {
 $('loading').classList.add('hidden');
 requestAnimationFrame(frame);
 window.__G = { G, IN, ZONE, BLD, BOX, TOWNS, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
+// instala como app / funciona sem internet
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
 
 }, 30);
 </script>

@@ -13,3 +13,16 @@ scripts = f'<script>{three}</script>\n<script>\nsetTimeout(function(){{\n{js}\n}
 out = f'<!doctype html>\n<html lang="pt-BR"><head><meta charset="utf-8">\n{head}</head><body>\n{body}\n{scripts}\n</body></html>\n'
 open(os.path.join(ROOT, 'index.html'), 'w', encoding='utf-8').write(out)
 print('ok', os.path.getsize(os.path.join(ROOT, 'index.html')))
+
+# service worker: guarda o jogo e os modelos no aparelho (abre sem internet e mais rápido)
+import hashlib, json
+files = ['./', 'index.html', 'manifest.webmanifest'] + ['brand/' + f for f in sorted(os.listdir(os.path.join(ROOT, 'brand')))]
+for d, _, fs in sorted(os.walk(os.path.join(ROOT, 'assets'))):
+    for f in sorted(fs):
+        if f.endswith(('.glb', '.md', '.txt')): files.append(os.path.relpath(os.path.join(d, f), ROOT).replace(os.sep, '/'))
+h = hashlib.sha1()
+for f in files[1:]: h.update(open(os.path.join(ROOT, f), 'rb').read())
+ver = h.hexdigest()[:10]
+sw = open(os.path.join(ROOT, 'sw.template.js'), encoding='utf-8').read().replace('%%VER%%', ver).replace('%%FILES%%', json.dumps(files))
+open(os.path.join(ROOT, 'sw.js'), 'w', encoding='utf-8').write(sw)
+print('sw', ver, len(files), 'arquivos')
