@@ -25,7 +25,7 @@ function makeActor(o) {
     hp: 100, boost: 0, alive: true, knocked: false, khp: 0, kills: 0, dmgDone: 0, mode: 'plane', onGround: false, swim: false,
     wp: [null, null, null], cur: -1, bag: {}, bagLv: 0, helm: null, vest: null,
     fireCd: 0, reloadT: 0, healT: 0, healK: null, reviveT: 0, reviving: null, ads: false, trigger: false, trigPrev: false, burstN: 0,
-    walk: 0, speed: 0, lastHitBy: null, lastHitT: -99, deadT: 0, place: 0, recoil: 0,
+    walk: 0, speed: 0, veh: null, seat: -1, lastHitBy: null, lastHitT: -99, deadT: 0, place: 0, recoil: 0,
   }, o);
 }
 const curW = a => a.cur >= 0 ? a.wp[a.cur] : null;
@@ -107,30 +107,52 @@ function wantAuto(a, it) {
 
 // ---------- modelo 3D ----------
 // partes: pernas (2), corpo (tronco+cabeça+cabelo+proteção), braços com a arma (giram com a mira)
+function shade(c, k) { const t = new T.Color(c); t.multiplyScalar(k); return '#' + t.getHexString(); }
 function bodyGeo(L, a) {
-  const f = L.f, sw = f ? 0.4 : 0.47, p = [];
-  p.push(bx(-sw / 2, 0, -0.13, sw, 0.6, 0.26, L.shirt)); // tronco
-  p.push(bx(-(f ? 0.2 : 0.19), -0.06, -0.12, f ? 0.4 : 0.38, 0.14, 0.24, L.pants)); // quadril
-  p.push({ g: GEO.cyl, y: 0.66, sx: 0.1, sy: 0.12, sz: 0.1, c: L.skin }); // pescoço
-  p.push({ g: GEO.sph, y: 0.8, sx: 0.23, sy: 0.27, sz: 0.25, c: L.skin }); // cabeça
-  p.push(bx(-0.08, 0.78, -0.13, 0.05, 0.03, 0.01, '#222'), bx(0.03, 0.78, -0.13, 0.05, 0.03, 0.01, '#222')); // olhos
-  const hc = L.hair;
-  if (L.hs === 'buzz') p.push({ g: GEO.hsph, y: 0.82, sx: 0.245, sy: 0.18, sz: 0.265, c: hc });
-  else p.push({ g: GEO.hsph, y: 0.8, sx: 0.255, sy: 0.24, sz: 0.275, c: hc });
-  if (L.hs === 'long') p.push(bx(-0.13, 0.5, 0.02, 0.26, 0.34, 0.12, hc));
-  if (L.hs === 'pony') p.push(bx(-0.04, 0.52, 0.11, 0.08, 0.28, 0.08, hc));
-  if (L.hs === 'bun') p.push({ g: GEO.sph, y: 0.95, z: 0.08, sx: 0.13, sy: 0.13, sz: 0.13, c: hc });
-  if (f) p.push(bx(-0.16, 0.34, -0.15, 0.32, 0.14, 0.04, L.shirt));
-  if (a && a.vest) p.push(bx(-sw / 2 - 0.03, 0.08, -0.16, sw + 0.06, 0.48, 0.32, LV_C[a.vest.lv]));
-  if (a && a.helm) p.push({ g: GEO.hsph, y: 0.84, sx: 0.29, sy: 0.25, sz: 0.31, c: LV_C[a.helm.lv] });
-  if (a && a.bagLv) p.push(bx(-0.17, 0.05, 0.13, 0.34, 0.45 + a.bagLv * 0.05, 0.18 + a.bagLv * 0.03, ['', '#a1887f', '#6d8a3f', '#3e4a5b'][a.bagLv]));
+  const f = L.f, sw = f ? 0.4 : 0.48, p = [], sk = L.skin, skD = shade(sk, 0.82), hc = L.hair;
+  // tronco: peito mais largo, cintura mais fina
+  p.push(bx(-sw / 2, 0.24, -0.13, sw, 0.36, 0.26, L.shirt));
+  p.push(bx(-(sw - (f ? 0.1 : 0.07)) / 2, 0.02, -0.12, sw - (f ? 0.1 : 0.07), 0.24, 0.24, L.shirt));
+  p.push(bx(-sw / 2 - 0.005, 0.5, -0.135, sw + 0.01, 0.06, 0.27, shade(L.shirt, 0.85))); // ombros/gola
+  p.push(bx(-0.07, 0.56, -0.135, 0.14, 0.04, 0.02, sk)); // decote
+  if (f) p.push({ g: GEO.sph, x: -0.085, y: 0.38, z: -0.12, sx: 0.15, sy: 0.13, sz: 0.1, c: L.shirt }, { g: GEO.sph, x: 0.085, y: 0.38, z: -0.12, sx: 0.15, sy: 0.13, sz: 0.1, c: L.shirt });
+  else p.push(bx(0.06, 0.36, -0.14, 0.1, 0.1, 0.02, shade(L.shirt, 0.8))); // bolso
+  p.push(bx(-(f ? 0.205 : 0.195), -0.08, -0.125, f ? 0.41 : 0.39, 0.16, 0.25, L.pants)); // quadril
+  p.push(bx(-(f ? 0.2 : 0.19), 0.02, -0.13, f ? 0.4 : 0.38, 0.05, 0.26, '#3b2a1e'), bx(-0.035, 0.015, -0.135, 0.07, 0.06, 0.01, '#d4af37')); // cinto e fivela
+  // pescoço e cabeça
+  p.push({ g: GEO.cyl, y: 0.64, sx: 0.11, sy: 0.12, sz: 0.11, c: sk });
+  p.push({ g: GEO.sph, y: 0.8, sx: f ? 0.22 : 0.23, sy: 0.27, sz: 0.25, c: sk });
+  p.push({ g: GEO.sph, x: -0.115, y: 0.79, sx: 0.04, sy: 0.07, sz: 0.05, c: skD }, { g: GEO.sph, x: 0.115, y: 0.79, sx: 0.04, sy: 0.07, sz: 0.05, c: skD }); // orelhas
+  p.push(bx(-0.075, 0.795, -0.125, 0.045, 0.03, 0.01, '#ffffff'), bx(0.03, 0.795, -0.125, 0.045, 0.03, 0.01, '#ffffff')); // olhos
+  p.push(bx(-0.062, 0.797, -0.131, 0.022, 0.026, 0.01, '#2b1a10'), bx(0.043, 0.797, -0.131, 0.022, 0.026, 0.01, '#2b1a10'));
+  p.push(bx(-0.08, 0.835, -0.125, 0.055, 0.014, 0.01, shade(hc, 0.9)), bx(0.025, 0.835, -0.125, 0.055, 0.014, 0.01, shade(hc, 0.9))); // sobrancelhas
+  p.push(bx(-0.018, 0.74, -0.14, 0.036, 0.05, 0.03, skD)); // nariz
+  p.push(bx(-0.035, 0.705, -0.122, 0.07, 0.014, 0.01, f ? '#c0485a' : shade(sk, 0.6))); // boca
+  if (!f && L.hs === 'buzz') p.push(bx(-0.09, 0.67, -0.115, 0.18, 0.05, 0.04, shade(hc, 0.95))); // barba curta
+  // cabelo
+  if (L.hs === 'buzz') p.push({ g: GEO.hsph, y: 0.83, sx: 0.245, sy: 0.17, sz: 0.265, c: hc });
+  else {
+    p.push({ g: GEO.hsph, y: 0.8, sx: 0.258, sy: 0.25, sz: 0.278, c: hc });
+    p.push(bx(-0.11, 0.84, -0.14, 0.22, 0.06, 0.05, hc, { rz: f ? 0.15 : -0.1 })); // franja
+    p.push(bx(-0.128, 0.7, -0.05, 0.03, 0.14, 0.15, hc), bx(0.098, 0.7, -0.05, 0.03, 0.14, 0.15, hc)); // costeletas/laterais
+  }
+  if (L.hs === 'long') p.push(bx(-0.135, 0.48, 0.0, 0.27, 0.38, 0.13, hc), bx(-0.14, 0.56, -0.08, 0.04, 0.24, 0.1, hc), bx(0.1, 0.56, -0.08, 0.04, 0.24, 0.1, hc));
+  if (L.hs === 'pony') p.push({ g: GEO.sph, y: 0.84, z: 0.13, sx: 0.07, sy: 0.07, sz: 0.06, c: '#e63946' }, bx(-0.045, 0.5, 0.12, 0.09, 0.32, 0.08, hc, { rx: 0.15 }));
+  if (L.hs === 'bun') p.push({ g: GEO.sph, y: 0.96, z: 0.07, sx: 0.14, sy: 0.13, sz: 0.14, c: hc });
+  // proteção e mochila
+  if (a && a.vest) { const vc = LV_C[a.vest.lv]; p.push(bx(-sw / 2 - 0.03, 0.06, -0.16, sw + 0.06, 0.48, 0.32, vc)); for (const x of [-0.14, 0.02]) p.push(bx(x, 0.12, -0.175, 0.12, 0.12, 0.03, shade(vc, 0.75))); p.push(bx(-sw / 2 - 0.035, 0.42, -0.165, sw + 0.07, 0.04, 0.33, shade(vc, 0.7))); }
+  if (a && a.helm) { const hc2 = LV_C[a.helm.lv]; p.push({ g: GEO.hsph, y: 0.84, sx: 0.3, sy: 0.26, sz: 0.32, c: hc2 }, bx(-0.15, 0.835, -0.17, 0.3, 0.035, 0.06, shade(hc2, 0.7))); }
+  if (a && a.bagLv) { const bc = ['', '#a1887f', '#6d8a3f', '#3e4a5b'][a.bagLv], bh = 0.45 + a.bagLv * 0.05; p.push(bx(-0.17, 0.05, 0.13, 0.34, bh, 0.18 + a.bagLv * 0.03, bc), bx(-0.14, 0.08, 0.3 + a.bagLv * 0.03, 0.28, 0.18, 0.05, shade(bc, 0.8)), bx(-0.18, 0.04 + bh, 0.12, 0.36, 0.06, 0.2, shade(bc, 0.7))); }
   return mergeParts(p);
 }
-function legGeo(L) { return mergeParts([bx(-0.085, -0.82, -0.09, 0.17, 0.82, 0.18, L.pants), bx(-0.09, -0.92, -0.14, 0.18, 0.1, 0.26, L.shoe)]); }
+function legGeo(L) {
+  return mergeParts([bx(-0.085, -0.44, -0.09, 0.17, 0.44, 0.18, L.pants), bx(-0.08, -0.82, -0.085, 0.16, 0.4, 0.17, L.pants), bx(-0.082, -0.5, -0.095, 0.164, 0.06, 0.02, shade(L.pants, 0.8)),
+  bx(-0.09, -0.9, -0.15, 0.18, 0.1, 0.27, L.shoe), bx(-0.092, -0.92, -0.155, 0.184, 0.035, 0.28, '#f5f5f5')]);
+}
 function armsGeo(L) { // braços apontando para -y a partir do ombro (o grupo gira para frente quando armado)
-  const s = L.f ? 0.2 : 0.235;
-  return mergeParts([bx(-s - 0.06, -0.3, -0.06, 0.12, 0.3, 0.12, L.shirt), bx(s - 0.06, -0.3, -0.06, 0.12, 0.3, 0.12, L.shirt),
-  bx(-s - 0.05, -0.6, -0.05, 0.1, 0.3, 0.1, L.skin), bx(s - 0.05, -0.6, -0.05, 0.1, 0.3, 0.1, L.skin)]);
+  const s = L.f ? 0.2 : 0.24, sk = L.skin;
+  const one = x => [bx(x - 0.065, -0.24, -0.065, 0.13, 0.24, 0.13, L.shirt), bx(x - 0.05, -0.52, -0.05, 0.1, 0.3, 0.1, sk), bx(x - 0.055, -0.62, -0.06, 0.11, 0.1, 0.12, shade(sk, 0.92))];
+  return mergeParts([...one(-s), ...one(s)]);
 }
 function farGeo(L) {
   return mergeParts([bx(-0.2, 0, -0.1, 0.4, 0.9, 0.2, L.pants), bx(-0.24, 0.9, -0.13, 0.48, 0.62, 0.26, L.shirt), { g: GEO.sph, y: 1.72, sx: 0.25, sy: 0.28, sz: 0.26, c: L.skin }, { g: GEO.hsph, y: 1.74, sx: 0.27, sy: 0.22, sz: 0.28, c: L.hair }]);
@@ -146,6 +168,7 @@ function buildModel(a) {
   const gun = new T.Mesh(gunGeo('M416'), MAT.actor); gun.rotation.x = -Math.PI / 2; gun.position.set(0.05, -0.5, 0.12); gun.visible = false; arms.add(gun);
   const far = new T.Mesh(farGeo(L), MAT.actor); far.visible = false;
   const g = new T.Group(); g.add(root, far); scene.add(g);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   a.model = { g, root, upper, body, legL, legR, arms, gun, far };
   refreshGun(a);
 }

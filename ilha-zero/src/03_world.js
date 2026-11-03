@@ -1,5 +1,6 @@
 // ================= mundo: ilha, estradas, cidades, prédios, árvores e colisão =================
 const NZ = makeNoise(9173);
+let TERRAIN = null, WATER = null; const CHUNK_MESH = [], NATURE_MESH = [];
 const WR = mulberry(4242); // o mapa é sempre o mesmo
 const wr = (a, b) => a + WR() * (b - a);
 const wpk = a => a[Math.floor(WR() * a.length)];
@@ -69,8 +70,8 @@ const townAt = (x, z, pad = 0) => TOWNS.find(t => Math.hypot(t.x - x, t.z - z) <
 // ---------- malha do terreno ----------
 (function buildTerrain() {
   const pos = new Float32Array(GN * GN * 3), col = new Float32Array(GN * GN * 3), c = new T.Color();
-  const sand = new T.Color('#f3dc96'), wet = new T.Color('#d8bf7c'), road = new T.Color('#5d6068'), line = new T.Color('#f3e7a0');
-  const pave = new T.Color('#c9c3b5'), rock = new T.Color('#8f8a82'), g1 = new T.Color('#52c043'), g2 = new T.Color('#9ad65a'), g3 = new T.Color('#3fa83e');
+  const sand = new T.Color('#efd38a'), wet = new T.Color('#d8bf7c'), road = new T.Color('#5d6068'), line = new T.Color('#f3e7a0');
+  const pave = new T.Color('#b9b2a3'), rock = new T.Color('#8f8a82'), g1 = new T.Color('#52c043'), g2 = new T.Color('#9ad65a'), g3 = new T.Color('#3fa83e');
   for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
     const k = j * GN + i, x = -HALF + i * CELL, z = -HALF + j * CELL, h = H[k];
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
@@ -91,8 +92,8 @@ const townAt = (x, z, pad = 0) => TOWNS.find(t => Math.hypot(t.x - x, t.z - z) <
   const g = new T.BufferGeometry();
   g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('color', new T.BufferAttribute(col, 3));
   g.setIndex(new T.BufferAttribute(idx, 1)); g.computeVertexNormals();
-  scene.add(new T.Mesh(g, MAT.world));
-  const water = new T.Mesh(new T.PlaneGeometry(5000, 5000), new T.MeshLambertMaterial({ color: 0x23b5e8, transparent: true, opacity: 0.84 }));
+  TERRAIN = new T.Mesh(g, MAT.terrain); scene.add(TERRAIN);
+  const water = WATER = new T.Mesh(new T.PlaneGeometry(5000, 5000), new T.MeshLambertMaterial({ color: 0x23b5e8, transparent: true, opacity: 0.84 }));
   water.rotation.x = -Math.PI / 2; water.position.y = 0; scene.add(water);
 })();
 
@@ -167,9 +168,10 @@ const CH = 160, CHN = MAP / CH;
 const CHUNKS = Array.from({ length: CHN * CHN }, () => ({ p: [], n: [], c: [] }));
 const chunkAt = (x, z) => CHUNKS[clamp(Math.floor((z + HALF) / CH), 0, CHN - 1) * CHN + clamp(Math.floor((x + HALF) / CH), 0, CHN - 1)];
 const _wc = new T.Color();
-function quad(ch, a, b, c, d, n, col) {
+function quad(ch, a, b, c, d, n, col, bot) { // bot = cor dos 2 primeiros vértices (base da parede, mais escura)
   ch.p.push(...a, ...b, ...c, ...a, ...c, ...d);
-  for (let i = 0; i < 6; i++) { ch.n.push(n[0], n[1], n[2]); ch.c.push(col.r, col.g, col.b); }
+  const lo = bot || col;
+  for (const k of [lo, lo, col, lo, col, col]) { ch.n.push(n[0], n[1], n[2]); ch.c.push(k.r, k.g, k.b); }
 }
 function poly(ch, pts, col, out) { // polígono convexo; out = direção para fora (garante o lado visível)
   const [a, b, c] = pts, ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
@@ -184,10 +186,13 @@ function addBox(x0, y0, z0, x1, y1, z1, color, o) {
   quad(ch, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], [0, 1, 0], c);
   if (o.bot) quad(ch, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0, -1, 0], c);
   const cs = c.clone().multiplyScalar(0.93);
-  quad(ch, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0], cs);
-  quad(ch, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0], cs);
-  quad(ch, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], c);
-  quad(ch, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], c);
+  // sombra de contato: a base das paredes que tocam o chão fica mais escura
+  const ao = y1 - y0 > 0.8 ? (y0 < groundH((x0 + x1) / 2, (z0 + z1) / 2) + 0.6 ? 0.68 : 0.88) : 0.97;
+  const cb = c.clone().multiplyScalar(ao), csb = cs.clone().multiplyScalar(ao);
+  quad(ch, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0], cs, csb);
+  quad(ch, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0], cs, csb);
+  quad(ch, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], c, cb);
+  quad(ch, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], c, cb);
   if (!o.nocol) return addCollider(x0, y0, z0, x1, y1, z1, o.k);
 }
 // telhado de duas águas (cumeeira no eixo mais comprido)
@@ -221,6 +226,10 @@ function wallRun(axis, c0, c1, a0, a1, y0, y1, ops, color) {
   for (const o of ops) {
     if (o.a < cur) continue;
     put(cur, o.a, y0, y1); put(o.a, o.b, y0, o.lo); put(o.a, o.b, o.hi, y1); cur = o.b;
+    // moldura: peitoril e verga brancos (janela) ou batente de madeira (porta)
+    const fr = (a, b, ya, yb, col) => { if (axis === 'x') addBox(a, ya, c0 - 0.06, b, yb, c1 + 0.06, col, { nocol: true }); else addBox(c0 - 0.06, ya, a, c1 + 0.06, yb, b, col, { nocol: true }); };
+    if (o.lo > y0 + 0.1) { fr(o.a - 0.1, o.b + 0.1, o.lo - 0.09, o.lo, '#fbfaf5'); fr(o.a - 0.1, o.b + 0.1, o.hi, o.hi + 0.09, '#fbfaf5'); fr(o.a - 0.06, o.a, o.lo, o.hi, '#fbfaf5'); fr(o.b, o.b + 0.06, o.lo, o.hi, '#fbfaf5'); }
+    else if (o.hi - o.lo < 3) { fr(o.a - 0.1, o.b + 0.1, o.hi, o.hi + 0.12, '#8d5a34'); fr(o.a - 0.1, o.a, o.lo, o.hi, '#8d5a34'); fr(o.b, o.b + 0.1, o.lo, o.hi, '#8d5a34'); }
   }
   put(cur, a1, y0, y1);
 }
@@ -385,15 +394,22 @@ const TREES = [];
   }
   const dummy = new T.Object3D(), c = new T.Color();
   const trunk = new T.InstancedMesh(new T.CylinderGeometry(0.22, 0.3, 1, 6), new T.MeshLambertMaterial({ color: 0x7a4b2a }), tr.length);
-  const crown = new T.InstancedMesh(new T.ConeGeometry(1, 1, 7), new T.MeshLambertMaterial({ color: 0xffffff }), tr.length);
-  const crown2 = new T.InstancedMesh(new T.IcosahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), tr.length);
+  const crown = new T.InstancedMesh(new T.ConeGeometry(1, 1, 8), new T.MeshLambertMaterial({ color: 0xffffff }), tr.length * 2);
+  const crown2 = new T.InstancedMesh(new T.DodecahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), tr.length * 3);
   let nc = 0, nr = 0;
   tr.forEach(([x, h, z, s], i) => {
     const th = 2.6 * s; dummy.position.set(x, h + th / 2, z); dummy.scale.set(s, th, s); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); trunk.setMatrixAt(i, dummy.matrix);
     const round = NZ.n(x / 60, z / 60) > 0.1;
     c.setHSL(round ? 0.22 + WR() * 0.08 : 0.3 + WR() * 0.06, 0.65, 0.33 + WR() * 0.12);
-    if (round) { dummy.position.set(x, h + th + 1.6 * s, z); dummy.scale.set(2.3 * s, 2.1 * s, 2.3 * s); dummy.rotation.set(WR(), WR(), 0); dummy.updateMatrix(); crown2.setMatrixAt(nr, dummy.matrix); crown2.setColorAt(nr++, c); }
-    else { dummy.position.set(x, h + th + 2.4 * s, z); dummy.scale.set(2.2 * s, 5.6 * s, 2.2 * s); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); crown.setMatrixAt(nc, dummy.matrix); crown.setColorAt(nc++, c); }
+    if (round) { // copa redonda: 3 bolos de folhas
+      for (const [ox, oy, oz, k] of [[0, 1.6, 0, 1], [0.9, 1.1, 0.4, 0.7], [-0.7, 1.2, -0.6, 0.72]]) {
+        dummy.position.set(x + ox * s, h + th + oy * s, z + oz * s); dummy.scale.set(2.2 * s * k, 1.9 * s * k, 2.2 * s * k); dummy.rotation.set(WR(), WR(), 0); dummy.updateMatrix(); crown2.setMatrixAt(nr, dummy.matrix);
+        crown2.setColorAt(nr++, c.clone().offsetHSL(0, 0, (k - 0.85) * 0.25));
+      }
+    } else { // pinheiro: 2 cones
+      dummy.position.set(x, h + th + 1.6 * s, z); dummy.scale.set(2.4 * s, 4 * s, 2.4 * s); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); crown.setMatrixAt(nc, dummy.matrix); crown.setColorAt(nc++, c.clone().offsetHSL(0, 0, -0.04));
+      dummy.position.set(x, h + th + 3.8 * s, z); dummy.scale.set(1.7 * s, 3.4 * s, 1.7 * s); dummy.updateMatrix(); crown.setMatrixAt(nc, dummy.matrix); crown.setColorAt(nc++, c.clone().offsetHSL(0, 0, 0.04));
+    }
     addCollider(x - 0.3 * s, h, z - 0.3 * s, x + 0.3 * s, h + th + 3 * s, z + 0.3 * s, 'tree'); TREES.push([x, z]);
   });
   crown.count = nc; crown2.count = nr;
@@ -401,10 +417,15 @@ const TREES = [];
   bu.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.4 * s, z); dummy.scale.set(1.3 * s, 0.9 * s, 1.3 * s); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); bush.setMatrixAt(i, dummy.matrix); c.setHSL(0.25 + WR() * 0.1, 0.7, 0.36 + WR() * 0.1); bush.setColorAt(i, c); });
   const rock = new T.InstancedMesh(new T.DodecahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), rk.length);
   rk.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.3 * s, z); dummy.scale.set(1.3 * s, s, 1.1 * s); dummy.rotation.set(WR(), WR() * 3, 0); dummy.updateMatrix(); rock.setMatrixAt(i, dummy.matrix); c.setHSL(0.08, 0.06, 0.5 + WR() * 0.15); rock.setColorAt(i, c); addCollider(x - s, h - 0.5, z - 0.9 * s, x + s, h + 1.1 * s, z + 0.9 * s, 'rock'); });
-  for (const m of [trunk, crown, crown2, bush, rock]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; scene.add(m); }
+  for (const m of [trunk, crown, crown2, bush, rock]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; scene.add(m); NATURE_MESH.push(m); }
   // nuvens
-  const cl = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshLambertMaterial({ color: 0xffffff, emissive: 0x888888 }), 60);
-  for (let i = 0; i < 60; i++) { dummy.position.set(wr(-1100, 1100), wr(330, 420), wr(-1100, 1100)); dummy.scale.set(wr(40, 90), wr(12, 22), wr(30, 60)); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); cl.setMatrixAt(i, dummy.matrix); }
+  // nuvens fofas: cada uma é um cacho de 6 bolas, mais achatado embaixo
+  const cl = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshLambertMaterial({ color: 0xffffff, emissive: 0x9aa7b8 }), 55 * 6);
+  let ci = 0;
+  for (let i = 0; i < 55; i++) {
+    const cx = wr(-1300, 1300), cy = wr(330, 430), cz = wr(-1300, 1300), sc = wr(0.7, 1.4);
+    for (let k = 0; k < 6; k++) { const r = wr(16, 30) * sc; dummy.position.set(cx + wr(-45, 45) * sc, cy + wr(0, 14) * sc, cz + wr(-25, 25) * sc); dummy.scale.set(r * 1.3, r * 0.75, r); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); cl.setMatrixAt(ci++, dummy.matrix); }
+  }
   scene.add(cl);
 })();
 
@@ -413,6 +434,6 @@ for (const ch of CHUNKS) {
   if (!ch.p.length) continue;
   const g = new T.BufferGeometry();
   g.setAttribute('position', new T.Float32BufferAttribute(ch.p, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(ch.n, 3)); g.setAttribute('color', new T.Float32BufferAttribute(ch.c, 3));
-  g.computeBoundingSphere(); scene.add(new T.Mesh(g, MAT.world)); ch.p = ch.n = ch.c = null;
+  g.computeBoundingSphere(); const cm = new T.Mesh(g, MAT.world); scene.add(cm); CHUNK_MESH.push(cm); ch.p = ch.n = ch.c = null;
 }
 const bldAt = (x, z, m = 0) => BLD.find(b => x > b.x0 - m && x < b.x1 + m && z > b.z0 - m && z < b.z1 + m);

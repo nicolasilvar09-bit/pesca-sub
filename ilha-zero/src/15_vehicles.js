@@ -51,7 +51,7 @@ function spawnVehicles() {
 function addVehicle(k, x, z, yaw) {
   const d = VDEF[k], col = pick(d.cols);
   const v = { k, d, x, z, y: groundH(x, z), yaw, sp: 0, vy: 0, pitch: 0, roll: 0, hp: d.hp, seats: d.seats.map(() => null), thr: 0, str: 0, dead: false, air: false, wait: 0, stuckT: 0, revT: 0, lastHit: null, water: false };
-  v.mesh = new T.Mesh(vehGeo(k, col), MAT.world); v.mesh.rotation.order = 'YXZ'; scene.add(v.mesh);
+  v.mesh = new T.Mesh(vehGeo(k, col), MAT.world); v.mesh.rotation.order = 'YXZ'; v.mesh.castShadow = v.mesh.receiveShadow = true; scene.add(v.mesh);
   VEH.push(v); syncVehMesh(v); return v;
 }
 function syncVehMesh(v) { v.mesh.position.set(v.x, v.y, v.z); v.mesh.rotation.set(v.pitch, v.yaw, v.roll); }

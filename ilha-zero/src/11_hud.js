@@ -143,7 +143,7 @@ function updateHud(dt) {
   if (alive) { if (p.mode === 'plane') at = 'PULAR'; else if (p.mode === 'fall') at = 'PARAQUEDAS'; else if (p.veh) at = 'SAIR'; else if (c.knocked) at = 'REVIVER'; else if (c.crate) at = 'SAQUEAR'; else if (c.veh) at = 'ENTRAR'; }
   act.textContent = at; act.classList.toggle('hidden', !at);
   // botões que só fazem sentido no chão
-  for (const id of ['fireR', 'fireL', 'ads', 'jump', 'crouch', 'prone', 'reload', 'leanL', 'leanR', 'heal']) $('b_' + id).classList.toggle('hidden', !alive || air || p.knocked || (p.veh && (p.seat === 0 || ['jump', 'crouch', 'prone', 'leanL', 'leanR'].includes(id))));
+  for (const id of ['fireR', 'fireL', 'ads', 'jump', 'crouch', 'prone', 'reload', 'leanL', 'leanR', 'heal']) $('b_' + id).classList.toggle('hidden', !!(!alive || air || p.knocked || (p.veh && (p.seat === 0 || ['jump', 'crouch', 'prone', 'leanL', 'leanR'].includes(id)))));
   $('b_seat').classList.toggle('hidden', !alive || !p.veh);
   const vi = $('vehI'); vi.classList.toggle('hidden', !alive || !p.veh);
   if (p.veh) { const ve = p.veh; vi.innerHTML = `<b>${Math.round(Math.abs(ve.sp) * 3.6)}</b> km/h · ${ve.d.n}<div class="vb"><i style="width:${ve.hp / ve.d.hp * 100}%"></i></div>`; }

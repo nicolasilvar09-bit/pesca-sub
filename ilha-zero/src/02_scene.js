@@ -1,6 +1,6 @@
 // ================= cena: renderizador, câmera, luz, céu e utilitários de geometria =================
 const renderer = new T.WebGLRenderer({ canvas: $('cv'), antialias: false, powerPreference: 'high-performance' });
-const QUAL = [{ pr: 0.75, fog: 650 }, { pr: 1.25, fog: 950 }, { pr: 2, fog: 1200 }];
+const QUAL = [{ pr: 0.75, fog: 650, shadow: 0, grass: 0 }, { pr: 1.25, fog: 950, shadow: 1024, grass: 1 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1 }];
 const scene = new T.Scene();
 const SKY_C = new T.Color(0xbfe9ff);
 scene.background = SKY_C.clone();
@@ -8,8 +8,8 @@ scene.fog = new T.Fog(SKY_C, 180, 950);
 const camera = new T.PerspectiveCamera(75, innerWidth / innerHeight, 0.06, 2600);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
-scene.add(new T.HemisphereLight(0xe6f6ff, 0x5f8f3a, 0.78));
-const sun = new T.DirectionalLight(0xfff0d0, 0.9); sun.position.set(320, 520, 180); scene.add(sun);
+scene.add(new T.HemisphereLight(0xd8efff, 0x58803a, 0.6));
+const sun = new T.DirectionalLight(0xfff0d0, 0.78); sun.position.set(320, 520, 180); scene.add(sun);
 
 function applyQuality() {
   const q = QUAL[SET.quality] || QUAL[1];
@@ -17,6 +17,7 @@ function applyQuality() {
   scene.fog.far = q.fog; scene.fog.near = q.fog * 0.2;
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  if (typeof gfxQuality === 'function') gfxQuality(q);
 }
 addEventListener('resize', applyQuality);
 
@@ -32,6 +33,7 @@ const SKY = (() => {
 
 const MAT = {
   world: new T.MeshLambertMaterial({ vertexColors: true }),
+  terrain: new T.MeshLambertMaterial({ vertexColors: true }),
   actor: new T.MeshLambertMaterial({ vertexColors: true }),
   item: new T.MeshLambertMaterial({ vertexColors: true, emissive: 0x222222 }),
   view: new T.MeshLambertMaterial({ vertexColors: true, depthTest: true }),

@@ -29,8 +29,9 @@ function frame(now) {
     const p = G.player, t = p.alive ? p : G.view.spect || p;
     updateItemVisuals(dt, t.x, t.z);
     for (const c of G.crates) c.mesh.position.y = c.y;
+    gfxStep(dt, t.alive ? t.x : camera.position.x, t.alive ? t.y : camera.position.y - 10, t.alive ? t.z : camera.position.z);
     updateHud(dt);
-  } else lobbyCamera(dt);
+  } else { lobbyCamera(dt); gfxStep(dt, LOB.x, LOB.y, LOB.z); }
   renderer.render(scene, camera);
   fpsN++; if ((fpsT += dt) > 1) { G.fps = fpsN / fpsT; fpsN = 0; fpsT = 0; }
 }

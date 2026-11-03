@@ -33,6 +33,15 @@ Q/E inclina, R recarrega, F pega/age, H cura, Tab mochila, M mapa, V 1ª/3ª pes
 - Batidas causam dano no veículo e nos ocupantes; **atropelar** derruba/abate; tiros danificam e o veículo **explode**
 - Bots pegam veículos para fugir da zona (a equipe embarca junto) e descem para lutar; seus colegas entram no seu carro
 
+## Visual (atualização)
+- Sombras em tempo real ao redor do jogador (Médio e Alto), sombra de contato na base das casas e embaixo das árvores
+- Mar com ondas, brilho do sol, reflexo do céu, água rasa turquesa e espuma na praia
+- Grama e flores coloridas balançando com o vento perto da câmera
+- Textura procedural no terreno e nas paredes (sem imagens: tudo gerado no aparelho)
+- Estradas com faixas brancas e tracejado amarelo, postes de luz, molduras nas janelas e batentes nas portas
+- Árvores com copa em camadas, nuvens fofas e sol no céu; personagens com rosto, mãos, cinto, tênis e cabelo mais detalhado
+- Configuração **Gráficos**: Leve (sem sombra e sem grama), Médio e Alto
+
 ## Próximas fases
 3. Helicóptero
 4. Multijogador online: lobby com amigos (convite por link/código, como no Deep Spear), partidas com bots completando
