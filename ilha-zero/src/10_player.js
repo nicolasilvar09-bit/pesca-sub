@@ -9,7 +9,6 @@ const VM = new T.Group(); camera.add(VM);
 const vmGun = new T.Mesh(gunGeo('M416'), MAT.view); VM.add(vmGun);
 const vmArms = new T.Mesh(mergeParts([bx(-0.035, -0.16, -0.02, 0.07, 0.07, 0.09, '#e0ac69'), bx(-0.04, -0.17, 0.07, 0.08, 0.08, 0.12, '#2f80ed'), bx(-0.035, -0.11, -0.5, 0.07, 0.06, 0.09, '#e0ac69')]), MAT.view);
 VM.add(vmArms); VM.visible = false; VM.scale.setScalar(0.62);
-const vmScope = new T.Mesh(mergeParts([{ g: GEO.cyl, rx: Math.PI / 2, sx: 0.045, sy: 0.18, sz: 0.045, c: '#1d1f24' }]), MAT.view); vmScope.position.set(0, 0.075, -0.25); vmGun.add(vmScope);
 let vmKey = '';
 
 function playerStep(dt) {
@@ -163,7 +162,7 @@ function updateCamera(dt) {
   const scoped = p.ads && zoom >= 2;
   VM.visible = fpp && !!w && !scoped && p.healT <= 0;
   if (VM.visible) {
-    const key = w.k + (w.att.sight || ''); if (key !== vmKey) { vmKey = key; vmGun.geometry = gunGeo(w.k); vmScope.visible = !!w.att.sight; }
+    const key = gunKey(w); if (key !== vmKey) { vmKey = key; vmGun.geometry = gunGeo(w.k); dressGun(vmGun, w); }
     const kick = Math.min(0.08, G.recAcc * 0.6), bob = Math.sin(p.walk * 1) * Math.min(1, Math.hypot(p.vx, p.vz) / 4) * 0.012;
     if (p.ads) VM.position.set(0, -0.085 - (w.att.sight ? 0.02 : 0), -0.2 + kick); else VM.position.set(0.2, -0.19 + bob, -0.3 + kick);
     VM.rotation.set(p.reloadT > 0 ? -0.5 : 0, 0, 0);

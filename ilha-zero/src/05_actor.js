@@ -14,6 +14,7 @@ const PANTS = ['#2d3142', '#22313f', '#3a5a40', '#4f4f4f', '#6d4c41', '#34495e',
 const BOT_NAMES = ['Lobo', 'Tigrão', 'Falcão', 'Neguinho', 'Mineiro', 'Carioca', 'Baiano', 'Gaúcho', 'Fera', 'Zé', 'Kaique', 'Rafa', 'Duda', 'Lari', 'Bruna', 'Gabi', 'Malu', 'Isa', 'Thiago', 'Vini', 'Pedrão', 'Japa', 'Alemão', 'Sniper', 'Ninja', 'Raio', 'Cobra', 'Pantera', 'Onça', 'Jaguar', 'Corvo', 'Tubarão', 'Sombra', 'Fantasma', 'Trovão', 'Gelo', 'Brasa', 'Pimenta', 'Tatu', 'Gavião', 'Mel', 'Lua', 'Nina', 'Clara', 'Sol', 'Rubi', 'Zara', 'Tati', 'Leo', 'Gui', 'Biel', 'Caio', 'Davi', 'Enzo', 'Igor', 'Juca', 'Lipe', 'Nando'];
 function randLook() {
   const f = Math.random() < 0.45;
+  if (typeof AVATARS !== 'undefined') { const av = pick(AVATARS.filter(v => v.f === f)); return avatarLook(av); }
   return { f, skin: pick(SKINS), hair: pick(HAIRC), hs: f ? pick(['pony', 'long', 'bun']) : pick(['short', 'buzz', 'short']), shirt: pick(SHIRTS), pants: pick(PANTS), shoe: pick(['#1c1c1c', '#ffffff', '#3b2f2f', '#c0392b']) };
 }
 
@@ -158,6 +159,7 @@ function farGeo(L) {
   return mergeParts([bx(-0.2, 0, -0.1, 0.4, 0.9, 0.2, L.pants), bx(-0.24, 0.9, -0.13, 0.48, 0.62, 0.26, L.shirt), { g: GEO.sph, y: 1.72, sx: 0.25, sy: 0.28, sz: 0.26, c: L.skin }, { g: GEO.hsph, y: 1.74, sx: 0.27, sy: 0.22, sz: 0.28, c: L.hair }]);
 }
 function buildModel(a) {
+  if (HUM.ready) return buildHuman(a);
   const L = a.look, root = new T.Group();
   const upper = new T.Group(); upper.position.y = 0.92; root.add(upper);
   const body = new T.Mesh(bodyGeo(L, a), MAT.actor); upper.add(body);
@@ -172,12 +174,16 @@ function buildModel(a) {
   a.model = { g, root, upper, body, legL, legR, arms, gun, far };
   refreshGun(a);
 }
-function rebuildBody(a) { const m = a.model; if (!m) return; m.body.geometry.dispose(); m.body.geometry = bodyGeo(a.look, a); }
-function refreshGun(a) { const m = a.model; if (!m) return; const w = curW(a); m.gun.visible = !!w; if (w) m.gun.geometry = gunGeo(w.k); }
-function removeModel(a) { if (a.model) { scene.remove(a.model.g); a.model.body.geometry.dispose(); a.model = null; } }
+function rebuildBody(a) { const m = a.model; if (!m) return; if (m.human) { updateHumanGear(a); return; } m.body.geometry.dispose(); m.body.geometry = bodyGeo(a.look, a); }
+const gunKey = w => w ? w.k + '|' + (w.att.sight || '') + (w.att.muzzle || '') + (w.att.grip || '') : '';
+function refreshGun(a) { const m = a.model; if (!m) return; const w = curW(a); m.gun.visible = !!w; m.gunKey = gunKey(w); if (w) { m.gun.geometry = gunGeo(w.k); dressGun(m.gun, w); } }
+function syncGun(a) { const m = a.model; if (m && m.gunKey !== gunKey(curW(a))) refreshGun(a); }
+function removeModel(a) { if (a.model) { scene.remove(a.model.g); if (a.model.body) a.model.body.geometry.dispose(); if (a.model.mixer) a.model.mixer.stopAllAction(); a.model = null; } }
 
 function animateModel(a, dt, camX, camZ, hideSelf) {
   const m = a.model; if (!m) return;
+  syncGun(a);
+  if (m.human) return animateHuman(a, dt, camX, camZ, hideSelf);
   const vis = a.alive && a.mode !== 'plane' && !hideSelf;
   m.g.visible = vis; if (!vis) return;
   const d2 = (a.x - camX) ** 2 + (a.z - camZ) ** 2;

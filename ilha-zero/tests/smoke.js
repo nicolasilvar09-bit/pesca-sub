@@ -43,8 +43,8 @@ const server = http.createServer((q, r) => { const u = decodeURIComponent(q.url.
         P.hp = 40; X.startHeal(P, 'BAND'); step(5); log.push('vida após bandagem ' + P.hp.toFixed(0));
         // veículo: entra, acelera, sai
         { const v = X.VEH.find(v => !v.dead && !v.seats[0]); P.x = v.x + 2.5; P.z = v.z; P.y = X.groundH(P.x, P.z) + 0.05; step(0.2);
-          X.enterVeh(P, v, 0); X.IN.my = 1; step(3); const kmh = Math.abs(v.sp) * 3.6; X.IN.my = -1; step(2); X.IN.my = 0; step(1); X.leaveVeh(P);
-          log.push(`${v.d.n}: ${kmh.toFixed(0)} km/h em 3 s`); if (kmh < 30) log.push('NÃO acelerou'); if (P.veh) log.push('NÃO saiu do veículo'); }
+          const vx0 = v.x, vz0 = v.z; X.enterVeh(P, v, 0); X.IN.my = 1; let kmh = 0; for (let k = 0; k < 30; k++) { step(0.1); kmh = Math.max(kmh, Math.abs(v.sp) * 3.6); } X.IN.my = -1; step(2); X.IN.my = 0; step(1); X.leaveVeh(P);
+          log.push(`${v.d.n}: ${kmh.toFixed(0)} km/h (máx. em 3 s)`); if (kmh < 30) log.push('NÃO acelerou ' + JSON.stringify({ water: v.water, air: v.air, hp: Math.round(v.hp), y: +v.y.toFixed(1), gh: +X.groundH(v.x, v.z).toFixed(1), x: Math.round(v.x), z: Math.round(v.z), seats: v.seats.map(s => s ? s.name : '-'), moved: Math.round(Math.hypot(v.x - vx0, v.z - vz0)) })); if (P.veh) log.push('NÃO saiu do veículo'); }
         X.IN.adsOn = true; step(0.5); X.updateCamera(0.1); X.IN.adsOn = false;
         X.openBag(); X.renderBag(); X.closePanels(); X.toggleMap(); X.toggleMap(); X.updateHud(0.2);
         // protege o jogador para ver a partida até o fim

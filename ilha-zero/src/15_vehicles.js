@@ -45,7 +45,11 @@ function spawnVehicles() {
     if (h < 1.5 || bldAt(x, z, 3) || VEH.some(v => Math.hypot(v.x - x, v.z - z) < 30)) continue;
     boxesNear(x - 3, z - 3, x + 3, z + 3, _near); if (_near.some(b => b.y1 > h + 0.5 && b.y0 < h + 2)) continue;
     const k = pick(kinds);
-    addVehicle(k, x, z, Math.atan2(-dx, -dz) + (Math.random() < 0.5 ? 0 : Math.PI) + rr(-0.3, 0.3));
+    // nasce com a frente livre (nada de poste, árvore ou parede logo à frente)
+    let yaw = Math.atan2(-dx, -dz) + (Math.random() < 0.5 ? 0 : Math.PI) + rr(-0.15, 0.15);
+    const clear = yw => [3, 6, 9, 12].every(dd => !pointBlocked(x - Math.sin(yw) * dd, h + 0.2, z - Math.cos(yw) * dd));
+    if (!clear(yaw)) { yaw += Math.PI; if (!clear(yaw)) continue; }
+    addVehicle(k, x, z, yaw);
   }
 }
 function addVehicle(k, x, z, yaw) {

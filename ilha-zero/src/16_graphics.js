@@ -8,8 +8,8 @@ float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 *
 // textura procedural pela posição no mundo (não precisa de imagem nem de UV)
 function patchNoise(mat, kind) {
   mat.onBeforeCompile = sh => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; attribute float mt;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal); vMt = mt;');
     const terr = `
       float n1 = vn(vWP.xz * 0.11), n2 = vn(vWP.xz * 0.8), n3 = vn(vWP.xz * 4.5);
       float gr = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) * 4.0, 0.0, 1.0);
@@ -17,14 +17,47 @@ function patchNoise(mat, kind) {
       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.15, 1.06, 0.7), gr * smoothstep(0.55, 0.85, n1) * 0.55);`;
     const wall = `
       float w1 = vn(vWP.xz * 1.3 + vWP.y * 1.1), w2 = vn(vec2(vWP.x + vWP.z, vWP.y) * 7.0);
-      diffuseColor.rgb *= 0.95 + w1 * 0.07 + (w2 - 0.5) * 0.05;`;
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;\n' + GLSL_NOISE)
+      vec3 nn = normalize(vWN);
+      vec2 uv = abs(nn.y) > 0.6 ? vWP.xz : vec2(abs(nn.x) > abs(nn.z) ? vWP.z : vWP.x, vWP.y);
+      float mm = floor(vMt + 0.5), fw = max(length(fwidth(uv)), 1e-4);
+      if (mm < 0.5) { diffuseColor.rgb *= 0.95 + w1 * 0.07 + (w2 - 0.5) * 0.05; }
+      else if (mm < 1.5) { // tijolo à vista
+        float row = floor(uv.y / 0.075); vec2 b = vec2(uv.x / 0.22 + mod(row, 2.0) * 0.5, uv.y / 0.075); vec2 f = fract(b);
+        float fade = clamp(1.0 - (fw - 0.006) * 45.0, 0.0, 1.0);
+        float mort = clamp(step(f.x, 0.05) + step(f.y, 0.15), 0.0, 1.0) * fade;
+        diffuseColor.rgb = mix(diffuseColor.rgb * mix(1.0, 0.82 + h21(floor(b)) * 0.3, fade) * (0.93 + w2 * 0.1), mix(diffuseColor.rgb * 1.12, vec3(0.74, 0.72, 0.68), fade * 0.9), mort + (1.0 - fade) * 0.18);
+      } else if (mm < 2.5) { // telhas
+        float r = uv.y / 0.16, f = fract(r), s = fract(uv.x / 0.26 + floor(r) * 0.5);
+        float fd = clamp(1.0 - (fw - 0.01) * 25.0, 0.0, 1.0); f = mix(0.75, f, fd); s = mix(0.5, s, fd);
+        diffuseColor.rgb *= (0.66 + 0.42 * f) * (0.86 + 0.14 * smoothstep(0.0, 0.1, s) * smoothstep(1.0, 0.9, s)) * (0.92 + h21(vec2(floor(r), floor(uv.x / 0.26 + floor(r) * 0.5))) * 0.14);
+      } else if (mm < 3.5) { // placas de concreto
+        vec2 f = fract(uv / vec2(1.6, 1.05)); float l = clamp(step(f.x, 0.012) + step(f.y, 0.02), 0.0, 1.0) * clamp(1.0 - (fw - 0.02) * 12.0, 0.0, 1.0);
+        diffuseColor.rgb *= (1.0 - l * 0.28) * (0.86 + vn(uv * 0.6) * 0.2) * (0.96 + w2 * 0.06);
+      } else if (mm < 4.5) { // tábuas de madeira
+        float r = (abs(nn.y) > 0.6 ? uv.x : uv.y) / 0.19, f = fract(r), id = floor(r), along = abs(nn.y) > 0.6 ? uv.y : uv.x;
+        diffuseColor.rgb *= (0.8 + 0.22 * vn(vec2(along * 0.9, id * 7.3))) * (1.0 - step(f, 0.06) * 0.4 * clamp(1.0 - (fw - 0.01) * 20.0, 0.0, 1.0)) * (0.9 + 0.16 * h21(vec2(id, 3.0)));
+      } else { // chapa metálica ondulada
+        diffuseColor.rgb *= (0.84 + 0.16 * sin(uv.x * 52.0) * clamp(1.0 - (fw - 0.008) * 40.0, 0.0, 1.0)) * (0.95 + w1 * 0.08);
+      }`;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt;\n' + GLSL_NOISE)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + (kind === 'terrain' ? terr : wall));
   };
   mat.customProgramCacheKey = () => 'noise-' + kind;
   mat.needsUpdate = true;
 }
 patchNoise(MAT.terrain, 'terrain'); patchNoise(MAT.world, 'wall');
+
+// ---------- vidro nas janelas (só visual: as balas passam) ----------
+(function glass() {
+  const pos = [];
+  for (const [x0, y0, z0, x1, y1, z1] of GLASS.p) {
+    if (Math.abs(x1 - x0) > 0.01) pos.push(x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y0, z0, x1, y1, z0, x0, y1, z0);
+    else pos.push(x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y0, z0, x0, y1, z1, x0, y1, z0);
+  }
+  const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+  const m = new T.Mesh(g, new T.MeshLambertMaterial({ color: 0x8fc8e8, emissive: 0x1a3a50, transparent: true, opacity: 0.42, side: T.DoubleSide, depthWrite: false }));
+  m.renderOrder = 1; scene.add(m); GLASS.mesh = m;
+})();
 
 // ---------- sombra de contato no terreno (em volta das casas e embaixo das árvores) ----------
 (function terrainAO() {

@@ -165,23 +165,27 @@ function losClear(ax, ay, az, bx2, by, bz) {
 
 // ---------- geometria estática em blocos (para o celular descartar o que está fora da tela) ----------
 const CH = 160, CHN = MAP / CH;
-const CHUNKS = Array.from({ length: CHN * CHN }, () => ({ p: [], n: [], c: [] }));
+const CHUNKS = Array.from({ length: CHN * CHN }, () => ({ p: [], n: [], c: [], m: [] }));
+// material desenhado pelo shader: 0 reboco, 1 tijolo, 2 telha, 3 concreto, 4 madeira, 5 chapa ondulada
+let CUR_MAT = 0;
+const GLASS = { p: [] };
 const chunkAt = (x, z) => CHUNKS[clamp(Math.floor((z + HALF) / CH), 0, CHN - 1) * CHN + clamp(Math.floor((x + HALF) / CH), 0, CHN - 1)];
 const _wc = new T.Color();
 function quad(ch, a, b, c, d, n, col, bot) { // bot = cor dos 2 primeiros vértices (base da parede, mais escura)
   ch.p.push(...a, ...b, ...c, ...a, ...c, ...d);
   const lo = bot || col;
-  for (const k of [lo, lo, col, lo, col, col]) { ch.n.push(n[0], n[1], n[2]); ch.c.push(k.r, k.g, k.b); }
+  for (const k of [lo, lo, col, lo, col, col]) { ch.n.push(n[0], n[1], n[2]); ch.c.push(k.r, k.g, k.b); ch.m.push(CUR_MAT); }
 }
 function poly(ch, pts, col, out) { // polígono convexo; out = direção para fora (garante o lado visível)
   const [a, b, c] = pts, ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
   let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
   if (nx * out[0] + ny * out[1] + nz * out[2] < 0) { pts = pts.slice().reverse(); nx = -nx; ny = -ny; nz = -nz; }
   const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
-  for (let i = 1; i < pts.length - 1; i++) { ch.p.push(...pts[0], ...pts[i], ...pts[i + 1]); for (let k = 0; k < 3; k++) { ch.n.push(nx, ny, nz); ch.c.push(col.r, col.g, col.b); } }
+  for (let i = 1; i < pts.length - 1; i++) { ch.p.push(...pts[0], ...pts[i], ...pts[i + 1]); for (let k = 0; k < 3; k++) { ch.n.push(nx, ny, nz); ch.c.push(col.r, col.g, col.b); ch.m.push(CUR_MAT); } }
 }
 function addBox(x0, y0, z0, x1, y1, z1, color, o) {
   o = o || {};
+  if (o.mat != null) { const keep = CUR_MAT; CUR_MAT = o.mat; const r = addBox(x0, y0, z0, x1, y1, z1, color, Object.assign({}, o, { mat: null })); CUR_MAT = keep; return r; }
   const ch = chunkAt((x0 + x1) / 2, (z0 + z1) / 2), c = _wc.set(color);
   quad(ch, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], [0, 1, 0], c);
   if (o.bot) quad(ch, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], [0, -1, 0], c);
@@ -198,7 +202,7 @@ function addBox(x0, y0, z0, x1, y1, z1, color, o) {
 // telhado de duas águas (cumeeira no eixo mais comprido)
 function addGable(x0, z0, x1, z1, y, h, color) {
   const ch = chunkAt((x0 + x1) / 2, (z0 + z1) / 2), c = _wc.set(color), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, o = 0.4;
-  const g = c.clone().multiplyScalar(0.85);
+  const g = c.clone().multiplyScalar(0.85), keep = CUR_MAT; CUR_MAT = 2;
   if (x1 - x0 >= z1 - z0) {
     poly(ch, [[x0 - o, y, z1 + o], [x1 + o, y, z1 + o], [x1 + o, y + h, cz], [x0 - o, y + h, cz]], c, [0, 1, 1]);
     poly(ch, [[x1 + o, y, z0 - o], [x0 - o, y, z0 - o], [x0 - o, y + h, cz], [x1 + o, y + h, cz]], c, [0, 1, -1]);
@@ -210,13 +214,14 @@ function addGable(x0, z0, x1, z1, y, h, color) {
     poly(ch, [[x0, y, z1], [x1, y, z1], [cx, y + h, z1]], g, [0, 0, 1]);
     poly(ch, [[x1, y, z0], [x0, y, z0], [cx, y + h, z0]], g, [0, 0, -1]);
   }
+  CUR_MAT = keep;
   addCollider(x0, y, z0, x1, y + h * 0.55, z1, 'roof');
 }
 
 // ---------- prédios ----------
 const BLD = []; // {x0,z0,x1,z1,y,top,floors,fh,doors:[{ox,oz,ix,iz}],spots:[[x,y,z]],tier}
 const WALL = ['#ffd6a5', '#fdffb6', '#caffbf', '#9bf6ff', '#a0c4ff', '#ffc6ff', '#ffadad', '#f9c74f', '#90be6d', '#f8961e', '#4cc9f0', '#f72585', '#b5179e', '#ffb3c6'];
-const ROOF = ['#d62828', '#f77f00', '#1d4ed8', '#6a040f', '#2a9d8f', '#7b2cbf', '#e76f51'];
+const ROOF = ['#b5452c', '#9c3b26', '#c0603a', '#8a4b2d', '#5a5f66', '#46514a', '#a0522d'];
 const WT = 0.25;
 // parede com aberturas (portas e janelas). axis 'x' = parede corre no eixo x
 function wallRun(axis, c0, c1, a0, a1, y0, y1, ops, color) {
@@ -228,7 +233,8 @@ function wallRun(axis, c0, c1, a0, a1, y0, y1, ops, color) {
     put(cur, o.a, y0, y1); put(o.a, o.b, y0, o.lo); put(o.a, o.b, o.hi, y1); cur = o.b;
     // moldura: peitoril e verga brancos (janela) ou batente de madeira (porta)
     const fr = (a, b, ya, yb, col) => { if (axis === 'x') addBox(a, ya, c0 - 0.06, b, yb, c1 + 0.06, col, { nocol: true }); else addBox(c0 - 0.06, ya, a, c1 + 0.06, yb, b, col, { nocol: true }); };
-    if (o.lo > y0 + 0.1) { fr(o.a - 0.1, o.b + 0.1, o.lo - 0.09, o.lo, '#fbfaf5'); fr(o.a - 0.1, o.b + 0.1, o.hi, o.hi + 0.09, '#fbfaf5'); fr(o.a - 0.06, o.a, o.lo, o.hi, '#fbfaf5'); fr(o.b, o.b + 0.06, o.lo, o.hi, '#fbfaf5'); }
+    if (o.lo > y0 + 0.1) { const cm = (c0 + c1) / 2; if (axis === 'x') GLASS.p.push([o.a, o.lo, cm, o.b, o.hi, cm]); else GLASS.p.push([cm, o.lo, o.a, cm, o.hi, o.b]);
+      const km = CUR_MAT; CUR_MAT = 0; fr(o.a - 0.1, o.b + 0.1, o.lo - 0.09, o.lo, '#fbfaf5'); fr(o.a - 0.1, o.b + 0.1, o.hi, o.hi + 0.09, '#fbfaf5'); fr(o.a - 0.06, o.a, o.lo, o.hi, '#fbfaf5'); fr(o.b, o.b + 0.06, o.lo, o.hi, '#fbfaf5'); CUR_MAT = km; }
     else if (o.hi - o.lo < 3) { fr(o.a - 0.1, o.b + 0.1, o.hi, o.hi + 0.12, '#8d5a34'); fr(o.a - 0.1, o.a, o.lo, o.hi, '#8d5a34'); fr(o.b, o.b + 0.1, o.lo, o.hi, '#8d5a34'); }
   }
   put(cur, a1, y0, y1);
@@ -241,10 +247,13 @@ function slabWithHole(x0, z0, x1, z1, y0, y1, hole, color) {
 }
 function building(o) {
   const w = o.w, d = o.d, x0 = o.x - w / 2, x1 = o.x + w / 2, z0 = o.z - d / 2, z1 = o.z + d / 2;
-  const fh = o.fh || 3.2, floors = o.floors || 1, col = o.col || wpk(WALL), gy = groundH(o.x, o.z);
+  const wm = o.wallMat != null ? o.wallMat : (o.roof === 'gable' ? (WR() < 0.35 ? 1 : 0) : (WR() < 0.5 ? 3 : 1));
+  const fh = o.fh || 3.2, floors = o.floors || 1, col = wm === 1 && !o.col ? wpk(['#b5543c', '#a6492f', '#c2683f', '#9e5a3c', '#b8704a']) : o.col || wpk(WALL), gy = groundH(o.x, o.z);
   const y0 = gy + 0.15, top = y0 + floors * fh;
   const B = { x0, z0, x1, z1, y: y0, top, floors, fh, doors: [], spots: [], tier: o.tier || 1 };
-  addBox(x0 - 0.3, gy - 2, z0 - 0.3, x1 + 0.3, y0, z1 + 0.3, '#9c958a'); // base
+  addBox(x0 - 0.3, gy - 2, z0 - 0.3, x1 + 0.3, y0, z1 + 0.3, '#9c958a', { mat: 3 }); // base
+  if (fh < 4) addBox(x0 + WT, y0 - 0.02, z0 + WT, x1 - WT, y0 + 0.01, z1 - WT, '#a8784e', { mat: 4, nocol: true }); // assoalho
+  CUR_MAT = wm;
   const dw = o.doorW || 1.4, sides = o.doors || ['s'];
   // escada: faixas encostadas na parede norte
   const st = floors > 1 || o.roofAccess, SA = z0 + WT, SB = SA + 1.2, SC = SB + 1.2, xs = x0 + WT + 0.6, L = 3.6, rise = fh / 10;
@@ -271,7 +280,7 @@ function building(o) {
     // piso do andar de cima (com buraco da escada)
     if (k > 0) {
       const hole = (k - 1) % 2 === 0 ? [xs - 0.1, SA, xs + L + 0.1, SB] : [xs - 0.1, SB, xs + L + 0.1, SC];
-      slabWithHole(x0 + WT, z0 + WT, x1 - WT, z1 - WT, fy - 0.22, fy, hole, '#d9d2c3');
+      CUR_MAT = 4; slabWithHole(x0 + WT, z0 + WT, x1 - WT, z1 - WT, fy - 0.22, fy, hole, '#a8784e'); CUR_MAT = wm;
     }
     // degraus para o próximo andar (ou para o terraço)
     if (st && (k < floors - 1 || o.roofAccess)) {
@@ -302,15 +311,16 @@ function building(o) {
   }
   // faixa colorida no topo das paredes (acabamento)
   if (o.trim && o.roof !== 'gable') addBox(x0 - 0.05, top - 0.5, z0 - 0.05, x1 + 0.05, top - 0.22, z1 + 0.05, o.trim, { nocol: true });
+  CUR_MAT = 0;
   BLD.push(B); return B;
 }
 // caixas/containers de cobertura
 const CONT = ['#e63946', '#2a9d8f', '#f4a261', '#457b9d', '#ffbe0b', '#8338ec', '#3a86ff', '#06d6a0'];
 function container(x, z, along, stack) {
   const gy = groundH(x, z), w = along === 'x' ? 6 : 2.4, d = along === 'x' ? 2.4 : 6;
-  for (let s = 0; s < (stack || 1); s++) addBox(x - w / 2, gy + s * 2.6, z - d / 2, x + w / 2, gy + (s + 1) * 2.6, z + d / 2, wpk(CONT));
+  for (let s = 0; s < (stack || 1); s++) addBox(x - w / 2, gy + s * 2.6, z - d / 2, x + w / 2, gy + (s + 1) * 2.6, z + d / 2, wpk(CONT), { mat: 5 });
 }
-function crateBox(x, z, s) { const gy = groundH(x, z); addBox(x - s / 2, gy, z - s / 2, x + s / 2, gy + s, z + s / 2, '#b07d48'); }
+function crateBox(x, z, s) { const gy = groundH(x, z); addBox(x - s / 2, gy, z - s / 2, x + s / 2, gy + s, z + s / 2, '#b07d48', { mat: 4 }); }
 
 const FOOT = []; // áreas ocupadas (para não sobrepor prédios e árvores)
 function free(x, z, w, d, m = 3) { return !FOOT.some(f => Math.abs(f.x - x) < (f.w + w) / 2 + m && Math.abs(f.z - z) < (f.d + d) / 2 + m) && roadDist(x, z) > Math.max(w, d) / 2 + 3; }
@@ -327,7 +337,7 @@ function doorsToward(t, x, z) { const dx = t.x - x, dz = t.z - z; return Math.ab
 const house = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, roof: 'gable', doors: doorsToward(t, x, z), tier: t.tier });
 const house2 = (t, x, z, w, d) => building({ x, z, w, d, floors: 2, roof: WR() < 0.5 ? 'gable' : 'flat', trim: wpk(WALL), doors: doorsToward(t, x, z), tier: t.tier });
 const apart = (t, x, z, w, d, f) => building({ x, z, w, d, floors: f, roofAccess: true, trim: wpk(ROOF), doors: doorsToward(t, x, z), tier: t.tier });
-const warehouse = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, fh: 6, doorW: 3.4, doorH: 4.2, doors: WR() < 0.5 ? ['n', 's'] : ['e', 'w'], noWin: true, col: wpk(['#8ecae6', '#ffb703', '#e5e5e5', '#adb5bd', '#f28482']), trim: '#3d405b', tier: t.tier });
+const warehouse = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, fh: 6, doorW: 3.4, doorH: 4.2, doors: WR() < 0.5 ? ['n', 's'] : ['e', 'w'], noWin: true, wallMat: 5, col: wpk(['#8ecae6', '#ffb703', '#e5e5e5', '#adb5bd', '#f28482']), trim: '#3d405b', tier: t.tier });
 
 (function buildTowns() {
   for (const t of TOWNS) {
@@ -345,17 +355,17 @@ const warehouse = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, fh: 6, do
         else if (WR() < 0.5) { if (place(t, 7, 7, 5, (x, z) => container(x, z, WR() < 0.5 ? 'x' : 'z', 1 + (WR() < 0.4 ? 1 : 0)))) made++; }
         else if (place(t, 8, 7, 5, (x, z) => house(t, x, z, 8, 7))) made++;
       } else if (t.kind === 'military') {
-        if (made < 4) { if (place(t, 18, 8, 6, (x, z) => building({ x, z, w: 18, d: 8, floors: 1, col: '#9cae7a', trim: '#4f5d2f', doors: doorsToward(t, x, z), tier: 3 }))) made++; }
-        else if (made < 6) { if (place(t, 6, 6, 6, (x, z) => building({ x, z, w: 6.5, d: 6, floors: 3, roofAccess: true, col: '#7d8f69', trim: '#3a4a26', doors: ['s'], tier: 3 }))) made++; }
+        if (made < 4) { if (place(t, 18, 8, 6, (x, z) => building({ x, z, w: 18, d: 8, floors: 1, wallMat: 3, col: '#9cae7a', trim: '#4f5d2f', doors: doorsToward(t, x, z), tier: 3 }))) made++; }
+        else if (made < 6) { if (place(t, 6, 6, 6, (x, z) => building({ x, z, w: 6.5, d: 6, floors: 3, roofAccess: true, wallMat: 3, col: '#7d8f69', trim: '#3a4a26', doors: ['s'], tier: 3 }))) made++; }
         else if (place(t, 22, 14, 6, (x, z) => warehouse(t, x, z, 22, 14))) made++;
       } else if (t.kind === 'farm') {
-        if (made === 0) { if (place(t, 20, 12, 6, (x, z) => building({ x, z, w: 20, d: 12, floors: 1, fh: 5.5, roof: 'gable', roofCol: '#7f1d1d', col: '#c1121f', doorW: 3.2, doorH: 3.8, doors: ['n', 's'], noWin: true, tier: 1 }))) made++; }
-        else if (made < 3) { if (place(t, 4, 4, 6, (x, z) => { const gy = groundH(x, z); addBox(x - 2, gy, z - 2, x + 2, gy + 9, z + 2, '#d9d9d9'); addBox(x - 2.2, gy + 9, z - 2.2, x + 2.2, gy + 9.6, z + 2.2, '#a4161a'); })) made++; }
+        if (made === 0) { if (place(t, 20, 12, 6, (x, z) => building({ x, z, w: 20, d: 12, floors: 1, fh: 5.5, roof: 'gable', roofCol: '#7f1d1d', col: '#b3202a', wallMat: 4, doorW: 3.2, doorH: 3.8, doors: ['n', 's'], noWin: true, tier: 1 }))) made++; }
+        else if (made < 3) { if (place(t, 4, 4, 6, (x, z) => { const gy = groundH(x, z); addBox(x - 2, gy, z - 2, x + 2, gy + 9, z + 2, '#d9d9d9', { mat: 5 }); addBox(x - 2.2, gy + 9, z - 2.2, x + 2.2, gy + 9.6, z + 2.2, '#a4161a'); })) made++; }
         else if (place(t, 9, 8, 6, (x, z) => (WR() < 0.5 ? house2 : house)(t, x, z, 9, 8))) made++;
       } else if (t.kind === 'factory') {
         if (made < 2) { if (place(t, 24, 15, 6, (x, z) => warehouse(t, x, z, 24, 15))) made++; }
         else if (made === 2) { if (place(t, 12, 10, 6, (x, z) => apart(t, x, z, 12, 10, 3))) made++; }
-        else if (made === 3) { if (place(t, 4, 4, 6, (x, z) => { const gy = groundH(x, z); addBox(x - 1.6, gy, z - 1.6, x + 1.6, gy + 28, z + 1.6, '#c44536'); addBox(x - 1.8, gy + 24, z - 1.8, x + 1.8, gy + 25, z + 1.8, '#ffffff', { nocol: true }); })) made++; }
+        else if (made === 3) { if (place(t, 4, 4, 6, (x, z) => { const gy = groundH(x, z); addBox(x - 1.6, gy, z - 1.6, x + 1.6, gy + 28, z + 1.6, '#b5543c', { mat: 1 }); addBox(x - 1.8, gy + 24, z - 1.8, x + 1.8, gy + 25, z + 1.8, '#ffffff', { nocol: true }); })) made++; }
         else if (place(t, 7, 7, 5, (x, z) => container(x, z, WR() < 0.5 ? 'x' : 'z', 1 + (WR() < 0.5 ? 1 : 0)))) made++;
       }
     }
@@ -363,12 +373,12 @@ const warehouse = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, fh: 6, do
     for (let i = 0; i < 10; i++) place(t, 2, 2, 3, (x, z) => crateBox(x, z, 1.2 + WR() * 0.4));
     if (t.kind === 'military') { // muro com portões
       const gy = t.h, r = t.r - 4, hW = 2.6, g = 7;
-      const seg = (ax, az, bx2, bz) => { if (Math.abs(ax - bx2) > 0.1) addBox(Math.min(ax, bx2), gy, az - 0.3, Math.max(ax, bx2), gy + hW, az + 0.3, '#c2c5aa'); else addBox(ax - 0.3, gy, Math.min(az, bz), ax + 0.3, gy + hW, Math.max(az, bz), '#c2c5aa'); };
+      const seg = (ax, az, bx2, bz) => { if (Math.abs(ax - bx2) > 0.1) addBox(Math.min(ax, bx2), gy, az - 0.3, Math.max(ax, bx2), gy + hW, az + 0.3, '#c2c5aa', { mat: 3 }); else addBox(ax - 0.3, gy, Math.min(az, bz), ax + 0.3, gy + hW, Math.max(az, bz), '#c2c5aa', { mat: 3 }); };
       for (const s of [-1, 1]) { seg(t.x - r, t.z + s * r, t.x - g, t.z + s * r); seg(t.x + g, t.z + s * r, t.x + r, t.z + s * r); seg(t.x + s * r, t.z - r, t.x + s * r, t.z - g); seg(t.x + s * r, t.z + g, t.x + s * r, t.z + r); }
     }
     if (t.kind === 'port') { // píer entrando no mar
       const a = Math.atan2(t.z, t.x), ex = t.x + Math.cos(a) * (t.r - 10), ez = t.z + Math.sin(a) * (t.r - 10);
-      for (let k = 0; k < 12; k++) { const px = ex + Math.cos(a) * k * 6, pz = ez + Math.sin(a) * k * 6; addBox(px - 3, 1.2, pz - 3, px + 3, 1.6, pz + 3, '#a47148'); }
+      for (let k = 0; k < 12; k++) { const px = ex + Math.cos(a) * k * 6, pz = ez + Math.sin(a) * k * 6; addBox(px - 3, 1.2, pz - 3, px + 3, 1.6, pz + 3, '#a47148', { mat: 4 }); }
     }
   }
   for (const p of LONE) {
@@ -433,7 +443,7 @@ const TREES = [];
 for (const ch of CHUNKS) {
   if (!ch.p.length) continue;
   const g = new T.BufferGeometry();
-  g.setAttribute('position', new T.Float32BufferAttribute(ch.p, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(ch.n, 3)); g.setAttribute('color', new T.Float32BufferAttribute(ch.c, 3));
-  g.computeBoundingSphere(); const cm = new T.Mesh(g, MAT.world); scene.add(cm); CHUNK_MESH.push(cm); ch.p = ch.n = ch.c = null;
+  g.setAttribute('position', new T.Float32BufferAttribute(ch.p, 3)); g.setAttribute('normal', new T.Float32BufferAttribute(ch.n, 3)); g.setAttribute('color', new T.Float32BufferAttribute(ch.c, 3)); g.setAttribute('mt', new T.Float32BufferAttribute(ch.m, 1));
+  g.computeBoundingSphere(); const cm = new T.Mesh(g, MAT.world); scene.add(cm); CHUNK_MESH.push(cm); ch.p = ch.n = ch.c = ch.m = null;
 }
 const bldAt = (x, z, m = 0) => BLD.find(b => x > b.x0 - m && x < b.x1 + m && z > b.z0 - m && z < b.z1 + m);

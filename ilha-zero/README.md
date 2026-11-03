@@ -42,6 +42,18 @@ Q/E inclina, R recarrega, F pega/age, H cura, Tab mochila, M mapa, V 1ª/3ª pes
 - Árvores com copa em camadas, nuvens fofas e sol no céu; personagens com rosto, mãos, cinto, tênis e cabelo mais detalhado
 - Configuração **Gráficos**: Leve (sem sombra e sem grama), Médio e Alto
 
+## Realismo (atualização)
+- **Personagens humanos realistas** (Microsoft Rocketbox, MIT): 10 avatares, 5 masculinos e 5 femininos, entre militares, policiais e civis,
+  com texturas de pele, rosto e roupa e animações de captura de movimento (parado, andando, correndo, agachado).
+  Por cima, os ossos são ajustados por código: tronco e cabeça seguem a mira, as mãos seguram a arma (IK), inclinação,
+  deitado, sentado no veículo, queda livre e paraquedas. Capacete e colete dos militares aparecem só quando equipados.
+  De longe (mais de 85 m) volta o boneco simples para economizar o celular.
+- **Avião de verdade**: Airbus A320 (amvlab, CC BY 4.0) levando os jogadores e no drop de suprimentos.
+- **Armas remodeladas** com a forma real de cada uma (AKM com madeira e pente curvo, M416 com trilhos, SCAR-L areia, AUG e Groza bullpup,
+  Kar98k com ferrolho...) e **miras, lunetas, silenciador e empunhadura visíveis** na arma.
+- **Casas e prédios com materiais**: tijolo à vista, reboco, telhas, placas de concreto, tábuas de madeira, chapa ondulada e vidro nas janelas.
+- Os modelos ficam em `assets/` (cerca de 10 MB) e carregam enquanto o lobby aparece. Créditos em `assets/CREDITS.md`.
+
 ## Próximas fases
 3. Helicóptero
 4. Multijogador online: lobby com amigos (convite por link/código, como no Deep Spear), partidas com bots completando

@@ -29,6 +29,7 @@ function lobbyCamera(dt) {
   camera.lookAt(LOB.x + rx * 1.3 * 0.6, LOB.y + 1.05, LOB.z + rz * 0.6);
   if (Math.abs(camera.fov - 50) > 0.1) { camera.fov = 50; camera.updateProjectionMatrix(); }
   SKY.position.copy(camera.position);
+  humanFrame();
   for (const a of LOB.actors) { a.pitch = Math.sin(LOB.t * 0.8 + a.id) * 0.05 - 0.15; animateModel(a, dt, camera.position.x, camera.position.z, false); }
   VM.visible = false;
 }
@@ -50,7 +51,7 @@ function renderLobby() {
     <label class="lab">Bots</label>
     <div class="seg">${DIFFS.map(d => `<button data-d="${d[0]}" class="${G.diff === d[0] ? 'on' : ''}">${d[1]}</button>`).join('')}</div>
     <button class="btn play" id="lPlay">JOGAR</button>
-    <div class="hint">Mapa: Ilha Zero · bots completam as 50 vagas</div>
+    <div class="hint">Mapa: Ilha Zero · bots completam as 50 vagas${HUM.ready || HUM.failed ? "" : "<br>Carregando personagens realistas..."}</div>
   </div>
   <div class="squad">${Array.from({ length: n }, (_, i) => i === 0 ? `<div class="slot me">${SET.name || 'Você'}</div>` : `<div class="slot"><span>🤖 Bot colega</span><button class="inv" data-inv="1">+ Convidar amigo</button></div>`).join('')}</div>`;
   $('lName').oninput = e => { SET.name = e.target.value.trim().slice(0, 14) || 'Jogador'; saveSet(); };

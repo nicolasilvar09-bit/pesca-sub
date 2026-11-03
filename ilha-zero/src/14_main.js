@@ -1,7 +1,7 @@
 // ================= laço principal =================
 const CHUTE_GEO = mergeParts([{ g: GEO.hsph, y: 0, sx: 5.2, sy: 2.2, sz: 3.6, c: '#ff4fa3' }, { g: GEO.hsph, y: 0.05, sx: 3.2, sy: 2.25, sz: 3.65, c: '#ffe14d' }]);
 function drawActors(dt, hideSelf) {
-  const cx = camera.position.x, cz = camera.position.z;
+  const cx = camera.position.x, cz = camera.position.z; humanFrame();
   for (const a of G.actors) {
     if (!a.model) continue;
     animateModel(a, dt, cx, cz, hideSelf && a === G.player);
