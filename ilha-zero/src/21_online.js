@@ -151,8 +151,8 @@ function partyInvite(uid) {
 function partyLink() { if (!partyCreate()) return ''; return `${location.origin}${location.pathname}?sala=${PARTY.pid}.${PARTY.lead}`; }
 async function partyShare() {
   const url = partyLink(); if (!url) return;
-  const txt = `Bora jogar Ilha Zero no meu esquadrão? ${url}`;
-  try { if (navigator.share) { await navigator.share({ title: 'Ilha Zero', text: txt }); return; } } catch (e) { }
+  const txt = `Bora jogar NK Mobile no meu esquadrão? ${url}`;
+  try { if (navigator.share) { await navigator.share({ title: 'NK Mobile', text: txt }); return; } } catch (e) { }
   try { await navigator.clipboard.writeText(txt); toast('Link copiado! Mande no WhatsApp.', 3, 'gold'); } catch (e) { toast(url, 8); }
 }
 function partyJoin(pid, lead) {

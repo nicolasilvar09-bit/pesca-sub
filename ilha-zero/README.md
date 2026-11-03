@@ -1,6 +1,6 @@
-# Ilha Zero · Battle Royale para celular
+# NK Mobile · Battle Royale para celular
 
-Jogo de tiro battle royale em 3D (Three.js), feito para celular deitado. Tudo num arquivo só (`index.html`), roda no navegador.
+Jogo de tiro battle royale em 3D (mapa: Ilha Zero) (Three.js), feito para celular deitado. Tudo num arquivo só (`index.html`), roda no navegador.
 
 ## Fase 1 (pronta)
 - Ilha de ~1,1 km com 6 cidades (Porto Azul, Vila Cores, Centro, Base Militar, Fazenda Sol, Usina) e 26 casas isoladas

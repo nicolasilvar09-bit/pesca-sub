@@ -39,7 +39,7 @@ function renderLobby() {
   const c = CHARS[SET.char];
   const n = MODES.find(m => m[0] === G.mode)[2];
   el.innerHTML = `
-  <div class="lgo"><div class="logo">ILHA <span>ZERO</span></div><div class="sub">Battle Royale · 50 jogadores</div></div>
+  <div class="lgo"><div class="logo nk"><b>N</b><i>K</i><em>MOBILE</em></div><div class="sub">Battle Royale · 50 jogadores</div></div>
   <div class="lst"><div class="pill">🏆 <b>${SET.wins}</b> vitórias</div><div class="pill">💀 <b>${SET.kills}</b> abates</div><div class="pill">🎮 <b>${SET.matches}</b> partidas</div><div class="hb2" id="lSet">⚙</div></div>
   <div class="lleft">
     <label class="lab">Seu nome</label><input id="lName" maxlength="14" value="${(SET.name || '').replace(/"/g, '')}">
