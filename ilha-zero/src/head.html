@@ -166,6 +166,17 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
 #menuP input[type=range]{flex:1;max-width:200px}
 #menuP select{background:#0f1430;color:#fff;border-radius:8px;padding:4px 8px;border:1px solid #445}
 .row{display:flex;gap:10px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+#frP,#invP{display:flex;align-items:center;justify-content:center;z-index:35}
+#frP .box,#invP .box{background:#1d2450;border-radius:16px;padding:14px 18px;width:min(440px,92vw);display:flex;flex-direction:column;gap:8px;max-height:92vh}
+#frP .box.wide{width:min(560px,94vw)}
+#frP input{flex:1;background:#0f1430;color:#fff;border:1px solid #445;border-radius:10px;padding:9px 10px;text-transform:uppercase}
+.mycode{font-size:14px}.mycode b{color:var(--y);font-size:18px;letter-spacing:2px}
+.flist{overflow-y:auto;touch-action:pan-y;max-height:42vh;display:flex;flex-direction:column;gap:4px}
+.fi{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.07);padding:7px 10px;border-radius:8px;font-size:13px}
+.fi .btn{padding:6px 10px;font-size:12px}
+.lon{position:absolute;left:calc(16px + var(--sl));bottom:14px;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.slot.fr{border:2px solid var(--b);justify-content:center;font-weight:800}.slot small{font-size:10px;opacity:.7;font-weight:400}
+.btn.play.wait{background:#5a6270;box-shadow:none;color:#ddd;font-size:15px}
 #result{display:flex;align-items:center;justify-content:center;z-index:30}
 .rbox{text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
 .rt{font-size:30px;font-weight:1000;font-style:italic}

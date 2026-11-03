@@ -132,11 +132,15 @@ function rollDrop() {
 
 // ---------- itens no chão (grade para achar rápido) ----------
 const IGRID = Array.from({ length: GW * GW }, () => []);
-function dropItem(k, n, x, y, z, w) {
-  const it = { k, n, x, y, z, w: w || (k.startsWith('w:') ? mkWeapon(k.slice(2)) : null), mesh: null, cell: gcell(z) * GW + gcell(x) };
-  IGRID[it.cell].push(it); G.items.push(it); return it;
+let ITEM_N = 0;
+function dropItem(k, n, x, y, z, w, id) {
+  const it = { id: id || (G.net && G.net.on && !G.net.mute ? G.net.uid8 + '-' + (++ITEM_N) : 'i' + (++ITEM_N)), k, n, x, y, z, w: w || (k.startsWith('w:') ? mkWeapon(k.slice(2)) : null), mesh: null, cell: gcell(z) * GW + gcell(x) };
+  IGRID[it.cell].push(it); G.items.push(it);
+  if (G.net && G.net.on && !G.net.mute && !G.net.applying) netSend('drop', { id: it.id, k, n, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), w: it.w });
+  return it;
 }
 function removeItem(it) {
+  if (G.net && G.net.on && !G.net.mute && !G.net.applying) netSend('it', { id: it.id, n: 0 });
   const c = IGRID[it.cell], i = c.indexOf(it); if (i >= 0) c.splice(i, 1);
   const j = G.items.indexOf(it); if (j >= 0) G.items.splice(j, 1);
   if (it.mesh) { scene.remove(it.mesh); it.mesh = null; }
@@ -148,6 +152,7 @@ function itemsNear(x, z, r, out) {
   return out;
 }
 function spawnLoot() {
+  ITEM_N = 0;
   for (const it of G.items.slice()) removeItem(it);
   for (const b of BLD) for (const s of b.spots) {
     if (Math.random() > 0.62 + b.tier * 0.06) continue;

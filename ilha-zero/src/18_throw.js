@@ -8,6 +8,7 @@ function throwNade(a, k, dx, dy, dz, sp) {
   eyePos(a, _ep);
   const m = new T.Mesh(itemGeo(k), MAT.item); m.position.set(_ep.x, _ep.y, _ep.z); scene.add(m);
   NADES.push({ k, o: a, x: _ep.x, y: _ep.y, z: _ep.z, vx: dx * sp, vy: dy * sp, vz: dz * sp, t: 0, m, rest: false });
+  if (G.net.on && !a.remote) netSend('nade', { a: actIx(a), k, x: _ep.x, y: _ep.y, z: _ep.z, vx: dx * sp, vy: dy * sp, vz: dz * sp });
   a.fireCd = 0.6; if (a === G.player) sfx('door');
   return true;
 }
@@ -20,6 +21,7 @@ function pThrow() {
 function nadeBoom(n) {
   const x = n.x, y = n.y + 0.2, z = n.z;
   if (n.k === 'FRAG') {
+    if (n.vis) { for (let i = 0; i < 14; i++) puff(x + rr(-1.5, 1.5), y + rr(0, 2), z + rr(-1.5, 1.5), i % 3 ? '#5a4a3a' : '#ffb347', 1.4, 1.1); sfx('boom'); return; }
     for (let i = 0; i < 14; i++) puff(x + rr(-1.5, 1.5), y + rr(0, 2), z + rr(-1.5, 1.5), i % 3 ? '#5a4a3a' : '#ffb347', 1.4, 1.1);
     sfx('boom');
     for (const a of G.actors) {
@@ -36,7 +38,7 @@ function nadeBoom(n) {
     grp.position.set(x, n.y, z); scene.add(grp);
     SMOKES.push({ x, y: n.y + 2, z, r: 0, t: 0, grp, mats });
   } else {
-    sfx('crash'); FIRES.push({ x, y: n.y, z, t: 0, o: n.o });
+    sfx('crash'); FIRES.push({ x, y: n.y, z, t: 0, o: n.o, vis: n.vis });
   }
 }
 function stepNades(dt) {
@@ -66,7 +68,7 @@ function stepNades(dt) {
   for (let i = FIRES.length - 1; i >= 0; i--) {
     const f = FIRES[i]; f.t += dt;
     if (Math.random() < dt * 30) puff(f.x + rr(-3, 3), f.y + rr(0, 1), f.z + rr(-3, 3), Math.random() < 0.6 ? '#ff7b1a' : '#ffcf4a', 0.6, 0.6);
-    for (const a of G.actors) if (a.alive && a.mode === 'ground' && Math.hypot(a.x - f.x, a.z - f.z) < 3.8 && Math.abs(a.y - f.y) < 2) hurt(a, 12 * dt, f.o, false, 'fogo');
+    if (!f.vis) for (const a of G.actors) if (a.alive && a.mode === 'ground' && Math.hypot(a.x - f.x, a.z - f.z) < 3.8 && Math.abs(a.y - f.y) < 2) hurt(a, 12 * dt, f.o, false, 'fogo');
     if (f.t > 9) FIRES.splice(i, 1);
   }
 }

@@ -23,7 +23,7 @@ function stepZone(dt) {
   }
   zoneWall.scale.set(Math.max(z.r, 0.5), 700, Math.max(z.r, 0.5)); zoneWall.position.set(z.cx, 200, z.cz);
   // dano de quem está fora
-  for (const a of G.actors) if (a.alive && a.mode === 'ground' && Math.hypot(a.x - z.cx, a.z - z.cz) > z.r) hurt(a, Math.max(0.4, z.dmg) * dt, null, false, 'zona');
+  for (const a of G.actors) if (a.alive && !a.remote && a.mode === 'ground' && Math.hypot(a.x - z.cx, a.z - z.cz) > z.r) hurt(a, Math.max(0.4, z.dmg) * dt, null, false, 'zona');
 }
 
 // ---------- avião ----------
@@ -50,6 +50,7 @@ function stepPlanes(dt) {
     for (const a of G.actors) if (a.alive && a.mode === 'plane') {
       a.x = x; a.y = PLANE.y - 3; a.z = z;
       const done = PLANE.t * PLANE.sp > PLANE.len - 120;
+      if (a.remote) continue;
       if (a.bot) { const fol = a.team === G.player.team && G.player.mode === 'plane'; if ((!fol && PLANE.t * PLANE.sp >= a.ai.jumpAt) || done) jumpOut(a); }
       else if (done) jumpOut(a);
     }
@@ -58,7 +59,7 @@ function stepPlanes(dt) {
   if (DROPP.on) {
     DROPP.t += dt; const x = planeX(DROPP), z = planeZ(DROPP); DROPP.m.position.set(x, DROPP.y, z);
     if (!DROPP.dropped && (x - DROPP.tx) * DROPP.dx + (z - DROPP.tz) * DROPP.dz >= 0) {
-      DROPP.dropped = true; const c = addCrate(x, DROPP.y - 6, z, rollDrop(), 'Drop de suprimentos', 'drop'); c.vy = -9;
+      DROPP.dropped = true; const c = addCrate(x, DROPP.y - 6, z, rollDrop(), 'Drop de suprimentos', 'drop', null, -9);
       c.chute = new T.Mesh(GEO.hsph, new T.MeshLambertMaterial({ color: 0xff3b3b })); c.chute.scale.set(5, 3, 5); scene.add(c.chute);
     }
     if (DROPP.t * DROPP.sp > DROPP.len) { DROPP.on = false; DROPP.m.visible = false; }
@@ -67,7 +68,8 @@ function stepPlanes(dt) {
 function callAirdrop() {
   const z = ZONE; let tx = z.nx, tz = z.nz;
   for (let k = 0; k < 20; k++) { const an = rr(0, 6.28), r = Math.sqrt(Math.random()) * z.nr * 0.6; tx = z.nx + Math.cos(an) * r; tz = z.nz + Math.sin(an) * r; if (groundH(tx, tz) > 1) break; }
-  setPath(DROPP, rr(0, 6.28), 0, tx, tz); DROPP.tx = tx; DROPP.tz = tz; DROPP.dropped = false;
+  const ang = rr(0, 6.28); setPath(DROPP, ang, 0, tx, tz); DROPP.tx = tx; DROPP.tz = tz; DROPP.dropped = false;
+  if (G.net.on) netSend('drop_plane', { ang, tx, tz });
   toast('✈ Avião de suprimentos chegando! Fique de olho na fumaça vermelha.', 4, 'gold'); sfx('plane');
 }
 function stepCrates(dt) {
@@ -131,8 +133,16 @@ function clearMatch() {
   for (const c of G.crates) { scene.remove(c.mesh); if (c.chute) scene.remove(c.chute); }
   G.actors = []; G.crates = []; BUL.length = 0; PLANE.on = DROPP.on = false; PLANE.m.visible = DROPP.m.visible = false;
 }
-function startMatch() {
+function startMatch(opt) {
+  opt = opt || {};
+  const R0 = Math.random; if (opt.seed) Math.random = mulberry(opt.seed); // mesma semente = mesmo mundo em todos os aparelhos
+  try { startMatch2(opt); } finally { Math.random = R0; }
+}
+function startMatch2(opt) {
+  const humans = opt.humans || [{ uid: 'me', name: SET.name || 'Jogador', char: SET.char }];
+  if (G.net) G.net.mute = true;
   clearMatch(); spawnLoot(); spawnVehicles();
+  if (G.net) G.net.mute = false;
   const size = { solo: 1, duo: 2, trio: 3, squad: 4 }[G.mode]; G.size = size;
   const names = BOT_NAMES.slice().sort(() => Math.random() - 0.5); let ni = 0;
   const skill = () => { const hi = G.diff === 'alto' || (G.diff === 'mix' && Math.random() < 0.4); return clamp(hi ? rr(0.78, 0.92) : rr(0.38, 0.55), 0, 1); };
@@ -140,13 +150,14 @@ function startMatch() {
   for (let n = 0; n < 50;) {
     team++;
     for (let k = 0; k < size && n < 50; k++, n++) {
-      const isP = n === 0, nm = isP ? SET.name || 'Jogador' : (names[ni++ % names.length] + (ni > names.length ? ni : ''));
-      const a = makeActor({ name: nm, team, bot: !isP, skill: isP ? 1 : skill(), look: isP ? Object.assign({}, CHARS[SET.char] || CHARS[0]) : randLook() });
-      if (!isP) initBot(a);
+      const hu = team === 1 ? humans[k] : null, isP = !!hu, nm = isP ? hu.name : (names[ni++ % names.length] + (ni > names.length ? ni : ''));
+      const a = makeActor({ name: nm, team, bot: !isP, skill: isP ? 1 : skill(), look: isP ? Object.assign({}, CHARS[hu.char] || CHARS[0]) : randLook(), uid: hu ? hu.uid : null, ix: n });
+      initBot(a); if (isP) a.ai = null;
       a.mode = 'plane'; G.actors.push(a); buildModel(a);
     }
   }
-  G.player = G.actors[0]; G.teams = {}; G.teamsLeft = team; G.nTeams = team; G.teamOut = {};
+  G.player = G.actors.find(a => a.uid === (opt.me || 'me')) || G.actors[0]; G.teams = {};
+  if (opt.online) for (const a of G.actors) a.remote = opt.host ? (!!a.uid && a !== G.player) : a !== G.player; G.teamsLeft = team; G.nTeams = team; G.teamOut = {};
   G.view = { yaw: 0, pitch: -0.3, fpp: SET.view === 'fpp', spect: null };
   // avião atravessa a ilha
   setPath(PLANE, rr(0, 6.28), rr(-160, 160));
@@ -205,6 +216,7 @@ function stepMatch(dt) {
   while (G.drops.length && G.matchT > G.drops[0]) { G.drops.shift(); callAirdrop(); }
   for (const a of G.actors) {
     if (!a.alive) continue;
+    if (a.remote) { netInterp(a, dt); continue; }
     if (a.mode === 'plane') { if (a.bot && a.ai.jumpDelay != null && (a.ai.jumpDelay -= dt) <= 0) { a.ai.jumpDelay = null; jumpOut(a); } continue; }
     if (a.mode === 'fall' || a.mode === 'chute') { if (a.bot) botAir(a, dt); continue; }
     actorTimers(a, dt);
@@ -218,9 +230,9 @@ function stepMatch(dt) {
   }
   // pessoas não se atravessam: empurra uma para longe da outra
   const act = G.actors;
-  for (let i = 0; i < act.length; i++) { const a = act[i]; if (!a.alive || a.mode !== 'ground' || a.veh || a.vault) continue;
+  for (let i = 0; i < act.length; i++) { const a = act[i]; if (a.remote || !a.alive || a.mode !== 'ground' || a.veh || a.vault) continue;
     for (let j = i + 1; j < act.length; j++) { const b = act[j]; if (!b.alive || b.mode !== 'ground' || b.veh || b.vault) continue;
       const dx = b.x - a.x, dz = b.z - a.z, d2 = dx * dx + dz * dz; if (d2 > 0.42 || d2 < 1e-6 || Math.abs(a.y - b.y) > 1.2) continue;
       const d = Math.sqrt(d2), p = (0.65 - d) / 2 / d; a.x -= dx * p; a.z -= dz * p; b.x += dx * p; b.z += dz * p; } }
-  stepNades(dt); stepVehicles(dt); stepBullets(dt); stepFx2(dt); stepCrates(dt); stepFx(dt);
+  netTick(dt); stepNades(dt); stepVehicles(dt); stepBullets(dt); stepFx2(dt); stepCrates(dt); stepFx(dt);
 }

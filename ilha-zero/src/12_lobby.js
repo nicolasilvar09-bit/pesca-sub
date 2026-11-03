@@ -10,7 +10,8 @@ function lobbyActors() {
   LOB.actors = [];
   const n = MODES.find(m => m[0] === G.mode)[2];
   for (let i = 0; i < n; i++) {
-    const a = makeActor({ look: i === 0 ? Object.assign({}, CHARS[SET.char]) : randLook(), mode: 'ground' });
+    const pm = PARTY.pid && PARTY.members[i] && PARTY.members[i].uid !== (ON.s && ON.s.uid) ? PARTY.members[i] : null, mine = PARTY.pid ? PARTY.members[i] && PARTY.members[i].uid === (ON.s && ON.s.uid) : i === 0;
+    const a = makeActor({ look: mine ? Object.assign({}, CHARS[SET.char]) : pm ? Object.assign({}, CHARS[pm.char] || CHARS[0]) : randLook(), mode: 'ground' });
     if (i === 0) a.wp[0] = mkWeapon('M416'); else a.wp[0] = mkWeapon(pick(['AKM', 'SCAR-L', 'UMP45', 'KAR98K']));
     a.cur = 0; a.vest = i === 0 ? { lv: 2, dur: 1 } : null; a.helm = i === 0 ? { lv: 2, dur: 1 } : null;
     buildModel(a);
@@ -53,18 +54,26 @@ function renderLobby() {
     <button class="btn play" id="lPlay">JOGAR</button>
     <div class="hint">Mapa: Ilha Zero · bots completam as 50 vagas${HUM.ready || HUM.failed ? "" : "<br>Carregando personagens realistas..."}</div>
   </div>
-  <div class="squad">${Array.from({ length: n }, (_, i) => i === 0 ? `<div class="slot me">${SET.name || 'Você'}</div>` : `<div class="slot"><span>🤖 Bot colega</span><button class="inv" data-inv="1">+ Convidar amigo</button></div>`).join('')}</div>`;
+  <div class="squad">${Array.from({ length: n }, (_, i) => { const m = PARTY.pid ? PARTY.members[i] : (i === 0 ? { uid: 'me', name: SET.name } : null);
+    if (m) { const me = !PARTY.pid || m.uid === (ON.s && ON.s.uid); return `<div class="slot ${me ? 'me' : 'fr'}">${(m.name || 'Jogador').replace(/</g, '')}${m.uid === PARTY.lead ? ' 👑' : ''}<small>${me ? 'você' : 'amigo'}</small></div>`; }
+    return `<div class="slot"><span>🤖 Bot colega</span><button class="inv" data-inv="1">+ Convidar amigo</button></div>`; }).join('')}</div>
+  <div class="lon"><button class="pill" id="lFr">👥 Amigos${Object.keys(ON.online).filter(k => ON.friends.some(f => f.id === k)).length ? ' · ' + Object.keys(ON.online).filter(k => ON.friends.some(f => f.id === k)).length + ' online' : ''}</button><span class="pill">${ON.me ? '🟢 Código <b>' + ON.me.code + '</b>' : ON.err ? '⚪ ' + ON.err : '⚪ conectando...'}</span></div>`;
   $('lName').oninput = e => { SET.name = e.target.value.trim().slice(0, 14) || 'Jogador'; saveSet(); };
-  $('chP').onclick = () => { SET.char = (SET.char + CHARS.length - 1) % CHARS.length; saveSet(); lobbyActors(); renderLobby(); };
-  $('chN').onclick = () => { SET.char = (SET.char + 1) % CHARS.length; saveSet(); lobbyActors(); renderLobby(); };
-  el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { G.mode = SET.mode = b.dataset.m; saveSet(); lobbyActors(); renderLobby(); });
-  el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { G.diff = SET.diff = b.dataset.d; saveSet(); renderLobby(); });
-  el.querySelectorAll('[data-inv]').forEach(b => b.onclick = () => toast('Convidar amigos chega com o modo online (próxima fase). Por enquanto, bots ocupam a vaga.', 3.5));
+  $('lName').onchange = () => { renameOnline(); charChanged(); };
+  $('chP').onclick = () => { SET.char = (SET.char + CHARS.length - 1) % CHARS.length; saveSet(); charChanged(); lobbyActors(); renderLobby(); };
+  $('chN').onclick = () => { SET.char = (SET.char + 1) % CHARS.length; saveSet(); charChanged(); lobbyActors(); renderLobby(); };
+  el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const sz = MODES.find(m => m[0] === b.dataset.m)[2]; if (PARTY.pid && PARTY.members.length > sz) { toast('O esquadrão tem ' + PARTY.members.length + ' pessoas: escolha um modo maior.', 2.5); return; } G.mode = SET.mode = b.dataset.m; saveSet(); lobbyActors(); renderLobby(); partyState(); });
+  el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { G.diff = SET.diff = b.dataset.d; saveSet(); renderLobby(); partyState(); });
+  el.querySelectorAll('[data-inv]').forEach(b => b.onclick = openFriends); $('lFr').onclick = openFriends;
+  const guest = PARTY.pid && !partyLead();
+  if (guest) { $('lPlay').textContent = 'AGUARDANDO O LÍDER'; $('lPlay').disabled = true; $('lPlay').classList.add('wait'); el.querySelectorAll('[data-m],[data-d]').forEach(b => b.disabled = true); }
   $('lSet').onclick = () => { G.phase = 'lobbyMenu'; openMenu(); $('mQuit').style.display = 'none'; $('mBack').onclick = () => { closePanels(); G.phase = 'lobby'; }; };
   $('lPlay').onclick = play;
 }
+function charChanged() { if (PARTY.pid) { if (partyLead()) { const m = PARTY.members.find(x => x.uid === ON.s.uid); if (m) { m.char = SET.char; m.name = myName(); } partyState(); } else pSend('p_char', { char: SET.char, name: myName() }); } }
 function play() {
   sfxInit();
+  if (PARTY.pid && PARTY.members.length > 1) { if (partyLead()) leaderStart(); return; }
   for (const a of LOB.actors) removeModel(a); LOB.actors = [];
   $('lobby').classList.add('hidden'); $('result').classList.add('hidden'); $('hud').classList.remove('hidden');
   buildHud(); IN.adsOn = false; IN.fire = false;
@@ -72,6 +81,7 @@ function play() {
   try { if (document.documentElement.requestFullscreen && matchMedia('(pointer:coarse)').matches) document.documentElement.requestFullscreen().catch(() => { }); } catch (e) { }
 }
 function toLobby() {
+  if (G.net.on) netEnd();
   clearMatch(); G.phase = 'lobby'; G.result = null; G.view = null;
   $('hud').classList.add('hidden'); $('result').classList.add('hidden'); closePanels(); $('lobby').classList.remove('hidden');
   if (document.pointerLockElement) document.exitPointerLock();

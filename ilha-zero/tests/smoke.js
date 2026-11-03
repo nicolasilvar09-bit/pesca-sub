@@ -15,7 +15,7 @@ const server = http.createServer((q, r) => { const u = decodeURIComponent(q.url.
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
   for (const mode of (process.env.MODES || 'squad,solo').split(',')) {
     const p = await b.newPage({ viewport: { width: 812, height: 375 } }); const errs = [];
-    p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+    p.on('pageerror', e => errs.push(e.message)); await p.route(/supabase\.co/, r => r.abort()); // teste sem internet: o jogo segue sem o online p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
     await p.addInitScript(m => { localStorage.clear(); localStorage.setItem('ilhazero_v1', JSON.stringify({ mode: m, diff: 'mix' })); }, mode);
     const t0 = Date.now();
     try {

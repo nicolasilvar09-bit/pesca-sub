@@ -80,11 +80,13 @@ function enterVeh(a, v, pref) {
   a.veh = v; a.seat = s; v.seats[s] = a; a.vx = a.vz = 0; a.stance = 'crouch'; a.ads = false; a.leanT = a.lean = 0; a.healT = 0; a.reviving = null;
   if (s === 0 && a.bot) (G.vdrivers = G.vdrivers || []).push(a.id);
   if (s === 0) { v.revT = 0; if (a.bot) { a.ai.vstop = false; a.ai.vstuck = 0; } }
+  if (G.net.on && !a.remote && !G.net.applying) netSend('veh', { ix: VEH.indexOf(v), a: actIx(a), seat: s, in: 1 });
   if (a === G.player) { IN.adsOn = false; toast(s === 0 ? `${v.d.n}: joystick acelera e vira. Puxe para trás para frear.` : `Passageiro do ${v.d.n}: dá para atirar daqui.`, 3); sfx('door'); }
   return true;
 }
 function leaveVeh(a, forced) {
   const v = a.veh; if (!v) return;
+  if (G.net.on && !a.remote && !G.net.applying) netSend('veh', { ix: VEH.indexOf(v), a: actIx(a), seat: a.seat, in: 0 });
   v.seats[a.seat] = null; const s = v.d.seats[a.seat], rx = Math.cos(v.yaw), rz = -Math.sin(v.yaw);
   const side = s[0] < 0 ? -1 : s[0] > 0 ? 1 : -1, off = v.d.hw + 0.9;
   let x = v.x + rx * side * off, z = v.z + rz * side * off;
@@ -104,6 +106,8 @@ function switchSeat(a) {
 // ---------- dano ----------
 function vehHurt(v, dmg, src) {
   if (v.dead) return;
+  if (G.net.on && !G.net.host && !G.net.applying) { netSend('vhit', { to: G.net.hostUid, ix: VEH.indexOf(v), dmg: +dmg.toFixed(1), src: actIx(src) }); return; }
+  v.netDirty = true;
   v.hp -= dmg; if (src) v.lastHit = src;
   if (v.hp <= 0) explode(v);
 }
@@ -134,6 +138,12 @@ function rayVehicles(ox, oy, oz, dx, dy, dz, len, skip) {
 // ---------- física ----------
 function stepVehicles(dt) {
   for (const v of VEH) {
+    if (G.net.on && !vehLocal(v)) { // simulado em outro aparelho: só acompanha
+      netVehInterp(v, dt); syncVehMesh(v);
+      const fx1 = vfx(v), fz1 = vfz(v), rx1 = Math.cos(v.yaw), rz1 = -Math.sin(v.yaw);
+      for (let i = 0; i < v.seats.length; i++) { const a = v.seats[i]; if (!a) continue; if (!a.alive) { v.seats[i] = null; continue; } const s = v.d.seats[i]; a.x = v.x + rx1 * s[0] - fx1 * s[1]; a.z = v.z + rz1 * s[0] - fz1 * s[1]; a.y = v.y + s[2] - 0.6; a.stance = 'crouch'; if (i === 0) a.yaw = v.yaw; }
+      continue;
+    }
     const d = v.d, drv = v.seats[0];
     if (!drv || v.dead) { v.thr = 0; v.str = 0; }
     const fx = vfx(v), fz = vfz(v), rx = Math.cos(v.yaw), rz = -Math.sin(v.yaw);

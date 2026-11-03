@@ -62,7 +62,7 @@ function playerStep(dt) {
       if (it.k.startsWith('w:')) continue;
       const got = giveItem(p, it.k, it.n, it.w, false); if (!got) continue;
       toast('+ ' + itemInfo(it.k).n + (it.n > 1 ? ' x' + got : ''), 1.2); sfx('pick');
-      if (got >= it.n) removeItem(it); else it.n -= got;
+      if (got >= it.n) removeItem(it); else { it.n -= got; netItem(it); }
     }
   }
 }
@@ -84,8 +84,8 @@ function pPickup(it, fromCrate) {
   const got = giveItem(p, it.k, it.n, it.w, true);
   if (!got) { toast('Mochila cheia!', 1.5, 'bad'); return; }
   sfx('pick');
-  if (fromCrate) { if (got >= it.n || it.k.startsWith('w:')) fromCrate.items.splice(fromCrate.items.indexOf(it), 1); else it.n -= got; crateCleanup(fromCrate); }
-  else if (got >= it.n || it.k.startsWith('w:')) removeItem(it); else it.n -= got;
+  if (fromCrate) { if (got >= it.n || it.k.startsWith('w:')) fromCrate.items.splice(fromCrate.items.indexOf(it), 1); else it.n -= got; netCrate(fromCrate); crateCleanup(fromCrate); }
+  else if (got >= it.n || it.k.startsWith('w:')) removeItem(it); else { it.n -= got; netItem(it); }
   hudDirty();
 }
 function pDrop(k, n) {

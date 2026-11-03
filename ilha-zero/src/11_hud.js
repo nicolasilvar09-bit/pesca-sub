@@ -207,6 +207,7 @@ function addFeed(src, a, wn, knocked) {
   const me = src === G.player || a === G.player || (src && src.team === G.player.team) || a.team === G.player.team;
   const s = src && src !== a ? `<b>${src.name}</b> ${knocked ? 'derrubou' : 'abateu'} <b>${a.name}</b> <small>${wn || ''}</small>` : `<b>${a.name}</b> ${wn === 'zona' ? 'morreu na zona' : wn === 'queda' ? 'caiu de muito alto' : knocked ? 'foi derrubado' : 'morreu'}`;
   G.feed.push({ html: s, t: G.matchT, me }); if (G.feed.length > 5) G.feed.shift();
+  if (G.net.on && !G.net.applying) netSend('feed', { html: s, killer: actIx(src), kn: !!knocked, vname: a.name, team: a.team });
   if (src === G.player && !knocked) toast(`💀 Você abateu ${a.name}!`, 1.8, 'gold');
   hudDirty();
 }

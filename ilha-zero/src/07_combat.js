@@ -107,6 +107,7 @@ function fireShot(a, ox, oy, oz, dx, dy, dz) {
   a.recoil = Math.min(a.recoil + 0.25, 2.5);
   a.kick = (a.kick || 0) + d.rec * mods.rec;
   if (d.burst) a.burstN++;
+  if (G.net.on && !a.remote) G.net.shots.push([actIx(a), +ox.toFixed(2), +oy.toFixed(2), +oz.toFixed(2), +fx.toFixed(4), +(fy + zero).toFixed(4), +fz.toFixed(4), w.k]);
   shotSound(a, d, mods.quiet); muzzleFlash(a, mods.quiet);
   if (a === G.player) { G.flash = 0.05; G.camKick = (G.camKick || 0) + d.rec * mods.rec; }
   else if (!mods.quiet) a.lastShotT = G.matchT;
@@ -126,7 +127,7 @@ function stepBullets(dt) {
     const hv = rayVehicles(b.x, b.y, b.z, dx, dy, dz, len, b.o.veh);
     if (hv.v && hv.t < ts && (!ha.a || hv.t < ha.t)) {
       puff(b.x + dx * hv.t, b.y + dy * hv.t, b.z + dz * hv.t, '#ffd166', 0.18, 0.25);
-      vehHurt(hv.v, b.dmg, b.o); if (b.o === G.player) hudHit(false, false, 0);
+      if (!b.vis) vehHurt(hv.v, b.dmg, b.o); if (b.o === G.player) hudHit(false, false, 0);
       BUL.splice(i, 1); continue;
     }
     if (ha.a && ha.t < ts) {
@@ -134,7 +135,7 @@ function stepBullets(dt) {
       puff(hx, hy, hz, '#d61f1f', 0.25, 0.35);
       const dist = Math.hypot(hx - b.o.x, hz - b.o.z);
       const fall = b.fall ? clamp(1 - Math.hypot(hx - b.sx, hz - b.sz) / 45, 0.12, 1) : 1;
-      hurt(ha.a, b.dmg * fall * (ha.head ? b.head : 1) * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn);
+      if (!b.vis) hurt(ha.a, b.dmg * fall * (ha.head ? b.head : 1) * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn);
       BUL.splice(i, 1); continue;
     }
     if (ts < len) { const hx = b.x + dx * ts, hy = b.y + dy * ts, hz = b.z + dz * ts; puff(hx, hy, hz, '#d8cfb8', 0.3, 0.5); if (RAY_BOX) bulletDecal(hx, hy, hz, RAY_BOX); BUL.splice(i, 1); continue; }
@@ -149,6 +150,16 @@ function stepBullets(dt) {
 const teamMates = a => G.actors.filter(m => m.team === a.team && m !== a);
 const teamUp = team => G.actors.some(m => m.team === team && m.alive && !m.knocked);
 function hurt(a, dmg, src, head, wn) {
+  // online: personagem de outro aparelho -> o dono aplica o dano
+  if (G.net.on && a.remote && !G.net.applying) {
+    if (!a.alive || dmg <= 0) return;
+    netSend('hit', { to: ownerOf(a), ix: actIx(a), dmg: +dmg.toFixed(1), src: actIx(src), head: !!head, wn });
+    if (src === G.player) hudHit(head, false, dmg);
+    return;
+  }
+  hurtLocal(a, dmg, src, head, wn);
+}
+function hurtLocal(a, dmg, src, head, wn) {
   if (!a.alive || dmg <= 0 || a.mode === 'plane' || (G.god && a === G.player)) return;
   if (src && src !== a) { a.lastHitBy = src; a.lastHitT = G.matchT; if (a.bot) botAlert(a, src); }
   if (a.knocked) { a.khp -= dmg; if (src && src.alive) src.dmgDone += dmg; if (a.khp <= 0) kill(a, src || a.knockBy, wn); return; }
@@ -171,7 +182,8 @@ function knock(a, src, wn) {
   addFeed(src, a, wn, true);
   if (a === G.player) toast('Você foi derrubado! Aguarde um colega reviver.', 3, 'bad');
 }
-function revive(a) { a.knocked = false; a.hp = 15; a.stance = 'crouch'; a.khp = 0; if (a === G.player) toast('Você foi revivido!', 2, 'gold'); }
+function revive(a) {
+  if (G.net.on && a.remote && !G.net.applying) { netSend('rev', { to: ownerOf(a), ix: actIx(a) }); return; } a.knocked = false; a.hp = 15; a.stance = 'crouch'; a.khp = 0; if (a === G.player) toast('Você foi revivido!', 2, 'gold'); }
 function kill(a, src, wn) {
   if (!a.alive) return;
   a.alive = false; a.knocked = false; a.hp = 0; a.deadT = G.matchT;
@@ -183,7 +195,7 @@ function kill(a, src, wn) {
   if (a.model && a.model.human) toCorpse(a); else removeModel(a);
   if (a === G.player) onPlayerDead(src);
   if (!teamUp(a.team)) { // equipe toda fora: quem está derrubado morre também
-    for (const m of G.actors) if (m.team === a.team && m.alive) kill(m, m.knockBy || src, wn);
+    for (const m of G.actors) if (m.team === a.team && m.alive && !m.remote) kill(m, m.knockBy || src, wn);
     teamOut(a.team);
   }
 }
@@ -196,11 +208,14 @@ function deathBox(a) {
   if (!items.length) return;
   addCrate(a.x, a.y, a.z, items, 'Caixa de ' + a.name, 'death');
 }
-function addCrate(x, y, z, items, name, kind) {
+let CRATE_N = 0;
+function addCrate(x, y, z, items, name, kind, id, vy) {
   const geo = kind === 'drop' ? mergeParts([bx(-0.7, 0, -0.7, 1.4, 1.1, 1.4, '#e63946'), bx(-0.72, 0.45, -0.72, 1.44, 0.2, 1.44, '#ffffff')])
     : mergeParts([bx(-0.45, 0, -0.3, 0.9, 0.5, 0.6, '#c58b4b'), bx(-0.47, 0.5, -0.32, 0.94, 0.06, 0.64, '#7a5230')]);
   const m = new T.Mesh(geo, MAT.item); m.position.set(x, y, z); scene.add(m);
-  const c = { x, y, z, items, name, kind, mesh: m, vy: 0 }; G.crates.push(c); return c;
+  const c = { id: id || ((G.net.on ? G.net.uid8 : 'l') + '-c' + (++CRATE_N)), x, y, z, items, name, kind, mesh: m, vy: vy || 0 }; G.crates.push(c);
+  if (G.net.on && !G.net.applying && !id) netSend('crate', { id: c.id, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2), items: items.map(e => ({ k: e.k, n: e.n, w: e.w })), name, kind, vy: c.vy });
+  return c;
 }
 
 // soco (sem arma): curto alcance, na frente

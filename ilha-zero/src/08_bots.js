@@ -242,13 +242,13 @@ function botTick(a, dt) {
   if (g === 'loot') {
     if (ai.lootIt && d < 1.6 && Math.abs(ai.lootIt.y - a.y) < 1.4 && G.items.includes(ai.lootIt)) {
       const it = ai.lootIt, got = giveItem(a, it.k, it.n, it.w, false);
-      if (got >= it.n || it.k.startsWith('w:') && got) removeItem(it); else if (got) it.n -= got; else ai.skip.add(it);
+      if (got >= it.n || it.k.startsWith('w:') && got) removeItem(it); else if (got) { it.n -= got; netItem(it); } else ai.skip.add(it);
       ai.lootIt = null; ai.think = 0.05;
     }
     if (ai.lootCr && Math.hypot(ai.lootCr.x - a.x, ai.lootCr.z - a.z) < 1.8) {
       const c = ai.lootCr;
       for (const e of c.items.slice()) if (wantAuto(a, e)) { const got = giveItem(a, e.k, e.n, e.w, false); if (got >= e.n || (e.k.startsWith('w:') && got)) c.items.splice(c.items.indexOf(e), 1); else e.n -= got; }
-      ai.lootCr = null; ai.think = 0.05; crateCleanup(c);
+      ai.lootCr = null; ai.think = 0.05; netCrate(c); crateCleanup(c);
     }
     if (!ai.lootIt && !ai.lootCr && bldAt(a.x, a.z, -0.3) && Math.hypot(ai.tx - a.x, ai.tz - a.z) < 2.5) ai.visited.add(bldAt(a.x, a.z, -0.3));
   }

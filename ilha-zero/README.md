@@ -84,9 +84,19 @@ Q/E inclina, R recarrega, F pega/age, H cura, Tab mochila, M mapa, V 1ª/3ª pes
 - **Física**: suspensão dos veículos (afunda ao frear, empina ao acelerar, inclina na curva, quica ao cair; a moto deita na
   curva) e as pessoas não se atravessam mais.
 
+## App e online (atualização)
+- **Instalar como app**: ícone próprio e funciona sem internet depois da primeira visita (os modelos ficam guardados no aparelho).
+  No Chrome do Android: menu ⋮ → "Instalar app"/"Adicionar à tela inicial". No iPhone: Compartilhar → "Adicionar à Tela de Início".
+- **Conta automática**, a mesma do Deep Spear (mesmo site): mesmo **código de amigo** e mesmos amigos.
+- **👥 Amigos** no lobby: adicionar por código, ver quem está online, **convidar** direto ou mandar o **link pelo WhatsApp**.
+- **Esquadrão de até 4 amigos**: o líder (👑) escolhe modo e bots e toca JOGAR para todos; os bots completam as 50 vagas.
+- **Partida em grupo**: o líder simula o mundo (bots, zona, saque, drop, veículos); cada um controla o próprio personagem.
+  Sincronizados: posições, tiros, dano (nos dois sentidos), derrubar/reviver, mortes e caixas, itens pegos/soltos, veículos,
+  granadas e o avião de suprimentos.
+- **Progresso na nuvem** (opcional): rodar uma vez `supabase/ilhazero.sql` no SQL Editor do Supabase. Sem isso, fica só no aparelho.
+
 ## Próximas fases
 3. Helicóptero
-4. Multijogador online: lobby com amigos (convite por link/código, como no Deep Spear), partidas com bots completando
 5. Voz só entre a equipe, marcações (ping), personalização
 
 ## Desenvolvimento
