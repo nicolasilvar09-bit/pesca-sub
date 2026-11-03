@@ -124,6 +124,12 @@ function botThink(a) {
   if (ai.enemy && (hasGun(a) || melee) && !(zoneUrgent && !ai.vis && out)) {
     ai.goal = 'fight'; botPickWeapon(a, Math.hypot(ai.enemy.x - a.x, ai.enemy.z - a.z)); return;
   }
+  // carona: colegas do jogador entram no carro dele; a equipe entra no carro do motorista bot
+  const vt = ai.vehT;
+  if (vt && (vt.dead || (!ai.wantDrive && passSeat(vt) < 0) || Math.hypot(vt.x - a.x, vt.z - a.z) > 60 || (!ai.wantDrive && !vt.seats.some(s => s && s.team === a.team)))) { ai.vehT = null; ai.wantDrive = false; }
+  const pv = G.player.veh;
+  if (!ai.vehT && pv && a.team === G.player.team && !pv.dead && Math.hypot(pv.x - a.x, pv.z - a.z) < 40 && passSeat(pv) >= 0) { ai.vehT = pv; ai.wantDrive = false; }
+  if (ai.vehT) { ai.goal = 'getveh'; ai.tx = ai.vehT.x; ai.tz = ai.vehT.z; ai.sprint = true; return; }
   // reviver colega derrubado
   const down = !ai.enemy && G.actors.find(m => m.team === a.team && m !== a && m.alive && m.knocked && Math.hypot(m.x - a.x, m.z - a.z) < 90);
   if (down) { ai.goal = 'revive'; ai.tx = down.x; ai.tz = down.z; ai.revT = down; return; }
@@ -134,6 +140,11 @@ function botThink(a) {
   if (zoneUrgent) {
     if (!ai.zoneGo || Math.hypot(ai.zoneGo[0] - z.nx, ai.zoneGo[1] - z.nz) > z.nr * 0.8) {
       for (let k = 0; k < 8; k++) { const an = rr(0, 6.28), r = Math.sqrt(Math.random()) * z.nr * 0.65, x = z.nx + Math.cos(an) * r, zz = z.nz + Math.sin(an) * r; ai.zoneGo = [x, zz]; if (groundH(x, zz) > 0.5) break; }
+    }
+    // longe da zona: pega um veículo vazio por perto (os colegas do jogador ficam com ele)
+    if (a.team !== G.player.team && G.matchT > (ai.vehCd || 0) && Math.hypot(ai.zoneGo[0] - a.x, ai.zoneGo[1] - a.z) > 170) {
+      const v = nearVeh(a, 55);
+      if (v && !v.seats[0] && v.hp > 350 && !v.water) { ai.vehT = v; ai.wantDrive = true; ai.vtx = ai.zoneGo[0]; ai.vtz = ai.zoneGo[1]; ai.goal = 'getveh'; ai.tx = v.x; ai.tz = v.z; return; }
     }
     ai.goal = 'zone'; ai.tx = ai.zoneGo[0]; ai.tz = ai.zoneGo[1]; ai.sprint = true; return;
   }
@@ -196,6 +207,22 @@ function botTick(a, dt) {
     return;
   }
   if (g === 'fight') return botFight(a, dt);
+  if (g === 'getveh') {
+    const v = ai.vehT; if (!v) { ai.goal = 'roam'; return; }
+    const d = Math.hypot(v.x - a.x, v.z - a.z);
+    if (d < 3.3) {
+      const seat = ai.wantDrive ? (v.seats[0] ? -1 : 0) : passSeat(v);
+      if (seat >= 0 && enterVeh(a, v, seat) && seat === 0) {
+        const mates = G.actors.filter(m => m.team === a.team && m !== a && m.alive && !m.veh && !m.knocked && m.ai && Math.hypot(m.x - a.x, m.z - a.z) < 30);
+        for (const m of mates) { m.ai.vehT = v; m.ai.wantDrive = false; }
+        if (mates.length) v.wait = 6;
+      }
+      ai.vehT = null; ai.wantDrive = false; return;
+    }
+    ai.sprint = true; botSteer(a, dt, v.x, v.z);
+    if (Math.hypot(a.vx, a.vz) > 0.5) a.yaw += wrapA(Math.atan2(-a.vx, -a.vz) - a.yaw) * Math.min(1, dt * 6);
+    return;
+  }
   a.ads = false;
   if (a.stance === 'prone') a.stance = 'crouch';
   if (g === 'heal') { applyMove(a, dt, 0, 0, 0); if (a.stance === 'stand') a.stance = 'crouch'; lookAround(a, dt); return; }

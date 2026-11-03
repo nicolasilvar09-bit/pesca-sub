@@ -2,7 +2,7 @@
 const BTN = [ // id, rótulo, classe de posição
   ['fireR', '<i class="ic-fire"></i>', 'fire fireR'], ['fireL', '<i class="ic-fire"></i>', 'fire fireL'], ['ads', '<i class="ic-ads"></i>', 'ads'],
   ['jump', '⤒', 'jump'], ['crouch', '<b>AGACHAR</b>', 'crouch'], ['prone', '<b>DEITAR</b>', 'prone'], ['reload', '⟳', 'reload'],
-  ['leanL', '◤', 'leanL'], ['leanR', '◥', 'leanR'], ['bag', '🎒', 'bag'], ['heal', '✚', 'heal'], ['act', 'PULAR', 'act'], ['view', '3P', 'view'], ['menu', '☰', 'menu'],
+  ['leanL', '◤', 'leanL'], ['leanR', '◥', 'leanR'], ['bag', '🎒', 'bag'], ['heal', '✚', 'heal'], ['act', 'PULAR', 'act'], ['seat', '⇄', 'seat'], ['view', '3P', 'view'], ['menu', '☰', 'menu'],
 ];
 let hudBuilt = false, hudDirtyF = true;
 const hudDirty = () => { hudDirtyF = true; };
@@ -63,6 +63,7 @@ function btnDown(id) {
   if (id === 'bag') { G.openCrate = null; openBag(); return; }
   if (id === 'heal') { $('healL').classList.toggle('hidden'); renderHealList(); return; }
   if (id === 'act') { pAct(); return; }
+  if (id === 'seat') { switchSeat(p); return; }
   if (id === 'view') { G.view.fpp = !G.view.fpp; SET.view = G.view.fpp ? 'fpp' : 'tpp'; saveSet(); return; }
   if (id === 'menu') { openMenu(); return; }
   if (id === 'map') { toggleMap(); return; }
@@ -139,10 +140,13 @@ function updateHud(dt) {
   // botão de ação
   const act = $('b_act'), c = ctx();
   let at = '';
-  if (alive) { if (p.mode === 'plane') at = 'PULAR'; else if (p.mode === 'fall') at = 'PARAQUEDAS'; else if (c.knocked) at = 'REVIVER'; else if (c.crate) at = 'SAQUEAR'; }
+  if (alive) { if (p.mode === 'plane') at = 'PULAR'; else if (p.mode === 'fall') at = 'PARAQUEDAS'; else if (p.veh) at = 'SAIR'; else if (c.knocked) at = 'REVIVER'; else if (c.crate) at = 'SAQUEAR'; else if (c.veh) at = 'ENTRAR'; }
   act.textContent = at; act.classList.toggle('hidden', !at);
   // botões que só fazem sentido no chão
-  for (const id of ['fireR', 'fireL', 'ads', 'jump', 'crouch', 'prone', 'reload', 'leanL', 'leanR', 'heal']) $('b_' + id).classList.toggle('hidden', !alive || air || (p.knocked && id !== 'fireR' && id !== 'fireL') || (p.knocked));
+  for (const id of ['fireR', 'fireL', 'ads', 'jump', 'crouch', 'prone', 'reload', 'leanL', 'leanR', 'heal']) $('b_' + id).classList.toggle('hidden', !alive || air || p.knocked || (p.veh && (p.seat === 0 || ['jump', 'crouch', 'prone', 'leanL', 'leanR'].includes(id))));
+  $('b_seat').classList.toggle('hidden', !alive || !p.veh);
+  const vi = $('vehI'); vi.classList.toggle('hidden', !alive || !p.veh);
+  if (p.veh) { const ve = p.veh; vi.innerHTML = `<b>${Math.round(Math.abs(ve.sp) * 3.6)}</b> km/h · ${ve.d.n}<div class="vb"><i style="width:${ve.hp / ve.d.hp * 100}%"></i></div>`; }
   $('b_leanL').classList.toggle('on', p.leanT < 0); $('b_leanR').classList.toggle('on', p.leanT > 0);
   $('b_crouch').classList.toggle('on', p.stance === 'crouch'); $('b_prone').classList.toggle('on', p.stance === 'prone'); $('b_ads').classList.toggle('on', IN.adsOn);
   $('b_view').textContent = G.view.fpp ? '1P' : '3P';

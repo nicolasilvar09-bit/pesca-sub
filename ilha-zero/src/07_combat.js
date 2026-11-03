@@ -116,6 +116,12 @@ function stepBullets(dt) {
     const ts = rayStatic(b.x, b.y, b.z, dx, dy, dz, len);
     const ha = rayActors(b.x, b.y, b.z, dx, dy, dz, len, b.o, b.team);
     b.life += dt;
+    const hv = rayVehicles(b.x, b.y, b.z, dx, dy, dz, len, b.o.veh);
+    if (hv.v && hv.t < ts && (!ha.a || hv.t < ha.t)) {
+      puff(b.x + dx * hv.t, b.y + dy * hv.t, b.z + dz * hv.t, '#ffd166', 0.18, 0.25);
+      vehHurt(hv.v, b.dmg, b.o); if (b.o === G.player) hudHit(false, false, 0);
+      BUL.splice(i, 1); continue;
+    }
     if (ha.a && ha.t < ts) {
       const hx = b.x + dx * ha.t, hy = b.y + dy * ha.t, hz = b.z + dz * ha.t;
       puff(hx, hy, hz, '#d61f1f', 0.25, 0.35);
@@ -151,6 +157,7 @@ function hurt(a, dmg, src, head, wn) {
   }
 }
 function knock(a, src, wn) {
+  if (a.veh) leaveVeh(a, true);
   a.knocked = true; a.khp = 100; a.hp = 0; a.healT = 0; a.reloadT = 0; a.ads = false; a.stance = 'prone'; a.knockBy = src; a.lean = 0; a.leanT = 0;
   a.knockN = (a.knockN || 0) + 1;
   addFeed(src, a, wn, true);
@@ -161,6 +168,7 @@ function kill(a, src, wn) {
   if (!a.alive) return;
   a.alive = false; a.knocked = false; a.hp = 0; a.deadT = G.matchT;
   (G.deathLog = G.deathLog || []).push([Math.round(G.matchT), wn || '?', src && src.bot ? (src.skill > 0.7 ? 'A' : 'M') : src ? 'P' : '-']);
+  if (a.veh) leaveVeh(a, true);
   if (src && src !== a && src.team !== a.team) src.kills++;
   addFeed(src, a, wn, false);
   deathBox(a); removeModel(a);

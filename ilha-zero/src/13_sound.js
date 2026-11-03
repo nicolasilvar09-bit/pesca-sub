@@ -28,11 +28,22 @@ function shotSound(a, d, quiet) {
   noise(quiet ? 0.08 : 0.12 + big * 0.12, v * 0.55 * big, quiet ? 1800 : far ? 700 : 2400 + big * 600, 0.8);
   tone(quiet ? 400 : 140 * (1.6 - big * 0.4), 0.09 + big * 0.06, v * 0.35 * big, 'triangle', 50);
 }
+let ENG = null;
+function sfxEngine(sp, vol, moto) {
+  if (!AC) return;
+  if (!ENG) { const o = AC.createOscillator(), o2 = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter(); o.type = 'sawtooth'; o2.type = 'square'; f.type = 'lowpass'; f.frequency.value = 500; g.gain.value = 0; o.connect(f); o2.connect(f); f.connect(g).connect(AC.destination); o.start(); o2.start(); ENG = { o, o2, g }; }
+  const n = AC.currentTime, base = moto ? 70 : 45;
+  ENG.o.frequency.setTargetAtTime(base + sp * (moto ? 7 : 4.5), n, 0.08); ENG.o2.frequency.setTargetAtTime((base + sp * (moto ? 7 : 4.5)) * 0.5, n, 0.08);
+  ENG.g.gain.setTargetAtTime(G.phase === 'match' ? vol * 0.06 * SET.vol * (0.5 + Math.min(1, sp / 20)) : 0, n, 0.1);
+}
 function sfx(k) {
   if (!AC) return;
   if (k === 'hit') tone(1600, 0.05, 0.15, 'square');
   else if (k === 'killhit') { tone(900, 0.12, 0.2, 'square'); tone(1400, 0.18, 0.15, 'square'); }
   else if (k === 'reload') { noise(0.05, 0.25, 3000, 3, 'bandpass'); setTimeout(() => noise(0.06, 0.3, 2200, 3, 'bandpass'), 380); }
+  else if (k === 'door') noise(0.08, 0.3, 600, 1);
+  else if (k === 'crash') { noise(0.25, 0.5, 500, 0.6); tone(80, 0.2, 0.3, 'square', 40); }
+  else if (k === 'boom') { noise(1.2, 0.9, 300, 0.5); tone(60, 0.8, 0.5, 'sawtooth', 25); }
   else if (k === 'pick') tone(700, 0.06, 0.12, 'sine', 1100);
   else if (k === 'chute') noise(0.5, 0.35, 900, 0.5);
   else if (k === 'plane') tone(90, 2.5, 0.2, 'sawtooth', 70);

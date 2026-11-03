@@ -18,7 +18,10 @@ function playerStep(dt) {
   const w = curW(p), zoom = p.ads && w ? sightZoom(w) : 1;
   // olhar
   const sens = SET.sens * (p.ads ? SET.adsSens / Math.max(1, zoom * 0.75) : 1);
+  if (IN.ldx || IN.ldy) G.lookT = G.t;
   v.yaw -= IN.ldx * 0.0045 * sens; v.pitch -= IN.ldy * 0.0045 * sens; IN.ldx = IN.ldy = 0;
+  // dirigindo: a câmera volta sozinha para trás do veículo
+  if (p.veh && p.seat === 0 && G.t - (G.lookT || 0) > 1.2 && Math.abs(p.veh.sp) > 3) { const k = Math.min(1, dt * 2.5); v.yaw += wrapA(p.veh.yaw - v.yaw) * k; v.pitch += (-0.15 - v.pitch) * k; }
   // coice: sobe a mira; quando solta o gatilho, volta uma parte
   if (G.camKick) {
     const st = p.stance === 'prone' ? 0.55 : p.stance === 'crouch' ? 0.78 : 1, k = G.camKick * 0.0085 * st * (p.ads ? 1 : 1.25);
@@ -32,11 +35,14 @@ function playerStep(dt) {
   if (p.mode === 'plane') return;
   if (p.mode === 'fall' || p.mode === 'chute') { const push = Math.min(1, wl), n = wl || 1; stepAir(p, dt, wx / n, wz / n, push); return; }
   // no chão
+  if (p.veh && p.seat === 0) { p.veh.thr = IN.my; p.veh.str = IN.mx; p.ads = false; p.trigger = false; p.trigPrev = IN.fire; return; }
   p.ads = IN.adsOn && !!w && !p.knocked && p.healT <= 0 && p.reloadT <= 0 && !p.swim;
-  if (p.reviving && wl > 0.2) { p.reviving = null; p.reviveT = 0; }
-  const sprint = IN.sprint && IN.my > 0.6 && !p.ads && p.stance === 'stand';
-  applyMove(p, dt, wx, wz, p.reviving ? 0 : moveSpeed(p, sprint));
-  if (sprint && IN.fire) IN.sprint = false;
+  if (!p.veh) {
+    if (p.reviving && wl > 0.2) { p.reviving = null; p.reviveT = 0; }
+    const sprint = IN.sprint && IN.my > 0.6 && !p.ads && p.stance === 'stand';
+    applyMove(p, dt, wx, wz, p.reviving ? 0 : moveSpeed(p, sprint));
+    if (sprint && IN.fire) IN.sprint = false;
+  }
   // tiro
   if (w && !p.knocked && !p.swim) {
     const d = wdef(w), edge = IN.fire && !p.trigPrev;
@@ -48,7 +54,7 @@ function playerStep(dt) {
   } else if (IN.fire && !w && !p.knocked && p.mode === 'ground' && !p.swim) { if (!p.trigPrev && !G.punchTip) { G.punchTip = 1; toast('Sem arma: socando! Pegue armas no chão ou em caixas.', 2); } punch(p); }
   p.trigger = IN.fire; p.trigPrev = IN.fire;
   // pega sozinho o que está embaixo (munição, cura, acessórios, proteção melhor)
-  if ((G.pickT = (G.pickT || 0) - dt) <= 0) {
+  if (!p.veh && (G.pickT = (G.pickT || 0) - dt) <= 0) {
     G.pickT = 0.25;
     for (const it of itemsNear(p.x, p.z, 1.7, _near2)) {
       if (Math.abs(it.y - p.y) > 1.5 || !wantAuto(p, it) || it.dropT > G.matchT) continue;
@@ -104,14 +110,17 @@ function pAct() {
   const p = G.player;
   if (p.mode === 'plane') { jumpOut(p); return; }
   if (p.mode === 'fall') { openChute(p); return; }
+  if (p.veh) { leaveVeh(p); return; }
   const c = ctx();
   if (c.knocked) { p.reviving = c.knocked; p.reviveT = 0; toast('Revivendo... fique parado.', 2); return; }
-  if (c.crate) { G.openCrate = c.crate; openBag(); }
+  if (c.crate) { G.openCrate = c.crate; openBag(); return; }
+  if (c.veh) enterVeh(p, c.veh, 0);
 }
 // o que tem por perto (para os botões que mudam de função)
 function ctx() {
-  const p = G.player, r = { knocked: null, crate: null };
-  if (!p.alive || p.mode !== 'ground' || p.knocked) return r;
+  const p = G.player, r = { knocked: null, crate: null, veh: null };
+  if (!p.alive || p.mode !== 'ground' || p.knocked || p.veh) return r;
+  r.veh = nearVeh(p, 3.6);
   r.knocked = G.actors.find(m => m.team === p.team && m !== p && m.alive && m.knocked && Math.hypot(m.x - p.x, m.z - p.z) < 2);
   r.crate = G.crates.find(c => !c.vy && c.items.length && Math.hypot(c.x - p.x, c.z - p.z) < 2.4 && Math.abs(c.y - p.y) < 2);
   return r;
@@ -133,6 +142,11 @@ function updateCamera(dt) {
   } else if (tgt.mode === 'plane') {
     const x = planeX(PLANE), z = planeZ(PLANE); camera.position.set(x - camDir.x * 38, PLANE.y + 6 - camDir.y * 38, z - camDir.z * 38);
     camera.rotation.set(pitch, yaw, 0);
+  } else if (tgt.veh && !(tgt === p && (p.ads || (v.fpp && p.seat !== 0)))) { // veículo: câmera atrás, mais longe
+    const ve = tgt.veh, dist = ve.k === 'moto' ? 4.8 : 6.8, px = ve.x, py = ve.y + 2.2, pz = ve.z;
+    let d = dist; const t = rayStatic(px, py, pz, -camDir.x, -camDir.y, -camDir.z, dist + 0.3); if (t < dist + 0.3) d = Math.max(0.5, t - 0.3);
+    camera.position.set(px - camDir.x * d, py - camDir.y * d, pz - camDir.z * d); camera.rotation.set(pitch, yaw, 0);
+    if (camera.position.y < groundH(camera.position.x, camera.position.z) + 0.4) camera.position.y = groundH(camera.position.x, camera.position.z) + 0.4;
   } else if (tgt === p && (p.ads || v.fpp) && p.mode === 'ground' && !p.knocked) {
     eyePos(p, _cp); camera.position.set(_cp.x + camDir.x * 0.12, _cp.y, _cp.z + camDir.z * 0.12); camera.rotation.set(pitch, yaw, -p.lean * 0.18);
     fov = p.ads ? fovFor(zoom) : 78; fpp = true; hide = true;

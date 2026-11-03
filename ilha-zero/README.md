@@ -26,10 +26,17 @@ mochila 🎒, 1P/3P e o mapa (toque no minimapa). Toque nos itens da lista ao la
 **Computador (para testar):** WASD, mouse, clique esquerdo atira, direito mira, Shift corre, Espaço pula, C agacha, Z deita,
 Q/E inclina, R recarrega, F pega/age, H cura, Tab mochila, M mapa, V 1ª/3ª pessoa, 1/2/3 armas.
 
+## Fase 2 (pronta): veículos
+- 30 veículos espalhados pelas estradas: **Jipe** (4 lugares, mais resistente), **Sedã** (4, mais rápido), **Buggy** (2) e **Moto** (2, a mais rápida)
+- Joystick acelera, vira e freia/dá ré; botão ENTRAR/SAIR e ⇄ para trocar de assento; passageiros podem atirar
+- Velocidade em km/h e vida do veículo na tela; mais lento fora da estrada; pula em morros; afunda o motor na água
+- Batidas causam dano no veículo e nos ocupantes; **atropelar** derruba/abate; tiros danificam e o veículo **explode**
+- Bots pegam veículos para fugir da zona (a equipe embarca junto) e descem para lutar; seus colegas entram no seu carro
+
 ## Próximas fases
-2. Veículos: carro e moto (depois helicóptero)
-3. Multijogador online: lobby com amigos (convite por link/código, como no Deep Spear), partidas com bots completando
-4. Voz só entre a equipe, marcações (ping), personalização
+3. Helicóptero
+4. Multijogador online: lobby com amigos (convite por link/código, como no Deep Spear), partidas com bots completando
+5. Voz só entre a equipe, marcações (ping), personalização
 
 ## Desenvolvimento
 Código em `src/` (módulos numerados, juntados em ordem). Gerar e testar antes de publicar:

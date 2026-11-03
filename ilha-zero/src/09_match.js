@@ -124,12 +124,13 @@ function botAir(a, dt) {
 
 // ---------- montar e encerrar a partida ----------
 function clearMatch() {
+  for (const a of G.actors) a.veh = null;
   for (const a of G.actors) removeModel(a);
   for (const c of G.crates) { scene.remove(c.mesh); if (c.chute) scene.remove(c.chute); }
   G.actors = []; G.crates = []; BUL.length = 0; PLANE.on = DROPP.on = false; PLANE.m.visible = DROPP.m.visible = false;
 }
 function startMatch() {
-  clearMatch(); spawnLoot();
+  clearMatch(); spawnLoot(); spawnVehicles();
   const size = { solo: 1, duo: 2, trio: 3, squad: 4 }[G.mode]; G.size = size;
   const names = BOT_NAMES.slice().sort(() => Math.random() - 0.5); let ni = 0;
   const skill = () => { const hi = G.diff === 'alto' || (G.diff === 'mix' && Math.random() < 0.4); return clamp(hi ? rr(0.78, 0.92) : rr(0.38, 0.55), 0, 1); };
@@ -206,10 +207,11 @@ function stepMatch(dt) {
     if (a.mode === 'fall' || a.mode === 'chute') { if (a.bot) botAir(a, dt); continue; }
     actorTimers(a, dt);
     if (!a.alive) continue;
+    if (a.veh) { if (a.bot) botInVeh(a, dt); continue; }
     if (a.bot) botTick(a, dt);
-    if (!a.alive) continue;
+    if (!a.alive || a.veh) continue;
     stepPhys(a, dt);
     a.lean += (a.leanT - a.lean) * Math.min(1, dt * 10);
   }
-  stepBullets(dt); stepCrates(dt); stepFx(dt);
+  stepVehicles(dt); stepBullets(dt); stepCrates(dt); stepFx(dt);
 }

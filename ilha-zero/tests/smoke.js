@@ -41,6 +41,10 @@ const server = http.createServer((q, r) => { const u = decodeURIComponent(q.url.
         X.IN.fire = true; step(1); X.IN.fire = false; step(0.5);
         log.push('depois de atirar: pente ' + w.mag);
         P.hp = 40; X.startHeal(P, 'BAND'); step(5); log.push('vida após bandagem ' + P.hp.toFixed(0));
+        // veículo: entra, acelera, sai
+        { const v = X.VEH.find(v => !v.dead && !v.seats[0]); P.x = v.x + 2.5; P.z = v.z; P.y = X.groundH(P.x, P.z) + 0.05; step(0.2);
+          X.enterVeh(P, v, 0); X.IN.my = 1; step(3); const kmh = Math.abs(v.sp) * 3.6; X.IN.my = -1; step(2); X.IN.my = 0; step(1); X.leaveVeh(P);
+          log.push(`${v.d.n}: ${kmh.toFixed(0)} km/h em 3 s`); if (kmh < 30) log.push('NÃO acelerou'); if (P.veh) log.push('NÃO saiu do veículo'); }
         X.IN.adsOn = true; step(0.5); X.updateCamera(0.1); X.IN.adsOn = false;
         X.openBag(); X.renderBag(); X.closePanels(); X.toggleMap(); X.toggleMap(); X.updateHud(0.2);
         // protege o jogador para ver a partida até o fim
@@ -48,10 +52,11 @@ const server = http.createServer((q, r) => { const u = decodeURIComponent(q.url.
         while (!G.over && t < 1500) { step(5); t += 5; imm(); if (!P.alive) break; }
         log.push('fim em ' + (G.matchT / 60).toFixed(1) + ' min, acabou=' + G.over + ', fase da zona ' + X.ZONE.ph + ', vivos ' + G.actors.filter(a => a.alive).length);
         const kills = G.actors.reduce((s, a) => s + a.kills, 0); log.push('mortes: ' + JSON.stringify(G.deathLog.slice(0, 40)));
+        log.push('bots dirigiram: ' + new Set(G.vdrivers || []).size);
         log.push('abates no total ' + kills + ', caixas ' + G.crates.length);
         return log;
       });
-      r.forEach(l => console.log('   ', l));
+      r.forEach(l => console.log('   ', l)); r.filter(l => /NÃO/.test(l)).forEach(l => fail(mode, l));
       if (SHOTS) {
         await p.evaluate(() => { window.__freeze = false; });
         await p.waitForTimeout(1500); await p.screenshot({ path: `${SHOTS}/fim_${mode}.png` });

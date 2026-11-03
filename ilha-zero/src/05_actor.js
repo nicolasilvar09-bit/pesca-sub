@@ -172,6 +172,11 @@ function animateModel(a, dt, camX, camZ, hideSelf) {
     m.root.rotation.x = a.mode === 'fall' ? -1.2 : 0; m.upper.position.y = 0.92; m.legL.rotation.x = 0.4; m.legR.rotation.x = -0.2;
     m.arms.rotation.set(a.mode === 'fall' ? 2.6 : Math.PI, 0, 0); m.legL.scale.y = m.legR.scale.y = 1; return;
   }
+  if (a.veh) { // sentado
+    m.upper.position.y = 0.62; m.legL.position.y = m.legR.position.y = 0.62; m.legL.scale.y = m.legR.scale.y = 1;
+    m.legL.rotation.x = m.legR.rotation.x = 1.45; m.upper.rotation.set(0, 0, 0);
+    const drive = a.seat === 0; m.arms.rotation.set(drive ? 1.2 : armed ? Math.PI / 2 + a.pitch : 0.4, 0, 0); m.gun.visible = armed && !drive; return;
+  }
   if (prone) {
     m.root.rotation.x = -Math.PI / 2 + 0.05; m.root.position.y = 0.18; m.root.position.z = 0;
     m.upper.position.y = 0.92; m.upper.rotation.z = 0; m.legL.rotation.x = sw * 0.4; m.legR.rotation.x = -sw * 0.4; m.legL.scale.y = m.legR.scale.y = 1;
