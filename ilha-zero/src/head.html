@@ -12,7 +12,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#141a3a;font-family:
 .hidden{display:none!important}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select:text}
-.pill{background:var(--bg);border-radius:20px;padding:5px 11px;font-size:13px;white-space:nowrap;backdrop-filter:blur(4px)}
+.pill{background:var(--bg);border-radius:20px;padding:5px 11px;font-size:13px;white-space:nowrap}
 .pill b{color:var(--y)}
 .btn{background:linear-gradient(180deg,#ffe45c,#ffb703);color:#2a1a00;font-weight:900;border-radius:12px;padding:12px 18px;letter-spacing:.5px;box-shadow:0 4px 0 #b37400}
 .btn.alt{background:linear-gradient(180deg,#5ad1ff,#2196f3);color:#fff;box-shadow:0 4px 0 #0d5aa7}
@@ -102,6 +102,12 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
 #vehI{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);background:var(--bg);padding:4px 12px;border-radius:10px;font-size:12px;text-align:center;pointer-events:none;min-width:150px}
 #vehI b{font-size:20px;color:var(--y)}.vb{height:4px;background:rgba(0,0,0,.5);border-radius:2px;margin-top:3px;overflow:hidden}.vb i{display:block;height:100%;background:#7dff9c}
 .seat{width:46px;height:46px;right:calc(150px + var(--sr));bottom:240px;font-size:20px;border-radius:12px}
+.drv{border-radius:16px;font-size:30px}
+.drvL{width:86px;height:78px;left:calc(24px + var(--sl));bottom:28px}.drvR{width:86px;height:78px;left:calc(122px + var(--sl));bottom:28px}
+.gas{width:96px;height:96px;right:calc(26px + var(--sr));bottom:40px;border-radius:50%;font-size:11px;background:rgba(40,140,60,.45)}
+.brake{width:78px;height:64px;right:calc(134px + var(--sr));bottom:30px;font-size:10px;background:rgba(170,40,40,.42)}
+.thr{width:50px;height:50px;right:calc(196px + var(--sr));bottom:120px;font-size:22px;flex-direction:column}.thr small{font-size:10px}
+.thrS{width:30px;height:30px;right:calc(178px + var(--sr));bottom:166px;font-size:13px}
 #joy{position:absolute;width:120px;height:120px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(10,14,34,.25);left:calc(60px + var(--sl));bottom:30px;pointer-events:none;opacity:.6}
 #joy.on{opacity:1}
 #joyK{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.55)}
@@ -134,7 +140,7 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
 .dmgdir{position:absolute;left:50%;top:50%;width:230px;height:230px;border-radius:50%;border:5px solid transparent;border-top-color:rgba(255,40,60,.85);animation:fade .9s forwards}
 @keyframes fade{to{opacity:0}}
 /* ---------- painéis ---------- */
-.panel{position:fixed;inset:0;z-index:20;background:rgba(8,10,26,.88);backdrop-filter:blur(4px)}
+.panel{position:fixed;inset:0;z-index:20;background:rgba(8,10,26,.94)}
 #bagP{display:grid;grid-template-columns:1fr 1.15fr 1.25fr;gap:10px;padding:12px calc(12px + var(--sr)) 12px calc(12px + var(--sl))}
 #bagP>div{background:rgba(255,255,255,.05);border-radius:12px;padding:8px;overflow-y:auto;touch-action:pan-y}
 #bagP h4{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--y);margin:4px 2px 6px}

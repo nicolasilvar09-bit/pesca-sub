@@ -96,7 +96,14 @@ function fireShot(a, ox, oy, oz, dx, dy, dz) {
   let fx = dx + ux * ca + vx * sa, fy = dy + vy * sa, fz = dz + uz * ca + vz * sa; const fl = Math.hypot(fx, fy, fz); fx /= fl; fy /= fl; fz /= fl;
   // zerada em 100 m: a bala sai um pouco para cima e cai com a gravidade
   const zero = GRAV * 100 / (2 * d.v * d.v);
-  BUL.push({ x: ox, y: oy, z: oz, vx: fx * d.v, vy: (fy + zero) * d.v, vz: fz * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, wn: d.n, life: 0, px: ox, py: oy, pz: oz });
+  if (d.pellets) { // escopeta: bagos num cone (o estrangulador fecha o cone)
+    const cone = d.cone * (w.att.muzzle && ATT[w.att.muzzle].choke ? ATT[w.att.muzzle].choke : 1) * Math.PI / 180;
+    for (let i = 0; i < d.pellets; i++) {
+      const pa = Math.random() * Math.PI * 2, pr = Math.sqrt(Math.random()) * cone, pc = Math.cos(pa) * pr, ps = Math.sin(pa) * pr;
+      let gx = fx + ux * pc + vx * ps, gy = fy + vy * ps, gz = fz + uz * pc + vz * ps; const gl = Math.hypot(gx, gy, gz);
+      BUL.push({ x: ox, y: oy, z: oz, vx: gx / gl * d.v, vy: (gy / gl + zero) * d.v, vz: gz / gl * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, wn: d.n, life: 0, px: ox, py: oy, pz: oz, fall: 1, sx: ox, sz: oz });
+    }
+  } else BUL.push({ x: ox, y: oy, z: oz, vx: fx * d.v, vy: (fy + zero) * d.v, vz: fz * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, wn: d.n, life: 0, px: ox, py: oy, pz: oz });
   a.recoil = Math.min(a.recoil + 0.25, 2.5);
   a.kick = (a.kick || 0) + d.rec * mods.rec;
   if (d.burst) a.burstN++;
@@ -126,7 +133,8 @@ function stepBullets(dt) {
       const hx = b.x + dx * ha.t, hy = b.y + dy * ha.t, hz = b.z + dz * ha.t;
       puff(hx, hy, hz, '#d61f1f', 0.25, 0.35);
       const dist = Math.hypot(hx - b.o.x, hz - b.o.z);
-      hurt(ha.a, b.dmg * (ha.head ? b.head : 1) * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn);
+      const fall = b.fall ? clamp(1 - Math.hypot(hx - b.sx, hz - b.sz) / 45, 0.12, 1) : 1;
+      hurt(ha.a, b.dmg * fall * (ha.head ? b.head : 1) * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn);
       BUL.splice(i, 1); continue;
     }
     if (ts < len) { puff(b.x + dx * ts, b.y + dy * ts, b.z + dz * ts, '#d8cfb8', 0.3, 0.5); BUL.splice(i, 1); continue; }
@@ -171,7 +179,8 @@ function kill(a, src, wn) {
   if (a.veh) leaveVeh(a, true);
   if (src && src !== a && src.team !== a.team) src.kills++;
   addFeed(src, a, wn, false);
-  deathBox(a); removeModel(a);
+  deathBox(a);
+  if (a.model && a.model.human) toCorpse(a); else removeModel(a);
   if (a === G.player) onPlayerDead(src);
   if (!teamUp(a.team)) { // equipe toda fora: quem está derrubado morre também
     for (const m of G.actors) if (m.team === a.team && m.alive) kill(m, m.knockBy || src, wn);

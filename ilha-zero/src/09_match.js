@@ -124,6 +124,8 @@ function botAir(a, dt) {
 
 // ---------- montar e encerrar a partida ----------
 function clearMatch() {
+  if (typeof clearNades === 'function') clearNades();
+  if (typeof clearCorpses === 'function') clearCorpses();
   for (const a of G.actors) a.veh = null;
   for (const a of G.actors) removeModel(a);
   for (const c of G.crates) { scene.remove(c.mesh); if (c.chute) scene.remove(c.chute); }
@@ -213,5 +215,5 @@ function stepMatch(dt) {
     stepPhys(a, dt);
     a.lean += (a.leanT - a.lean) * Math.min(1, dt * 10);
   }
-  stepVehicles(dt); stepBullets(dt); stepCrates(dt); stepFx(dt);
+  stepNades(dt); stepVehicles(dt); stepBullets(dt); stepCrates(dt); stepFx(dt);
 }

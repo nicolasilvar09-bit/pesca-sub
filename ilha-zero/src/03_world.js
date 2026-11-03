@@ -12,10 +12,15 @@ const TOWNS = [
   { n: 'Base Militar', x: 335, z: -240, r: 95, kind: 'military', tier: 3 },
   { n: 'Fazenda Sol', x: 275, z: 290, r: 88, kind: 'farm', tier: 1 },
   { n: 'Usina', x: -380, z: -85, r: 78, kind: 'factory', tier: 2 },
+  { n: 'Bairro Verde', x: -165, z: 95, r: 82, kind: 'village', tier: 1 },
+  { n: 'Jardim', x: 175, z: -110, r: 80, kind: 'city', tier: 2 },
+  { n: 'Prainha', x: 15, z: 335, r: 78, kind: 'village', tier: 1 },
+  { n: 'Farol Leste', x: 430, z: 35, r: 70, kind: 'village', tier: 2 },
 ];
 const ROADS = [ // trechos de estrada [x0,z0,x1,z1]
   [-335, 300, -210, 150], [-210, 150, 70, 45], [70, 45, 335, -240], [70, 45, 275, 290], [-120, -255, 70, 45],
   [-380, -85, -120, -255], [-380, -85, -210, 150], [275, 290, 150, 430], [335, -240, 120, -400],
+  [-165, 95, 70, 45], [175, -110, 70, 45], [175, -110, 335, -240], [15, 335, 70, 45], [15, 335, -335, 300], [430, 35, 335, -240], [430, 35, 275, 290],
 ];
 
 // ---------- relevo ----------
@@ -32,11 +37,11 @@ const PADS = []; // áreas planas (cidades e casas isoladas)
 for (const t of TOWNS) { t.h = Math.max(4, rawH(t.x, t.z)); PADS.push({ x: t.x, z: t.z, r: t.r, b: 45, h: t.h }); }
 // casas isoladas espalhadas pela ilha
 const LONE = [];
-for (let k = 0; k < 400 && LONE.length < 26; k++) {
+for (let k = 0; k < 900 && LONE.length < 50; k++) {
   const x = wr(-470, 470), z = wr(-470, 470), h = rawH(x, z);
   if (h < 4 || h > 45) continue;
   if (TOWNS.some(t => Math.hypot(t.x - x, t.z - z) < t.r + 50)) continue;
-  if (LONE.some(p => Math.hypot(p.x - x, p.z - z) < 45)) continue;
+  if (LONE.some(p => Math.hypot(p.x - x, p.z - z) < 34)) continue;
   if (Math.abs(rawH(x + 10, z) - h) + Math.abs(rawH(x, z + 10) - h) > 6) continue;
   LONE.push({ x, z, h }); PADS.push({ x, z, r: 11, b: 12, h });
 }
@@ -160,6 +165,7 @@ function rayStatic(ox, oy, oz, dx, dy, dz, maxD) {
 function losClear(ax, ay, az, bx2, by, bz) {
   const dx = bx2 - ax, dy = by - ay, dz = bz - az, d = Math.hypot(dx, dy, dz);
   if (d < 0.01) return true;
+  if (typeof smokeBlocks === 'function' && SMOKES.length && smokeBlocks(ax, ay, az, bx2, by, bz)) return false;
   return rayStatic(ax, ay, az, dx / d, dy / d, dz / d, d) >= d - 0.3;
 }
 
@@ -341,7 +347,7 @@ const warehouse = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, fh: 6, do
 
 (function buildTowns() {
   for (const t of TOWNS) {
-    const n = { village: 16, city: 14, port: 10, military: 9, farm: 7, factory: 8 }[t.kind];
+    const n = { village: 22, city: 20, port: 13, military: 11, farm: 10, factory: 11 }[t.kind];
     let made = 0;
     for (let i = 0; i < n * 3 && made < n; i++) {
       if (t.kind === 'village') { const two = WR() < 0.35, w = two ? 10 : 8 + Math.round(WR() * 2), d = two ? 8 : 7; if (place(t, w, d, 5, (x, z) => (two ? house2 : house)(t, x, z, w, d))) made++; }

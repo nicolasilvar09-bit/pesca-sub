@@ -2,9 +2,10 @@
 const BTN = [ // id, rótulo, classe de posição
   ['fireR', '<i class="ic-fire"></i>', 'fire fireR'], ['fireL', '<i class="ic-fire"></i>', 'fire fireL'], ['ads', '<i class="ic-ads"></i>', 'ads'],
   ['jump', '⤒', 'jump'], ['crouch', '<b>AGACHAR</b>', 'crouch'], ['prone', '<b>DEITAR</b>', 'prone'], ['reload', '⟳', 'reload'],
-  ['leanL', '◤', 'leanL'], ['leanR', '◥', 'leanR'], ['bag', '🎒', 'bag'], ['heal', '✚', 'heal'], ['act', 'PULAR', 'act'], ['seat', '⇄', 'seat'], ['view', '3P', 'view'], ['menu', '☰', 'menu'],
+  ['leanL', '◤', 'leanL'], ['leanR', '◥', 'leanR'], ['bag', '🎒', 'bag'], ['heal', '✚', 'heal'], ['act', 'PULAR', 'act'], ['seat', '⇄', 'seat'], ['thr', '💣', 'thr'], ['thrS', '⇅', 'thrS'], ['drvL', '◀', 'drv drvL'], ['drvR', '▶', 'drv drvR'], ['gas', '<b>ACELERAR</b>', 'drv gas'], ['brake', '<b>FREIO / RÉ</b>', 'drv brake'], ['view', '3P', 'view'], ['menu', '☰', 'menu'],
 ];
 let hudBuilt = false, hudDirtyF = true;
+const HOLD = ['drvL', 'drvR', 'gas', 'brake']; // botões de segurar (direção do veículo)
 const hudDirty = () => { hudDirtyF = true; };
 function buildHud() {
   if (hudBuilt) return; hudBuilt = true;
@@ -19,7 +20,9 @@ function onDown(e) {
   if (G.phase !== 'match') return;
   const b = e.target.closest && e.target.closest('[data-b]');
   if (e.target.closest && e.target.closest('.panel')) return;
-  if (b) { e.preventDefault(); btnDown(b.dataset.b, e); if (b.dataset.b === 'fireR' || b.dataset.b === 'fireL') PT[e.pointerId] = { k: 'look', x: e.clientX, y: e.clientY, fire: true }; return; }
+  if (b) { e.preventDefault(); const id = b.dataset.b;
+    if (HOLD.includes(id)) { IN.hold[id] = true; PT[e.pointerId] = { k: 'hold', id }; b.classList.add('on'); return; }
+    btnDown(id, e); if (id === 'fireR' || id === 'fireL') PT[e.pointerId] = { k: 'look', x: e.clientX, y: e.clientY, fire: true }; return; }
   if (!inGame()) return;
   if (e.target.closest && e.target.closest('#pick')) return;
   if (e.pointerType === 'mouse') { if (document.pointerLockElement !== $('cv')) { try { $('cv').requestPointerLock(); } catch (x) { } } else if (e.button === 0) IN.fire = true; else if (e.button === 2) IN.adsOn = !IN.adsOn; return; }
@@ -43,6 +46,7 @@ function onUp(e) {
   const t = PT[e.pointerId]; if (!t) return;
   if (t.k === 'joy') { joyId = null; IN.mx = IN.my = 0; IN.sprint = false; $('joyK').style.transform = ''; $('joy').classList.remove('on'); }
   if (t.fire) IN.fire = Object.values(PT).some(o => o !== t && o.fire);
+  if (t.k === 'hold') { IN.hold[t.id] = Object.values(PT).some(o => o !== t && o.k === 'hold' && o.id === t.id); if (!IN.hold[t.id]) { const el = $('b_' + t.id); if (el) el.classList.remove('on'); } }
   delete PT[e.pointerId];
 }
 addEventListener('pointerdown', onDown, { passive: false });
@@ -64,6 +68,8 @@ function btnDown(id) {
   if (id === 'heal') { $('healL').classList.toggle('hidden'); renderHealList(); return; }
   if (id === 'act') { pAct(); return; }
   if (id === 'seat') { switchSeat(p); return; }
+  if (id === 'thr') { pThrow(); return; }
+  if (id === 'thrS') { cycleThrow(); return; }
   if (id === 'view') { G.view.fpp = !G.view.fpp; SET.view = G.view.fpp ? 'fpp' : 'tpp'; saveSet(); return; }
   if (id === 'menu') { openMenu(); return; }
   if (id === 'map') { toggleMap(); return; }
@@ -94,7 +100,7 @@ function nearList() {
   return out;
 }
 const itemLabel = (k, n) => { const i = itemInfo(k); return i.n + (n > 1 ? ` <small>x${n}</small>` : ''); };
-const itemIcon = k => { const t = itemInfo(k).type; return { weapon: '🔫', ammo: '▮', heal: '✚', att: '◎', helm: '⛑', vest: '🦺', bag: '🎒' }[t] || '•'; };
+const itemIcon = k => { const t = itemInfo(k).type; if (t === 'throw') return THROW[k].ic; return { weapon: '🔫', ammo: '▮', heal: '✚', att: '◎', helm: '⛑', vest: '🦺', bag: '🎒' }[t] || '•'; };
 
 // ---------- atualização da tela ----------
 let hudT = 0, feedEl = null;
@@ -145,6 +151,9 @@ function updateHud(dt) {
   // botões que só fazem sentido no chão
   for (const id of ['fireR', 'fireL', 'ads', 'jump', 'crouch', 'prone', 'reload', 'leanL', 'leanR', 'heal']) $('b_' + id).classList.toggle('hidden', !!(!alive || air || p.knocked || (p.veh && (p.seat === 0 || ['jump', 'crouch', 'prone', 'leanL', 'leanR'].includes(id)))));
   $('b_seat').classList.toggle('hidden', !alive || !p.veh);
+  for (const id of HOLD) $('b_' + id).classList.toggle('hidden', !(alive && p.veh && p.seat === 0));
+  $('joy').classList.toggle('hidden', !!(alive && p.veh && p.seat === 0));
+  { const tk = curThrow(p), show = alive && !air && !p.knocked && !(p.veh && p.seat === 0) && !!tk; $('b_thr').classList.toggle('hidden', !show); $('b_thrS').classList.toggle('hidden', !show || Object.keys(THROW).filter(k => p.bag[k]).length < 2); if (show) $('b_thr').innerHTML = `${THROW[tk].ic}<small>${p.bag[tk]}</small>`; }
   const vi = $('vehI'); vi.classList.toggle('hidden', !alive || !p.veh);
   if (p.veh) { const ve = p.veh; vi.innerHTML = `<b>${Math.round(Math.abs(ve.sp) * 3.6)}</b> km/h · ${ve.d.n}<div class="vb"><i style="width:${ve.hp / ve.d.hp * 100}%"></i></div>`; }
   $('b_leanL').classList.toggle('on', p.leanT < 0); $('b_leanR').classList.toggle('on', p.leanT > 0);
@@ -173,7 +182,7 @@ function compass(yaw) {
   el.innerHTML = h + `<b>${Math.round(deg)}°</b>`;
 }
 function renderHealList() {
-  const p = G.player, ks = ['BAND', 'FAK', 'MED', 'ENERGY', 'PAIN'].filter(k => p.bag[k]);
+  const p = G.player, ks = ['BAND', 'FAK', 'MED', 'ENERGY', 'PAIN', 'ADREN'].filter(k => p.bag[k]);
   $('healL').innerHTML = ks.length ? ks.map(k => `<div class="hi ${canHeal(p, k) ? '' : 'off'}" data-h="${k}">${HEAL[k].n} <b>${p.bag[k]}</b></div>`).join('') : '<div class="hi off">Nenhum item de cura</div>';
   $('healL').onclick = e => { const el = e.target.closest('[data-h]'); if (el) { pHeal(el.dataset.h); $('healL').classList.add('hidden'); } };
 }
@@ -234,10 +243,18 @@ function drawMapOn(cv, S, cx, cz, span) { // span = metros mostrados (MAP = mapa
 }
 function drawMini() { const p = G.player, t = p.alive ? p : G.view.spect || p; drawMapOn($('mini'), 128, t.x, t.z, 260); }
 function toggleMap() { const m = $('mapP'); if (m.classList.contains('hidden')) { m.classList.remove('hidden'); drawMapOn($('mapC'), $('mapC').width, 0, 0, MAP); } else m.classList.add('hidden'); }
-function closePanels() { for (const id of ['bagP', 'mapP', 'menuP']) $(id).classList.add('hidden'); G.openCrate = null; }
+// solta tudo que estava pressionado (dedo no joystick, gatilho) ao abrir/fechar painel: nada fica "preso"
+function resetInput() {
+  IN.fire = false; IN.mx = IN.my = 0; IN.sprint = false; IN.ldx = IN.ldy = 0; IN.hold = {};
+  for (const k in PT) delete PT[k];
+  joyId = null; const jk = $('joyK'); if (jk) jk.style.transform = ''; const j = $('joy'); if (j) j.classList.remove('on');
+}
+function closePanels() { for (const id of ['bagP', 'mapP', 'menuP']) $(id).classList.add('hidden'); G.openCrate = null; G.bagHtml = null; resetInput(); }
+const panelOpen = () => !$('bagP').classList.contains('hidden') || !$('mapP').classList.contains('hidden') || !$('menuP').classList.contains('hidden');
 
 // ---------- mochila / saque ----------
-function openBag() { $('bagP').classList.remove('hidden'); renderBag(); }
+function openBag() { resetInput(); G.bagHtml = null; $('bagP').classList.remove('hidden'); renderBag(); }
+$('bagX').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); closePanels(); });
 function renderBag() {
   const p = G.player, cr = G.openCrate;
   if (cr && (Math.hypot(cr.x - p.x, cr.z - p.z) > 3 || !G.crates.includes(cr))) G.openCrate = null;
@@ -247,24 +264,27 @@ function renderBag() {
   const bagItems = Object.keys(p.bag).sort((a, b) => itemInfo(a).type.localeCompare(itemInfo(b).type));
   const mid = `<h4>Mochila <small>${Math.round(bagWeight(p))}/${bagCap(p)}</small></h4>` + (bagItems.length ? bagItems.map(k => {
     const t = itemInfo(k).type;
-    return `<div class="li"><span>${itemIcon(k)} ${itemLabel(k, p.bag[k])}</span><span class="acts">${t === 'heal' ? `<button data-use="${k}">usar</button>` : ''}${t === 'att' ? `<button data-att="${k}">equipar</button>` : ''}<button data-drop="${k}">soltar</button></span></div>`;
+    return `<div class="li"><span>${itemIcon(k)} ${itemLabel(k, p.bag[k])}</span><span class="acts">${t === 'heal' ? `<button data-use="${k}">usar</button>` : ''}${t === 'att' ? `<button data-att="${k}">equipar</button>` : ''}${t === 'throw' ? `<button data-thr="${k}">preparar</button>` : ''}<button data-drop="${k}">soltar</button></span></div>`;
   }).join('') : '<div class="li off">Vazia</div>');
   const slotN = { sight: 'Mira', muzzle: 'Cano', grip: 'Empunh.', mag: 'Pente' };
   const right = `<h4>Equipamento</h4>` + [0, 1, 2].map(i => {
     const w = p.wp[i]; if (!w) return `<div class="wcard off">${i === 2 ? 'Pistola' : 'Arma ' + (i + 1)}: vazio</div>`;
-    const d = wdef(w), slots = d.cls === 'sr' ? ['sight', 'muzzle', 'mag'] : d.cls === 'pistol' ? ['sight', 'muzzle', 'mag'] : d.cls === 'dmr' ? ['sight', 'muzzle', 'mag'] : ['sight', 'muzzle', 'grip', 'mag'];
+    const d = wdef(w), slots = d.cls === 'sg' ? (w.k === 'S12K' ? ['muzzle', 'mag'] : ['muzzle']) : d.cls === 'sr' ? ['sight', 'muzzle', 'mag'] : d.cls === 'pistol' ? ['sight', 'muzzle', 'mag'] : d.cls === 'dmr' ? ['sight', 'muzzle', 'mag'] : ['sight', 'muzzle', 'grip', 'mag'];
     return `<div class="wcard"><div class="wt"><b>${d.n}</b> <small>${CLS[d.cls].n} · ${AMMO[d.ammo].n}</small><button data-dw="${i}">soltar</button></div><div class="atts">${slots.map(s => `<span class="at ${w.att[s] ? 'on' : ''}" data-det="${i}:${s}">${w.att[s] ? ATT[w.att[s]].n.replace(/ \(.*\)/, '') : slotN[s]}</span>`).join('')}</div></div>`;
   }).join('') + `<div class="gear">${p.helm ? `<span>⛑ Capacete nv.${p.helm.lv} <small>${Math.max(0, Math.round(p.helm.dur))}</small></span>` : '<span class="off">⛑ sem capacete</span>'}${p.vest ? `<span>🦺 Colete nv.${p.vest.lv} <small>${Math.max(0, Math.round(p.vest.dur))}</small></span>` : '<span class="off">🦺 sem colete</span>'}<span>🎒 Mochila nv.${p.bagLv}</span></div>`;
+  // só troca o HTML quando algo mudou (redesenhar sempre pesa e faz o toque se perder)
+  const html = left + '|' + mid + '|' + right; if (html === G.bagHtml) return; G.bagHtml = html;
   $('bagL').innerHTML = left; $('bagM').innerHTML = mid; $('bagR').innerHTML = right;
   $('bagP').onclick = e => {
     const t = e.target, d = t.dataset;
     if (t.id === 'bagX' || t.closest('#bagX')) { closePanels(); return; }
     const li = t.closest('[data-ci],[data-ni]');
-    if (d.use) pHeal(d.use); else if (d.att) pAttach(d.att); else if (d.drop) pDrop(d.drop, p.bag[d.drop]); else if (d.dw) pDropWeapon(+d.dw);
+    if (d.thr) { G.thrSel = d.thr; toast(THROW[d.thr].n + ' pronta: toque em 💣 para jogar', 2); }
+    else if (d.use) pHeal(d.use); else if (d.att) pAttach(d.att); else if (d.drop) pDrop(d.drop, p.bag[d.drop]); else if (d.dw) pDropWeapon(+d.dw);
     else if (d.det) { const [i, s] = d.det.split(':'); pDetach(+i, s); }
     else if (li && li.dataset.ci != null && G.openCrate) pPickup(G.openCrate.items[+li.dataset.ci], G.openCrate);
     else if (li && li.dataset.ni != null) { const n = near[+li.dataset.ni]; if (n) pPickup(n.it); }
-    renderBag();
+    G.bagHtml = null; renderBag();
   };
 }
 // ---------- menu, morte e resultado ----------

@@ -98,7 +98,8 @@ function autoFill(a, w) { const need = magSize(w) - w.mag; if (need > 0) w.mag +
 function wantAuto(a, it) {
   const inf = itemInfo(it.k);
   if (inf.type === 'ammo') return a.wp.some(w => w && wdef(w).ammo === it.k.slice(2)) && (a.bag[it.k] || 0) < 240;
-  if (inf.type === 'heal') return (a.bag[it.k] || 0) < ({ BAND: 15, FAK: 5, MED: 2, ENERGY: 5, PAIN: 3 }[it.k]);
+  if (inf.type === 'heal') return (a.bag[it.k] || 0) < ({ BAND: 15, FAK: 5, MED: 2, ENERGY: 5, PAIN: 3, ADREN: 1 }[it.k]);
+  if (inf.type === 'throw') return (a.bag[it.k] || 0) < 3;
   if (inf.type === 'att') return a.wp.some(w => w && !w.att[inf.d.slot] && attFits(w, it.k)) && !a.bag[it.k];
   if (inf.type === 'helm' || inf.type === 'vest') return !a[inf.type] || a[inf.type].lv < inf.lv;
   if (inf.type === 'bag') return a.bagLv < inf.lv;

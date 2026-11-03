@@ -120,7 +120,7 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   m.g.visible = true; m.g.position.set(a.x, a.y, a.z); m.g.rotation.set(0, a.yaw, 0);
   const prone = a.knocked || a.stance === 'prone', w = curW(a), armed = !!w && !a.knocked && a.healT <= 0 && !(a.veh && a.seat === 0);
   _sph.set(_A.set(a.x, a.y + 1, a.z), 2);
-  const far = d2 > 85 * 85 || !_frus.intersectsSphere(_sph);
+  const far = d2 > 150 * 150 || !_frus.intersectsSphere(_sph), mid = d2 > 60 * 60;
   m.root.visible = !far; m.far.visible = far;
   if (far) { m.gun.visible = false; m.far.rotation.x = prone ? -Math.PI / 2 : 0; m.far.position.y = prone ? 0.2 : 0; return; }
   // mistura das animações pela velocidade
@@ -133,20 +133,42 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   else { const k = clamp((sp - 3.6) / 1.6, 0, 1); tw.run = k; tw.walk = 1 - k; }
   const k = Math.min(1, dt * 8);
   for (const n in m.act) { m.w[n] += (tw[n] - m.w[n]) * k; m.act[n].setEffectiveWeight(m.w[n]); }
-  if (m.act.walk) m.act.walk.timeScale = clamp(sp / (cr ? 1.1 : 1.45), 0.5, 2.2);
-  if (m.act.run) m.act.run.timeScale = clamp(sp / 5.2, 0.7, 1.5);
-  m.mixer.update(dt);
+  // direção do movimento em relação para onde olha: de lado gira as pernas, de ré anda ao contrário
+  const fx0 = -Math.sin(a.yaw), fz0 = -Math.cos(a.yaw), fwdC = a.vx * fx0 + a.vz * fz0, sideC = a.vx * Math.cos(a.yaw) - a.vz * Math.sin(a.yaw);
+  let twistT = 0, back = false;
+  if (sp > 0.4 && a.mode === 'ground' && !a.veh && !prone) {
+    const ang = Math.atan2(sideC, fwdC);
+    if (Math.abs(ang) > 1.9) { back = true; twistT = clamp(wrapA(ang - Math.PI), -0.9, 0.9); } else twistT = clamp(ang, -1.1, 1.1);
+  }
+  m.twist = (m.twist || 0) + (twistT - (m.twist || 0)) * Math.min(1, dt * 7);
+  if (m.act.walk) m.act.walk.timeScale = clamp(sp / (cr ? 1.1 : 1.45), 0.5, 2.2) * (back ? -1 : 1);
+  if (m.act.run) m.act.run.timeScale = clamp(sp / 5.2, 0.7, 1.5) * (back ? -1 : 1);
+  // de longe atualiza a animação a cada 2 quadros
+  m.acc = (m.acc || 0) + dt; m.fr = (m.fr || 0) + 1;
+  if (!mid || m.fr % 2 === 0) { m.mixer.update(m.acc); m.acc = 0; }
+  // coice e reação a tiro
+  m.kickV = ((m.kickV || 0) + (a.kick || 0) * 0.6) * Math.exp(-dt * 11); a.kick = 0;
+  const hitK = clamp(1 - (G.matchT - a.lastHitT) / 0.3, 0, 1);
+  const wa = m.act.walk && m.w.walk > 0.2 ? m.act.walk : m.act.run && m.w.run > 0.2 ? m.act.run : null;
+  const ph = wa ? wa.time / wa.getClip().duration * Math.PI * 4 : 0, bob = Math.min(1, sp / 5);
   // corpo deitado / caindo / agachado andando
   m.root.position.set(0, 0, 0); m.root.rotation.set(0, Math.PI, 0);
   if (prone) { m.root.rotation.set(-Math.PI / 2, Math.PI, 0); m.root.position.set(0, 0.16, 0); }
   else if (a.mode === 'fall') m.root.rotation.set(-1.25, Math.PI, 0);
   else if (cr && sp >= 0.6) m.root.position.y = -0.32;
+  if (Math.abs(m.twist) > 0.01 && !prone && a.mode === 'ground') m.root.rotation.y = Math.PI - m.twist;
   m.g.updateMatrixWorld(true);
   const B = m.b, yaw = a.yaw, pitch = a.pitch;
   _F.set(-Math.sin(yaw), 0, -Math.cos(yaw)); _R.set(Math.cos(yaw), 0, -Math.sin(yaw));
   // inclinação e mira no tronco/cabeça
   if (!prone && a.mode === 'ground' && !a.veh) {
+    if (B.Bip01_Spine && Math.abs(m.twist) > 0.01) rotWorld(B.Bip01_Spine, _UP, m.twist * 0.9); // tronco volta a olhar para a mira
     if (B.Bip01_Spine && a.lean) rotWorld(B.Bip01_Spine, _F, a.lean * 0.38);
+    if (B.Bip01_Spine1) { rotWorld(B.Bip01_Spine1, _F, Math.sin(ph) * 0.045 * bob); rotWorld(B.Bip01_Spine1, _UP, Math.sin(ph) * 0.05 * bob); }
+    if (B.Bip01_Spine2 && sp < 0.4) rotWorld(B.Bip01_Spine2, _R, Math.sin(G.t * 1.7 + a.id) * 0.018); // respiração
+    if (B.Bip01_Spine1 && (m.kickV > 0.01 || hitK > 0)) rotWorld(B.Bip01_Spine1, _R, m.kickV * 0.035 - hitK * 0.16);
+    if (B.Bip01_Head && hitK > 0) rotWorld(B.Bip01_Head, _F, hitK * 0.25 * (a.id % 2 ? 1 : -1));
+    if (!a.onGround && !a.swim) for (const s of ['L', 'R']) { const th = B[`Bip01_${s}_Thigh`], ca = B[`Bip01_${s}_Calf`]; if (th && ca) { rotWorld(th, _R, 0.7); rotWorld(ca, _R, -1.1); } } // pulo: encolhe as pernas
     if (B.Bip01_Spine1 && armed) rotWorld(B.Bip01_Spine1, _R, clamp(pitch, -1, 1) * 0.45);
     if (B.Bip01_Head) rotWorld(B.Bip01_Head, _R, clamp(pitch, -1, 1) * (armed ? 0.25 : 0.5));
     if (cr && sp >= 0.6) for (const s of ['L', 'R']) { const th = B[`Bip01_${s}_Thigh`], ca = B[`Bip01_${s}_Calf`], ft = B[`Bip01_${s}_Foot`]; if (th) { rotWorld(th, _R, 0.9); rotWorld(ca, _R, -1.4); } }
@@ -173,14 +195,37 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
     const dir = _D.set(_F.x * cp, Math.sin(pitch), _F.z * cp);
     const ch = B.Bip01_Spine2.getWorldPosition(new T.Vector3());
     const P = prone ? ch.addScaledVector(_UP, 0.05).addScaledVector(dir, 0.35) : ch.addScaledVector(_UP, pistol ? 0.12 : 0.16).addScaledVector(_R, pistol ? 0.02 : 0.12).addScaledVector(dir, pistol ? 0.5 : 0.3);
-    const rel = a.reloadT > 0;
-    m.gun.position.copy(m.g.worldToLocal(P.clone())); m.gun.rotation.set(pitch + (rel ? -0.5 : 0), 0, rel ? 0.5 : 0);
+    const rel = a.reloadT > 0, sprint = sp > 5.6 && !a.trigger && !a.ads && !prone && a.mode === 'ground';
+    // balanço da arma com os passos, coice para trás e posição de corrida (arma baixa)
+    P.addScaledVector(_UP, Math.sin(ph) * 0.014 * bob).addScaledVector(_R, Math.cos(ph * 0.5) * 0.012 * bob).addScaledVector(dir, -m.kickV * 0.035);
+    m.lowK = (m.lowK || 0) + ((sprint ? 1 : 0) - (m.lowK || 0)) * Math.min(1, dt * 6);
+    if (m.lowK > 0.01) P.addScaledVector(_UP, -0.12 * m.lowK).addScaledVector(_R, -0.08 * m.lowK).addScaledVector(dir, -0.08 * m.lowK);
+    m.gun.position.copy(m.g.worldToLocal(P.clone())); m.gun.rotation.set(pitch + (rel ? -0.5 : 0) + m.kickV * 0.06 - m.lowK * 0.75, m.lowK * 0.5, (rel ? 0.5 : 0) + m.lowK * 0.3);
     m.gun.updateMatrixWorld(true);
     const grip = m.gun.localToWorld(new T.Vector3(0, -0.08, 0.06)), fore = m.gun.localToWorld(new T.Vector3(0, -0.06, foreOf(w.k)));
     ik2(B.Bip01_R_UpperArm, B.Bip01_R_Forearm, B.Bip01_R_Hand, grip, _pole.set(0, -1, 0).addScaledVector(_R, 0.7));
     ik2(B.Bip01_L_UpperArm, B.Bip01_L_Forearm, B.Bip01_L_Hand, rel ? m.gun.localToWorld(new T.Vector3(0, -0.16, -0.1)) : fore, _pole.set(0, -1, 0).addScaledVector(_R, -0.6));
   }
 }
+
+// ---------- corpo caindo ao morrer (fica alguns segundos e some) ----------
+G.corpses = [];
+function toCorpse(a) {
+  const m = a.model; a.model = null; m.gun.visible = false;
+  m.g.position.set(a.x, a.y, a.z); m.g.rotation.set(0, a.yaw, 0); m.root.visible = true; m.far.visible = false;
+  m.g.visible = Math.hypot(a.x - camera.position.x, a.z - camera.position.z) < 150;
+  G.corpses.push({ m, t: 0, dir: Math.random() < 0.5 ? 1 : -1, prone: a.stance === 'prone' || a.knocked });
+}
+function stepCorpses(dt) {
+  for (let i = G.corpses.length - 1; i >= 0; i--) {
+    const c = G.corpses[i]; c.t += dt; const m = c.m;
+    m.g.visible = Math.hypot(m.g.position.x - camera.position.x, m.g.position.z - camera.position.z) < 150;
+    const k = smooth(clamp(c.t / 0.7, 0, 1));
+    if (!c.prone) { m.root.rotation.set(c.dir * k * Math.PI / 2 * 0.98, Math.PI, 0); m.root.position.y = k * 0.12; }
+    if (c.t > 8) { scene.remove(m.g); if (m.mixer) m.mixer.stopAllAction(); G.corpses.splice(i, 1); }
+  }
+}
+function clearCorpses() { for (const c of G.corpses) scene.remove(c.m.g); G.corpses.length = 0; }
 
 // ---------- avião de verdade (A320 sem logotipo, CC BY 4.0 amvlab) ----------
 function setPlaneModel(src) {

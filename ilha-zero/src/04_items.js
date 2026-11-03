@@ -5,6 +5,7 @@ const AMMO = {
   '556': { n: '5.56mm', w: 0.5, c: '#52d273', stack: 30 },
   '762': { n: '7.62mm', w: 0.7, c: '#ff5f5f', stack: 30 },
   '300': { n: '.300 Magnum', w: 1, c: '#b26bff', stack: 10 },
+  '12': { n: 'Calibre 12', w: 1.25, c: '#d63b3b', stack: 15 },
 };
 // cls: pistol | smg | ar | dmr | sr.  dmg = dano no corpo; v = velocidade da bala (m/s); rel = recarga (s); rec = coice
 const WEAP = {
@@ -24,6 +25,10 @@ const WEAP = {
   KAR98K: { n: 'Kar98k', cls: 'sr', ammo: '762', dmg: 79, rpm: 35, v: 760, mag: 5, emag: 5, rel: 3.6, rec: 2.4, bolt: true, tier: 2 },
   MOSIN: { n: 'Mosin-Nagant', cls: 'sr', ammo: '762', dmg: 77, rpm: 36, v: 800, mag: 5, emag: 5, rel: 3.6, rec: 2.3, bolt: true, fixedZoom: 3.5, tier: 2 },
   M24: { n: 'M24', cls: 'sr', ammo: '762', dmg: 76, rpm: 38, v: 790, mag: 5, emag: 7, rel: 3.4, rec: 2.2, bolt: true, tier: 3 },
+  // escopetas: pellets = bagos de chumbo por tiro; cone = abertura (graus)
+  S1897: { n: 'S1897', cls: 'sg', ammo: '12', dmg: 22, pellets: 9, cone: 4.2, rpm: 55, v: 360, mag: 5, emag: 5, rel: 4.2, rec: 2.4, tier: 1 },
+  S686: { n: 'S686', cls: 'sg', ammo: '12', dmg: 23, pellets: 9, cone: 3.8, rpm: 260, v: 370, mag: 2, emag: 2, rel: 2.8, rec: 2.6, tier: 1 },
+  S12K: { n: 'S12K', cls: 'sg', ammo: '12', dmg: 20, pellets: 9, cone: 4.8, rpm: 230, v: 350, mag: 5, emag: 8, rel: 3.2, rec: 2.0, tier: 2 },
   // só no drop do avião
   AUG: { n: 'AUG A3', cls: 'ar', ammo: '556', dmg: 41, rpm: 750, v: 940, mag: 30, emag: 40, rel: 2.8, rec: 0.75, auto: true, tier: 4 },
   GROZA: { n: 'Groza', cls: 'ar', ammo: '762', dmg: 47, rpm: 750, v: 715, mag: 30, emag: 40, rel: 2.8, rec: 1.2, auto: true, tier: 4 },
@@ -35,6 +40,7 @@ const CLS = {
   ar: { n: 'Fuzil', head: 2.1, hip: 2.3, ads: 0.22, maxZoom: 6, range: 230 },
   dmr: { n: 'Rifle DMR', head: 2.2, hip: 3, ads: 0.1, maxZoom: 10, range: 380 },
   sr: { n: 'Rifle de precisão', head: 2.6, hip: 4.5, ads: 0.02, maxZoom: 10, range: 500 },
+  sg: { n: 'Escopeta', head: 1.5, hip: 1.2, ads: 0.9, maxZoom: 1.3, range: 22 },
 };
 // acessórios. zoom = aumento; slot: sight | muzzle | grip | mag
 const ATT = {
@@ -55,6 +61,8 @@ const ATT = {
   EMAG_AR: { n: 'Pente estendido (fuzil)', slot: 'mag', cls: ['ar', 'dmr'], w: 10, tier: 1 },
   EMAG_SMG: { n: 'Pente estendido (SMG)', slot: 'mag', cls: ['smg', 'pistol'], w: 8, tier: 1 },
   EMAG_SR: { n: 'Pente estendido (precisão)', slot: 'mag', cls: ['sr'], w: 10, tier: 2 },
+  CHOKE: { n: 'Estrangulador (escopeta)', slot: 'muzzle', cls: ['sg'], rec: 1, choke: 0.6, w: 8, tier: 1 },
+  EMAG_SG: { n: 'Pente estendido (S12K)', slot: 'mag', cls: ['sg'], w: 10, tier: 1 },
 };
 const HEAL = {
   BAND: { n: 'Bandagem', w: 2, t: 4, hp: 10, cap: 75, c: '#f1e3c8' },
@@ -62,6 +70,13 @@ const HEAL = {
   MED: { n: 'Kit médico', w: 20, t: 8, hp: 100, cap: 100, c: '#ff4d4d' },
   ENERGY: { n: 'Energético', w: 4, t: 4, boost: 40, c: '#2ec4ff' },
   PAIN: { n: 'Analgésico', w: 10, t: 6, boost: 60, c: '#ffd166' },
+  ADREN: { n: 'Seringa de adrenalina', w: 20, t: 8, boost: 100, c: '#ff9f1c' },
+};
+// granadas
+const THROW = {
+  FRAG: { n: 'Granada', w: 12, c: '#4c5a34', ic: '💣' },
+  SMOKE: { n: 'Granada de fumaça', w: 10, c: '#8a9096', ic: '💨' },
+  MOLO: { n: 'Coquetel molotov', w: 12, c: '#c9742e', ic: '🔥' },
 };
 const ARMOR_RED = [0, 0.3, 0.4, 0.55], HELM_DUR = [0, 80, 150, 230], VEST_DUR = [0, 200, 220, 250];
 const BAG_CAP = [70, 170, 220, 270];
@@ -73,6 +88,7 @@ function itemInfo(k) {
   if (k.startsWith('a:')) { const d = AMMO[k.slice(2)]; return { type: 'ammo', n: d.n, w: d.w, d }; }
   if (HEAL[k]) return { type: 'heal', n: HEAL[k].n, w: HEAL[k].w, d: HEAL[k] };
   if (ATT[k]) return { type: 'att', n: ATT[k].n, w: ATT[k].w, d: ATT[k] };
+  if (THROW[k]) return { type: 'throw', n: THROW[k].n, w: THROW[k].w, d: THROW[k] };
   const lv = +k[1];
   if (k[0] === 'H') return { type: 'helm', n: 'Capacete nv. ' + lv, w: 0, lv };
   if (k[0] === 'V') return { type: 'vest', n: 'Colete nv. ' + lv, w: 0, lv };
@@ -90,17 +106,18 @@ function attFits(w, ak) {
 
 // ---------- tabelas de saque ----------
 const POOL = {
-  1: { w: [['M17', 5], ['M625', 2], ['M1911', 5], ['G18C', 3], ['UMP45', 7], ['MP5K', 6], ['UZI', 6], ['AKM', 6], ['M416', 3], ['SKS', 2], ['KAR98K', 1.5], ['MINI14', 1.5]], gear: [[1, 7], [2, 3]], sight: [['RED', 5], ['HOLO', 5], ['X2', 4], ['X3', 1], ['X4', 0.6]] },
-  2: { w: [['M17', 2], ['M625', 1], ['UMP45', 5], ['MP5K', 4], ['UZI', 3], ['AKM', 7], ['M416', 6], ['SCAR-L', 6], ['M16A2', 4], ['SKS', 3], ['MINI14', 3], ['KAR98K', 3], ['MOSIN', 2.5], ['M24', 0.6]], gear: [[1, 4], [2, 5], [3, 1]], sight: [['RED', 4], ['HOLO', 4], ['X2', 4], ['X3', 3], ['X4', 3], ['X6', 1], ['X8', 0.4]] },
-  3: { w: [['AKM', 6], ['M416', 7], ['SCAR-L', 7], ['M16A2', 4], ['SKS', 4], ['MINI14', 4], ['KAR98K', 4], ['MOSIN', 3], ['M24', 3], ['UMP45', 2]], gear: [[1, 1], [2, 5], [3, 4]], sight: [['HOLO', 3], ['X2', 3], ['X3', 3], ['X4', 4], ['X6', 3], ['X8', 2], ['X10', 0.3]] },
+  1: { w: [['M17', 5], ['M625', 2], ['M1911', 5], ['S1897', 5], ['S686', 4], ['G18C', 3], ['UMP45', 7], ['MP5K', 6], ['UZI', 6], ['AKM', 6], ['M416', 3], ['SKS', 2], ['KAR98K', 1.5], ['MINI14', 1.5]], gear: [[1, 7], [2, 3]], sight: [['RED', 5], ['HOLO', 5], ['X2', 4], ['X3', 1], ['X4', 0.6]] },
+  2: { w: [['M17', 2], ['M625', 1], ['S1897', 3], ['S686', 2], ['S12K', 3], ['UMP45', 5], ['MP5K', 4], ['UZI', 3], ['AKM', 7], ['M416', 6], ['SCAR-L', 6], ['M16A2', 4], ['SKS', 3], ['MINI14', 3], ['KAR98K', 3], ['MOSIN', 2.5], ['M24', 0.6]], gear: [[1, 4], [2, 5], [3, 1]], sight: [['RED', 4], ['HOLO', 4], ['X2', 4], ['X3', 3], ['X4', 3], ['X6', 1], ['X8', 0.4]] },
+  3: { w: [['AKM', 6], ['M416', 7], ['SCAR-L', 7], ['M16A2', 4], ['SKS', 4], ['MINI14', 4], ['KAR98K', 4], ['MOSIN', 3], ['M24', 3], ['UMP45', 2], ['S12K', 3]], gear: [[1, 1], [2, 5], [3, 4]], sight: [['HOLO', 3], ['X2', 3], ['X3', 3], ['X4', 4], ['X6', 3], ['X8', 2], ['X10', 0.3]] },
 };
-const OTHER_ATT = ['COMP_AR', 'SUP_AR', 'COMP_SMG', 'SUP_SMG', 'GRIP', 'GRIP', 'EMAG_AR', 'EMAG_SMG', 'EMAG_SR', 'SUP_SR'];
+const OTHER_ATT = ['COMP_AR', 'SUP_AR', 'COMP_SMG', 'SUP_SMG', 'GRIP', 'GRIP', 'EMAG_AR', 'EMAG_SMG', 'EMAG_SR', 'SUP_SR', 'CHOKE', 'EMAG_SG'];
 function rollLoot(tier) {
   const P = POOL[Math.min(tier, 3)], out = [];
-  const cat = wpick([['w', 26], ['ammo', 22], ['heal', 20], ['att', 15], ['gear', 13], ['bag', 4]]);
+  const cat = wpick([['w', 26], ['ammo', 22], ['heal', 20], ['att', 15], ['gear', 13], ['bag', 4], ['throw', 9]]);
   if (cat === 'w') { const k = wpick(P.w); out.push({ k: 'w:' + k, n: 1 }); out.push({ k: 'a:' + WEAP[k].ammo, n: AMMO[WEAP[k].ammo].stack }); if (Math.random() < 0.5) out.push({ k: 'a:' + WEAP[k].ammo, n: AMMO[WEAP[k].ammo].stack }); }
-  else if (cat === 'ammo') out.push({ k: 'a:' + wpick([['9mm', 3], ['45', 2], ['556', 4], ['762', 4]]), n: 30 });
-  else if (cat === 'heal') { const h = wpick([['BAND', 6], ['FAK', 3], ['MED', 0.6], ['ENERGY', 3], ['PAIN', 1.5]]); out.push({ k: h, n: h === 'BAND' ? 5 : 1 }); }
+  else if (cat === 'ammo') { const am = wpick([['9mm', 3], ['45', 2], ['556', 4], ['762', 4], ['12', 2]]); out.push({ k: 'a:' + am, n: AMMO[am].stack }); }
+  else if (cat === 'throw') out.push({ k: wpick([['FRAG', 5], ['SMOKE', 3], ['MOLO', 2.5]]), n: 1 });
+  else if (cat === 'heal') { const h = wpick([['BAND', 6], ['FAK', 3], ['MED', 0.6], ['ENERGY', 3], ['PAIN', 1.5], ['ADREN', tier >= 3 ? 0.6 : 0.1]]); out.push({ k: h, n: h === 'BAND' ? 5 : 1 }); }
   else if (cat === 'att') out.push({ k: Math.random() < 0.45 ? wpick(P.sight) : pick(OTHER_ATT), n: 1 });
   else if (cat === 'gear') out.push({ k: (Math.random() < 0.5 ? 'H' : 'V') + wpick(P.gear), n: 1 });
   else out.push({ k: 'B' + wpick(P.gear), n: 1 });
@@ -108,7 +125,7 @@ function rollLoot(tier) {
 }
 function rollDrop() {
   const w = pick(['AWM', 'AUG', 'GROZA']), out = [{ k: 'w:' + w, n: 1, w: mkWeapon(w) }, { k: 'a:' + WEAP[w].ammo, n: w === 'AWM' ? 20 : 60 }];
-  out.push({ k: Math.random() < 0.5 ? 'X10' : 'X8', n: 1 }, { k: 'H3', n: 1 }, { k: 'V3', n: 1 }, { k: 'MED', n: 1 }, { k: 'PAIN', n: 1 });
+  out.push({ k: Math.random() < 0.5 ? 'X10' : 'X8', n: 1 }, { k: 'H3', n: 1 }, { k: 'V3', n: 1 }, { k: 'MED', n: 1 }, { k: 'PAIN', n: 1 }, { k: 'ADREN', n: 1 }, { k: 'FRAG', n: 2 });
   out.push({ k: w === 'AWM' ? 'SUP_SR' : 'SUP_AR', n: 1 });
   return out;
 }
@@ -188,9 +205,12 @@ const GUNS = {
     Bc(0, -0.04, -0.06, 0.008, 0.012, 0.07, GC_.st), Bc(0.02, 0.0, 0.2, 0.006, 0.05, 0.14, GC_.st), Bc(-0.02, 0.0, 0.2, 0.006, 0.05, 0.14, GC_.st), Bc(0, -0.01, 0.27, 0.046, 0.06, 0.012, GC_.st)],
   M17: () => [Bc(0, 0.02, -0.03, 0.03, 0.034, 0.2, GC_.bk), Cz(0, 0.024, -0.135, 0.009, 0.02, GC_.st), Bc(0, -0.006, -0.06, 0.028, 0.022, 0.14, GC_.bk), Bc(0, -0.06, 0.045, 0.032, 0.1, 0.045, '#3b2c22', 0.25), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.bk), Bc(0, 0.04, 0.06, 0.012, 0.01, 0.01, GC_.bk)],
   M1911: () => [Bc(0, 0.02, -0.03, 0.03, 0.034, 0.21, GC_.bl), Bc(0, -0.006, -0.05, 0.028, 0.022, 0.15, GC_.bl), Bc(0, -0.06, 0.045, 0.033, 0.1, 0.044, '#7a4a28', 0.25), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.bl), Bc(0, 0.025, 0.075, 0.01, 0.012, 0.012, GC_.bl)],
+  S1897: () => [Bc(0, 0.005, -0.03, 0.045, 0.05, 0.22, GC_.bl), Cz(0, 0.018, -0.42, 0.012, 0.56, GC_.bl), Bc(0, -0.022, -0.32, 0.045, 0.04, 0.17, GC_.wd), Cz(0, -0.02, -0.5, 0.009, 0.36, GC_.bl), Bc(0, -0.05, 0.12, 0.034, 0.08, 0.1, GC_.wd, 0.45), Bc(0, -0.04, 0.3, 0.042, 0.11, 0.28, GC_.wd, 0.18), Bc(0, -0.07, 0.44, 0.044, 0.15, 0.03, GC_.dw), Bc(0, -0.035, 0.03, 0.008, 0.012, 0.06, GC_.bl)],
+  S686: () => [Bc(0, 0.0, -0.02, 0.05, 0.05, 0.16, '#8a8f96'), Cz(-0.012, 0.02, -0.38, 0.012, 0.56, GC_.bl), Cz(0.012, 0.02, -0.38, 0.012, 0.56, GC_.bl), Bc(0, -0.008, -0.3, 0.05, 0.03, 0.22, GC_.wd), Bc(0, -0.04, 0.12, 0.036, 0.08, 0.1, GC_.wd, 0.45), Bc(0, -0.035, 0.3, 0.044, 0.11, 0.28, GC_.wd, 0.15), Bc(0, -0.065, 0.44, 0.046, 0.15, 0.03, GC_.dw)],
+  S12K: () => [Bc(0, 0.0, -0.02, 0.05, 0.07, 0.36, GC_.bk), Bc(0, 0.04, -0.01, 0.042, 0.016, 0.3, GC_.st), Bc(0, -0.002, -0.3, 0.056, 0.05, 0.2, GC_.pl), Cz(0, 0.012, -0.5, 0.013, 0.24, GC_.st), Bc(0, -0.1, -0.08, 0.04, 0.12, 0.08, GC_.bk, -0.1), Bc(0, -0.08, 0.09, 0.034, 0.11, 0.045, GC_.pl, 0.35), Bc(0, -0.012, 0.27, 0.04, 0.066, 0.22, GC_.pl, 0.12), Bc(0, -0.04, 0.385, 0.043, 0.12, 0.035, GC_.pl)],
   G18C: () => [Bc(0, 0.02, -0.03, 0.03, 0.032, 0.19, GC_.bk), Bc(0, -0.006, -0.05, 0.029, 0.024, 0.15, GC_.pl), Bc(0, -0.065, 0.045, 0.032, 0.11, 0.046, GC_.pl, 0.2), Bc(0, -0.13, 0.06, 0.028, 0.06, 0.04, GC_.bk, 0.2), Bc(0, -0.03, -0.02, 0.006, 0.014, 0.05, GC_.pl)],
 };
-const MUZ = { AKM: -0.74, M416: -0.66, 'SCAR-L': -0.55, M16A2: -0.81, MOSIN: -0.86, M625: -0.19, AUG: -0.59, GROZA: -0.44, KAR98K: -0.75, M24: -0.72, AWM: -0.83, SKS: -0.68, MINI14: -0.63, UMP45: -0.29, MP5K: -0.23, UZI: -0.22, M17: -0.16, M1911: -0.14, G18C: -0.13 };
+const MUZ = { S1897: -0.7, S686: -0.66, S12K: -0.62, AKM: -0.74, M416: -0.66, 'SCAR-L': -0.55, M16A2: -0.81, MOSIN: -0.86, M625: -0.19, AUG: -0.59, GROZA: -0.44, KAR98K: -0.75, M24: -0.72, AWM: -0.83, SKS: -0.68, MINI14: -0.63, UMP45: -0.29, MP5K: -0.23, UZI: -0.22, M17: -0.16, M1911: -0.14, G18C: -0.13 };
 function gunGeo(k) {
   if (GUNGEO[k]) return GUNGEO[k];
   GUN_MUZ[k] = MUZ[k] || -0.6; GUN_TOP[k] = WEAP[k].cls === 'pistol' ? 0.04 : 0.06;

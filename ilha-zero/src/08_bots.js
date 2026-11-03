@@ -39,7 +39,7 @@ function botPickWeapon(a, dist) {
   for (let i = 0; i < 3; i++) {
     const w = a.wp[i]; if (!w || (!w.mag && !ammoOf(a, w))) continue;
     const c = wdef(w).cls, z = sightZoom(w);
-    let s = { pistol: 1, smg: dist < 50 ? 6 : 2, ar: dist < 200 ? 7 : 4, dmr: dist > 80 ? 8 : 4, sr: dist > 100 ? 9 : 3 }[c];
+    let s = { pistol: 1, sg: dist < 18 ? 9 : 0.5, smg: dist < 50 ? 6 : 2, ar: dist < 200 ? 7 : 4, dmr: dist > 80 ? 8 : 4, sr: dist > 100 ? 9 : 3 }[c];
     if (dist > 120 && z >= 3) s += 2;
     if (s > bs) { bs = s; best = i; }
   }
@@ -47,7 +47,7 @@ function botPickWeapon(a, dist) {
   return best >= 0;
 }
 const hasGun = a => a.wp.some(w => w && (w.mag > 0 || ammoOf(a, w) > 0));
-const healItem = a => ['MED', 'FAK', 'BAND', 'PAIN', 'ENERGY'].find(k => canHeal(a, k));
+const healItem = a => ['MED', 'FAK', 'BAND', 'ADREN', 'PAIN', 'ENERGY'].find(k => canHeal(a, k));
 // ---------- navegação ----------
 function pointBlocked(x, y, z) {
   if (groundH(x, z) < -1.1) return true;
@@ -256,6 +256,7 @@ const _ap = {};
 function botFight(a, dt) {
   const ai = a.ai, P = botP(a), t = ai.enemy, w = curW(a);
   if (!t) { ai.goal = 'roam'; return; }
+  if (!ai.vis && botNade(a)) return;
   if (!w || (!w.mag && !ammoOf(a, w))) { // sem munição: parte para o soco
     if (a.cur >= 0 && !hasGun(a)) switchWeapon(a, a.cur);
     const dx = t.x - a.x, dz = t.z - a.z, d = Math.hypot(dx, dz) || 1;

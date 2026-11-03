@@ -61,6 +61,18 @@ Q/E inclina, R recarrega, F pega/age, H cura, Tab mochila, M mapa, V 1ª/3ª pes
   revólver S&W M625, com texturas de verdade, na mão dos personagens, no chão e em 1ª pessoa (mira alinhada no aparelho da arma).
   As demais continuam modeladas por código até termos modelos com licença livre.
 
+## Melhorias (pedidos do teste no celular)
+- **Mochila**: não trava mais ao fechar (fechar responde no toque, painel sem desfoque pesado, redesenha só quando muda,
+  controles soltos ao abrir/fechar e o 3D desenhado com menos frequência enquanto o painel cobre a tela).
+- **Mais casas e prédios**: 208 construções (eram 81), com 4 bairros novos (Bairro Verde, Jardim, Prainha, Farol Leste),
+  estradas ligando tudo e 50 casas isoladas pelo campo.
+- **Mais movimento no corpo**: andar de lado e de ré (pernas viram para onde anda, tronco segue a mira), balanço do tronco
+  e da arma nos passos, respiração parado, arma baixa ao correr, coice no tiro, recuo ao levar tiro, pernas encolhidas no pulo,
+  corpo cai ao morrer; humanos detalhados até 150 m.
+- **Setas para dirigir**: ◀ ▶ à esquerda, ACELERAR e FREIO/RÉ à direita (o joystick continua valendo).
+- **Mais itens**: escopetas S1897, S686 e S12K (calibre 12, estrangulador e pente estendido), granada, granada de fumaça
+  (bloqueia a visão dos bots), coquetel molotov e seringa de adrenalina. Bots também jogam granadas.
+
 ## Próximas fases
 3. Helicóptero
 4. Multijogador online: lobby com amigos (convite por link/código, como no Deep Spear), partidas com bots completando

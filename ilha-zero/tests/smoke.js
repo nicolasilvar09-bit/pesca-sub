@@ -45,6 +45,16 @@ const server = http.createServer((q, r) => { const u = decodeURIComponent(q.url.
         { const v = X.VEH.find(v => !v.dead && !v.seats[0]); P.x = v.x + 2.5; P.z = v.z; P.y = X.groundH(P.x, P.z) + 0.05; step(0.2);
           const vx0 = v.x, vz0 = v.z; X.enterVeh(P, v, 0); X.IN.my = 1; let kmh = 0; for (let k = 0; k < 30; k++) { step(0.1); kmh = Math.max(kmh, Math.abs(v.sp) * 3.6); } X.IN.my = -1; step(2); X.IN.my = 0; step(1); X.leaveVeh(P);
           log.push(`${v.d.n}: ${kmh.toFixed(0)} km/h (máx. em 3 s)`); if (kmh < 30) log.push('NÃO acelerou ' + JSON.stringify({ water: v.water, air: v.air, hp: Math.round(v.hp), y: +v.y.toFixed(1), gh: +X.groundH(v.x, v.z).toFixed(1), x: Math.round(v.x), z: Math.round(v.z), seats: v.seats.map(s => s ? s.name : '-'), moved: Math.round(Math.hypot(v.x - vx0, v.z - vz0)) })); if (P.veh) log.push('NÃO saiu do veículo'); }
+        // itens novos: escopeta (bagos), granada, fumaça, molotov
+        { P.bag['a:12'] = 15; X.giveItem(P, 'w:S1897', 1, X.mkWeapon('S1897'), true); const sg = P.wp.findIndex(w => w && w.k === 'S1897'); if (P.cur !== sg) X.switchWeapon(P, sg); step(0.6);
+          P.wp[sg].mag = 5; P.reloadT = 0; P.fireCd = 0; const nb = X.G.actors.length && window.__G.BULN ? 0 : 0; X.fireShot(P, P.x, P.y + 1.6, P.z, 0, 0, -1);
+          const en = G.actors.find(a => a.alive && a.team !== P.team && a.mode === 'ground'); const hp0 = en.hp + (en.knocked ? 0 : 0);
+          en.x = P.x + 3; en.z = P.z; en.y = X.groundH(en.x, en.z); en.ai.goal = 'camp'; en.ai.campT = 99; en.ai.think = 99; en.vx = en.vz = 0; en.stance = 'stand';
+          P.bag.FRAG = 1; X.throwNade(P, 'FRAG', 1, 0.1, 0, 3); step(4.5); log.push('granada: vida do alvo ' + Math.round(hp0) + ' → ' + (en.alive ? Math.round(en.knocked ? 0 : en.hp) + (en.knocked ? ' (derrubado)' : '') : 'morto'));
+          if (en.alive && !en.knocked && en.hp >= hp0) log.push('NÃO causou dano a granada');
+          P.bag.SMOKE = 1; X.throwNade(P, 'SMOKE', 0, 0.2, -1, 4); step(6); const s = X.SMOKES[0];
+          log.push('fumaça bloqueia visão: ' + (s ? !X.losClear(s.x - 15, s.y, s.z, s.x + 15, s.y, s.z) : 'sem fumaça')); if (!s || X.losClear(s.x - 15, s.y, s.z, s.x + 15, s.y, s.z)) log.push('NÃO bloqueou a fumaça');
+          P.bag.MOLO = 1; X.throwNade(P, 'MOLO', 0, 0.5, 1, 6); step(2); log.push('fogo: ' + X.FIRES.length); }
         X.IN.adsOn = true; step(0.5); X.updateCamera(0.1); X.IN.adsOn = false;
         X.openBag(); X.renderBag(); X.closePanels(); X.toggleMap(); X.toggleMap(); X.updateHud(0.2);
         // protege o jogador para ver a partida até o fim

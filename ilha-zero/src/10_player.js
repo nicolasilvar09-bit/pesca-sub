@@ -1,5 +1,5 @@
 // ================= jogador: controles, mira, coice, câmera (1ª e 3ª pessoa), lunetas e arma na mão =================
-const IN = { mx: 0, my: 0, sprint: false, ldx: 0, ldy: 0, fire: false, adsOn: false, act: false };
+const IN = { mx: 0, my: 0, sprint: false, ldx: 0, ldy: 0, fire: false, adsOn: false, act: false, hold: {} };
 const camDir = new T.Vector3(), _cp = {}, _ep = {}, _near2 = [];
 G.recAcc = 0; G.camKick = 0; G.flash = 0; G.zoomFar = false;
 const fovFor = z => 2 * Math.atan(Math.tan(37.5 * Math.PI / 180) / z) * 180 / Math.PI;
@@ -34,7 +34,9 @@ function playerStep(dt) {
   if (p.mode === 'plane') return;
   if (p.mode === 'fall' || p.mode === 'chute') { const push = Math.min(1, wl), n = wl || 1; stepAir(p, dt, wx / n, wz / n, push); return; }
   // no chão
-  if (p.veh && p.seat === 0) { p.veh.thr = IN.my; p.veh.str = IN.mx; p.ads = false; p.trigger = false; p.trigPrev = IN.fire; return; }
+  if (p.veh && p.seat === 0) {
+    const H2 = IN.hold, st = (H2.drvR ? 1 : 0) - (H2.drvL ? 1 : 0);
+    p.veh.thr = H2.gas ? 1 : H2.brake ? -1 : IN.my; p.veh.str = st || IN.mx; p.ads = false; p.trigger = false; p.trigPrev = IN.fire; return; }
   p.ads = IN.adsOn && !!w && !p.knocked && p.healT <= 0 && p.reloadT <= 0 && !p.swim;
   if (!p.veh) {
     if (p.reviving && wl > 0.2) { p.reviving = null; p.reviveT = 0; }
@@ -167,6 +169,7 @@ function updateCamera(dt) {
     if (p.ads) { const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y; VM.position.set(0, -top, -0.22 + kick); } else VM.position.set(0.2, -0.19 + bob, -0.3 + kick);
     VM.rotation.set(p.reloadT > 0 ? -0.5 : 0, 0, 0);
   }
+  if (G.shake > 0) { G.shake -= dt; camera.rotation.x += gauss() * 0.012 * G.shake; camera.rotation.y += gauss() * 0.012 * G.shake; }
   SKY.position.copy(camera.position);
   return hide;
 }

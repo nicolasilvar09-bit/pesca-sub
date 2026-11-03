@@ -1,7 +1,7 @@
 // ================= laço principal =================
 const CHUTE_GEO = mergeParts([{ g: GEO.hsph, y: 0, sx: 5.2, sy: 2.2, sz: 3.6, c: '#ff4fa3' }, { g: GEO.hsph, y: 0.05, sx: 3.2, sy: 2.25, sz: 3.65, c: '#ffe14d' }]);
 function drawActors(dt, hideSelf) {
-  const cx = camera.position.x, cz = camera.position.z; humanFrame();
+  const cx = camera.position.x, cz = camera.position.z; humanFrame(); stepCorpses(dt);
   for (const a of G.actors) {
     if (!a.model) continue;
     animateModel(a, dt, cx, cz, hideSelf && a === G.player);
@@ -32,6 +32,7 @@ function frame(now) {
     gfxStep(dt, t.alive ? t.x : camera.position.x, t.alive ? t.y : camera.position.y - 10, t.alive ? t.z : camera.position.z);
     updateHud(dt);
   } else { lobbyCamera(dt); gfxStep(dt, LOB.x, LOB.y, LOB.z); }
-  renderer.render(scene, camera);
+  // com painel aberto cobrindo a tela, desenha o 3D só de vez em quando (alivia o celular)
+  if (!(G.phase === 'match' && panelOpen()) || (fpsN % 6 === 0)) renderer.render(scene, camera);
   fpsN++; if ((fpsT += dt) > 1) { G.fps = fpsN / fpsT; fpsN = 0; fpsT = 0; }
 }
