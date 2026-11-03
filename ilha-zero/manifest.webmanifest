@@ -1,0 +1,12 @@
+{
+  "name": "Ilha Zero · Battle Royale",
+  "short_name": "Ilha Zero",
+  "description": "Battle royale para celular: 50 jogadores numa ilha colorida.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#141a3a",
+  "theme_color": "#141a3a",
+  "lang": "pt-BR"
+}
