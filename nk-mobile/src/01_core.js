@@ -1,5 +1,6 @@
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
+const BUILD = '%%BUILD%%'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)

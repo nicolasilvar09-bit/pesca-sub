@@ -5530,6 +5530,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
+const BUILD = '04/11 14:20'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -5590,7 +5591,7 @@ function toast(msg, s = 2.2, cls = '') {
 // ================= cena: renderizador, câmera, luz, céu e utilitários de geometria =================
 const renderer = new T.WebGLRenderer({ canvas: $('cv'), antialias: false, powerPreference: 'high-performance' });
 renderer.outputEncoding = T.sRGBEncoding; renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.92;
-const QUAL = [{ pr: 0.75, fog: 700, shadow: 0, grass: 0, post: 0 }, { pr: 1.25, fog: 1000, shadow: 1024, grass: 1, post: 1 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1, post: 1 }];
+const QUAL = [{ pr: 0.75, fog: 600, shadow: 0, grass: 0, post: 0 }, { pr: 1.15, fog: 850, shadow: 1024, grass: 1, post: 1, rain: 1300 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1, post: 1, rain: 2600 }];
 var DYN = 1; // escala de resolução dinâmica (baixa sozinha se o celular não segurar o FPS)
 const scene = new T.Scene();
 const SKY_C = new T.Color(MAPID === 'bal' ? 0xc6d4cf : 0xc3ced6); // névoa atmosférica (no Balneário, mais úmida e esverdeada)
@@ -6426,6 +6427,8 @@ const TREES = [], NAT = {};
     else if (r < (BALN ? 0.96 : 0.9)) bu.push([x, h, z, 0.7 + WR() * 0.7]);
     else rk.push([x, h, z, 0.8 + WR() * 1.6]);
   }
+  // ordena por faixa do mapa: árvores vizinhas ficam com índices próximos (a atualização perto do jogador manda só um trecho para a placa de vídeo)
+  const band = v => Math.floor(v[2] / 90); tr.sort((a, b) => band(a) - band(b) || a[0] - b[0]); bu.sort((a, b) => band(a) - band(b) || a[0] - b[0]);
   const dummy = new T.Object3D(), c = new T.Color();
   const trunk = new T.InstancedMesh(new T.CylinderGeometry(0.22, 0.3, 1, 6), new T.MeshLambertMaterial({ color: 0x7a4b2a }), tr.length);
   const crown = new T.InstancedMesh(new T.ConeGeometry(1, 1, 8), new T.MeshLambertMaterial({ color: 0xffffff }), tr.length * 2);
@@ -8671,7 +8674,7 @@ function renderLobby() {
   const c = CHARS[SET.char];
   const n = MODES.find(m => m[0] === G.mode)[2];
   el.innerHTML = `
-  <div class="lgo"><div class="logo nk"><b>N</b><i>K</i><em>MOBILE</em></div><div class="sub">Battle Royale · 50 jogadores</div></div>
+  <div class="lgo"><div class="logo nk"><b>N</b><i>K</i><em>MOBILE</em></div><div class="sub">Battle Royale · 50 jogadores · <small>versão ${BUILD}</small></div></div>
   <div class="lst">${(() => { const r = rankOf(SET.rp); return `<div class="pill" style="color:${r.c}">🏅 <b>${r.n}</b> · ${r.rp}</div>`; })()}<div class="pill">🏆 <b>${SET.wins}</b> vitórias</div><div class="pill">💀 <b>${SET.kills}</b> abates</div><div class="pill">🎮 <b>${SET.matches}</b> partidas</div><div class="hb2" id="lSet">⚙</div></div>
   <div class="lleft">
     <label class="lab">Seu nome</label><input id="lName" maxlength="14" value="${(SET.name || '').replace(/"/g, '')}">
@@ -9428,10 +9431,11 @@ function gfxStep(dt, fx, fy, fz) {
   // alto = mais de 45 m acima do chão (avião, queda livre, paraquedas): sem grama, sem árvore detalhada, sombra congelada
   const high = fy - Math.max(groundH(fx, fz), 0) > 45;
   GFX.t += dt; GRASS_U.value = GFX.t; if (typeof natureStep === 'function') natureStep(dt, fx, fz, high); if (GFX.water) GFX.water.uniforms.uT.value = GFX.t;
-  if (GFX.shadow) renderer.shadowMap.autoUpdate = !high || (GFX.shT = (GFX.shT || 0) + dt) > 1 && !(GFX.shT = 0);
+  // sombra: no Alto todo quadro; no Médio um quadro sim, outro não (quase não se nota e alivia muito o celular); no alto, congelada
+  if (GFX.shadow) renderer.shadowMap.autoUpdate = high ? (GFX.shT = (GFX.shT || 0) + dt) > 1 && !(GFX.shT = 0) : SET.quality >= 2 || (GFX.shF = !GFX.shF);
   shadowFollow(fx, fy, fz);
   grassM.visible = flowerM.visible = GFX.grassOn && !high;
-  if (GFX.grassOn && !high && Math.hypot(fx - GFX.gx, fz - GFX.gz) > 8) refreshGrass(fx, fz);
+  if (GFX.grassOn && !high && Math.hypot(fx - GFX.gx, fz - GFX.gz) > 12) refreshGrass(fx, fz);
 }
 
 // ================= humanos realistas (Microsoft Rocketbox, MIT): carregar, animar, segurar a arma, inclinar, deitar, sentar =================
@@ -9867,7 +9871,11 @@ function refreshNature(cx, cz) {
   if (!NATR.ready) return;
   NATR.cx = cx; NATR.cz = cz;
   const tm = NAT.trunk.instanceMatrix, cm = NAT.crown.instanceMatrix, c2 = NAT.crown2.instanceMatrix, bm = NAT.bush.instanceMatrix;
-  tm.array.set(NATR.orig.trunk); cm.array.set(NATR.orig.crown); c2.array.set(NATR.orig.crown2); bm.array.set(NATR.orig.bush);
+  // devolve só as árvores que estavam escondidas da última vez (antes copiava tudo: travava no celular)
+  const H = NATR.hid || (NATR.hid = { t: [], c: [], c2: [], b: [] });
+  const back = (arr, orig, list) => { for (const i of list) for (let k = 0; k < 16; k++) arr[i * 16 + k] = orig[i * 16 + k]; list.length = 0; };
+  const span = l => l.length ? [Math.min(...l), Math.max(...l)] : null, old = { t: span(H.t), c: span(H.c), c2: span(H.c2), b: span(H.b) };
+  back(tm.array, NATR.orig.trunk, H.t); back(cm.array, NATR.orig.crown, H.c); back(c2.array, NATR.orig.crown2, H.c2); back(bm.array, NATR.orig.bush, H.b);
   for (const k in NATR.inst) if (NATR.inst[k]) NATR.inst[k].count = 0;
   const put = (k, x, y, z, h, rot) => { const m = NATR.inst[k]; if (!m || m.count >= 420) return false; _nd.position.set(x, y, z); _nd.rotation.set(0, rot, 0); _nd.scale.setScalar(h); _nd.updateMatrix(); m.setMatrixAt(m.count++, _nd.matrix); return true; };
   const R = [55, 95, 130][SET.quality] || 95, R2 = R * R;
@@ -9876,17 +9884,19 @@ function refreshNature(cx, cz) {
     const r = hsh(x, z), beach = h < 6 && Math.hypot(x, z) > 520 * MK || MAPID === 'bal' && r > 0.62; // no Balneário, coqueiros por toda parte
     const k = beach ? TREE_PALM[0] : round ? TREE_ROUND[Math.floor(r * TREE_ROUND.length)] : MAPID === 'bal' ? TREE_PALM[0] : TREE_PINE[Math.floor(r * TREE_PINE.length)];
     if (!put(k, x, h - 0.05, z, (round ? 6.6 : 8.2) * s * (0.9 + r * 0.25), r * 6.28)) continue;
-    ZERO_M.toArray(tm.array, ti * 16); for (const j of idx) ZERO_M.toArray(round ? c2.array : cm.array, j * 16);
+    ZERO_M.toArray(tm.array, ti * 16); H.t.push(ti); for (const j of idx) { ZERO_M.toArray(round ? c2.array : cm.array, j * 16); (round ? H.c2 : H.c).push(j); }
   }
-  (NAT.bu || []).forEach(([x, h, z, s], i) => { if ((x - cx) ** 2 + (z - cz) ** 2 > R2) return; const r = hsh(x, z); if (put(BUSHES[Math.floor(r * BUSHES.length)], x, h - 0.05, z, 1.5 * s, r * 6.28)) ZERO_M.toArray(bm.array, i * 16); });
-  tm.needsUpdate = cm.needsUpdate = c2.needsUpdate = bm.needsUpdate = true;
+  (NAT.bu || []).forEach(([x, h, z, s], i) => { if ((x - cx) ** 2 + (z - cz) ** 2 > R2) return; const r = hsh(x, z); if (put(BUSHES[Math.floor(r * BUSHES.length)], x, h - 0.05, z, 1.5 * s, r * 6.28)) { ZERO_M.toArray(bm.array, i * 16); H.b.push(i); } });
+  // envia só o trecho alterado (antigo + novo) em vez do mapa inteiro
+  const send = (attr, o, list) => { const n = span(list), lo = Math.min(o ? o[0] : 1e9, n ? n[0] : 1e9), hi = Math.max(o ? o[1] : -1, n ? n[1] : -1); if (hi < 0) return; attr.updateRange.offset = lo * 16; attr.updateRange.count = (hi - lo + 1) * 16; attr.needsUpdate = true; };
+  send(tm, old.t, H.t); send(cm, old.c, H.c); send(c2, old.c2, H.c2); send(bm, old.b, H.b);
   for (const k in NATR.inst) if (NATR.inst[k]) NATR.inst[k].instanceMatrix.needsUpdate = true;
 }
 // no alto (avião, queda, paraquedas) não precisa de árvore detalhada: mostra só as simples e para de recalcular
 function natureStep(dt, fx, fz, high) {
   NAT_WIND.value += dt; if (!NATR.ready) return;
   if (high) { if (!NATR.off) { NATR.off = true; refreshNature(1e6, 1e6); } return; }
-  if (NATR.off || Math.hypot(fx - NATR.cx, fz - NATR.cz) > 14) { NATR.off = false; refreshNature(fx, fz); }
+  if (NATR.off || Math.hypot(fx - NATR.cx, fz - NATR.cz) > 24) { NATR.off = false; refreshNature(fx, fz); } // refaz a cada 24 m (antes 14)
 }
 
 // ---------- céu realista (dispersão atmosférica) ----------
@@ -10377,7 +10387,7 @@ function dynRes() {
   dynRes.t = now;
   // cada troca de resolução recria a imagem interna (dá um soluço): troca pouco, num passo só, e sobe devagar
   let d = DYN;
-  if (G.fps < 36 && DYN > 0.6) { d = Math.max(0.6, Math.round(DYN * Math.sqrt(G.fps / 48) * 10) / 10); dynRes.good = 0; }
+  if (G.fps < 42 && DYN > 0.55) { d = Math.max(0.55, Math.round(DYN * Math.sqrt(G.fps / 52) * 10) / 10); dynRes.good = 0; }
   else if (G.fps > 56 && DYN < 1) { if ((dynRes.good = (dynRes.good || 0) + 1) >= 4) { d = Math.min(1, DYN + 0.1); dynRes.good = 0; } }
   else dynRes.good = 0;
   if (Math.abs(d - DYN) > 0.01) { DYN = d; applyRes(); }
@@ -10746,7 +10756,7 @@ function setWeather(k) {
   if (typeof SKY2 !== 'undefined' && SKY2) { const u = SKY2.material.uniforms; u.sunPosition.value.copy(SUN_DIR); u.turbidity.value = w.tb; u.rayleigh.value = w.ry; SKY2.visible = w.sky; }
   for (const m of SUNDISK) { m.position.copy(SUN_DIR).multiplyScalar(2000); m.lookAt(0, 0, 0); m.visible = w.sky; }
   if (GFX.water) { GFX.water.uniforms.uSun.value.copy(SUN_DIR); GFX.water.uniforms.uSky.value.set(w.sky ? 0xb5c6d2 : w.fog); }
-  WX.rainOn = !!w.rain; RAIN.visible = WX.rainOn; nightExtras(!!w.night);
+  WX.rainOn = !!w.rain; RAIN.visible = WX.rainOn; RAIN.geometry.setDrawRange(0, ((QUAL[SET.quality] || QUAL[1]).rain || 900) * 2); // menos gotas no Médio/Leve nightExtras(!!w.night);
 }
 // a qualidade gráfica também mexe na névoa: reaplica o clima depois
 const _aq = applyQuality; applyQuality = function () { _aq(); if (typeof WX !== 'undefined' && WEATHER[WX.k].fk !== 1) setWeather(WX.k); };
@@ -10865,9 +10875,9 @@ loadHumans(() => {
 });
 $('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__G = { gfxStep, G, IN, ZONE, BLD, BOX, TOWNS, ROADS, RIVER, setWeather, drawMapOn, MAPID, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, ON, PARTY, removeItem, pDrop, partyCreate, partyJoin, leaderStart, addFriendCode, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
+window.__G = { gfxStep, refreshGrass, refreshNature, G, IN, ZONE, BLD, BOX, TOWNS, ROADS, RIVER, setWeather, drawMapOn, MAPID, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, ON, PARTY, removeItem, pDrop, partyCreate, partyJoin, leaderStart, addFriendCode, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
 // instala como app / funciona sem internet
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
+if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js').then(r => { try { r.update(); } catch (e) { } }).catch(() => { }); let had = !!navigator.serviceWorker.controller; navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && G.phase !== 'match') location.reload(); had = true; }); } // versão nova chegou: recarrega sozinho no lobby
 
 }, 30);
 </script>

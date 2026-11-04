@@ -762,6 +762,8 @@ const TREES = [], NAT = {};
     else if (r < (BALN ? 0.96 : 0.9)) bu.push([x, h, z, 0.7 + WR() * 0.7]);
     else rk.push([x, h, z, 0.8 + WR() * 1.6]);
   }
+  // ordena por faixa do mapa: árvores vizinhas ficam com índices próximos (a atualização perto do jogador manda só um trecho para a placa de vídeo)
+  const band = v => Math.floor(v[2] / 90); tr.sort((a, b) => band(a) - band(b) || a[0] - b[0]); bu.sort((a, b) => band(a) - band(b) || a[0] - b[0]);
   const dummy = new T.Object3D(), c = new T.Color();
   const trunk = new T.InstancedMesh(new T.CylinderGeometry(0.22, 0.3, 1, 6), new T.MeshLambertMaterial({ color: 0x7a4b2a }), tr.length);
   const crown = new T.InstancedMesh(new T.ConeGeometry(1, 1, 8), new T.MeshLambertMaterial({ color: 0xffffff }), tr.length * 2);

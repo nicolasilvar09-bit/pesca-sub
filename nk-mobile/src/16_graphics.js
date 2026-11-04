@@ -287,8 +287,9 @@ function gfxStep(dt, fx, fy, fz) {
   // alto = mais de 45 m acima do chão (avião, queda livre, paraquedas): sem grama, sem árvore detalhada, sombra congelada
   const high = fy - Math.max(groundH(fx, fz), 0) > 45;
   GFX.t += dt; GRASS_U.value = GFX.t; if (typeof natureStep === 'function') natureStep(dt, fx, fz, high); if (GFX.water) GFX.water.uniforms.uT.value = GFX.t;
-  if (GFX.shadow) renderer.shadowMap.autoUpdate = !high || (GFX.shT = (GFX.shT || 0) + dt) > 1 && !(GFX.shT = 0);
+  // sombra: no Alto todo quadro; no Médio um quadro sim, outro não (quase não se nota e alivia muito o celular); no alto, congelada
+  if (GFX.shadow) renderer.shadowMap.autoUpdate = high ? (GFX.shT = (GFX.shT || 0) + dt) > 1 && !(GFX.shT = 0) : SET.quality >= 2 || (GFX.shF = !GFX.shF);
   shadowFollow(fx, fy, fz);
   grassM.visible = flowerM.visible = GFX.grassOn && !high;
-  if (GFX.grassOn && !high && Math.hypot(fx - GFX.gx, fz - GFX.gz) > 8) refreshGrass(fx, fz);
+  if (GFX.grassOn && !high && Math.hypot(fx - GFX.gx, fz - GFX.gz) > 12) refreshGrass(fx, fz);
 }

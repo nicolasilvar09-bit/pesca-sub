@@ -63,7 +63,7 @@ function dynRes() {
   dynRes.t = now;
   // cada troca de resolução recria a imagem interna (dá um soluço): troca pouco, num passo só, e sobe devagar
   let d = DYN;
-  if (G.fps < 36 && DYN > 0.6) { d = Math.max(0.6, Math.round(DYN * Math.sqrt(G.fps / 48) * 10) / 10); dynRes.good = 0; }
+  if (G.fps < 42 && DYN > 0.55) { d = Math.max(0.55, Math.round(DYN * Math.sqrt(G.fps / 52) * 10) / 10); dynRes.good = 0; }
   else if (G.fps > 56 && DYN < 1) { if ((dynRes.good = (dynRes.good || 0) + 1) >= 4) { d = Math.min(1, DYN + 0.1); dynRes.good = 0; } }
   else dynRes.good = 0;
   if (Math.abs(d - DYN) > 0.01) { DYN = d; applyRes(); }

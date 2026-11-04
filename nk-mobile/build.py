@@ -7,6 +7,8 @@ body = open(f'{src}/body.html', encoding='utf-8').read()
 three = open(os.path.join(ROOT, 'vendor/three.min.js'), encoding='utf-8').read() + '\n' + open(os.path.join(ROOT, 'vendor/gltf.js'), encoding='utf-8').read()
 assert '</script' not in three.lower()
 js = '\n'.join(open(f'{src}/{f}', encoding='utf-8').read() for f in sorted(os.listdir(src)) if f.endswith('.js'))
+import datetime
+js = js.replace('%%BUILD%%', (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=3)).strftime('%d/%m %H:%M'))  # horário de Brasília
 assert '</script' not in js.lower()
 # o setTimeout deixa a tela de carregamento aparecer antes de montar a ilha
 scripts = f'<script>{three}</script>\n<script>\nsetTimeout(function(){{\n{js}\n}}, 30);\n</script>'

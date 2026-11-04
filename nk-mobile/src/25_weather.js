@@ -24,7 +24,7 @@ function setWeather(k) {
   if (typeof SKY2 !== 'undefined' && SKY2) { const u = SKY2.material.uniforms; u.sunPosition.value.copy(SUN_DIR); u.turbidity.value = w.tb; u.rayleigh.value = w.ry; SKY2.visible = w.sky; }
   for (const m of SUNDISK) { m.position.copy(SUN_DIR).multiplyScalar(2000); m.lookAt(0, 0, 0); m.visible = w.sky; }
   if (GFX.water) { GFX.water.uniforms.uSun.value.copy(SUN_DIR); GFX.water.uniforms.uSky.value.set(w.sky ? 0xb5c6d2 : w.fog); }
-  WX.rainOn = !!w.rain; RAIN.visible = WX.rainOn; nightExtras(!!w.night);
+  WX.rainOn = !!w.rain; RAIN.visible = WX.rainOn; RAIN.geometry.setDrawRange(0, ((QUAL[SET.quality] || QUAL[1]).rain || 900) * 2); // menos gotas no Médio/Leve nightExtras(!!w.night);
 }
 // a qualidade gráfica também mexe na névoa: reaplica o clima depois
 const _aq = applyQuality; applyQuality = function () { _aq(); if (typeof WX !== 'undefined' && WEATHER[WX.k].fk !== 1) setWeather(WX.k); };
