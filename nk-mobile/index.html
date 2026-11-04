@@ -5986,10 +5986,11 @@ function wallRun(axis, c0, c1, a0, a1, y0, y1, ops, color) {
   put(cur, a1, y0, y1);
 }
 function slabWithHole(x0, z0, x1, z1, y0, y1, hole, color) {
-  if (!hole) { addBox(x0, y0, z0, x1, y1, z1, color); return; }
+  const B = { bot: true }; // face de baixo também: visto do andar de baixo é o teto (sem ela, dava para ver através)
+  if (!hole) { addBox(x0, y0, z0, x1, y1, z1, color, B); return; }
   const [hx0, hz0, hx1, hz1] = hole;
-  addBox(x0, y0, z0, x1, y1, hz0, color); addBox(x0, y0, hz1, x1, y1, z1, color);
-  addBox(x0, y0, hz0, hx0, y1, hz1, color); addBox(hx1, y0, hz0, x1, y1, hz1, color);
+  addBox(x0, y0, z0, x1, y1, hz0, color, B); addBox(x0, y0, hz1, x1, y1, z1, color, B);
+  addBox(x0, y0, hz0, hx0, y1, hz1, color, B); addBox(hx1, y0, hz0, x1, y1, hz1, color, B);
 }
 function building(o) {
   const w = o.w, d = o.d, x0 = o.x - w / 2, x1 = o.x + w / 2, z0 = o.z - d / 2, z1 = o.z + d / 2;
@@ -6095,7 +6096,7 @@ function building(o) {
   }
   // teto / telhado
   if (o.roof === 'gable') {
-    addBox(x0, top - 0.2, z0, x1, top, z1, '#efe6d8');
+    addBox(x0, top - 0.2, z0, x1, top, z1, '#efe6d8', { bot: true }); // forro da casa (visto de dentro)
     addGable(x0, z0, x1, z1, top, Math.min(w, d) * 0.32, o.roofCol || wpk(ROOF));
   } else {
     const k = floors; const hole = o.roofAccess ? ((k - 1) % 2 === 0 ? [xs - 0.1, SA, xs + L + 0.1, SB] : [xs - 0.1, SB, xs + L + 0.1, SC]) : null;
