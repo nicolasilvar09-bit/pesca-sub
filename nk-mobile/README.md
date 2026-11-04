@@ -189,3 +189,11 @@ Escolha no lobby (**Mapa: Ilha NK / Balneário**). Mapa original do NK Mobile, d
 ## Lobby novo (atualização)
 - Formato de lobby de battle royale com a identidade do NK Mobile (preto e vermelho): cartão do jogador no topo (avatar, nome, **nível** e ranking), esquadrão em fila no centro com o **nome em cima de cada um** ("+ CONVIDAR" no lugar dos bots), **JOGAR** grande à direita com mapa, modo e bots logo acima, atalhos à esquerda
 - Painéis novos: **Personagem** (nome e visual) e **Carreira** (partidas, vitórias, taxa de vitória, top 10, abates, abates por morte e por partida, melhor colocação, dano)
+
+## Skins, caixas e Passe de Elite (atualização)
+Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem dinheiro de verdade): ~20 por partida + 6 por abate + 15 no top 10 + 60 na vitória; começa com 300.
+- **Skins**: 44 de arma (2 para cada uma das 22 armas), 10 roupas + 1 exclusiva do passe, 5 capacetes, 5 mochilas, 10 paraquedas, 5 veículos (jipe, sedã, buggy, moto, lancha). Estampas: camuflado, digital, listras, liso, metálico, tigrado e carbono
+- **Caixa NK** (100 fichas): roleta com chance por raridade — Comum 60%, Raro 28%, Épico 10%, Lendário 2%; repetido vira 40 fichas
+- **Passe de Elite NK — Temporada 1 (grátis)**: 30 níveis com XP de cada partida; fichas, caixas, itens épicos e no nível 30 a roupa exclusiva **Comandante NK**
+- **Armário**: equipa cada item (a roupa aparece no lobby e na partida; a skin de veículo vale quando você assume o volante)
+- Bots também aparecem às vezes com roupas, capacetes, mochilas e paraquedas diferentes

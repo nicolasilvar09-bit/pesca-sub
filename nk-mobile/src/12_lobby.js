@@ -11,7 +11,8 @@ function lobbyActors() {
   const n = MODES.find(m => m[0] === G.mode)[2];
   for (let i = 0; i < n; i++) {
     const pm = PARTY.pid && PARTY.members[i] && PARTY.members[i].uid !== (ON.s && ON.s.uid) ? PARTY.members[i] : null, mine = PARTY.pid ? PARTY.members[i] && PARTY.members[i].uid === (ON.s && ON.s.uid) : i === 0;
-    const a = makeActor({ look: mine ? Object.assign({}, CHARS[SET.char]) : pm ? Object.assign({}, CHARS[pm.char] || CHARS[0]) : randLook(), mode: 'ground' });
+    const a = makeActor({ look: mine ? Object.assign({}, CHARS[SET.char]) : pm ? Object.assign({}, CHARS[pm.char] || CHARS[0]) : randLook(), mode: 'ground' }); if (mine) a.cosMe = true; // mostra o que você equipou
+    if (mine) a.bagLv = 2;
     if (i === 0) a.wp[0] = mkWeapon('M416'); else a.wp[0] = mkWeapon(pick(['AKM', 'SCAR-L', 'UMP45', 'KAR98K']));
     a.cur = 0; a.vest = i === 0 ? { lv: 2, dur: 1 } : null; a.helm = i === 0 ? { lv: 2, dur: 1 } : null;
     buildModel(a);
@@ -45,7 +46,7 @@ function renderLobby() {
   el.innerHTML = `
   <div class="lb-card" id="lChr"><div class="lb-av">${nm.slice(0, 2).toUpperCase()}</div><div class="lb-ci"><b>${nm}</b><small>Nível ${L.lv} · <span style="color:${r.c}">🏅 ${r.n}</span></small><div class="lb-xp"><i style="width:${Math.round(L.k * 100)}%"></i></div></div></div>
   <div class="lb-logo"><div class="logo nk"><b>N</b><i>K</i><em>MOBILE</em></div><small>versão ${BUILD}</small></div>
-  <div class="lb-stats"><div class="pill">🏆 <b>${SET.wins}</b></div><div class="pill">💀 <b>${SET.kills}</b></div><div class="hb2" id="lSet">⚙</div></div>
+  <div class="lb-stats"><div class="pill" title="fichas">🪙 <b>${SET.coins}</b></div><div class="pill">🏆 <b>${SET.wins}</b></div><div class="pill">💀 <b>${SET.kills}</b></div><div class="hb2" id="lSet">⚙</div></div>
   <div class="lb-side">
     <button class="lb-ic" id="lChr2"><span>🧍</span><small>Personagem</small></button>
     <button class="lb-ic" id="lCar"><span>🏆</span><small>Carreira</small></button>
@@ -62,8 +63,10 @@ function renderLobby() {
   <div id="lTags">${Array.from({ length: n }, (_, i) => { const m = PARTY.pid ? PARTY.members[i] : (i === 0 ? { uid: 'me', name: SET.name } : null);
     if (m) { const me = !PARTY.pid || m.uid === (ON.s && ON.s.uid); return `<div class="ltag ${me ? 'me' : 'fr'}" id="tg${i}"><b>${esc(m.name || 'Jogador')}${m.uid === PARTY.lead ? ' 👑' : ''}</b><small>${me ? 'você' : 'amigo'}</small></div>`; }
     return `<div class="ltag bot" id="tg${i}"><small>🤖 bot</small><button class="inv" data-inv="1">+ CONVIDAR</button></div>`; }).join('')}</div>
+  <div class="lb-shop"><button class="lb-sb" id="lBox"><span>🎁</span>Caixas</button><button class="lb-sb pass" id="lPass"><span>⭐</span>Passe${SET.pcl.length < passLv() ? '<i class="dot"></i>' : ''}</button><button class="lb-sb" id="lLock"><span>🎒</span>Armário</button></div>
   <div class="lb-bot"><span class="pill">${ON.me ? '🟢 Código <b>' + ON.me.code + '</b>' : ON.err ? '⚪ ' + esc(ON.err) : '⚪ conectando...'}</span></div>`;
   const openChr = () => openCharPanel();
+  $('lBox').onclick = openBox; $('lPass').onclick = openPass; $('lLock').onclick = () => openLocker();
   $('lChr').onclick = openChr; $('lChr2').onclick = openChr; $('lCar').onclick = openCareer; $('lLay').onclick = openLayout;
   el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const sz = MODES.find(m => m[0] === b.dataset.m)[2]; if (PARTY.pid && PARTY.members.length > sz) { toast('O esquadrão tem ' + PARTY.members.length + ' pessoas: escolha um modo maior.', 2.5); return; } G.mode = SET.mode = b.dataset.m; saveSet(); lobbyActors(); renderLobby(); partyState(); });
   el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { G.diff = SET.diff = b.dataset.d; saveSet(); renderLobby(); partyState(); });

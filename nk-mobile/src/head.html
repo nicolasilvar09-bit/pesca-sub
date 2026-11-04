@@ -264,4 +264,26 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
 .car-g div{background:rgba(255,255,255,.07);border-radius:8px;padding:6px;font-size:10px;display:flex;flex-direction:column}.car-g b{font-size:16px}
 @media (max-height:420px){.lb-side{top:66px;gap:5px}.lb-ic{width:56px;padding:4px 2px}.lb-ic span{font-size:17px}.lb-play{width:230px;gap:4px}.lb-play .btn.play{font-size:22px;padding:8px}.lb-logo .logo{font-size:20px}}
 @media (max-height:330px){.lb-logo{display:none}.lb-side .lb-ic small{display:none}}
+
+/* ---------- caixas, passe e armário ---------- */
+.lb-shop{position:absolute;left:50%;bottom:12px;transform:translateX(-62%);display:flex;gap:8px}
+.lb-sb{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:68px;background:rgba(10,10,12,.7);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:5px 8px;color:#fff;font-size:10px;font-weight:800;position:relative}
+.lb-sb span{font-size:20px;line-height:1}.lb-sb.pass{border-color:#ffb703;background:linear-gradient(180deg,rgba(255,183,3,.28),rgba(10,10,12,.75))}
+.lb-sb .dot{position:absolute;top:3px;right:5px;width:9px;height:9px;border-radius:50%;background:#e1141c;box-shadow:0 0 6px #e1141c}
+#cosP{display:flex;align-items:center;justify-content:center;z-index:36}
+#cosP .box.cosb{background:#141419;border:1px solid rgba(225,20,28,.35);border-radius:16px;padding:12px 16px;width:min(720px,96vw);max-height:94vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+#cosP h3{margin:0}#cosP h3 small{font-size:11px;opacity:.7}.free{background:#3ee07a;color:#062;border-radius:6px;padding:1px 6px;font-weight:900}
+.cos-coins{font-size:14px}.cos-coins b{color:var(--y)}
+.cos-card{width:100px;flex:0 0 100px;background:rgba(255,255,255,.06);border:2px solid var(--rc);border-radius:10px;padding:5px;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;box-shadow:inset 0 -18px 24px -18px var(--rc)}
+.cos-card b{font-size:10px;line-height:1.15;min-height:24px}.cos-card small{font-size:9px;font-weight:800}.cos-card em{font-style:normal;font-size:9px;font-weight:900;color:var(--y)}.cos-card em.u{color:#aaa}
+.cos-sw{width:100%;height:52px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:22px;text-shadow:0 1px 3px #000}
+.cos-reel{position:relative;overflow:hidden;height:128px;background:rgba(0,0,0,.35);border-radius:10px;padding:8px 0}
+.cos-strip{display:flex;gap:8px;padding-left:8px;will-change:transform}.cos-mark{position:absolute;top:0;bottom:0;left:50%;width:3px;background:#ffd23f;box-shadow:0 0 10px #ffd23f}
+.cos-odds{font-size:11px}.cos-odds small{opacity:.7}.cos-prize{display:flex;justify-content:center;transform:scale(1.5);margin:22px 0}
+.ps-top{font-size:12px}.ps-top b{color:var(--y);font-size:16px}.ps-bar{height:8px;background:rgba(255,255,255,.15);border-radius:4px;overflow:hidden;margin:4px 0}.ps-bar i{display:block;height:100%;background:linear-gradient(90deg,#ffb703,#ffd23f)}
+#cosP .box.cosb>*{flex-shrink:0}.ps-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;flex:0 0 auto}.ps-c{flex:0 0 90px;background:rgba(255,255,255,.05);border-radius:9px;padding:5px;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;opacity:.55}
+.ps-c.on{opacity:1;border:1px solid rgba(255,183,3,.6)}.ps-c.big{background:linear-gradient(180deg,rgba(225,20,28,.35),rgba(255,255,255,.05))}.ps-c small{font-size:8px;opacity:.7}.ps-c b{font-size:10px;min-height:24px}.ps-i{font-size:22px}
+.ps-c em{font-style:normal;font-size:10px}.ps-c .btn{padding:3px 8px;font-size:10px}.ps-ex{display:flex;align-items:center;gap:10px;font-size:12px}
+.lk-t,.lk-w{flex-wrap:wrap}.lk-w{max-height:64px;overflow:auto}.lk-g{display:flex;flex-wrap:wrap;gap:8px;max-height:46vh;overflow:auto}.lk-i{cursor:pointer}.lk-i.eq .cos-card{outline:3px solid var(--y)}.lk-empty{opacity:.7;font-size:12px;padding:20px}
+@media (max-height:420px){.lb-shop{bottom:8px}.lb-sb{min-width:58px;padding:3px 6px}.lb-sb span{font-size:16px}.cos-reel{height:118px}}
 </style>

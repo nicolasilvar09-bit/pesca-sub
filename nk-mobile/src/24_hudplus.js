@@ -96,6 +96,7 @@ showResult = function (r) {
   ${G.size > 1 ? `<div class="rteam">${team.map(a => `<div class="${a === p ? 'me' : ''}"><span>${(a.name || '').replace(/</g, '')}${a.alive ? '' : ' 💀'}</span><span>${a.kills} abates</span><span>${Math.round(a.dmgDone || 0)} dano</span></div>`).join('')}</div>` : ''}
   <div class="rrank"><span class="rk2" style="color:${rk.c}">🏅 ${rk.n}</span><span class="rpd ${(r.rpd || 0) >= 0 ? 'up' : 'dn'}">${(r.rpd || 0) >= 0 ? '+' : ''}${r.rpd || 0} pontos</span>
     <div class="rbar"><i style="width:${Math.round(rk.k * 100)}%;background:${rk.c}"></i></div><small>${rk.rp} pontos${rk.next ? ' · próximo nível em ' + rk.next : ''}</small></div>
+  ${r.coinsGain ? `<div class="rk">🪙 +${r.coinsGain} fichas · ⭐ +${r.pxpGain} XP do Passe de Elite${r.passUp ? ' · <b style="color:#ffd23f">subiu de nível!</b>' : ''}</div>` : ''}
   ${G.killer && !r.win ? `<div class="rk">Abatido por <b>${G.killer.name}</b></div>` : ''}
   <div class="row"><button class="btn big" id="rLobby">VOLTAR AO LOBBY</button>${!r.win && G.actors.some(a => a.alive) ? '<button class="btn alt" id="rWatch">ASSISTIR</button>' : ''}</div></div>`;
   $('rLobby').onclick = toLobby;

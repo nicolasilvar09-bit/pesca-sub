@@ -19,7 +19,7 @@ function drawActors(dt, hideSelf) {
     if (!a.model) continue;
     animateModel(a, dt, cx, cz, hideSelf && a === G.player);
     const m = a.model, on = a.alive && a.mode === 'chute';
-    if (on && !m.chute) { m.chute = new T.Mesh(CHUTE_GEO, MAT.actor); m.chute.position.y = 4.4; m.g.add(m.chute); }
+    if (on && !m.chute) { m.chute = new T.Mesh(chuteGeoFor(a), MAT.actor); m.chute.position.y = 4.4; m.g.add(m.chute); }
     if (m.chute) { m.chute.visible = on; if (on) { const o = smooth(clamp((a.chuteT || 0) / 0.9, 0, 1)); m.chute.scale.set(0.25 + 0.75 * o, 0.4 + 0.6 * o, 0.5 + 0.5 * o); m.chute.rotation.set(Math.sin(G.t * 1.3 + a.id) * 0.04 - Math.min(0.12, Math.hypot(a.vx, a.vz) * 0.006), 0, -(a.bank || 0) * 0.32); } } // abre enchendo e inclina nas curvas
   }
 }
