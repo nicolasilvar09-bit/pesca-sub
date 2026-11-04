@@ -176,7 +176,8 @@ function updateCamera(dt) {
     const ty = tgt.y + (air ? (tgt.mode === 'chute' ? 3.2 : 1.4) : tgt.knocked || tgt.stance === 'prone' ? 0.85 : tgt.stance === 'crouch' ? 1.35 : 1.72) - Math.abs(lean) * 0.08 - landDip(tgt) * 0.16;
     if (!v.piv || v.pivT !== tgt || Math.hypot(v.piv.x - tx, v.piv.z - tz) > 4 || Math.abs(v.piv.y - ty) > 4) { v.piv = { x: tx, y: ty, z: tz }; v.pivT = tgt; v.cd = dist; }
     const kh = 1 - Math.exp(-dt * (air ? 12 : 26)), kv = 1 - Math.exp(-dt * 9);
-    v.piv.x += (tx - v.piv.x) * kh; v.piv.z += (tz - v.piv.z) * kh; v.piv.y += (ty - v.piv.y) * kv;
+    if (air) { v.piv.x = tx; v.piv.y = ty; v.piv.z = tz; } // no ar (até ~230 km/h) a câmera acompanha sem atraso: o atraso variava a cada quadro e fazia o personagem tremer
+    else { v.piv.x += (tx - v.piv.x) * kh; v.piv.z += (tz - v.piv.z) * kh; v.piv.y += (ty - v.piv.y) * kv; }
     const px = v.piv.x, py = v.piv.y, pz = v.piv.z;
     let d = dist; const t = rayStatic(px, py, pz, -camDir.x, -camDir.y, -camDir.z, dist + 0.3); if (t < dist + 0.3) d = Math.max(0.3, t - 0.3);
     if (v.cd == null || d < v.cd) v.cd = d; else v.cd = Math.min(d, v.cd + dt * 3.5); // encosta na hora, volta devagar
