@@ -166,3 +166,8 @@ Escolha no lobby (**Mapa: Ilha NK / Balneário**). Mapa original do NK Mobile, d
 - Beira de estrada: **postos de gasolina**, **carros abandonados**, **postes com fios**, **cercas**
 - Morros com **torres de rádio**; casas isoladas com galpão ou caixa d'água no quintal
 - Desempenho: blocos do cenário além da névoa não são desenhados
+
+## Noite, prédios por dentro e escolha do mapa (atualização)
+- **Noite** (clima raro, ~8%): luz da lua, céu estrelado, janelas das casas acesas, brilho nos postes, grilos; bots enxergam menos no escuro (e também na chuva e no nublado)
+- **Prédios grandes por dentro**: cada andar tem corredor e 2–3 salas com porta — escritórios (mesa, monitor, cadeira) e cozinhas (balcão) — luta sala a sala
+- **Lobby**: painel com a imagem de cada ilha para escolher o mapa

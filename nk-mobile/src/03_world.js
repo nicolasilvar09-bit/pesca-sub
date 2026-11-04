@@ -382,8 +382,32 @@ function building(o) {
       }
     }
     // móveis (casas e sobrados): sofá, cama, estante, geladeira encostados nas paredes e mesa no meio — também servem de cobertura
-    const furn = [];
-    if (fh < 4 && !o.noFurn && w >= 6 && d >= 6) {
+    const furn = []; let part = null;
+    // prédios grandes: cada andar tem corredor e salas (escritório com mesa e cadeira, ou cozinha com balcão)
+    if (fh < 4 && !o.noFurn && w >= 11.5 && d >= 9.5) {
+      const zS2 = st ? SC + 0.35 : z0 + WT + 0.1; let zc = Math.round(((zS2 + z1 - WT) / 2 + 0.6) * 10) / 10;
+      if (k === 0 && (sides.includes('e') || sides.includes('w')) && Math.abs(zc - (z0 + d / 2)) < 1.3) zc = z0 + d / 2 + 1.4;
+      const xa = x0 + WT, xb = x1 - WT, n = w >= 15 ? 3 : 2, cw = (xb - xa) / n, zr = z1 - WT;
+      const ops = []; for (let i = 0; i < n; i++) { const c = xa + cw * (i + 0.5) + (i % 2 ? 0.7 : -0.7); ops.push({ a: c - 0.55, b: c + 0.55, lo: fy, hi: fy + 2.2 }); }
+      const keep = CUR_MAT; CUR_MAT = 0;
+      wallRun('x', zc - 0.08, zc + 0.08, xa, xb, fy, fy + fh - 0.05, ops, '#e6e0d4');
+      for (let i = 1; i < n; i++) { const cx = xa + cw * i; wallRun('z', cx - 0.08, cx + 0.08, zc + 0.08, zr, fy, fy + fh - 0.05, [], '#e6e0d4'); }
+      CUR_MAT = keep; part = { zc, xa, cw, n };
+      for (let i = 0; i < n; i++) {
+        const rx = xa + cw * (i + 0.5), rz = (zc + zr) / 2 + 0.2, frontDoor = k === 0 && sides.includes('s') && Math.abs(rx - (x0 + w * (o.doorAt || 0.5))) < cw / 2 + 0.8;
+        if (WR() < 0.6 || frontDoor) { // escritório
+          addBox(rx - 0.8, fy + 0.72, rz - 0.4, rx + 0.8, fy + 0.78, rz + 0.4, '#d9d4c8', { nocol: true }); addCollider(rx - 0.8, fy, rz - 0.4, rx + 0.8, fy + 0.78, rz + 0.4);
+          for (const ox of [-0.75, 0.7]) addBox(rx + ox, fy, rz - 0.35, rx + ox + 0.05, fy + 0.72, rz + 0.35, '#7a7a7a', { nocol: true });
+          addBox(rx - 0.25, fy + 0.78, rz - 0.3, rx + 0.25, fy + 1.1, rz - 0.26, '#22252a', { nocol: true }); // monitor
+          addBox(rx - 0.25, fy, rz + 0.55, rx + 0.25, fy + 0.48, rz + 1.0, '#2f3640'); addBox(rx - 0.25, fy + 0.48, rz + 0.95, rx + 0.25, fy + 1.05, rz + 1.02, '#2f3640', { nocol: true });
+          furn.push([rx - 0.8, rz - 0.4, rx + 0.8, rz + 1.0]);
+        } else { // cozinha: balcão encostado na parede do fundo
+          addBox(rx - cw / 2 + 0.5, fy, zr - 0.62, rx + cw / 2 - 0.5, fy + 0.9, zr, '#d8d2c4'); addBox(rx - cw / 2 + 0.5, fy + 0.9, zr - 0.65, rx + cw / 2 - 0.5, fy + 0.95, zr, '#5a5a5a', { nocol: true });
+          furn.push([rx - cw / 2 + 0.5, zr - 0.62, rx + cw / 2 - 0.5, zr]);
+        }
+      }
+    }
+    if (!part && fh < 4 && !o.noFurn && w >= 6 && d >= 6) {
       const zS = st ? SC + 0.35 : z0 + WT + 0.1, zE = z1 - WT - (k === 0 && sides.includes('s') ? 0.2 : 0.1);
       const KINDS = { sofa: [0.85, 2.0, 0.8, '#5a6e8a'], bed: [1.5, 2.0, 0.55, '#e6e1d6'], shelf: [0.4, 1.3, 1.9, '#7a5233'], fridge: [0.7, 0.7, 1.8, '#dedcd6'], tv: [0.45, 1.4, 0.6, '#3a3632'] };
       const wallPiece = (side) => {
@@ -407,6 +431,7 @@ function building(o) {
     for (let i = 0; i < n; i++) {
       const px = wr(x0 + 0.8, x1 - 0.8), pz = wr(st ? SC + 0.4 : z0 + 0.8, z1 - 0.8);
       if (furn.some(f => px > f[0] - 0.35 && px < f[2] + 0.35 && pz > f[1] - 0.35 && pz < f[3] + 0.35)) continue;
+      if (part && (Math.abs(pz - part.zc) < 0.5 || pz > part.zc && Array.from({ length: part.n - 1 }, (_, i) => part.xa + part.cw * (i + 1)).some(cx => Math.abs(px - cx) < 0.5))) continue;
       if (pz < z1 - 0.5) B.spots.push([px, fy + 0.02, pz]);
     }
   }
