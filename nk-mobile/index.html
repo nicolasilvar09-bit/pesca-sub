@@ -5530,7 +5530,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '04/11 14:48'; // data da versão (preenchida pelo build.py)
+const BUILD = '04/11 15:06'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -7267,7 +7267,25 @@ function fireShot(a, ox, oy, oz, dx, dy, dz) {
   if (G.net.on && !a.remote) G.net.shots.push([actIx(a), +ox.toFixed(2), +oy.toFixed(2), +oz.toFixed(2), +fx.toFixed(4), +(fy + zero).toFixed(4), +fz.toFixed(4), w.k]);
   shotSound(a, d, mods.quiet); muzzleFlash(a, mods.quiet);
   gunFx(a, d, mods);
-  if (a === G.player) { G.flash = 0.05; G.camKick = (G.camKick || 0) + d.rec * mods.rec; G.vmK = Math.min(2.5, (G.vmK || 0) + d.rec * mods.rec); }
+  if (a === G.player) {
+    G.flash = 0.05;
+    G.camKick = (G.camKick || 0) + d.rec * mods.rec;
+    G.vmK = Math.min(2.5, (G.vmK || 0) + d.rec * mods.rec);
+    // Perfil de recuo por classe: pistolas/SMGs têm retorno mais rápido;
+    // fuzis sobem progressivamente; DMR/snipers/escopetas dão impulso mais forte.
+    const recoilShape = {
+      pistol: [0.72, 0.12, 0.48], smg: [0.55, 0.20, 0.36],
+      ar: [0.82, 0.16, 0.62], dmr: [1.02, 0.10, 0.72],
+      sr: [1.28, 0.06, 0.88], sg: [1.18, 0.22, 0.78]
+    }[d.cls] || [0.8, 0.12, 0.55];
+    const impulse = d.rec * mods.rec;
+    G.vmKickPitch = Math.min(2.8, (G.vmKickPitch || 0) + impulse * recoilShape[0]);
+    G.vmKickYaw = clamp((G.vmKickYaw || 0) + (Math.random() - 0.5) * impulse * recoilShape[1], -0.55, 0.55);
+    G.vmKickRoll = Math.min(1.8, (G.vmKickRoll || 0) + impulse * recoilShape[2]);
+    // Pulso mecânico para animar ferrolho/ação após o disparo na visão em primeira pessoa.
+    G.vmActionT = Math.max(G.vmActionT || 0, d.cls === 'sr' ? 0.42 : d.cls === 'sg' ? 0.22 : 0.12);
+    G.vmActionClass = d.cls;
+  }
   else if (!mods.quiet) a.lastShotT = G.matchT;
   if (w.mag === 0 && a.bot) startReload(a);
   return true;
@@ -8097,9 +8115,51 @@ const fovFor = z => 2 * Math.atan(Math.tan(hipV() * Math.PI / 360) / Math.max(1.
 // arma em 1ª pessoa (presa na câmera)
 const VM = new T.Group(); camera.add(VM);
 const vmGun = new T.Mesh(gunGeo('M416'), MAT.view); VM.add(vmGun);
-const vmArms = new T.Mesh(mergeParts([bx(-0.035, -0.16, -0.02, 0.07, 0.07, 0.09, '#e0ac69'), bx(-0.04, -0.17, 0.07, 0.08, 0.08, 0.12, '#2f80ed'), bx(-0.035, -0.11, -0.5, 0.07, 0.06, 0.09, '#e0ac69')]), MAT.view);
-vmArms.visible = false; VM.add(vmArms); VM.visible = false; VM.scale.setScalar(0.62);
+// Braços de primeira pessoa articulados proceduralmente. Geometria leve, sem
+// dependência de novos arquivos/modelos, para manter o carregamento mobile rápido.
+const vmArms = new T.Group(); VM.add(vmArms);
+const vmSleeveMat = new T.MeshStandardMaterial({ color: 0x7a8660, roughness: 0.85, emissive: 0x1c2016 }); // manga verde-oliva (clara o bastante para não virar silhueta)
+const vmGloveMat = new T.MeshStandardMaterial({ color: 0x5c4a3a, roughness: 0.8, emissive: 0x18130e });
+const vmSeamMat = new T.MeshStandardMaterial({ color: 0x5f6b4c, roughness: 0.9, emissive: 0x161a12 });
+const vmArmUp = new T.Vector3(0, 1, 0);
+function vmArmSegment(group, a, b, r1, r2, material) {
+  const av = new T.Vector3(...a), bv = new T.Vector3(...b), delta = bv.clone().sub(av);
+  const mesh = new T.Mesh(new T.CylinderGeometry(r2, r1, delta.length(), 7, 1), material);
+  mesh.position.copy(av).add(bv).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(vmArmUp, delta.normalize());
+  mesh.castShadow = false; mesh.receiveShadow = false; group.add(mesh); return mesh;
+}
+function vmArmJoint(group, pos, radius, material, scale) {
+  const mesh = new T.Mesh(new T.SphereGeometry(radius, 8, 6), material);
+  mesh.position.set(...pos); if (scale) mesh.scale.set(...scale); mesh.castShadow = false; group.add(mesh); return mesh;
+}
+// mãos presas na arma: direita no punho, esquerda na empunhadura da frente (muda conforme a arma); ombros ficam fora da tela
+function vmArmPose(side, fore, pistol) {
+  if (side > 0) return { shoulder: [0.21, -0.44, 0.32], elbow: [0.17, -0.27, 0.15], wrist: [0.012, -0.105, 0.075] };
+  if (pistol) return { shoulder: [-0.2, -0.44, 0.3], elbow: [-0.17, -0.26, 0.12], wrist: [-0.035, -0.115, 0.02] };
+  return { shoulder: [-0.31, -0.46, 0.2], elbow: [-0.2, -0.2, fore * 0.3], wrist: [-0.015, -0.06, fore - 0.1] }; // mão no guarda-mão, visível na tela
+}
+function buildVmArm(side, fore, pistol) {
+  const g = new T.Group(); vmArms.add(g); fillVmArm(g, side, fore == null ? -0.32 : fore, pistol); return g;
+}
+function fillVmArm(g, side, fore, pistol) {
+  for (let i = g.children.length - 1; i >= 0; i--) { const c = g.children[i]; g.remove(c); c.geometry.dispose(); }
+  const s = side, { shoulder, elbow, wrist } = vmArmPose(side, fore, pistol);
+  vmArmSegment(g, shoulder, elbow, 0.078, 0.067, vmSleeveMat);
+  vmArmSegment(g, elbow, wrist, 0.066, 0.047, vmSleeveMat);
+  vmArmJoint(g, elbow, 0.066, vmSeamMat, [1, 0.92, 1]);
+  vmArmJoint(g, wrist, 0.052, vmGloveMat, [1.05, 0.8, 1.2]);
+  const palm = vmArmJoint(g, [wrist[0] - s * 0.008, wrist[1] - 0.012, wrist[2] - 0.055], 0.052, vmGloveMat, [0.9, 0.65, 1.25]);
+  // dedos discretos dão leitura de mão sem aumentar muito a contagem de polígonos
+  for (let i = 0; i < 3; i++) vmArmSegment(g,
+    [palm.position.x + (i - 1) * 0.021, palm.position.y - 0.012, palm.position.z - 0.035],
+    [palm.position.x + (i - 1) * 0.024, palm.position.y - 0.018, palm.position.z - 0.075],
+    0.012, 0.009, vmGloveMat);
+}
+const vmArmL = buildVmArm(-1), vmArmR = buildVmArm(1);
+vmArms.visible = true; VM.visible = false; VM.scale.setScalar(0.62);
 let vmKey = '';
+let vmSwapT = 0; // transição curta ao trocar de arma em primeira pessoa
 
 function playerStep(dt) {
   const p = G.player, v = G.view;
@@ -8248,8 +8308,15 @@ function updateCamera(dt) {
     v.bob = (v.bob || 0) + dt * sp * 1.75; const land = landDip(p);
     if (v.eyeY == null || Math.abs(v.eyeY - _cp.y) > 2) v.eyeY = _cp.y; v.eyeY += (_cp.y - v.eyeY) * (1 - Math.exp(-dt * 14));
     const rx = Math.cos(yaw), rz = -Math.sin(yaw), bx2 = Math.cos(v.bob) * 0.018 * bk;
-    camera.position.set(_cp.x + camDir.x * 0.12 + rx * bx2, v.eyeY + Math.abs(Math.sin(v.bob)) * 0.03 * bk - land * 0.11, _cp.z + camDir.z * 0.12 + rz * bx2);
-    camera.rotation.set(pitch - land * 0.03, yaw, -p.lean * 0.18 + Math.cos(v.bob) * 0.006 * bk);
+    // A cabeça acompanha o deslocamento com atraso sutil: passos, strafe e giro têm pesos distintos.
+    const sideV = p.vx * rx + p.vz * rz;
+    const yawRate = v.camYawPrev == null ? 0 : wrapA(yaw - v.camYawPrev) / Math.max(dt, 1e-3); v.camYawPrev = yaw;
+    const headRollT = clamp(-sideV * 0.0028 - yawRate * 0.0012 - p.lean * 0.12, -0.035, 0.035);
+    v.headRoll = (v.headRoll || 0) + (headRollT - (v.headRoll || 0)) * (1 - Math.exp(-dt * 8));
+    const sideSway = clamp(sideV, -6, 6) * 0.0025;
+    const idleBreath = (sp < 0.25 && p.onGround) ? Math.sin(G.t * 1.65) * 0.003 : 0;
+    camera.position.set(_cp.x + camDir.x * 0.12 + rx * (bx2 + sideSway), v.eyeY + Math.abs(Math.sin(v.bob)) * 0.03 * bk + idleBreath - land * 0.11, _cp.z + camDir.z * 0.12 + rz * (bx2 + sideSway));
+    camera.rotation.set(pitch - land * 0.03, yaw, -p.lean * 0.18 + Math.cos(v.bob) * 0.006 * bk + v.headRoll);
     v.piv = null; fov = p.ads ? fovFor(zoom) : vfov((SET.fov || 90) + 5); fpp = true; hide = true;
   } else {
     // 3ª pessoa estilo PUBG: por cima do ombro direito, segue o corpo com leve atraso (sem tremer nos degraus),
@@ -8278,15 +8345,23 @@ function updateCamera(dt) {
   const scoped = p.ads && zoom >= 2;
   VM.visible = fpp && !!w && !scoped && p.healT <= 0;
   if (VM.visible) {
-    const key = gunKey(w); if (key !== vmKey) { vmKey = key; setGunVisual(vmGun, w.k); dressGun(vmGun, w); }
-    const kick = Math.min(0.08, G.recAcc * 0.6), bob = Math.sin(p.walk * 1) * Math.min(1, Math.hypot(p.vx, p.vz) / 4) * 0.012;
+    const key = gunKey(w); if (key !== vmKey) { vmKey = key; vmSwapT = 0.24; setGunVisual(vmGun, w.k); dressGun(vmGun, w); const pis = WEAP[w.k].cls === 'pistol'; fillVmArm(vmArmL, -1, foreOf(w.k), pis); fillVmArm(vmArmR, 1, 0, pis); }
+    vmSwapT = Math.max(0, vmSwapT - dt);
+    const swapK = vmSwapT > 0 ? Math.sin((vmSwapT / 0.24) * Math.PI) : 0;
+    const airK = p.onGround ? 0 : clamp(Math.abs(p.vy || 0) / 5.3, 0, 1);
+    // Postura acompanha a posição do personagem sem alterar colisões ou controles.
+    const stanceTarget = p.stance === 'prone' ? 1 : p.stance === 'crouch' ? 0.55 : 0;
+    v.vmStance = (v.vmStance || 0) + (stanceTarget - (v.vmStance || 0)) * (1 - Math.exp(-dt * 8));
+    const stanceK = v.vmStance;
+    const moveAmount = Math.min(1, Math.hypot(p.vx, p.vz) / 4);
+    const kick = Math.min(0.08, G.recAcc * 0.6), bob = Math.sin(p.walk * 1) * moveAmount * 0.012;
     // a arma atrasa um pouco ao virar (peso), balança com os passos e abaixa correndo
     const dy = wrapA(yaw - (v.lyaw == null ? yaw : v.lyaw)), dp = pitch - (v.lpit == null ? pitch : v.lpit); v.lyaw = yaw; v.lpit = pitch;
     const sk = 1 - Math.exp(-dt * 9), am = p.ads ? 0.25 : 1;
     v.swx = ((v.swx || 0) + clamp(dy, -0.1, 0.1) * am) * (1 - sk); v.swy = ((v.swy || 0) + clamp(dp, -0.1, 0.1) * am) * (1 - sk);
     const spr = Math.hypot(p.vx, p.vz) > 5.6 && !p.ads ? 1 : 0; v.vmRun = (v.vmRun || 0) + (spr - (v.vmRun || 0)) * Math.min(1, dt * 7);
     const bb = Math.min(1, Math.hypot(p.vx, p.vz) / 5) * (p.onGround ? 1 : 0) * (p.ads ? 0.15 : 1), ph = v.bob || 0, land = landDip(p);
-    const bobX = Math.cos(ph) * 0.012 * bb, bobY = -Math.abs(Math.sin(ph)) * 0.012 * bb + Math.sin(G.t * 1.6) * 0.002 - land * 0.025;
+    const bobX = Math.cos(ph) * 0.012 * bb, bobY = -Math.abs(Math.sin(ph)) * 0.012 * bb + Math.sin(G.t * 1.6) * 0.002 - land * 0.025 - airK * 0.018;
     // mira: a arma desliza até o olho em ~0,2 s (não pula de posição)
     v.adsK = (v.adsK || 0) + ((p.ads ? 1 : 0) - (v.adsK || 0)) * (1 - Math.exp(-dt * 16)); const ak = v.adsK;
     const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y;
@@ -8296,10 +8371,39 @@ function updateCamera(dt) {
     const magJ = p.reloadT > 0 && rp2 > 0.55 && rp2 < 0.68 ? Math.sin((rp2 - 0.55) / 0.13 * Math.PI) : 0, bolt = p.reloadT > 0 && rp2 > 0.84 ? Math.sin((rp2 - 0.84) / 0.16 * Math.PI) : 0;
     // coice com mola: a arma vai para trás e sobe a cada tiro e volta
     G.vmK = (G.vmK || 0) * Math.exp(-dt * 15);
-    const hx = 0.15 + v.swx * 0.35 + bobX - v.vmRun * 0.05, hy = -0.135 + v.swy * 0.25 + bobY - v.vmRun * 0.04, hz = -0.3 + v.vmRun * 0.03;
-    const ax = v.swx * 0.05 + bobX * 0.3, ay = -top + v.swy * 0.04 + bobY * 0.3, az = -0.22;
-    VM.position.set(lerp(hx, ax, ak) - rk * 0.03, lerp(hy, ay, ak) - rk * 0.01 + magJ * 0.012, lerp(hz, az, ak) + kick * 0.5 + G.vmK * 0.035 + bolt * 0.01);
-    VM.rotation.set(-v.swy * 0.6 - v.vmRun * 0.35 * (1 - ak) + rk * 0.22 + G.vmK * 0.05 + magJ * 0.06, v.swx * 0.9 + v.vmRun * 0.5 * (1 - ak) + rk * 0.35, v.swx * 0.5 + v.vmRun * 0.25 * (1 - ak) + rk * 0.55 - bolt * 0.12);
+    // Recuo direcional com retorno elástico, mantendo cada classe de arma distinta.
+    G.vmKickPitch = (G.vmKickPitch || 0) * Math.exp(-dt * 10.5);
+    G.vmKickYaw = (G.vmKickYaw || 0) * Math.exp(-dt * 13);
+    G.vmKickRoll = (G.vmKickRoll || 0) * Math.exp(-dt * 11.5);
+    const recoilPitch = G.vmKickPitch || 0, recoilYaw = G.vmKickYaw || 0, recoilRoll = G.vmKickRoll || 0;
+    // Ciclo mecânico curto: ferrolho de precisão, ação de escopeta e movimento
+    // de conjunto nas armas automáticas. O efeito é visual e não altera a cadência.
+    G.vmActionT = Math.max(0, (G.vmActionT || 0) - dt);
+    const actionDur = G.vmActionClass === 'sr' ? 0.42 : G.vmActionClass === 'sg' ? 0.22 : 0.12;
+    const actionK = G.vmActionT > 0 ? Math.sin((1 - G.vmActionT / actionDur) * Math.PI) : 0;
+    const actionBack = actionK * (G.vmActionClass === 'sr' ? 0.055 : G.vmActionClass === 'sg' ? 0.032 : 0.012);
+    // Inércia independente da arma: deslocamento lateral, avanço/freada e respiração em repouso.
+    const sideV = p.vx * Math.cos(yaw) - p.vz * Math.sin(yaw);
+    const fwdV = p.vx * -Math.sin(yaw) - p.vz * Math.cos(yaw);
+    const sideT = clamp(sideV / 6, -1, 1), fwdT = clamp(fwdV / 7, -1, 1);
+    v.vmSide = (v.vmSide || 0) + (sideT - (v.vmSide || 0)) * (1 - Math.exp(-dt * 7));
+    v.vmFwd = (v.vmFwd || 0) + (fwdT - (v.vmFwd || 0)) * (1 - Math.exp(-dt * 6));
+    const breath = p.onGround && Math.hypot(p.vx, p.vz) < 0.25 ? Math.sin(G.t * 1.65) * 0.0025 : 0;
+    const hx = 0.15 + v.swx * 0.35 + bobX + v.vmSide * 0.012 - v.vmRun * 0.05, hy = -0.12 + v.swy * 0.25 + bobY + breath - v.vmRun * 0.04 - swapK * 0.07 - stanceK * 0.025, hz = -0.3 + v.vmRun * 0.03 + swapK * 0.045 + stanceK * 0.018;
+    const ax = v.swx * 0.05 + bobX * 0.3 + v.vmSide * 0.004, ay = -top + v.swy * 0.04 + bobY * 0.3 + breath * 0.5, az = -0.22;
+    VM.position.set(lerp(hx, ax, ak) - rk * 0.03 + recoilYaw * 0.006, lerp(hy, ay, ak) - rk * 0.01 + magJ * 0.012, lerp(hz, az, ak) + kick * 0.5 + G.vmK * 0.035 + recoilPitch * 0.009 + bolt * 0.01 + actionBack);
+    VM.rotation.set(-v.swy * 0.6 - v.vmRun * 0.35 * (1 - ak) - v.vmFwd * 0.018 + rk * 0.22 + G.vmK * 0.05 + recoilPitch * 0.025 + magJ * 0.06 + airK * 0.035 + swapK * 0.12 + actionK * (G.vmActionClass === 'sr' ? 0.045 : 0.018), v.swx * 0.9 + v.vmRun * 0.5 * (1 - ak) + v.vmSide * 0.025 + rk * 0.35 + recoilYaw * 0.018, v.swx * 0.5 + v.vmRun * 0.25 * (1 - ak) - v.vmSide * 0.035 + rk * 0.55 - bolt * 0.12 - swapK * 0.18 + recoilRoll * 0.018 - actionK * 0.035);
+    // braços acompanham a arma: retraem na recarga e absorvem o recuo.
+    vmArms.rotation.x = rk * 0.12 + G.vmK * 0.035 + v.vmRun * 0.035 + airK * 0.045 + swapK * 0.08 + stanceK * 0.055;
+    vmArms.rotation.y = v.vmSide * 0.018 + magJ * 0.025 - swapK * 0.10;
+    vmArms.rotation.z = -v.vmSide * 0.025 - rk * 0.08 + swapK * 0.16 + stanceK * 0.025;
+    // Ações independentes dos braços: a mão esquerda acompanha a troca do
+    // carregador e a direita mantém a empunhadura durante o recuo.
+    const reloadReach = p.reloadT > 0 ? Math.sin(clamp((rp2 - 0.28) / 0.48, 0, 1) * Math.PI) : 0;
+    vmArmL.position.set(-reloadReach * 0.055 - swapK * 0.035, -reloadReach * 0.025 - swapK * 0.018, reloadReach * 0.075 + swapK * 0.035);
+    vmArmL.rotation.set(-reloadReach * 0.22 + G.vmK * 0.025, reloadReach * 0.16, reloadReach * 0.12);
+    vmArmR.position.set(swapK * 0.025, -v.vmRun * 0.012 - swapK * 0.018, G.vmK * 0.018 + swapK * 0.025);
+    vmArmR.rotation.set(G.vmK * 0.045 - v.vmRun * 0.035, -v.vmSide * 0.012, v.vmSide * 0.018);
   }
   if (G.shake > 0) { G.shake -= dt; camera.rotation.x += gauss() * 0.012 * G.shake; camera.rotation.y += gauss() * 0.012 * G.shake; }
   SKY.position.copy(camera.position); if (typeof SKY2 !== 'undefined' && SKY2) SKY2.position.copy(camera.position);

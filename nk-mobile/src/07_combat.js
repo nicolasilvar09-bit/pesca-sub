@@ -110,7 +110,25 @@ function fireShot(a, ox, oy, oz, dx, dy, dz) {
   if (G.net.on && !a.remote) G.net.shots.push([actIx(a), +ox.toFixed(2), +oy.toFixed(2), +oz.toFixed(2), +fx.toFixed(4), +(fy + zero).toFixed(4), +fz.toFixed(4), w.k]);
   shotSound(a, d, mods.quiet); muzzleFlash(a, mods.quiet);
   gunFx(a, d, mods);
-  if (a === G.player) { G.flash = 0.05; G.camKick = (G.camKick || 0) + d.rec * mods.rec; G.vmK = Math.min(2.5, (G.vmK || 0) + d.rec * mods.rec); }
+  if (a === G.player) {
+    G.flash = 0.05;
+    G.camKick = (G.camKick || 0) + d.rec * mods.rec;
+    G.vmK = Math.min(2.5, (G.vmK || 0) + d.rec * mods.rec);
+    // Perfil de recuo por classe: pistolas/SMGs têm retorno mais rápido;
+    // fuzis sobem progressivamente; DMR/snipers/escopetas dão impulso mais forte.
+    const recoilShape = {
+      pistol: [0.72, 0.12, 0.48], smg: [0.55, 0.20, 0.36],
+      ar: [0.82, 0.16, 0.62], dmr: [1.02, 0.10, 0.72],
+      sr: [1.28, 0.06, 0.88], sg: [1.18, 0.22, 0.78]
+    }[d.cls] || [0.8, 0.12, 0.55];
+    const impulse = d.rec * mods.rec;
+    G.vmKickPitch = Math.min(2.8, (G.vmKickPitch || 0) + impulse * recoilShape[0]);
+    G.vmKickYaw = clamp((G.vmKickYaw || 0) + (Math.random() - 0.5) * impulse * recoilShape[1], -0.55, 0.55);
+    G.vmKickRoll = Math.min(1.8, (G.vmKickRoll || 0) + impulse * recoilShape[2]);
+    // Pulso mecânico para animar ferrolho/ação após o disparo na visão em primeira pessoa.
+    G.vmActionT = Math.max(G.vmActionT || 0, d.cls === 'sr' ? 0.42 : d.cls === 'sg' ? 0.22 : 0.12);
+    G.vmActionClass = d.cls;
+  }
   else if (!mods.quiet) a.lastShotT = G.matchT;
   if (w.mag === 0 && a.bot) startReload(a);
   return true;

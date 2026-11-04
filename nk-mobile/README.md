@@ -179,3 +179,9 @@ Escolha no lobby (**Mapa: Ilha NK / Balneário**). Mapa original do NK Mobile, d
 - **Paraquedas** de células com cordas, abre enchendo, inclina nas curvas; vira aos poucos; frente = mais rápido e desce mais, trás = flutua; abre sozinho a ~150 m; dá para abrir antes no botão
 - Painel de **altura e velocidade** na queda; pouso amortecido que perde o embalo; névoa mais distante quando se está no alto
 - **Trava de corrida**: arraste o joystick bem para cima — aparece "🔒 CORRENDO" e dá para soltar o dedo; toque no joystick, mire ou atire para destravar
+
+## 1ª pessoa mais natural (atualização)
+- **Braços** visíveis segurando a arma (manga, cotovelo, luva e dedos, feitos no código, sem modelos de fora): mão esquerda no guarda-mão de cada arma, as duas no punho com pistola; acompanham recarga, recuo e corrida
+- Câmera com leve inclinação ao andar de lado e virar, e respiração sutil parado
+- Arma com peso: atrasa ao andar, frear e pular; abaixa e sobe ao trocar de arma; fica mais baixa agachado/deitado
+- Recuo visual diferente por tipo de arma (pistola, submetralhadora, fuzil, DMR, sniper, escopeta) e ciclo do ferrolho/ação depois do tiro
