@@ -52,7 +52,7 @@ function renderLobby() {
     <label class="lab">Bots</label>
     <div class="seg">${DIFFS.map(d => `<button data-d="${d[0]}" class="${G.diff === d[0] ? 'on' : ''}">${d[1]}</button>`).join('')}</div>
     <button class="btn play" id="lPlay">JOGAR</button>
-    <div class="hint">Mapa: Ilha Zero · bots completam as 50 vagas${HUM.ready || HUM.failed ? "" : "<br>Carregando personagens realistas..."}</div>
+    <div class="hint">Mapa: Ilha NK · bots completam as 50 vagas${HUM.ready || HUM.failed ? "" : "<br>Carregando personagens realistas..."}</div>
   </div>
   <div class="squad">${Array.from({ length: n }, (_, i) => { const m = PARTY.pid ? PARTY.members[i] : (i === 0 ? { uid: 'me', name: SET.name } : null);
     if (m) { const me = !PARTY.pid || m.uid === (ON.s && ON.s.uid); return `<div class="slot ${me ? 'me' : 'fr'}">${(m.name || 'Jogador').replace(/</g, '')}${m.uid === PARTY.lead ? ' 👑' : ''}<small>${me ? 'você' : 'amigo'}</small></div>`; }

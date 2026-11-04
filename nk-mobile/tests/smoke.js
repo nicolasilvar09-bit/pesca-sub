@@ -1,4 +1,4 @@
-// Teste de fumaça da Ilha Zero: roda antes de publicar.
+// Teste de fumaça do NK Mobile: roda antes de publicar.
 //   python3 build.py && node tests/smoke.js
 // 1) compila o JavaScript  2) abre o jogo num navegador sem tela e simula uma partida inteira acelerada
 const fs = require('fs'), path = require('path'), http = require('http'), vm = require('vm');
