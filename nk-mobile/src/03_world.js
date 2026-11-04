@@ -157,7 +157,7 @@ function roadDist(x, z) {
   const pos = new Float32Array(GN * GN * 3), col = new Float32Array(GN * GN * 3), c = new T.Color();
   const sand = new T.Color('#b8a77e'), wet = new T.Color('#a89a72'), road = new T.Color('#4a4b4e'), line = new T.Color('#d9d2a8');
   const BALC = MAPID === 'bal';
-  const pave = new T.Color(BALC ? '#8f8b82' : '#86837c'), rock = new T.Color(BALC ? '#7d7a6e' : '#85827c'), g1 = new T.Color(BALC ? '#4d7a2e' : '#617a3c'), g2 = new T.Color(BALC ? '#7a9a3c' : '#8a8f52'), g3 = new T.Color(BALC ? '#355e24' : '#4f6933');
+  const pave = new T.Color(BALC ? '#8f8b82' : '#86837c'), rock = new T.Color(BALC ? '#7d7a6e' : '#85827c'), g1 = new T.Color(BALC ? '#4d7a2e' : '#67703c'), g2 = new T.Color(BALC ? '#7a9a3c' : '#9a8c56'), g3 = new T.Color(BALC ? '#355e24' : '#535f31'), dirt = new T.Color(BALC ? '#7a6446' : '#8c7652'); // Ilha NK: grama mais seca, amarelada
   if (BALC) { sand.set('#d9c99a'); wet.set('#bfae80'); }
   for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
     const k = j * GN + i, x = -HALF + i * CELL, z = -HALF + j * CELL, h = H[k];
@@ -168,7 +168,7 @@ function roadDist(x, z) {
     else if (rd < 4.5) c.copy(rd < 0.5 ? line : road);
     else if (t && ['city', 'military', 'port', 'factory', 'resort', 'market'].includes(t.kind) && Math.hypot(t.x - x, t.z - z) < t.r) c.copy(pave).multiplyScalar(0.94 + n * 0.08);
     else if (sl > 3.2 || h > 52) c.copy(rock).multiplyScalar(0.9 + n * 0.2);
-    else { c.copy(g1).lerp(n > 0.55 ? g2 : g3, Math.abs(n - 0.55) * 1.6); }
+    else { c.copy(g1).lerp(n > 0.55 ? g2 : g3, Math.abs(n - 0.55) * 1.6); const dp = NZ.n(x / 22 + 9, z / 22 - 3); if (dp > 0.42) c.lerp(dirt, smooth(clamp((dp - 0.42) * 4, 0, 1)) * 0.75); } // manchas de terra batida
     col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
   }
   const idx = new Uint32Array((GN - 1) * (GN - 1) * 6); let q = 0;

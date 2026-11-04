@@ -6,15 +6,31 @@ float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); 
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y); }`;
 // textura procedural pela posição no mundo (não precisa de imagem nem de UV)
+// texturas de detalhe geradas por nós (tools/gentex.py): chão = grama/terra/rocha, paredes = reboco/madeira/metal
+const DET = { tTer: { value: null }, tWall: { value: null }, uDet: { value: 1 } };
+(function loadDetail() {
+  const blank = new T.DataTexture(new Uint8Array([128, 128, 128, 255]), 1, 1); blank.needsUpdate = true; DET.tTer.value = DET.tWall.value = blank;
+  const L = new T.TextureLoader(), an = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  for (const [k, f] of [['tTer', 'terrain'], ['tWall', 'walls']]) L.load(`assets/tex/${f}.jpg`, t => { t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = an; DET[k].value = t; });
+})();
 function patchNoise(mat, kind) {
   mat.onBeforeCompile = sh => {
+    sh.uniforms.tTer = DET.tTer; sh.uniforms.tWall = DET.tWall; sh.uniforms.uDet = DET.uDet;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; attribute float mt;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal); vMt = mt;');
     const terr = `
       float n1 = vn(vWP.xz * 0.11), n2 = vn(vWP.xz * 0.8), n3 = vn(vWP.xz * 4.5);
       float gr = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) * 4.0, 0.0, 1.0);
       diffuseColor.rgb *= 0.84 + n1 * 0.16 + n2 * 0.1 + (n3 - 0.5) * 0.16 * (0.35 + gr);
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.15, 1.06, 0.7), gr * smoothstep(0.55, 0.85, n1) * 0.55);`;
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.15, 1.06, 0.7), gr * smoothstep(0.55, 0.85, n1) * 0.55);
+      { // detalhe de foto: duas escalas misturadas para não se ver repetição
+        vec3 d1 = texture2D(tTer, vWP.xz * 0.17).rgb, d2 = texture2D(tTer, vWP.xz * 0.041 + 0.37).rgb, dd = d1 * 0.6 + d2 * 0.4;
+        float mx = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)), mn = min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
+        float grey = 1.0 - clamp((mx - mn) * 6.0, 0.0, 1.0), grs = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) * 7.0, 0.0, 1.0);
+        float det = mix(mix(dd.g, dd.r, grs), dd.b, grey * 0.85);
+        float fd = clamp(1.0 - length(vWP - cameraPosition) / 320.0, 0.3, 1.0); // de longe, menos detalhe (evita chiado)
+        diffuseColor.rgb *= mix(1.0, 0.3 + det * 1.4, uDet * fd);
+      }`;
     const wall = `
       float w1 = vn(vWP.xz * 1.3 + vWP.y * 1.1), w2 = vn(vec2(vWP.x + vWP.z, vWP.y) * 7.0);
       vec3 nn = normalize(vWN);
@@ -38,8 +54,14 @@ function patchNoise(mat, kind) {
         diffuseColor.rgb *= (0.8 + 0.22 * vn(vec2(along * 0.9, id * 7.3))) * (1.0 - step(f, 0.06) * 0.4 * clamp(1.0 - (fw - 0.01) * 20.0, 0.0, 1.0)) * (0.9 + 0.16 * h21(vec2(id, 3.0)));
       } else { // chapa metálica ondulada
         diffuseColor.rgb *= (0.84 + 0.16 * sin(uv.x * 52.0) * clamp(1.0 - (fw - 0.008) * 40.0, 0.0, 1.0)) * (0.95 + w1 * 0.08);
+      }
+      { // sujeira, veio e ferrugem de textura (reboco/concreto/telha = R, madeira = G, metal = B)
+        vec3 t1 = texture2D(tWall, uv * 0.42).rgb, t2 = texture2D(tWall, uv * 0.11 + 0.21).rgb;
+        float det = mm > 4.5 ? t1.b * 0.7 + t2.b * 0.3 : mm > 3.5 ? t1.g * 0.75 + t2.g * 0.25 : t1.r * 0.55 + t2.r * 0.45;
+        float k = mm > 3.5 ? 1.0 : mm > 1.5 ? 0.85 : 0.7;
+        diffuseColor.rgb *= mix(1.0, 0.5 + det, uDet * k * clamp(1.0 - length(vWP - cameraPosition) / 200.0, 0.2, 1.0));
       }`;
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt;\n' + GLSL_NOISE)
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; uniform sampler2D tTer; uniform sampler2D tWall; uniform float uDet;\n' + GLSL_NOISE)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + (kind === 'terrain' ? terr : wall));
   };
   mat.customProgramCacheKey = () => 'noise-' + kind;
@@ -210,7 +232,7 @@ function windMat() {
   return m;
 }
 const GRASS_N = MAPID === 'bal' ? 9500 : 6500, FLOWER_N = MAPID === 'bal' ? 900 : 700; // Balneário: mato mais alto e mais denso
-const grassM = new T.InstancedMesh((MAPID === 'bal' ? tuftGeo(7, 0.34, 0.78, '#2f5a1e', '#86a845') : tuftGeo(6, 0.28, 0.55, '#3f5a24', '#93a74e')), windMat(), GRASS_N);
+const grassM = new T.InstancedMesh((MAPID === 'bal' ? tuftGeo(7, 0.34, 0.78, '#2f5a1e', '#86a845') : tuftGeo(6, 0.28, 0.55, '#4a5626', '#a59d55')), windMat(), GRASS_N);
 const flowerM = new T.InstancedMesh(tuftGeo(2, 0.3, 0.42, '#3f5a24', '#7d9a44', true), windMat(), FLOWER_N);
 grassM.frustumCulled = flowerM.frustumCulled = false; grassM.count = flowerM.count = 0; scene.add(grassM, flowerM);
 const FLOWER_C = ['#e8d66a', '#e9e4d8', '#c9a8d8', '#d8c05a', '#f0f0e8', '#b9c870'].map(c => new T.Color(c));
@@ -248,6 +270,7 @@ function gfxQuality(q) {
     if (sh) { if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } sun.shadow.mapSize.set(sh, sh); const c = sun.shadow.camera; c.left = c.bottom = -60; c.right = c.top = 60; c.near = 20; c.far = 900; c.updateProjectionMatrix(); sun.shadow.bias = -0.0008; sun.shadow.normalBias = 0.06; }
     scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); });
   }
+  DET.uDet.value = SET.quality > 0 ? 1 : 0; // no Leve, sem textura de detalhe
   GFX.grassOn = !!q.grass; grassM.visible = flowerM.visible = GFX.grassOn; GFX.gx = 1e9;
 }
 scene.add(sun.target);

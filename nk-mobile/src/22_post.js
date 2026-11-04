@@ -24,11 +24,11 @@ void main(){
   // cor estilo PUBG: um pouco mais saturada, sombras levemente frias, luz do sol levemente quente
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
-  vec3 g = mix(vec3(l), c, 1.0 + 0.16 * (1.0 - smoothstep(0.15, 0.6, sat))); // vibração: realça cor apagada sem estourar a forte
+  vec3 g = mix(vec3(l), c, 1.0 + 0.06 * (1.0 - smoothstep(0.15, 0.6, sat))); // vibração: realça cor apagada sem estourar a forte
   g *= mix(vec3(0.97, 0.995, 1.035), vec3(1.025, 1.005, 0.985), smoothstep(0.05, 0.5, l) * (1.0 - smoothstep(0.6, 0.9, l)));
   c = mix(c, g, uGrade);
   c = ppSRGB(clamp(c, 0.0, 1.0));
-  c = mix(c, c * c * (3.0 - 2.0 * c), 0.12 * uGrade); // contraste em S suave
+  c = mix(c, c * c * (3.0 - 2.0 * c), 0.2 * uGrade); // contraste em S (nítido, estilo cinema)
   vec2 q = vUv - 0.5; c *= 1.0 - dot(q, q) * uVig;
   gl_FragColor = vec4(c, 1.0);
 }`,

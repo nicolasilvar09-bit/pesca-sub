@@ -1,7 +1,7 @@
 // ================= clima e hora do dia (muda a cada partida) + sons de ambiente =================
 // dia de sol, fim de tarde, nublado e chuva. Na partida online o sorteio usa a semente da partida: todos veem o mesmo.
 const WEATHER = {
-  dia: { n: 'Dia de sol', el: 42, az: 29, sc: 0xffe2b8, si: 1.9, hs: 0xbfd6ee, hg: 0x6b6150, hi: 0.85, fog: null, fk: 1, ex: 0.92, tb: 6.5, ry: 1.4, sky: true },
+  dia: { n: 'Dia de sol', el: 40, az: 29, sc: 0xffeed2, si: 2.3, hs: 0xa9c4de, hg: 0x5e5444, hi: 0.6, fog: null, fk: 1, ex: 0.97, tb: 4.5, ry: 1.1, sky: true }, // sol forte e quente, sombra com contraste, céu limpo
   tarde: { n: 'Fim de tarde', el: 9, az: 205, sc: 0xffae6a, si: 1.95, hs: 0xdcc2ad, hg: 0x62524a, hi: 0.85, fog: 0xdcbfa4, fk: 0.85, ex: 1.06, tb: 9, ry: 2.4, sky: true },
   nublado: { n: 'Nublado', el: 55, az: 60, sc: 0xdde3ea, si: 0.75, hs: 0xc6ced6, hg: 0x6f6f68, hi: 1.25, fog: 0xb3bbc2, fk: 0.6, ex: 0.95, tb: 14, ry: 0.6, sky: false },
   noite: { n: 'Noite', el: 38, az: 140, sc: 0x9fb6e8, si: 0.42, hs: 0x3a4868, hg: 0x16181e, hi: 0.62, fog: 0x161d2c, fk: 0.55, ex: 1.15, tb: 1, ry: 0.2, sky: false, night: true },
