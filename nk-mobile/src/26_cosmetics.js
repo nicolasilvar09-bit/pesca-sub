@@ -169,8 +169,9 @@ const _rgC = refreshGun; refreshGun = function (a) { _rgC(a); const w = curW(a);
 const _dgC = dressGun; dressGun = function (mesh, w) { const r = _dgC(mesh, w); if (mesh === vmGun && w) skinGun(mesh, w.k, G.player); return r; };
 // paraquedas
 const _chuteGeo = {};
-function chuteGeoFor(a) {
-  const e = cosOf(a), s = e.chute && COS[e.chute]; if (!s) return CHUTE_GEO;
+function chuteGeoFor(a) { const e = cosOf(a); return chuteGeoById(e.chute); }
+function chuteGeoById(id) {
+  const s = id && COS[id]; if (!s) return CHUTE_GEO;
   if (_chuteGeo[s.id]) return _chuteGeo[s.id];
   const p = [], N = 9, W = 7.2;
   for (let i = 0; i < N; i++) { const t = (i + 0.5) / N - 0.5, an = t * 1.15, x = Math.sin(an) * W * 0.62, y = Math.cos(an) * 1.4 + 1.0; p.push({ g: GEO.box, x, y, z: 0, sx: W / N * 1.04, sy: 0.32, sz: 2.8, rz: -an, c: s.cols[i] }, { g: GEO.box, x, y: y - 0.2, z: -1.35, sx: W / N, sy: 0.12, sz: 0.12, rz: -an, c: '#1d1d1d' }); }
@@ -217,8 +218,9 @@ function rollItem(rarFilter) {
 function grant(o) { if (owns(o.id)) { SET.coins += 40; saveSet(); return false; } SET.inv.push(o.id); saveSet(); return true; }
 function cardHtml(o, extra) {
   const c = cosCols(o), r = RAR[o.rar];
-  const sw = o.img ? `<div class="cos-sw" style="background:#000 url(assets/pass/${o.img}.jpg) center/cover"></div>` : `<div class="cos-sw" style="background:linear-gradient(135deg,${c[0]} 0 45%,${c[1]} 45% 75%,${c[2]} 75%)">${CAT[o.cat][0]}</div>`;
-  return `<div class="cos-card" style="--rc:${r.c}">${sw}<b>${o.n}</b><small style="color:${r.c}">${r.n}</small>${extra || ''}</div>`;
+  const th = THUMB.cache[o.id];
+  const sw = `<div class="cos-sw" data-th="${o.id}" style="background:${th ? `#1b1c22 url(${th}) center/contain no-repeat` : `linear-gradient(135deg,${c[0]} 0 45%,${c[1]} 45% 75%,${c[2]} 75%)`}">${th ? '' : CAT[o.cat][0]}</div>`;
+  return `<div class="cos-card" data-pv="${o.id}" style="--rc:${r.c}">${sw}<b>${o.n}</b><small style="color:${r.c}">${r.n}</small>${extra || ''}</div>`;
 }
 // painel de caixas/passe/armário: ✕ fixo no canto (sempre visível, mesmo em tela baixa) + fechar tocando fora da caixa
 function cosPanel(html) {
@@ -227,6 +229,7 @@ function cosPanel(html) {
   const close = () => { el.classList.add('hidden'); renderLobby(); };
   el.querySelectorAll('[data-x], .cos-x').forEach(x => x.onclick = close);
   el.onclick = e => { if (e.target === el) close(); };
+  fillThumbs(el); bindPreview(el);
   return el;
 }
 function openBox() {
@@ -242,7 +245,7 @@ function openBox() {
 function spinBox(prize, again) {
   const strip = $('cStrip'), N = 34, P = 28, cards = [];
   for (let i = 0; i < N; i++) cards.push(i === P ? prize : rollItem());
-  strip.innerHTML = cards.map(o => cardHtml(o)).join(''); strip.style.transition = 'none'; strip.style.transform = 'translateX(0)';
+  strip.innerHTML = cards.map(o => cardHtml(o)).join(''); fillThumbs(strip, prize.id); strip.style.transition = 'none'; strip.style.transform = 'translateX(0)';
   $('cOpen').disabled = true; sfx('pick');
   requestAnimationFrame(() => requestAnimationFrame(() => {
     const cw = strip.children[0].getBoundingClientRect().width + 8, off = P * cw - strip.parentElement.clientWidth / 2 + cw / 2 + (Math.random() - 0.5) * cw * 0.5;
@@ -270,13 +273,13 @@ function openPass() {
   const lv = passLv(), into = SET.pxp - lv * PASS_XP;
   const cards = Array.from({ length: PASS_N }, (_, i) => {
     const l = i + 1, rw = passReward(l), got = SET.pcl.includes(l), can = l <= lv && !got;
-    const icon = rw.out ? `<img src="assets/pass/${COS[rw.out].img}.jpg" alt="">` : rw.box ? '🎁' : rw.item ? '✨' : '🪙';
+    const icon = rw.out ? `<div class="cos-sw ps-th" data-th="${rw.out}" data-pv="${rw.out}"></div>` : rw.box ? '🎁' : rw.item ? '✨' : '🪙';
     return `<div class="ps-c ${l <= lv ? 'on' : ''} ${rw.out ? 'big' : ''}"><small>NÍVEL ${l}</small><div class="ps-i">${icon}</div><b>${rw.t}</b>${got ? '<em>✔ pego</em>' : can ? `<button class="btn" data-cl="${l}">PEGAR</button>` : `<em>🔒</em>`}</div>`;
   }).join('');
   const el = cosPanel(`<div class="ps-ban" style="background-image:url(assets/pass/banner.jpg)"><div><b>PASSE DE ELITE · TEMPORADA 1</b><span>Coroa Imperial</span><small class="free">GRÁTIS</small></div></div>
     <div class="ps-top">Nível <b>${lv}</b>/${PASS_N} <div class="ps-bar"><i style="width:${lv >= PASS_N ? 100 : Math.round(into / PASS_XP * 100)}%"></i></div><small>${lv >= PASS_N ? 'completo!' : into + ' / ' + PASS_XP + ' XP'} · cada partida dá XP (abates, top 10 e vitória dão mais)</small></div>
     <div class="ps-row">${cards}</div>
-    <div class="ps-ex">${['out:pass', 'w:M416:imperial', 'veh:imperial', 'helm:imperial'].map(id => `<div class="ps-ii"><img src="assets/pass/${COS[id].img}.jpg" alt=""><b>${COS[id].n}</b><small>nível ${{ 'out:pass': 30, 'w:M416:imperial': 20, 'veh:imperial': 25, 'helm:imperial': 10 }[id]}${owns(id) ? ' · ✔ seu' : ''}</small></div>`).join('')}</div>
+    <div class="ps-ex">${['out:pass', 'w:M416:imperial', 'veh:imperial', 'helm:imperial'].map(id => `<div class="ps-ii" data-pv="${id}"><div class="ps-two"><img src="assets/pass/${COS[id].img}.jpg" alt=""><div class="cos-sw" data-th="${id}"></div></div><b>${COS[id].n}</b><small>nível ${{ 'out:pass': 30, 'w:M416:imperial': 20, 'veh:imperial': 25, 'helm:imperial': 10 }[id]}${owns(id) ? ' · ✔ seu' : ''}</small></div>`).join('')}</div>
     <div class="row"><button class="btn alt" data-x>FECHAR</button></div>`);
   el.querySelectorAll('[data-cl]').forEach(b => b.onclick = () => {
     const l = +b.dataset.cl, rw = passReward(l); if (SET.pcl.includes(l) || l > passLv()) return; SET.pcl.push(l);
@@ -309,3 +312,79 @@ function openLocker(cat, wk) {
 }
 // na partida, o modelo do jogador é montado antes de G.player existir: reaplica o visual dele no começo
 const _smCos = startMatch; startMatch = function () { const r = _smCos.apply(this, arguments); const p = G.player; if (p) { p.cosMe = true; applyOutfit(p); updateHumanGear(p); refreshGun(p); } return r; };
+
+// ---------- prévia 3D das skins (renderizada com o mesmo material do jogo) ----------
+const THUMB = { cache: {}, q: [], busy: false, sc: null };
+function thumbScene() {
+  if (THUMB.sc) return THUMB.sc;
+  const sc = new T.Scene(), cam = new T.PerspectiveCamera(30, 1.6, 0.05, 200);
+  sc.add(new T.HemisphereLight(0xdfe8f5, 0x45403a, 1.15)); const d = new T.DirectionalLight(0xfff2df, 1.6); d.position.set(3, 5, 4); sc.add(d); const d2 = new T.DirectionalLight(0x9fb8ff, 0.5); d2.position.set(-4, 2, -3); sc.add(d2);
+  const rt = new T.WebGLRenderTarget(320, 200, { samples: 4 }); rt.texture.encoding = T.sRGBEncoding;
+  const cv = document.createElement('canvas'); cv.width = 320; cv.height = 200;
+  return THUMB.sc = { sc, cam, rt, cv, ctx: cv.getContext('2d'), buf: new Uint8Array(320 * 200 * 4) };
+}
+function thumbObject(o) {
+  const g = new T.Group();
+  if (o.cat === 'wpn') {
+    const m = new T.Mesh(gunGeo(o.wk), MAT.view); setGunVisual(m, o.wk);
+    m.traverse(n => { if (n.isMesh) n.material = skinMat(o.th, !!n.geometry.attributes.color, 1); }); g.add(m); g.userData.view = 'side';
+  } else if (o.cat === 'helm') {
+    g.add(new T.Mesh(mergeParts([{ g: GEO.hsph, sx: 0.27, sy: 0.24, sz: 0.3, c: '#9a9a9a' }, bx(-0.14, -0.01, -0.16, 0.28, 0.03, 0.06, '#777'), { g: GEO.box, y: -0.08, z: 0.01, sx: 0.23, sy: 0.12, sz: 0.24, c: '#666' }]), skinMat(o.th, true, 2))); g.userData.view = 'front';
+  } else if (o.cat === 'bag') {
+    g.add(new T.Mesh(mergeParts([bx(-0.16, -0.38, -0.1, 0.32, 0.54, 0.22, '#9a9a9a'), bx(-0.13, -0.3, 0.12, 0.26, 0.2, 0.06, '#7a7a7a'), bx(-0.1, 0.1, -0.12, 0.04, 0.06, 0.26, '#555'), bx(0.06, 0.1, -0.12, 0.04, 0.06, 0.26, '#555')]), skinMat(o.th, true, 1.4))); g.userData.view = 'back';
+  } else if (o.cat === 'chute') {
+    g.add(new T.Mesh(chuteGeoById(o.id), new T.MeshLambertMaterial({ vertexColors: true }))); g.userData.view = 'chute';
+  } else if (o.cat === 'veh') {
+    const m = new T.Mesh(vehGeo(o.vk, o.col), o.th ? skinMat(o.th, true, 0.07) : new T.MeshLambertMaterial({ vertexColors: true })); g.add(m); g.userData.view = 'car';
+  } else if (o.cat === 'out') {
+    if (!HUM.ready) return null;
+    const av = AVATARS.find(v => v.k === (CHARS[SET.char] || CHARS[0]).av) || AVATARS[0], root = T.SkeletonUtils.clone(HUM.src[av.k]);
+    root.traverse(n => { if (!n.isMesh) return; n.material = n.material.clone(); n.frustumCulled = false; const nm = n.material.name.toLowerCase(); if (/_body/.test(nm)) outfitPatch(n.material, o.th, true); if (/helmet|knife|pistol|shotgun|machinegun/.test(nm)) n.material.visible = false; });
+    const c = HUM.clips[(av.f ? 'f_' : 'm_') + 'idle'] || HUM.clips.m_idle; if (c) { const mx = new T.AnimationMixer(root); mx.clipAction(c).play(); mx.update(0.6); }
+    g.add(root); g.userData.view = 'body';
+  }
+  return g;
+}
+function renderThumb(o, w, h) {
+  const S = thumbScene(), g = thumbObject(o); if (!g) return null;
+  S.sc.add(g); g.updateMatrixWorld(true);
+  const v = g.userData.view, box = new T.Box3().setFromObject(g), c = v === 'body' ? new T.Vector3(0, 0.92, 0) : box.getCenter(new T.Vector3()), sz = v === 'body' ? new T.Vector3(0.5, 1.15, 0.4) : box.getSize(new T.Vector3()); // personagem: enquadramento fixo (a caixa do esqueleto engana)
+  const dir = v === 'side' ? new T.Vector3(1, 0.18, 0.12) : v === 'front' ? new T.Vector3(0.5, 0.35, -1) : v === 'back' ? new T.Vector3(0.6, 0.3, 1) : v === 'chute' ? new T.Vector3(0.2, -0.45, -1) : v === 'car' ? new T.Vector3(1, 0.5, -0.9) : new T.Vector3(0.15, 0.08, 1);
+  dir.normalize(); const r = Math.max(sz.x, sz.y * 1.6, sz.z) * (v === 'side' ? 0.4 : 0.62), dist = r / Math.tan(15 * Math.PI / 180);
+  S.cam.aspect = w / h; S.cam.position.copy(c).addScaledVector(dir, dist); S.cam.lookAt(c); S.cam.near = dist / 20; S.cam.far = dist * 4; S.cam.updateProjectionMatrix();
+  if (S.rt.width !== w || S.rt.height !== h) { S.rt.setSize(w, h); S.cv.width = w; S.cv.height = h; S.buf = new Uint8Array(w * h * 4); }
+  const keepT = renderer.toneMapping, keepRT = renderer.getRenderTarget(), keepSh = renderer.shadowMap.autoUpdate;
+  renderer.toneMapping = T.ACESFilmicToneMapping; renderer.shadowMap.autoUpdate = false;
+  renderer.setRenderTarget(S.rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(S.sc, S.cam);
+  renderer.readRenderTargetPixels(S.rt, 0, 0, w, h, S.buf);
+  renderer.setRenderTarget(keepRT); renderer.toneMapping = keepT; renderer.shadowMap.autoUpdate = keepSh;
+  S.sc.remove(g); g.traverse(n => { if (n.isMesh && n.geometry && n.geometry !== CHUTE_GEO && !Object.values(_chuteGeo).includes(n.geometry)) { try { n.geometry.dispose(); } catch (e) { } } });
+  const img = S.ctx.createImageData(w, h);
+  for (let y = 0; y < h; y++) img.data.set(S.buf.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4); // a placa de vídeo devolve de cabeça para baixo
+  S.ctx.putImageData(img, 0, 0); return S.cv.toDataURL('image/png');
+}
+// preenche as cartas com a prévia, uma por quadro (não trava a tela)
+function fillThumbs(root, first) {
+  if (first && !THUMB.cache[first]) { THUMB.q = THUMB.q.filter(x => x !== first); THUMB.q.unshift(first); } // o prêmio vem primeiro
+  root.querySelectorAll('[data-th]').forEach(el => { const id = el.dataset.th; if (THUMB.cache[id]) setThumb(el, id); else if (!THUMB.q.includes(id)) THUMB.q.push(id); });
+  if (!THUMB.busy) { THUMB.busy = true; requestAnimationFrame(thumbStep); }
+}
+function setThumb(el, id) { el.style.background = `#1b1c22 url(${THUMB.cache[id]}) center/contain no-repeat`; el.textContent = ''; }
+function thumbStep() {
+  const id = THUMB.q.shift();
+  if (id && COS[id]) { try { const u = renderThumb(COS[id], 320, 200); if (u) THUMB.cache[id] = u; } catch (e) { THUMB.cache[id] = null; window.__thErr = (e && e.stack || String(e)).slice(0, 400); } document.querySelectorAll(`[data-th="${id}"]`).forEach(el => { if (THUMB.cache[id]) setThumb(el, id); }); }
+  if (THUMB.q.length) requestAnimationFrame(thumbStep); else THUMB.busy = false;
+}
+// tocar numa carta: prévia grande
+function bindPreview(root) {
+  root.querySelectorAll('[data-pv]').forEach(el => el.addEventListener('click', e => {
+    if (e.target.closest('button') || el.closest('.lk-i')) return; e.stopPropagation(); showPreview(COS[el.dataset.pv]);
+  }));
+}
+function showPreview(o) {
+  if (!o) return; let d = $('cosPv'); if (!d) { d = document.createElement('div'); d.id = 'cosPv'; document.body.appendChild(d); }
+  let u = null; try { u = renderThumb(o, 720, 440); } catch (e) { }
+  const r = RAR[o.rar];
+  d.innerHTML = `<div class="pv-b" style="--rc:${r.c}">${u ? `<img src="${u}" alt="">` : `<div class="pv-n">Prévia disponível quando os personagens terminarem de carregar</div>`}<b>${o.n}</b><small style="color:${r.c}">${r.n} · ${CAT[o.cat][1]}${o.pass ? ' · exclusivo do Passe' : ''}${owns(o.id) ? ' · ✔ seu' : ''}</small><button class="btn alt">FECHAR</button></div>`;
+  d.style.display = 'flex'; d.onclick = () => { d.style.display = 'none'; };
+}
