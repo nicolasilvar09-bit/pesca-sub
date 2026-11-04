@@ -49,10 +49,9 @@ function renderLobby() {
   <div class="lright">
     <label class="lab">Modo</label>
     <div class="seg">${MODES.map(m => `<button data-m="${m[0]}" class="${G.mode === m[0] ? 'on' : ''}">${m[1]}</button>`).join('')}</div>
-    <label class="lab">Mapa</label>
-    <div class="seg">${Object.keys(MAPS).map(k => `<button data-map="${k}" class="${MAPID === k ? 'on' : ''}">${MAPS[k].n}</button>`).join('')}</div>
     <label class="lab">Bots</label>
     <div class="seg">${DIFFS.map(d => `<button data-d="${d[0]}" class="${G.diff === d[0] ? 'on' : ''}">${d[1]}</button>`).join('')}</div>
+    <button class="mapbtn" id="lMap" data-map="1"><img src="assets/maps/${MAPID}.jpg" alt=""><span><small>MAPA</small><b>${MAPS[MAPID].n}</b></span><i>TROCAR ›</i></button>
     <button class="btn play" id="lPlay">JOGAR</button>
     <div class="hint">${MAPS[MAPID].d} · bots completam as 50 vagas${HUM.ready || HUM.failed ? "" : "<br>Carregando personagens realistas..."}</div>
   </div>
