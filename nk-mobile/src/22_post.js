@@ -44,7 +44,7 @@ function postResize() {
   PP.mat.uniforms.uPx.value.set(1 / Math.max(4, PP.v.x), 1 / Math.max(4, PP.v.y));
   PP.mat.uniforms.uSharp.value = renderer.getPixelRatio() < 1.5 ? 0.28 : 0.16;
 }
-function postWanted() { const q = QUAL[SET.quality] || QUAL[1]; return !!q.post && !window.__noPost && postSupported(); }
+function postWanted() { const q = QUAL[SET.quality] || QUAL[1]; return !!q.post && !window.__noPost && AUTO.lv < 2 && postSupported(); }
 function drawScene() {
   dynRes(); // antes de desenhar: mudar o tamanho da tela limpa a imagem, então nunca depois
   const want = postWanted();

@@ -130,3 +130,20 @@ const _gsC = gfxStep; gfxStep = function (dt, fx, fy, fz) {
   const far = scene.fog.far + 60, cp = camera.position;
   for (const m of CHUNK_MESH) { const bs = m.geometry.boundingSphere; if (!bs) continue; m.visible = _cv.copy(bs.center).distanceTo(cp) - bs.radius < far; }
 };
+
+// ---------- ajuste automático de desempenho ----------
+// abaixo de ~38 FPS por alguns segundos no chão: desliga, um de cada vez, o que mais pesa (só nesta sessão)
+// 1 = sombra a cada 3 quadros, 2 = sem filtro de imagem, 3 = sem sombras, 4 = sem grama e visão mais curta
+const AUTO_N = ['', 'sombras mais leves', 'filtro de imagem desligado', 'sombras desligadas', 'grama e distância reduzidas'];
+function autoPerf(dt) {
+  const p = G.player; if (G.phase !== 'match' || !p || !p.alive || p.mode !== 'ground' || !G.fps || panelOpen()) { AUTO.low = 0; return; }
+  if ((AUTO.t += dt) < 1) return; AUTO.t = 0;
+  if (G.fps < 36) AUTO.low++; else AUTO.low = Math.max(0, AUTO.low - 1);
+  if (AUTO.low >= 5 && AUTO.lv < 4 && SET.quality > 0) {
+    AUTO.lv++; AUTO.low = 0;
+    if (AUTO.lv === 3 && GFX.shadow) { renderer.shadowMap.enabled = false; sun.castShadow = false; scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); }); }
+    if (AUTO.lv === 4) { const q = QUAL[SET.quality] || QUAL[1]; q.fog = Math.round(q.fog * 0.8); setWeather(WX.k); }
+    toast('Ajustando o gráfico para ficar fluido: ' + AUTO_N[AUTO.lv], 2.2);
+  }
+}
+const _gsA = gfxStep; gfxStep = function (dt, fx, fy, fz) { _gsA(dt, fx, fy, fz); autoPerf(dt); };

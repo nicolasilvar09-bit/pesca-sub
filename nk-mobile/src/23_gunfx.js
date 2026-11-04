@@ -39,7 +39,7 @@ function stepShells(dt) {
 }
 
 // ---------- clarão que ilumina o ambiente (uma luz só, reaproveitada; nunca some da cena para não recompilar shaders) ----------
-const MZ_LIGHT = new T.PointLight(0xffb45a, 0, 9, 2); scene.add(MZ_LIGHT); let mzT = 0;
+const MZ_LIGHT = new T.PointLight(0xffb45a, 0, 9, 2); if (SET.quality >= 2) scene.add(MZ_LIGHT); let mzT = 0; // só no Alto: uma luz a mais pesa em todo o cenário no celular
 
 // ---------- sangue: borrifo + mancha no chão ----------
 const BLOOD_GEO = new T.SphereGeometry(1, 5, 4);
