@@ -25,7 +25,7 @@ function botScan(a) {
     if (t.mode === 'chute') r = Math.min(r, 120);
     if (d2 > r * r || d2 > bd) continue;
     const ang = Math.abs(wrapA(Math.atan2(-dx, -dz) - a.yaw));
-    const heard = t.lastShotT && G.matchT - t.lastShotT < 0.7 && d2 < 260 * 260;
+    const heard = t.lastShotT && G.matchT - t.lastShotT < 0.7 && d2 < 260 * 260 || d2 < 24 * 24 && t.stance === 'stand' && t.vx * t.vx + t.vz * t.vz > 16 && t.onGround; // tiro ou passos de quem corre
     if (ang > 1.8 && d2 > 200 && !heard && t !== a.lastHitBy) continue;
     hitShape(t, _S2);
     if (!losClear(_E1.x, _E1.y, _E1.z, _S2.bx, _S2.by - 0.15, _S2.bz) && !losClear(_E1.x, _E1.y, _E1.z, _S2.hx, _S2.hy, _S2.hz)) continue;
@@ -111,9 +111,27 @@ function botThink(a) {
   // inimigo à vista?
   const seen = botScan(a);
   if (seen) {
-    if (ai.enemy !== seen) { ai.enemy = seen; ai.react = P.react * rr(0.7, 1.3); ai.engT = 0; }
+    if (ai.enemy !== seen) {
+      ai.enemy = seen; ai.react = P.react * rr(0.7, 1.3); ai.engT = 0;
+      // avisa os colegas: eles vão até lá; os bons tentam pegar pelo lado
+      for (const m of G.actors) if (m !== a && m.ai && m.alive && !m.knocked && m.team === a.team && !m.ai.enemy && Math.hypot(m.x - a.x, m.z - a.z) < 160) {
+        m.ai.enemy = seen; m.ai.seenX = seen.x; m.ai.seenZ = seen.z; m.ai.lostT = 1.5; m.ai.vis = false; m.ai.engT = 0;
+        m.ai.flank = m.skill > 0.5 && Math.random() < 0.6 ? (m.id % 2 ? 1 : -1) : 0;
+      }
+    }
     ai.lostT = 0; ai.seenX = seen.x; ai.seenZ = seen.z; ai.vis = true;
-  } else { ai.vis = false; if (ai.enemy && !ai.enemy.alive) ai.enemy = null; }
+  } else {
+    ai.vis = false; if (ai.enemy && !ai.enemy.alive) ai.enemy = null;
+    // ouviu tiro sem ver quem foi: vai investigar (ou, se estiver fraco, fica atento olhando para lá)
+    if (!ai.enemy && !a.veh) for (const t of G.actors) {
+      if (!t.alive || t.team === a.team || !t.lastShotT || G.matchT - t.lastShotT > 0.6) continue;
+      const d = Math.hypot(t.x - a.x, t.z - a.z); if (d > 180 || d < 3) continue;
+      const brave = hasGun(a) && a.hp > 60 && (a.skill > 0.6 || d < 70);
+      if (brave) { ai.enemy = t; ai.seenX = t.x + gauss() * d * 0.06; ai.seenZ = t.z + gauss() * d * 0.06; ai.lostT = 1.5; ai.engT = 0; ai.flank = a.skill > 0.6 && Math.random() < 0.4 ? (Math.random() < 0.5 ? 1 : -1) : 0; }
+      else { ai.lookX = t.x; ai.lookZ = t.z; ai.lookT = G.matchT + 4; }
+      break;
+    }
+  }
   if (ai.enemy && ai.lostT > (a.skill > 0.7 ? 9 : 5)) ai.enemy = null;
   if (a.knocked) { ai.goal = 'crawl'; return; }
   const z = ZONE, out = Math.hypot(a.x - z.cx, a.z - z.cz) > z.r - 4;
@@ -225,7 +243,7 @@ function botTick(a, dt) {
     if (Math.hypot(a.vx, a.vz) > 0.5) a.yaw += wrapA(Math.atan2(-a.vx, -a.vz) - a.yaw) * Math.min(1, dt * 6);
     return;
   }
-  a.ads = false;
+  a.ads = false; a.leanT = 0; ai.cover = null; if (!ai.enemy) ai.flank = 0;
   if (a.stance === 'prone') a.stance = 'crouch';
   if (g === 'heal') { applyMove(a, dt, 0, 0, 0); if (a.stance === 'stand') a.stance = 'crouch'; lookAround(a, dt); return; }
   if (g === 'camp') { applyMove(a, dt, 0, 0, 0); ai.campT -= dt; if (a.stance === 'stand') a.stance = 'crouch'; lookAround(a, dt); if (curW(a) && curW(a).mag < magSize(curW(a))) startReload(a); return; }
@@ -253,12 +271,63 @@ function botTick(a, dt) {
     if (!ai.lootIt && !ai.lootCr && bldAt(a.x, a.z, -0.3) && Math.hypot(ai.tx - a.x, ai.tz - a.z) < 2.5) ai.visited.add(bldAt(a.x, a.z, -0.3));
   }
 }
-function lookAround(a, dt) { a.yaw += Math.sin(G.matchT * 0.4 + a.id) * dt * 0.8; a.pitch *= 0.95; }
+function lookAround(a, dt) {
+  const ai = a.ai;
+  if (ai && ai.lookT > G.matchT) { a.yaw += clamp(wrapA(Math.atan2(-(ai.lookX - a.x), -(ai.lookZ - a.z)) - a.yaw), -dt * 4, dt * 4); a.pitch *= 0.9; return; }
+  a.yaw += Math.sin(G.matchT * 0.4 + a.id) * dt * 0.8; a.pitch *= 0.95;
+}
+// ---------- cobertura: ponto perto que o inimigo não enxerga (atrás de casa, muro, pedra, carro) ----------
+const _E3 = {};
+function findCover(a, t) {
+  eyePos(t, _E3); let best = null, bs = 1e9;
+  const away = Math.atan2(a.x - t.x, a.z - t.z);
+  for (let k = 0; k < 16; k++) {
+    const an = away + (k / 16 - 0.5) * Math.PI * 1.6, r = 3 + (k % 4) * 2.5, x = a.x + Math.sin(an) * r, z = a.z + Math.cos(an) * r;
+    if (pointBlocked(x, a.y, z) || groundH(x, z) < -0.8) continue;
+    const gy = Math.max(groundH(x, z), a.y - groundH(a.x, a.z) > 0.5 ? a.y : -99); if (Math.abs(gy - a.y) > 1.5) continue;
+    if (losClear(_E3.x, _E3.y, _E3.z, x, gy + 1.0, z)) continue; // ainda à vista
+    const sc = r + Math.max(0, 14 - Math.hypot(x - t.x, z - t.z)) * 2; // perto e não colado no inimigo
+    if (sc < bs) { bs = sc; best = [x, z]; }
+  }
+  return best;
+}
+// vai para a cobertura, agacha, recarrega/cura e depois volta espiando; true = está cuidando disso
+function coverStep(a, dt, t) {
+  const ai = a.ai, c = ai.cover, dist = Math.hypot(t.x - a.x, t.z - a.z);
+  if (!c || !t.alive || dist < 7) { ai.cover = null; return false; }
+  const d = Math.hypot(c.x - a.x, c.z - a.z);
+  if (d > 0.9 && c.t === 0) {
+    ai.sprint = true; a.ads = false; botSteer(a, dt, c.x, c.z); ai.sprint = false;
+    if (Math.hypot(a.vx, a.vz) > 0.5) a.yaw += wrapA(Math.atan2(-a.vx, -a.vz) - a.yaw) * Math.min(1, dt * 7);
+    if ((c.run = (c.run || 0) + dt) > 5) ai.cover = null; // não conseguiu chegar
+    return true;
+  }
+  c.t += dt; applyMove(a, dt, 0, 0, 0); a.ads = false;
+  if (a.stance === 'stand') a.stance = 'crouch';
+  a.yaw += clamp(wrapA(Math.atan2(-(t.x - a.x), -(t.z - a.z)) - a.yaw), -dt * 3, dt * 3);
+  const w = curW(a); if (w && w.mag < magSize(w) && a.reloadT <= 0 && a.healT <= 0 && ammoOf(a, w)) startReload(a);
+  if (a.hp < 65 && a.healT <= 0 && a.reloadT <= 0 && !ai.vis) { const k = healItem(a); if (k) startHeal(a, k); }
+  if (ai.vis && c.t > 0.6 && a.healT <= 0) { ai.cover = null; return false; } // inimigo achou outro ângulo: volta a lutar
+  if (c.t > c.wait && a.reloadT <= 0 && a.healT <= 0) { ai.cover = null; ai.peekT = 1.2; ai.strafe = Math.random() < 0.5 ? -1 : 1; return false; }
+  return true;
+}
 const _ap = {};
 function botFight(a, dt) {
   const ai = a.ai, P = botP(a), t = ai.enemy, w = curW(a);
   if (!t) { ai.goal = 'roam'; return; }
   if (!ai.vis && botNade(a)) return;
+  {
+    const w0 = curW(a), dist0 = Math.hypot(t.x - a.x, t.z - a.z);
+    const want = ai.vis && dist0 > 9 && !a.veh && (a.hp < 55 || (w0 && w0.mag === 0 && dist0 > 14) || (G.matchT - a.lastHitT < 0.4 && a.hp < 80 && dist0 > 25 && a.skill > 0.5));
+    if (!ai.cover && want && G.matchT > (ai.coverCd || 0)) {
+      ai.coverCd = G.matchT + rr(4, 7); const c = findCover(a, t);
+      if (c) ai.cover = { x: c[0], z: c[1], t: 0, wait: rr(1.5, 3.5) + (a.hp < 55 ? 3 : 0) };
+      else if (a.bag.SMOKE && a.hp < 55 && G.matchT - (ai.smokeT || 0) > 20) { // sem cobertura: fumaça entre ele e o inimigo
+        ai.smokeT = G.matchT; const h = Math.atan2(t.z - a.z, t.x - a.x); throwNade(a, 'SMOKE', Math.cos(h) * 0.8, 0.45, Math.sin(h) * 0.8, 9);
+      }
+    }
+    if (ai.cover && coverStep(a, dt, t)) return;
+  }
   if (!w || (!w.mag && !ammoOf(a, w))) { // sem munição: parte para o soco
     if (a.cur >= 0 && !hasGun(a)) switchWeapon(a, a.cur);
     const dx = t.x - a.x, dz = t.z - a.z, d = Math.hypot(dx, dz) || 1;
@@ -289,9 +358,17 @@ function botFight(a, dt) {
   a.ads = dist > 15 && a.stance !== 'prone';
   // movimento: anda de lado, aproxima se longe, agacha de longe
   const eff = CLS[cls].range;
-  if ((ai.strafeT -= dt) <= 0) { ai.strafeT = rr(0.5, 1.5); ai.strafe = Math.random() < 0.5 ? -1 : 1; if (dist > 70 && Math.random() < 0.4 && ai.vis) a.stance = 'crouch'; else if (a.stance === 'crouch' && Math.random() < 0.5) a.stance = 'stand'; }
+  if ((ai.strafeT -= dt) <= 0) { ai.strafeT = rr(0.5, 1.5); ai.strafe = Math.random() < 0.5 ? -1 : 1; if (dist > 120 && (cls === 'sr' || cls === 'dmr') && ai.vis && Math.random() < 0.5 && a.skill > 0.5) a.stance = 'prone'; else if (dist > 70 && Math.random() < 0.4 && ai.vis) a.stance = 'crouch'; else if (a.stance !== 'stand' && Math.random() < 0.5) a.stance = 'stand';
+    a.leanT = a.stance === 'crouch' && ai.vis && dist > 25 && a.skill > 0.55 ? ai.strafe : 0;
+    if (ai.vis && dist < 18 && a.onGround && a.stance === 'stand' && Math.random() < a.skill * 0.35) tryJump(a); }
   const rx = Math.cos(a.yaw), rz = -Math.sin(a.yaw), fx = fwdX(a.yaw), fz = fwdZ(a.yaw);
   let mvx = rx * ai.strafe * 0.8, mvz = rz * ai.strafe * 0.8;
+  if (!ai.vis && ai.flank && dist > 22) { // contorna pelo lado antes de ir direto
+    const base = Math.atan2(a.x - ai.seenX, a.z - ai.seenZ) + ai.flank * 1.1, R = Math.min(dist * 0.85, 32);
+    const fxp = ai.seenX + Math.sin(base) * R, fzp = ai.seenZ + Math.cos(base) * R;
+    if (Math.hypot(fxp - a.x, fzp - a.z) < 4 || pointBlocked(fxp, a.y, fzp)) ai.flank = 0;
+    else { ai.sprint = true; botSteer(a, dt, fxp, fzp); ai.sprint = false; if (Math.hypot(a.vx, a.vz) > 0.5) a.yaw += wrapA(Math.atan2(-a.vx, -a.vz) - a.yaw) * Math.min(1, dt * 6); a.ads = false; return; }
+  }
   if (!ai.vis) { const p = navTarget(a, ai.seenX, ai.seenZ); const ex = p[0] - a.x, ez = p[1] - a.z, el = Math.hypot(ex, ez) || 1; mvx = ex / el; mvz = ez / el; if (Math.hypot(ai.seenX - a.x, ai.seenZ - a.z) < 3) ai.enemy = null; }
   else if (dist > eff * 0.85) { mvx = mvx * 0.4 + fx; mvz = mvz * 0.4 + fz; }
   else if (dist < 6 && cls !== 'smg') { mvx -= fx * 0.5; mvz -= fz * 0.5; }

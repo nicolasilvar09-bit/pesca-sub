@@ -130,3 +130,10 @@ O teste compila o JavaScript e simula partidas inteiras (esquadrão e solo) num 
 - Tela de fim estilo PUBG: colocação, abates, tiros na cabeça, dano, abate mais longe, tempo, distância percorrida, precisão, curas, tabela da equipe
 - **Ranking por pontos** (Bronze → Prata → Ouro → Platina → Diamante → Mestre) que sobe/desce a cada partida; aparece no lobby
 - **Personalizar botões** (Configurações): arrastar, mudar o tamanho e a transparência; fica salvo (também na nuvem)
+
+## Bots mais espertos (atualização)
+- **Cobertura**: quando estão com pouca vida, sem munição ou levando tiro, correm para trás de casa/muro/pedra que o inimigo não enxerga, agacham, recarregam ou se curam e voltam espiando
+- **Fumaça** entre eles e o inimigo quando não há onde se esconder
+- **Avisam a equipe**: quem vê um inimigo passa a posição; os colegas vêm ajudar e os bons **flanqueiam** (contornam pelo lado)
+- **Audição**: ouvem tiros (até ~180 m) e passos de quem corre perto; vão investigar ou ficam atentos olhando para o lado do barulho
+- Atiradores deitam de longe com fuzil de precisão, inclinam o corpo agachados, pulam de lado em briga curta
