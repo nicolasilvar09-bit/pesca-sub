@@ -154,3 +154,8 @@ Escolha no lobby (**Mapa: Ilha NK / Balneário**). Mapa original do NK Mobile, d
 - **Templo do Morro**: templo em degraus no topo do morro mais alto, colunas e muros em ruínas (loot forte)
 - **Mercado Velho**: sobrados coloridos e barracas com toldo; mais Quartel da Mata, Arrozal, Vila Caiçara, Porto Pesqueiro, Mirante, Usina Velha e Cachoeira
 - No esquadrão online, o mapa é o do líder (quem entrar num mapa diferente troca sozinho)
+
+## Clima e ambiente (atualização)
+- Cada partida sorteia o clima: **dia de sol**, **fim de tarde** (sol baixo e alaranjado), **nublado** (névoa mais perto) ou **chuva** (gotas caindo, céu cinza, som de chuva mais baixo dentro de casa). No Balneário chove mais. Online, todos do esquadrão veem o mesmo clima
+- Sons de ambiente: ondas quebrando perto do mar, passarinhos na mata (mais no Balneário), vento no alto dos morros e na queda livre
+- Bots agora andam pelas passarelas e píeres sobre a água (palafitas e porto)

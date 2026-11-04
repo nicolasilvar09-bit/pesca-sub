@@ -7298,8 +7298,8 @@ const hasGun = a => a.wp.some(w => w && (w.mag > 0 || ammoOf(a, w) > 0));
 const healItem = a => ['MED', 'FAK', 'BAND', 'ADREN', 'PAIN', 'ENERGY'].find(k => canHeal(a, k));
 // ---------- navegação ----------
 function pointBlocked(x, y, z) {
-  if (groundH(x, z) < -1.1) return true;
   boxesNear(x - 0.4, z - 0.4, x + 0.4, z + 0.4, _near);
+  if (groundH(x, z) < -1.1 && !_near.some(b => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && b.y1 > y - 0.7 && b.y1 < y + STEP_H)) return true; // água funda, a não ser que tenha passarela/píer
   for (const b of _near) if (b.y1 > y + STEP_H && b.y0 < y + 1.6 && x > b.x0 - 0.35 && x < b.x1 + 0.35 && z > b.z0 - 0.35 && z < b.z1 + 0.35) return true;
   return false;
 }
@@ -9051,11 +9051,12 @@ void main(){
 })();
 
 // ---------- sol ----------
+const SUNDISK = [];
 (function sunDisk() {
   const p = SUN_DIR.clone().multiplyScalar(2000);
   for (const [r, op] of [[55, 1], [140, 0.22], [300, 0.08]]) {
     const m = new T.Mesh(new T.CircleGeometry(r, 32), new T.MeshBasicMaterial({ color: 0xfff4cc, transparent: op < 1, opacity: op, fog: false, depthWrite: false }));
-    m.position.copy(p); m.lookAt(0, 0, 0); m.renderOrder = -9; SKY.add(m);
+    m.position.copy(p); m.lookAt(0, 0, 0); m.renderOrder = -9; SKY.add(m); SUNDISK.push(m);
   }
 })();
 
@@ -10081,7 +10082,7 @@ function drawScene() {
   dynRes(); // antes de desenhar: mudar o tamanho da tela limpa a imagem, então nunca depois
   const want = postWanted();
   if (want && !PP) { postInit(); postResize(); }
-  if (PP && PP.on !== want) { PP.on = want; if (GFX.water) GFX.water.uniforms.uLin.value = want ? 1 : 0; scene.fog.color.copy(SKY_C); scene.background.copy(SKY_C); if (want) { scene.fog.color.convertSRGBToLinear(); scene.background.convertSRGBToLinear(); } } // névoa: mesma cor final na tela com ou sem o passe
+  if (PP && PP.on !== want) { PP.on = want; if (GFX.water) GFX.water.uniforms.uLin.value = want ? 1 : 0; applyFogColor(); } // névoa: mesma cor final na tela com ou sem o passe
   if (PP && PP.on) {
     renderer.setRenderTarget(PP.rt); renderer.render(scene, camera);
     renderer.setRenderTarget(null); renderer.render(PP.sc, PP.cam);
@@ -10432,6 +10433,98 @@ function openLayout() {
 }
 addEventListener('resize', () => { if (hudBuilt) applyLayout(); });
 
+// ================= clima e hora do dia (muda a cada partida) + sons de ambiente =================
+// dia de sol, fim de tarde, nublado e chuva. Na partida online o sorteio usa a semente da partida: todos veem o mesmo.
+const WEATHER = {
+  dia: { n: 'Dia de sol', el: 42, az: 29, sc: 0xffe2b8, si: 1.9, hs: 0xbfd6ee, hg: 0x6b6150, hi: 0.85, fog: null, fk: 1, ex: 0.92, tb: 6.5, ry: 1.4, sky: true },
+  tarde: { n: 'Fim de tarde', el: 9, az: 205, sc: 0xffae6a, si: 1.95, hs: 0xdcc2ad, hg: 0x62524a, hi: 0.85, fog: 0xdcbfa4, fk: 0.85, ex: 1.06, tb: 9, ry: 2.4, sky: true },
+  nublado: { n: 'Nublado', el: 55, az: 60, sc: 0xdde3ea, si: 0.75, hs: 0xc6ced6, hg: 0x6f6f68, hi: 1.25, fog: 0xb3bbc2, fk: 0.6, ex: 0.95, tb: 14, ry: 0.6, sky: false },
+  chuva: { n: 'Chuva', el: 60, az: 80, sc: 0xc9d1da, si: 0.5, hs: 0xa9b3bc, hg: 0x585d5e, hi: 1.05, fog: 0x98a2aa, fk: 0.42, ex: 0.9, tb: 18, ry: 0.4, sky: false, rain: true },
+};
+const WX = { k: 'dia', rainOn: false };
+const FOG_BASE = SKY_C.clone();
+function applyFogColor() {
+  scene.fog.color.copy(SKY_C); scene.background.copy(SKY_C);
+  if (typeof PP !== 'undefined' && PP && PP.on) { scene.fog.color.convertSRGBToLinear(); scene.background.convertSRGBToLinear(); }
+}
+function setWeather(k) {
+  const w = WEATHER[k] || WEATHER.dia; WX.k = k in WEATHER ? k : 'dia';
+  const el = w.el * Math.PI / 180, az = w.az * Math.PI / 180;
+  SUN_DIR.set(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az)).normalize();
+  sun.color.set(w.sc); sun.intensity = w.si; HEMI.color.set(w.hs); HEMI.groundColor.set(w.hg); HEMI.intensity = w.hi;
+  renderer.toneMappingExposure = w.ex;
+  SKY_C.set(w.fog == null ? FOG_BASE : w.fog); applyFogColor();
+  const q = QUAL[SET.quality] || QUAL[1]; scene.fog.far = q.fog * w.fk; scene.fog.near = q.fog * 0.12 * w.fk;
+  if (typeof SKY2 !== 'undefined' && SKY2) { const u = SKY2.material.uniforms; u.sunPosition.value.copy(SUN_DIR); u.turbidity.value = w.tb; u.rayleigh.value = w.ry; SKY2.visible = w.sky; }
+  for (const m of SUNDISK) { m.position.copy(SUN_DIR).multiplyScalar(2000); m.lookAt(0, 0, 0); m.visible = w.sky; }
+  if (GFX.water) { GFX.water.uniforms.uSun.value.copy(SUN_DIR); GFX.water.uniforms.uSky.value.set(w.sky ? 0xb5c6d2 : w.fog); }
+  WX.rainOn = !!w.rain; RAIN.visible = WX.rainOn;
+}
+// a qualidade gráfica também mexe na névoa: reaplica o clima depois
+const _aq = applyQuality; applyQuality = function () { _aq(); if (typeof WX !== 'undefined' && WEATHER[WX.k].fk !== 1) setWeather(WX.k); };
+function pickWeather(seed) {
+  const r = seed ? mulberry(seed ^ 0x5bd1e995)() : Math.random();
+  const tab = MAPID === 'bal' ? [['dia', 40], ['tarde', 20], ['nublado', 15], ['chuva', 25]] : [['dia', 50], ['tarde', 20], ['nublado', 18], ['chuva', 12]];
+  let s = 0; for (const [k, p] of tab) { s += p / 100; if (r < s) return k; } return 'dia';
+}
+const _smW = startMatch; startMatch = function (opt) { const out = _smW.apply(this, arguments); setWeather(pickWeather(opt && opt.seed)); if (WX.k !== 'dia') setTimeout(() => toast('Clima: ' + WEATHER[WX.k].n, 2.5), 2500); return out; };
+const _tlW = toLobby; toLobby = function () { const out = _tlW.apply(this, arguments); setWeather('dia'); return out; };
+
+// ---------- chuva: riscos que caem numa caixa em volta da câmera (tudo na placa de vídeo) ----------
+const RAIN = (() => {
+  const N = 2600, pos = new Float32Array(N * 2 * 3), end = new Float32Array(N * 2);
+  for (let i = 0; i < N; i++) { const x = Math.random() * 70, y = Math.random() * 34, z = Math.random() * 70; for (let k = 0; k < 2; k++) { pos.set([x, y, z], (i * 2 + k) * 3); end[i * 2 + k] = k; } }
+  const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('end', new T.BufferAttribute(end, 1));
+  const mat = new T.ShaderMaterial({
+    uniforms: { uT: { value: 0 }, uCam: { value: new T.Vector3() } }, transparent: true, depthWrite: false,
+    vertexShader: `attribute float end; uniform float uT; uniform vec3 uCam; varying float vA;
+      void main(){ vec3 p = position; p.y = mod(p.y - uT * 22.0, 34.0); p.x = mod(p.x - uCam.x + uT * 2.5, 70.0) - 35.0 + uCam.x; p.z = mod(p.z - uCam.z, 70.0) - 35.0 + uCam.z; p.y += uCam.y - 12.0;
+        p.y += end * 0.75; p.x -= end * 0.09; vA = 0.32 * (1.0 - end * 0.6);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
+    fragmentShader: `varying float vA; void main(){ gl_FragColor = vec4(0.78, 0.82, 0.88, vA); }`,
+  });
+  const m = new T.LineSegments(g, mat); m.frustumCulled = false; m.visible = false; m.renderOrder = 5; scene.add(m);
+  return m;
+})();
+
+// ---------- sons de ambiente: ondas perto do mar, passarinhos na mata, vento no alto, chuva ----------
+const AMB = { t: 0, waveT: 0, birdT: 2, sea: 0, loops: null };
+function ambLoops() {
+  if (AMB.loops || !AC) return AMB.loops;
+  const mk = (freq, type, q) => { const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = NOISE; s.loop = true; f.type = type; f.frequency.value = freq; f.Q.value = q; g.gain.value = 0; s.connect(f).connect(g).connect(AC.destination); s.start(); return g; };
+  AMB.loops = { rain: mk(1400, 'lowpass', 0.5), wind: mk(420, 'bandpass', 0.6) };
+  return AMB.loops;
+}
+function stepWeather(dt) {
+  AMB.t += dt;
+  if (RAIN.visible) { RAIN.material.uniforms.uT.value = AMB.t; RAIN.material.uniforms.uCam.value.copy(camera.position); }
+  if (!AC || AC.state !== 'running') return;
+  const L = ambLoops(); if (!L) return;
+  const inMatch = G.phase === 'match', vol = SET.vol, p = G.player, now = AC.currentTime;
+  // chuva contínua (mais baixa dentro de casa)
+  const indoor = inMatch && p && p.alive && typeof bldAt === 'function' && bldAt(p.x, p.z, -0.3) && p.y < bldAt(p.x, p.z, -0.3).top;
+  L.rain.gain.setTargetAtTime(WX.rainOn ? (indoor ? 0.05 : 0.13) * vol : 0, now, 0.5);
+  // vento: mais forte no alto (morro, avião, queda livre)
+  const cy = camera.position.y, gh = groundH(camera.position.x, camera.position.z), fall = inMatch && p && (p.mode === 'fall' || p.mode === 'chute');
+  L.wind.gain.setTargetAtTime((clamp((cy - Math.max(gh, 0) - 6) / 80, 0, 1) * 0.07 + clamp((cy - 45) / 120, 0, 1) * 0.05 + (fall ? 0.1 : 0) + (WX.k === 'nublado' ? 0.02 : 0)) * vol, now, 0.6);
+  // mar: a cada meio segundo vê quanto de água há em volta
+  if ((AMB.waveT -= dt) <= 0) {
+    AMB.waveT = 0.5; let n = 0; const x = camera.position.x, z = camera.position.z;
+    for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; if (groundH(x + Math.cos(a) * 45, z + Math.sin(a) * 45) < -0.8) n++; }
+    AMB.sea = n / 8 * clamp(1 - (cy - 4) / 60, 0, 1);
+    if (AMB.sea > 0.05 && Math.random() < 0.28) sNoise(now, 2.6, AMB.sea * 0.12, 500 + Math.random() * 200, 0.5, 'lowpass', AC.destination); // onda quebrando
+  }
+  // passarinhos de dia na mata (mais no Balneário)
+  if ((AMB.birdT -= dt) <= 0) {
+    AMB.birdT = rr(1.5, MAPID === 'bal' ? 4 : 7);
+    if (!WX.rainOn && WX.k !== 'nublado' && cy - gh < 30 && AMB.sea < 0.6) {
+      const out = sOut(now, rr(-0.8, 0.8)), f0 = rr(2200, 4200), nn = 2 + Math.floor(Math.random() * 4), v = (MAPID === 'bal' ? 0.03 : 0.02) * (inMatch ? 1 : 0.7);
+      for (let i = 0; i < nn; i++) sTone(now + i * rr(0.08, 0.16), f0 * rr(0.9, 1.15), f0 * rr(1.1, 1.4), 0.07, v, 'sine', out);
+    }
+  }
+}
+const _gsW = gfxStep; gfxStep = function (dt, fx, fy, fz) { _gsW(dt, fx, fy, fz); stepWeather(dt); };
+
 // ================= início =================
 G.mode = SET.mode || 'squad'; G.diff = SET.diff || 'mix';
 applyQuality();
@@ -10444,7 +10537,7 @@ loadHumans(() => {
 });
 $('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__G = { G, IN, ZONE, BLD, BOX, TOWNS, ROADS, RIVER, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, ON, PARTY, removeItem, pDrop, partyCreate, partyJoin, leaderStart, addFriendCode, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
+window.__G = { G, IN, ZONE, BLD, BOX, TOWNS, ROADS, RIVER, setWeather, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, ON, PARTY, removeItem, pDrop, partyCreate, partyJoin, leaderStart, addFriendCode, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
 // instala como app / funciona sem internet
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });
 

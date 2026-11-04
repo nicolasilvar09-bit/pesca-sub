@@ -50,8 +50,8 @@ const hasGun = a => a.wp.some(w => w && (w.mag > 0 || ammoOf(a, w) > 0));
 const healItem = a => ['MED', 'FAK', 'BAND', 'ADREN', 'PAIN', 'ENERGY'].find(k => canHeal(a, k));
 // ---------- navegação ----------
 function pointBlocked(x, y, z) {
-  if (groundH(x, z) < -1.1) return true;
   boxesNear(x - 0.4, z - 0.4, x + 0.4, z + 0.4, _near);
+  if (groundH(x, z) < -1.1 && !_near.some(b => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && b.y1 > y - 0.7 && b.y1 < y + STEP_H)) return true; // água funda, a não ser que tenha passarela/píer
   for (const b of _near) if (b.y1 > y + STEP_H && b.y0 < y + 1.6 && x > b.x0 - 0.35 && x < b.x1 + 0.35 && z > b.z0 - 0.35 && z < b.z1 + 0.35) return true;
   return false;
 }

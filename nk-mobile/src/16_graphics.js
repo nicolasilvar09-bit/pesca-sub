@@ -157,11 +157,12 @@ void main(){
 })();
 
 // ---------- sol ----------
+const SUNDISK = [];
 (function sunDisk() {
   const p = SUN_DIR.clone().multiplyScalar(2000);
   for (const [r, op] of [[55, 1], [140, 0.22], [300, 0.08]]) {
     const m = new T.Mesh(new T.CircleGeometry(r, 32), new T.MeshBasicMaterial({ color: 0xfff4cc, transparent: op < 1, opacity: op, fog: false, depthWrite: false }));
-    m.position.copy(p); m.lookAt(0, 0, 0); m.renderOrder = -9; SKY.add(m);
+    m.position.copy(p); m.lookAt(0, 0, 0); m.renderOrder = -9; SKY.add(m); SUNDISK.push(m);
   }
 })();
 
