@@ -159,3 +159,10 @@ Escolha no lobby (**Mapa: Ilha NK / Balneário**). Mapa original do NK Mobile, d
 - Cada partida sorteia o clima: **dia de sol**, **fim de tarde** (sol baixo e alaranjado), **nublado** (névoa mais perto) ou **chuva** (gotas caindo, céu cinza, som de chuva mais baixo dentro de casa). No Balneário chove mais. Online, todos do esquadrão veem o mesmo clima
 - Sons de ambiente: ondas quebrando perto do mar, passarinhos na mata (mais no Balneário), vento no alto dos morros e na queda livre
 - Bots agora andam pelas passarelas e píeres sobre a água (palafitas e porto)
+
+## Campo preenchido (atualização, os dois mapas)
+- **Florestas fechadas** alternando com **campos abertos**; quase o dobro de árvores e ~12% de **árvores gigantes**
+- Entre as cidades: **sítios** (casa, celeiro, galpão, cerca com porteira, feno, trator), **ruínas de pedra**, **torres de vigia** de 3 andares, **acampamentos** (barracas, fogueira, troncos, caixas), **trincheiras de sacos de areia**, **muros de pedra** cortando os campos, **pedras grandes**, **contêineres**
+- Beira de estrada: **postos de gasolina**, **carros abandonados**, **postes com fios**, **cercas**
+- Morros com **torres de rádio**; casas isoladas com galpão ou caixa d'água no quintal
+- Desempenho: blocos do cenário além da névoa não são desenhados

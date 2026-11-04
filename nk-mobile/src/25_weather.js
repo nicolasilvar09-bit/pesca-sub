@@ -89,3 +89,11 @@ function stepWeather(dt) {
   }
 }
 const _gsW = gfxStep; gfxStep = function (dt, fx, fy, fz) { _gsW(dt, fx, fy, fz); stepWeather(dt); };
+// ---------- desempenho: blocos do cenário além da névoa não são desenhados ----------
+let _cullT = 0; const _cv = new T.Vector3();
+const _gsC = gfxStep; gfxStep = function (dt, fx, fy, fz) {
+  _gsC(dt, fx, fy, fz);
+  if ((_cullT -= dt) > 0) return; _cullT = 0.4;
+  const far = scene.fog.far + 60, cp = camera.position;
+  for (const m of CHUNK_MESH) { const bs = m.geometry.boundingSphere; if (!bs) continue; m.visible = _cv.copy(bs.center).distanceTo(cp) - bs.radius < far; }
+};

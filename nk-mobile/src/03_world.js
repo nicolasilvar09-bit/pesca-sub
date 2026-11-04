@@ -569,6 +569,137 @@ function balExtras(t) {
 })();
 
 // ---------- árvores, arbustos e pedras (instanciados: 1 desenho para todas) ----------
+// ---------- campo preenchido: estruturas entre as cidades (cobertura e pontos de interesse, como em todo mapa de tiro) ----------
+const DECO = []; // peças só visuais (cercas e postes inclinados), juntadas numa malha só
+const ISL_R = MAPID === 'bal' ? 560 : 700;
+function landSpot(w, d, o) {
+  o = o || {};
+  for (let k = 0; k < 60; k++) {
+    const x = Math.round(wr(-ISL_R, ISL_R)), z = Math.round(wr(-ISL_R, ISL_R)), h = groundH(x, z);
+    if (h < (o.minH || 3) || h > (o.maxH || 70)) continue;
+    if (townAt(x, z, o.townPad == null ? 25 : o.townPad) || riverDist(x, z) < 16) continue;
+    if (Math.abs(groundH(x + w / 2, z) - groundH(x - w / 2, z)) + Math.abs(groundH(x, z + d / 2) - groundH(x, z - d / 2)) > (o.slope || 3.5)) continue;
+    if (!free(x, z, w, d, o.m == null ? 4 : o.m)) continue;
+    return [x, z, h];
+  }
+  return null;
+}
+const WOOD = ['#8a6340', '#7a5233', '#9c7048', '#6e4a2c'], STONE = ['#8f8a7e', '#7f7b70', '#9a958a', '#857f72'];
+function stoneWall(x, z, len, axis, h, gap) { // muro de pedra com falhas (cobertura no campo)
+  const gy = groundH(x, z); let a = -len / 2;
+  while (a < len / 2) {
+    const L = Math.min(len / 2 - a, 3 + WR() * 6), hh = h * (0.6 + WR() * 0.45);
+    const x0 = axis === 'x' ? x + a : x - 0.35, x1 = axis === 'x' ? x + a + L : x + 0.35, z0 = axis === 'x' ? z - 0.35 : z + a, z1 = axis === 'x' ? z + 0.35 : z + a + L;
+    const g2 = Math.min(groundH(x0, z0), groundH(x1, z1), gy) - 0.3;
+    addBox(x0, g2, z0, x1, groundH((x0 + x1) / 2, (z0 + z1) / 2) + hh, z1, wpk(STONE), { mat: 3 });
+    a += L + (WR() < (gap || 0.3) ? 1.5 + WR() * 2 : 0);
+  }
+}
+function woodFence(x, z, w, d, gateSide) { // cerca de madeira em volta de um terreno (com porteira)
+  const sides = [['x', z - d / 2], ['x', z + d / 2], ['z', x - w / 2], ['z', x + w / 2]];
+  sides.forEach(([ax, c], i) => {
+    const len = ax === 'x' ? w : d, gate = i === gateSide;
+    for (let a = -len / 2; a < len / 2 - 0.1; a += 2.5) {
+      if (gate && Math.abs(a + 1.25) < 2.6) continue;
+      const px = ax === 'x' ? x + a : c, pz = ax === 'x' ? c : z + a, g2 = groundH(px, pz), L = Math.min(2.5, len / 2 - a);
+      addBox(px - 0.08, g2, pz - 0.08, px + 0.08, g2 + 1.15, pz + 0.08, '#6e4a2c', { nocol: true });
+      if (ax === 'x') addBox(px, g2 + 0.55, pz - 0.05, px + L, g2 + 0.95, pz + 0.05, '#8a6340', { mat: 4 }); else addBox(px - 0.05, g2 + 0.55, pz, px + 0.05, g2 + 0.95, pz + L, '#8a6340', { mat: 4 });
+    }
+  });
+}
+function hayBale(x, z, big) { const g2 = groundH(x, z), r = big ? 0.8 : 0.55; addBox(x - r, g2, z - r * 1.3, x + r, g2 + r * 1.7, z + r * 1.3, '#d8b45a', { mat: 4 }); }
+function wreck(x, z) { // carro abandonado (enferrujado)
+  const g2 = groundH(x, z), al = WR() < 0.5, w2 = al ? 4.4 : 1.9, d2 = al ? 1.9 : 4.4, c = wpk(['#6b4a35', '#5a5a52', '#7a3a2a', '#4a5560', '#706040']);
+  addBox(x - w2 / 2, g2 + 0.25, z - d2 / 2, x + w2 / 2, g2 + 1.0, z + d2 / 2, c);
+  addBox(x - w2 / 2 * 0.62, g2 + 1.0, z - d2 / 2 * 0.62, x + w2 / 2 * 0.62, g2 + 1.45, z + d2 / 2 * 0.62, '#3a3e40');
+}
+(function countryside() {
+  const AREA = MAPID === 'bal' ? 0.75 : 1, N = k => Math.round(k * AREA);
+  // sítios: casa + celeiro + galpão + cerca + feno + trator
+  for (let i = 0; i < N(14); i++) {
+    const sp = landSpot(40, 34, { slope: 3, maxH: 45 }); if (!sp) continue; const [x, z] = sp;
+    FOOT.push({ x, z, w: 40, d: 34 });
+    building({ x: x - 9, z: z - 5, w: 8, d: 7, floors: WR() < 0.3 ? 2 : 1, roof: 'gable', doors: ['s'], tier: 1 });
+    building({ x: x + 9, z: z - 4, w: 12, d: 9, floors: 1, fh: 5.5, roof: 'gable', roofCol: '#5a3a2a', col: wpk(['#a8342c', '#8a5a3a', '#9c3a2a']), wallMat: 4, doorW: 3.2, doorH: 3.8, doors: ['s'], noWin: true, noFurn: true, tier: 1 });
+    building({ x: x - 10, z: z + 9, w: 5, d: 4, floors: 1, roof: 'gable', col: wpk(WOOD), wallMat: 4, doors: ['e'], noWin: true, noFurn: true, tier: 1 });
+    woodFence(x, z, 38, 32, Math.floor(WR() * 4));
+    for (let k = 0; k < 5; k++) hayBale(x + wr(2, 16), z + wr(5, 14), WR() < 0.5);
+    if (WR() < 0.6) { const g2 = groundH(x + 3, z + 10); addBox(x + 1.8, g2 + 0.4, z + 9, x + 4.2, g2 + 1.6, z + 11.6, '#2f7a3a'); addBox(x + 2, g2, z + 8.6, x + 4, g2 + 1.1, z + 9.2, '#222', { nocol: true }); }
+  }
+  // ruínas de pedra: contorno de casa sem teto, muros quebrados e entulho
+  for (let i = 0; i < N(12); i++) {
+    const sp = landSpot(18, 14, { slope: 5 }); if (!sp) continue; const [x, z, h] = sp; FOOT.push({ x, z, w: 18, d: 14 });
+    const w = 10 + WR() * 6, d = 8 + WR() * 4;
+    for (const [ax, cx, cz, L] of [['x', x, z - d / 2, w], ['x', x, z + d / 2, w], ['z', x - w / 2, z, d], ['z', x + w / 2, z, d]]) stoneWall(cx, cz, L, ax, 1.4 + WR() * 1.8, 0.45);
+    for (let k = 0; k < 6; k++) { const rx = x + wr(-w / 2, w / 2), rz = z + wr(-d / 2, d / 2), s2 = 0.5 + WR() * 0.8, g2 = groundH(rx, rz); addBox(rx - s2, g2 - 0.2, rz - s2 * 0.8, rx + s2, g2 + s2 * 0.7, rz + s2 * 0.8, wpk(STONE), { mat: 3 }); }
+  }
+  // torres de vigia de madeira (sobe pela escada e enxerga longe)
+  for (let i = 0; i < N(9); i++) {
+    const sp = landSpot(8, 8, { slope: 2.5, minH: 8 }); if (!sp) continue; const [x, z] = sp; FOOT.push({ x, z, w: 8, d: 8 });
+    building({ x, z, w: 6.5, d: 6, floors: 3, roofAccess: true, col: wpk(WOOD), trim: '#5e4129', wallMat: 4, doors: [wpk(['n', 's', 'e', 'w'])], noFurn: true, tier: 2 });
+  }
+  // acampamentos: barracas, fogueira, troncos e caixas
+  for (let i = 0; i < N(10); i++) {
+    const sp = landSpot(16, 16, { slope: 4 }); if (!sp) continue; const [x, z] = sp; FOOT.push({ x, z, w: 16, d: 16 });
+    for (let k = 0; k < 3 + Math.floor(WR() * 3); k++) { const a = k * 1.4 + WR(), r = 5 + WR() * 2, tx = x + Math.cos(a) * r, tz = z + Math.sin(a) * r, g2 = groundH(tx, tz); addGable(tx - 1.3, tz - 1.6, tx + 1.3, tz + 1.6, g2, 1.8, wpk(['#4f6b3a', '#7a6a3a', '#3e5a6b', '#a0522d'])); }
+    const g2 = groundH(x, z); addBox(x - 0.5, g2, z - 0.5, x + 0.5, g2 + 0.25, z + 0.5, '#3a3430', { nocol: true });
+    for (const [ox, oz, ax] of [[0, 2, 'x'], [0, -2, 'x'], [2, 0, 'z']]) { if (ax === 'x') addBox(x + ox - 1.2, g2, z + oz - 0.22, x + ox + 1.2, g2 + 0.45, z + oz + 0.22, '#6b4a2e', { mat: 4 }); else addBox(x + ox - 0.22, g2, z + oz - 1.2, x + ox + 0.22, g2 + 0.45, z + oz + 1.2, '#6b4a2e', { mat: 4 }); }
+    for (let k = 0; k < 3; k++) crateBox(x + wr(-6, 6), z + wr(-6, 6), 1.1);
+  }
+  // trincheiras de sacos de areia em U
+  for (let i = 0; i < N(14); i++) {
+    const sp = landSpot(7, 7, { slope: 3 }); if (!sp) continue; const [x, z] = sp; FOOT.push({ x, z, w: 7, d: 7 });
+    const g2 = groundH(x, z), c = '#a8996e', open = Math.floor(WR() * 4);
+    [[x - 3, z - 3, x + 3, z - 2.3], [x - 3, z + 2.3, x + 3, z + 3], [x - 3, z - 2.3, x - 2.3, z + 2.3], [x + 2.3, z - 2.3, x + 3, z + 2.3]].forEach((b, k) => { if (k !== open) addBox(b[0], g2 - 0.2, b[1], b[2], g2 + 0.95, b[3], c, { mat: 5 }); });
+    if (WR() < 0.5) crateBox(x, z, 1);
+  }
+  // muros de pedra cortando os campos
+  for (let i = 0; i < N(45); i++) { const sp = landSpot(30, 2, { slope: 6, m: 2 }); if (!sp) continue; const [x, z] = sp, ax = WR() < 0.5 ? 'x' : 'z', L = 14 + WR() * 30; FOOT.push({ x, z, w: ax === 'x' ? L : 1, d: ax === 'x' ? 1 : L }); stoneWall(x, z, L, ax, 1.1 + WR() * 0.4, 0.3); }
+  // pedras grandes e contêineres soltos
+  for (let i = 0; i < N(40); i++) { const sp = landSpot(6, 6, { slope: 8, m: 2 }); if (!sp) continue; const [x, z, h] = sp; FOOT.push({ x, z, w: 6, d: 6 }); const s2 = 1.4 + WR() * 2.2; addBox(x - s2, h - 0.6, z - s2 * 0.8, x + s2, h + s2 * 1.1, z + s2 * 0.8, wpk(STONE), { mat: 3 }); if (WR() < 0.6) { const s3 = s2 * 0.6, ox = s2 * 1.1; addBox(x + ox - s3, groundH(x + ox, z) - 0.4, z - s3, x + ox + s3, groundH(x + ox, z) + s3, z + s3, wpk(STONE), { mat: 3 }); } }
+  for (let i = 0; i < N(18); i++) { const sp = landSpot(7, 7, { slope: 2.5 }); if (!sp) continue; FOOT.push({ x: sp[0], z: sp[1], w: 7, d: 7 }); container(sp[0], sp[1], WR() < 0.5 ? 'x' : 'z', WR() < 0.25 ? 2 : 1); }
+  // torres de rádio nos morros (visual alto) com casinha
+  const hills = []; for (let k = 0; k < 400 && hills.length < 3; k++) { const x = wr(-ISL_R, ISL_R), z = wr(-ISL_R, ISL_R), h = groundH(x, z); if (h > 45 && !townAt(x, z, 20) && free(x, z, 8, 8) && hills.every(q => Math.hypot(q[0] - x, q[1] - z) > 300)) hills.push([x, z, h]); }
+  for (const [x, z, h] of hills) {
+    FOOT.push({ x, z, w: 10, d: 10 }); building({ x: x + 5, z, w: 5, d: 4, floors: 1, col: '#d8d4cc', wallMat: 3, doors: ['s'], noFurn: true, tier: 2 });
+    for (let k = 0; k < 4; k++) { const ox = k % 2 ? 1 : -1, oz = k < 2 ? 1 : -1; DECO.push({ g: GEO.box, x: x - 3 + ox * 0.9, y: h + 14, z: z + oz * 0.9, sx: 0.14, sy: 28, sz: 0.14, c: k % 2 ? '#c0392b' : '#ecf0f1' }); }
+    for (let y = 2; y < 28; y += 3) DECO.push({ g: GEO.box, x: x - 3, y: h + y, z, sx: 1.9, sy: 0.1, sz: 1.9, c: '#bdc3c7' });
+  }
+  // beira de estrada: carros abandonados, postos de gasolina, postes com fios e cercas
+  let gas = 0;
+  for (const r of ROADS) {
+    const dx = r[2] - r[0], dz = r[3] - r[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ry = Math.atan2(ux, uz);
+    if (L < 60) continue;
+    let lastPole = null;
+    for (let t = 30; t < L - 30; t += 42) { // postes de luz/energia com fio
+      const sd = 6.5, x = r[0] + ux * t - uz * sd, z = r[1] + uz * t + ux * sd, h = groundH(x, z);
+      if (townAt(x, z, -10) || riverDist(x, z) < 10 || h < 1) { lastPole = null; continue; }
+      DECO.push({ g: GEO.cyl6, x, y: h + 4.5, z, sx: 0.26, sy: 9, sz: 0.26, c: '#6e5a44' }, { g: GEO.box, x, y: h + 8.6, z, sx: 1.8, sy: 0.12, sz: 0.12, ry, c: '#5e4a36' });
+      if (lastPole) { const [px, py, pz] = lastPole, mx = (px + x) / 2, mz = (pz + z) / 2, my = (py + h) / 2 + 8.2, len = Math.hypot(x - px, z - pz), pit = Math.atan2(h - py, len); DECO.push({ g: GEO.box, x: mx, y: my, z: mz, sx: 0.04, sy: 0.04, sz: len, ry, rx: -pit, c: '#222' }); }
+      lastPole = [x, h, z];
+    }
+    for (let t = 20; t < L - 20; t += 9) { // cercas em trechos fora da cidade (só visual, do outro lado da estrada)
+      const x = r[0] + ux * t + uz * 8, z = r[1] + uz * t - ux * 8, h = groundH(x, z);
+      if (townAt(x, z, 15) || riverDist(x, z) < 12 || h < 1.5 || NZ.n(t / 60 + r[0], r[1] / 50) < 0.1) continue;
+      DECO.push({ g: GEO.box, x, y: h + 0.55, z, sx: 0.12, sy: 1.1, sz: 0.12, c: '#6e4a2c' }, { g: GEO.box, x: x + ux * 4.5, y: h + 0.85, z: z + uz * 4.5, sx: 0.07, sy: 0.12, sz: 9, ry, c: '#8a6340' }, { g: GEO.box, x: x + ux * 4.5, y: h + 0.45, z: z + uz * 4.5, sx: 0.07, sy: 0.12, sz: 9, ry, c: '#8a6340' });
+    }
+    if (WR() < 0.55) { const t = wr(0.2, 0.8) * L, x = r[0] + ux * t + uz * 9, z = r[1] + uz * t - ux * 9; if (!townAt(x, z, 10) && groundH(x, z) > 2 && free(x, z, 5, 5, 1)) { FOOT.push({ x, z, w: 5, d: 5 }); wreck(x, z); } }
+    if (gas < (MAPID === 'bal' ? 3 : 5) && L > 180 && WR() < 0.5) { // posto de gasolina
+      const t = L * 0.5, x = Math.round(r[0] + ux * t - uz * 20), z = Math.round(r[1] + uz * t + ux * 20), h = groundH(x, z);
+      if (!townAt(x, z, 15) && h > 2 && riverDist(x, z) > 20 && free(x, z, 26, 20, 1) && Math.abs(groundH(x + 12, z) - groundH(x - 12, z)) < 2.5) {
+        FOOT.push({ x, z, w: 26, d: 20 }); gas++;
+        addBox(x - 13, h - 0.5, z - 10, x + 13, h + 0.1, z + 10, '#7c7a76', { mat: 3 });
+        for (const [ox, oz] of [[-5, -3], [5, -3], [-5, 3], [5, 3]]) addBox(x + ox - 0.25, h + 0.1, z + oz - 0.25, x + ox + 0.25, h + 4.6, z + oz + 0.25, '#e8e8e8');
+        addBox(x - 7, h + 4.6, z - 5, x + 7, h + 5.2, z + 5, '#d62828', { nocol: true }); addBox(x - 7.1, h + 5.2, z - 5.1, x + 7.1, h + 5.4, z + 5.1, '#f1f1f1', { nocol: true });
+        for (const ox of [-2.5, 2.5]) addBox(x + ox - 0.4, h + 0.1, z - 0.3, x + ox + 0.4, h + 1.6, z + 0.3, '#f1c40f');
+        building({ x, z: z + 7.5, w: 10, d: 5, floors: 1, col: '#f2f2f2', trim: '#d62828', doors: ['n'], noFurn: true, tier: 2, gy: h });
+      }
+    }
+  }
+  // casas isoladas ganham quintal: cerquinha, galpão ou caixa d'água
+  for (const p of LONE) if (WR() < 0.45) { const ox = p.x + (WR() < 0.5 ? -8 : 8), oz = p.z + 6; if (free(ox, oz, 4, 4, 0.5)) { FOOT.push({ x: ox, z: oz, w: 4, d: 4 }); if (WR() < 0.5) building({ x: ox, z: oz, w: 4, d: 3.5, floors: 1, roof: 'gable', col: wpk(WOOD), wallMat: 4, doors: ['s'], noWin: true, noFurn: true }); else { const g2 = groundH(ox, oz); for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) addBox(ox + a - 0.1, g2, oz + b - 0.1, ox + a + 0.1, g2 + 4, oz + b + 0.1, '#7a7a7a', { nocol: true }); addBox(ox - 1.3, g2 + 4, oz - 1.3, ox + 1.3, g2 + 6, oz + 1.3, '#3a6ea5'); } } }
+  if (DECO.length) { const m = new T.Mesh(mergeParts(DECO), new T.MeshLambertMaterial({ vertexColors: true })); m.castShadow = true; m.receiveShadow = true; scene.add(m); NATURE_MESH.push(m); }
+})();
 (function bridges() {
   const parts = [];
   for (const r of ROADS) {
@@ -592,15 +723,16 @@ function balExtras(t) {
 const TREES = [], NAT = {};
 (function nature() {
   const tr = [], rk = [], bu = [];
-  const BALN = MAPID === 'bal', NTR = BALN ? 4200 : 2200, NRG = BALN ? 700 : 560 * MS;
-  for (let k = 0; k < (BALN ? 30000 : 16000) && tr.length < NTR; k++) {
+  const BALN = MAPID === 'bal', NTR = BALN ? 5600 : 4200, NRG = BALN ? 700 : 560 * MS;
+  for (let k = 0; k < 42000 && tr.length < NTR; k++) {
     const x = wr(-NRG, NRG), z = wr(-NRG, NRG), h = groundH(x, z);
     if (h < 2.5 || h > 60) continue;
     if (townAt(x, z, 12) || roadDist(x, z) < 7) continue;
     if (FOOT.some(f => Math.abs(f.x - x) < f.w / 2 + 3 && Math.abs(f.z - z) < f.d / 2 + 3)) continue;
-    const dens = NZ.n(x / 90 + 40, z / 90 - 40); if (dens < (BALN ? -0.4 : -0.15) && WR() < 0.8) continue;
+    const dens = NZ.n(x / 90 + 40, z / 90 - 40), forest = NZ.fbm(x / 230 + 17, z / 230 - 5, 2); // manchas de floresta fechada e campos abertos
+    if (forest < (BALN ? -0.35 : -0.15) && WR() < 0.88) continue; if (dens < (BALN ? -0.4 : -0.2) && WR() < 0.6) continue;
     const r = WR();
-    if (r < (BALN ? 0.6 : 0.62)) tr.push([x, h, z, 0.8 + WR() * (BALN ? 0.8 : 0.6)]);
+    if (r < (BALN ? 0.6 : 0.62)) tr.push([x, h, z, WR() < 0.12 ? 1.7 + WR() * 0.8 : 0.75 + WR() * (BALN ? 0.9 : 0.75)]); // ~12% árvores gigantes
     else if (r < (BALN ? 0.96 : 0.9)) bu.push([x, h, z, 0.7 + WR() * 0.7]);
     else rk.push([x, h, z, 0.8 + WR() * 1.6]);
   }
