@@ -16,23 +16,39 @@ function lobbyActors() {
     if (i === 0) a.wp[0] = mkWeapon('M416'); else a.wp[0] = mkWeapon(pick(['AKM', 'SCAR-L', 'UMP45', 'KAR98K']));
     a.cur = 0; a.vest = i === 0 ? { lv: 2, dur: 1 } : null; a.helm = i === 0 ? { lv: 2, dur: 1 } : null;
     buildModel(a);
-    const row = { 1: [0], 2: [0, -1.7], 3: [0, -1.7, 1.7], 4: [0.85, -0.85, 2.55, -2.55] }[n], side = row[i], back = i ? 0.35 : 0; // fila lado a lado (nomes não se sobrepõem)
-    // a fila fica de frente para a câmera
+    // você na frente, no centro; os colegas atrás, um de cada lado
+    const pos = [[0, 0], [-1.55, 1.6], [1.55, 1.6], [-2.9, 2.6]][i], side = pos[0], back = pos[1];
     const fx = Math.cos(LOB.yaw), fz = Math.sin(LOB.yaw), rx = -fz, rz = fx;
-    a.x = LOB.x + rx * side + fx * back; a.z = LOB.z + rz * side + fz * back; a.y = groundH(a.x, a.z);
-    a.yaw = Math.atan2(fx, fz) + (i ? rr(-0.3, 0.3) : 0);
+    a.x = LOB.x + rx * side + fx * back; a.z = LOB.z + rz * side + fz * back; a.y = LOB.y + 0.11; // em cima do palco
+    a.yaw = Math.atan2(fx, fz) + (i ? (side < 0 ? 0.18 : -0.18) : 0); a.relax = true;
     LOB.actors.push(a);
+  }
+}
+// carro em exibição ao lado do personagem, com a pintura equipada (ou o jipe padrão)
+function lobbyCar() {
+  if (LOB.car) { scene.remove(LOB.car); LOB.car.geometry.dispose(); LOB.car = null; }
+  const eq = SET.equip && SET.equip.veh || {}, order = ['seda', 'jipe', 'buggy', 'moto'], k = order.find(v => eq[v] && COS[eq[v]]) || 'jipe', s = eq[k] && COS[eq[k]];
+  const m = new T.Mesh(vehGeo(k, s ? s.col : '#4b5a3a'), s && s.th ? skinMat(s.th, true, 0.07) : MAT.world); m.castShadow = m.receiveShadow = true; m.rotation.order = 'YXZ';
+  const fx = Math.cos(LOB.yaw), fz = Math.sin(LOB.yaw), rx = -fz, rz = fx, cx = LOB.x - rx * 4.1 + fx * 3.6, cz = LOB.z - rz * 4.1 + fz * 3.6;
+  m.position.set(cx, LOB.y + 0.12, cz); m.rotation.y = Math.atan2(-rx, -rz) + 0.35; scene.add(m); LOB.car = m; // de lado para a câmera, levemente virado
+  if (!LOB.stage) { // palco: piso de concreto sem grama, com borda
+    const g = mergeParts([{ g: GEO.box, x: 0, y: 0.05, z: 0, sx: 11, sy: 0.12, sz: 7.5, c: '#8f8b84' }, { g: GEO.box, x: 0, y: 0.1, z: -3.65, sx: 11, sy: 0.14, sz: 0.2, c: '#c9c4ba' }, { g: GEO.box, x: 0, y: 0.1, z: 3.65, sx: 11, sy: 0.14, sz: 0.2, c: '#c9c4ba' }]);
+    const st = new T.Mesh(g, MAT.world); st.receiveShadow = true; st.position.set(LOB.x + rx * -0.6 + fx * 1.6, LOB.y - 0.03, LOB.z + rz * -0.6 + fz * 1.6); st.rotation.y = Math.atan2(rx, rz); scene.add(st); LOB.stage = st;
   }
 }
 function lobbyCamera(dt) {
   LOB.t += dt;
-  const fx = Math.cos(LOB.yaw), fz = Math.sin(LOB.yaw), rx = -fz, rz = fx, d = 6.2;
-  camera.position.set(LOB.x - fx * d + rx * 1.9, LOB.y + 1.6, LOB.z - fz * d + rz * 1.9); // fila um pouco à esquerda: o lado direito é do botão JOGAR
-  camera.lookAt(LOB.x + rx * 1.15, LOB.y + 1.05, LOB.z + rz * 1.15);
-  if (Math.abs(camera.fov - 50) > 0.1) { camera.fov = 50; camera.updateProjectionMatrix(); }
+  if (!LOB.car || LOB.carKey !== JSON.stringify(SET.equip && SET.equip.veh)) { LOB.carKey = JSON.stringify(SET.equip && SET.equip.veh); lobbyCar(); }
+  if (LOB.car) LOB.car.visible = G.phase !== 'match'; if (LOB.stage) LOB.stage.visible = G.phase !== 'match';
+  grassM.visible = flowerM.visible = false; // no lobby, sem mato na frente das pernas
+  // câmera de frente, baixa e perto: o personagem ocupa a altura da tela, um pouco à esquerda do centro (o lado direito é do JOGAR)
+  const fx = Math.cos(LOB.yaw), fz = Math.sin(LOB.yaw), rx = -fz, rz = fx, d = 4.3, sway = Math.sin(LOB.t * 0.25) * 0.15;
+  camera.position.set(LOB.x - fx * d + rx * (0.9 + sway), LOB.y + 1.25, LOB.z - fz * d + rz * (0.9 + sway));
+  camera.lookAt(LOB.x + rx * 0.75, LOB.y + 1.0, LOB.z + rz * 0.75);
+  if (Math.abs(camera.fov - 42) > 0.1) { camera.fov = 42; camera.updateProjectionMatrix(); }
   SKY.position.copy(camera.position); if (typeof SKY2 !== 'undefined' && SKY2) SKY2.position.copy(camera.position);
   humanFrame();
-  for (const a of LOB.actors) { a.pitch = Math.sin(LOB.t * 0.8 + a.id) * 0.05 - 0.15; animateModel(a, dt, camera.position.x, camera.position.z, false); }
+  for (const a of LOB.actors) { a.pitch = -0.55 + Math.sin(LOB.t * 0.6 + a.id) * 0.02; animateModel(a, dt, camera.position.x, camera.position.z, false); } // de pé, arma em descanso apontada para baixo
   VM.visible = false; camera.updateMatrixWorld(); lobbyTags();
 }
 // nível do jogador (cresce com partidas, abates e vitórias)
@@ -82,7 +98,8 @@ const _tg = new T.Vector3();
 function lobbyTags() {
   for (let i = 0; i < LOB.actors.length; i++) {
     const el = document.getElementById('tg' + i); if (!el) continue; const a = LOB.actors[i];
-    _tg.set(a.x, a.y + 2.15, a.z).project(camera);
+    if (i === 0 && !PARTY.pid) { el.style.display = 'none'; continue; } // seu nome já está no cartão do topo
+    _tg.set(a.x, a.y + 2.0, a.z).project(camera);
     if (_tg.z > 1) { el.style.display = 'none'; continue; }
     el.style.display = ''; el.style.left = ((_tg.x * 0.5 + 0.5) * innerWidth) + 'px'; el.style.top = ((-_tg.y * 0.5 + 0.5) * innerHeight) + 'px';
   }

@@ -229,7 +229,7 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
     const rel = a.reloadT > 0, sprint = sp > 5.6 && !a.trigger && !a.ads && !prone && a.mode === 'ground';
     // balanço da arma com os passos, coice para trás e posição de corrida (arma baixa)
     P.addScaledVector(_UP, Math.sin(ph) * 0.014 * bob).addScaledVector(_R, Math.cos(ph * 0.5) * 0.012 * bob).addScaledVector(dir, -m.kickV * 0.035);
-    m.lowK = (m.lowK || 0) + ((sprint ? 1 : 0) - (m.lowK || 0)) * Math.min(1, dt * 6);
+    m.lowK = (m.lowK || 0) + ((sprint ? 1 : a.relax ? 0 : 0) - (m.lowK || 0)) * Math.min(1, dt * 6); // relax: arma em posição de descanso (lobby)
     if (m.lowK > 0.01) P.addScaledVector(_UP, -0.12 * m.lowK).addScaledVector(_R, -0.08 * m.lowK).addScaledVector(dir, -0.08 * m.lowK);
     m.gun.position.copy(m.g.worldToLocal(P.clone())); m.gun.rotation.set(pitch + (rel ? -0.5 : 0) + m.kickV * 0.06 - m.lowK * 0.75, m.lowK * 0.5, (rel ? 0.5 : 0) + m.lowK * 0.3);
     m.gun.updateMatrixWorld(true);

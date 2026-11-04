@@ -290,6 +290,6 @@ function gfxStep(dt, fx, fy, fz) {
   // sombra: no Alto todo quadro; no Médio um quadro sim, outro não (quase não se nota e alivia muito o celular); no alto, congelada
   if (GFX.shadow) renderer.shadowMap.autoUpdate = high ? (GFX.shT = (GFX.shT || 0) + dt) > 1 && !(GFX.shT = 0) : (SET.quality >= 2 && !AUTO.lv) || ((GFX.shN = ((GFX.shN || 0) + 1) % (AUTO.lv >= 1 ? 3 : 2)) === 0);
   shadowFollow(fx, fy, fz);
-  grassM.visible = flowerM.visible = GFX.grassOn && !high && AUTO.lv < 4;
+  grassM.visible = flowerM.visible = GFX.grassOn && !high && AUTO.lv < 4 && G.phase === 'match';
   if (GFX.grassOn && !high && Math.hypot(fx - GFX.gx, fz - GFX.gz) > 12) refreshGrass(fx, fz);
 }

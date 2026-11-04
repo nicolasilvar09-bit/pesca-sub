@@ -311,7 +311,7 @@ function openLocker(cat, wk) {
   $('lkBox').onclick = openBox;
 }
 // na partida, o modelo do jogador é montado antes de G.player existir: reaplica o visual dele no começo
-const _smCos = startMatch; startMatch = function () { const r = _smCos.apply(this, arguments); const p = G.player; if (p) { p.cosMe = true; applyOutfit(p); updateHumanGear(p); refreshGun(p); } return r; };
+const _smCos = startMatch; startMatch = function () { const r = _smCos.apply(this, arguments); if (LOB.car) LOB.car.visible = false; if (LOB.stage) LOB.stage.visible = false; const p = G.player; if (p) { p.cosMe = true; applyOutfit(p); updateHumanGear(p); refreshGun(p); } return r; };
 
 // ---------- prévia 3D das skins (renderizada com o mesmo material do jogo) ----------
 const THUMB = { cache: {}, q: [], busy: false, sc: null };
