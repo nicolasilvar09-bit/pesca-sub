@@ -171,3 +171,4 @@ Escolha no lobby (**Mapa: Ilha NK / Balneário**). Mapa original do NK Mobile, d
 - **Noite** (clima raro, ~8%): luz da lua, céu estrelado, janelas das casas acesas, brilho nos postes, grilos; bots enxergam menos no escuro (e também na chuva e no nublado)
 - **Prédios grandes por dentro**: cada andar tem corredor e 2–3 salas com porta — escritórios (mesa, monitor, cadeira) e cozinhas (balcão) — luta sala a sala
 - **Lobby**: painel com a imagem de cada ilha para escolher o mapa
+- **Lanchas** (9 na Ilha NK, 12 no Balneário) na costa, portos e lagoas: 4 lugares, ~70 km/h, boiam e balançam com as ondas, bico sobe ao acelerar, espuma atrás; na terra ficam encalhadas (andam só devagar). Bots não pegam lancha sozinhos, mas entram de passageiro na sua

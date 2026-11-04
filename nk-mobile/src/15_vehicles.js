@@ -4,13 +4,20 @@ const VDEF = {
   jipe: { n: 'Jipe', hp: 1500, max: 25, acc: 8, turn: 1.15, hl: 2.2, hw: 1.0, h: 1.9, seats: [[-0.42, -0.15, 0.55], [0.42, -0.15, 0.55], [-0.42, 0.85, 0.6], [0.42, 0.85, 0.6]], cols: ['#4b5a3a', '#6b5d43', '#3d4a52', '#5a4a3a'] },
   seda: { n: 'Sedã', hp: 1100, max: 29, acc: 10, turn: 1.2, hl: 2.25, hw: 0.95, h: 1.5, seats: [[-0.4, -0.1, 0.45], [0.4, -0.1, 0.45], [-0.4, 0.8, 0.45], [0.4, 0.8, 0.45]], cols: ['#8c2f2a', '#d8d8d2', '#2f5a6a', '#3a3d42', '#9a8a5a'] },
   buggy: { n: 'Buggy', hp: 900, max: 28, acc: 11, turn: 1.45, hl: 1.6, hw: 0.95, h: 1.4, seats: [[-0.38, 0.1, 0.45], [0.38, 0.1, 0.45]], cols: ['#b0632a', '#5a6b3a', '#3a5a7a'] },
+  lancha: { n: 'Lancha', boat: true, hp: 1000, max: 21, acc: 7, turn: 0.95, hl: 2.7, hw: 1.05, h: 1.5, seats: [[-0.4, 0.1, 0.75], [0.4, 0.1, 0.75], [-0.4, 1.1, 0.7], [0.4, 1.1, 0.7]], cols: ['#e8e8e8', '#d64545', '#2f6fa8', '#f2c14e'] },
   moto: { n: 'Moto', hp: 550, max: 33, acc: 12, turn: 1.9, hl: 1.0, hw: 0.35, h: 1.2, seats: [[0, 0.0, 0.85], [0, 0.5, 0.95]], cols: ['#8a2a22', '#2a2c30', '#4a5a6a', '#6a5a3a'] },
 };
 const VEH = [];
 function vehGeo(k, col) {
   const d = VDEF[k], L = d.hl, W = d.hw, wh = (x, z, r, w) => ({ g: GEO.cyl, x, y: r, z, rz: Math.PI / 2, sx: r * 2, sy: w, sz: r * 2, c: '#1b1b1b' });
   const glass = '#7fd3ff', p = [];
-  if (k === 'moto') {
+  if (k === 'lancha') { // casco fundo, proa afinando, para-brisa, motor de popa
+    p.push(bx(-W * 0.8, -0.35, -L + 0.9, W * 1.6, 0.45, L * 2 - 0.9, '#f4f4f0'), bx(-W, 0.05, -L + 0.7, W * 2, 0.5, L * 2 - 0.7, col));
+    p.push(bx(-W * 0.55, 0.05, -L, W * 1.1, 0.45, 0.8, col), bx(-W * 0.3, 0.05, -L - 0.35, W * 0.6, 0.4, 0.4, col)); // proa
+    p.push(bx(-W + 0.12, 0.5, -L + 1.3, W * 2 - 0.24, 0.06, L * 2 - 1.5, '#b89466')); // piso de madeira
+    p.push(bx(-W + 0.1, 0.55, -0.6, W * 2 - 0.2, 0.45, 0.06, '#9fd7ff'), bx(-0.5, 0.55, -0.35, 0.45, 0.4, 0.4, '#333')); // para-brisa e painel
+    p.push(bx(-0.25, 0.1, L - 0.05, 0.5, 0.75, 0.4, '#222'), bx(-0.08, -0.5, L + 0.15, 0.16, 0.6, 0.12, '#444')); // motor
+  } else if (k === 'moto') {
     p.push(bx(-0.12, 0.45, -0.75, 0.24, 0.35, 1.3, col), bx(-0.15, 0.78, -0.1, 0.3, 0.12, 0.75, '#222'), bx(-0.05, 0.6, -0.95, 0.1, 0.55, 0.1, '#9e9e9e'));
     p.push(bx(-0.35, 1.1, -0.95, 0.7, 0.05, 0.06, '#424242'), bx(-0.1, 0.6, -1.02, 0.2, 0.15, 0.05, '#fff59d'));
     p.push(wh(0, -0.78, 0.33, 0.16), wh(0, 0.72, 0.33, 0.2));
@@ -50,6 +57,16 @@ function spawnVehicles() {
     const clear = yw => [3, 6, 9, 12].every(dd => !pointBlocked(x - Math.sin(yw) * dd, h + 0.2, z - Math.cos(yw) * dd));
     if (!clear(yaw)) { yaw += Math.PI; if (!clear(yaw)) continue; }
     addVehicle(k, x, z, yaw);
+  }
+  // lanchas: água funda perto da terra (costa, portos, lagoas), a frente virada para o mar aberto
+  const nb = MAPID === 'bal' ? 12 : 9; let bt = 0, nbt = 0;
+  while (nbt < nb && bt++ < 4000) {
+    const x = rr(-HALF + 30, HALF - 30), z = rr(-HALF + 30, HALF - 30), h = groundH(x, z);
+    if (h > -1.6 || h < -9) continue;
+    let near = false, ax = 0, az = 0; for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; if (groundH(x + Math.cos(a) * 22, z + Math.sin(a) * 22) > 0.5) { near = true; ax += Math.cos(a); az += Math.sin(a); } }
+    if (!near || VEH.some(v => v.d.boat && Math.hypot(v.x - x, v.z - z) < 70)) continue;
+    boxesNear(x - 4, z - 4, x + 4, z + 4, _near); if (_near.some(b => b.y1 > -0.5 && b.y0 < 2)) continue;
+    addVehicle('lancha', x, z, Math.atan2(ax, az)); nbt++; // ax,az aponta para a terra: a frente (-z local) fica para o mar
   }
 }
 function addVehicle(k, x, z, yaw) {
@@ -151,14 +168,22 @@ function stepVehicles(dt) {
     const a0 = d.hl * 0.8, hF = vSup(v.x + fx * a0, v.z + fz * a0, v.y), hB = vSup(v.x - fx * a0, v.z - fz * a0, v.y);
     const hL = vSup(v.x - rx * d.hw, v.z - rz * d.hw, v.y), hR = vSup(v.x + rx * d.hw, v.z + rz * d.hw, v.y);
     let gy = (hF + hB + hL + hR) / 4;
-    v.water = gy < -1.3; if (v.water) gy = Math.max(gy, -1.25);
+    if (d.boat) {
+      v.float = groundH(v.x, v.z) < -0.45;
+      if (v.float) { gy = 0.05 + Math.sin(G.t * 1.7 + v.x * 0.3) * 0.06; v.water = false; v.revT = 0; } else { gy = Math.max(gy, 0); v.water = false; } // na terra: encalhado
+    } else { v.water = gy < -1.3; if (v.water) gy = Math.max(gy, -1.25); }
     if (v.y > gy + 0.3) { v.air = true; v.vy -= 20 * dt; v.y += v.vy * dt; }
     if (v.y <= gy + 0.3) {
       if (v.air && v.vy < -9) { vehHurt(v, (-v.vy - 9) * 30, null); for (const a of v.seats) if (a) hurt(a, (-v.vy - 9) * 2, null, false, 'queda'); }
       if (v.air) v.bobV = (v.bobV || 0) + v.vy * 0.06; // quica ao cair
       const ny = gy; v.vy = v.air ? 0 : clamp((ny - v.y) / Math.max(dt, 1e-3), -30, 30); v.y = ny; v.air = false;
+      if (d.boat && v.float) { // na água: bico sobe com a velocidade e o casco balança
+        v.pitch += (clamp(v.sp / d.max, 0, 1) * 0.09 + Math.sin(G.t * 1.3 + v.z * 0.2) * 0.02 - v.pitch) * Math.min(1, dt * 3);
+        v.roll += (Math.sin(G.t * 1.1 + v.x * 0.25) * 0.035 - v.str * clamp(v.sp / 12, -1, 1) * 0.08 - v.roll) * Math.min(1, dt * 3);
+      } else {
       v.pitch += (Math.atan2(hF - hB, a0 * 2) - v.pitch) * Math.min(1, dt * 10);
       v.roll += (Math.atan2(hR - hL, d.hw * 2) - v.roll) * Math.min(1, dt * 10);
+      }
     }
     // suspensão: frente afunda ao frear, traseira ao acelerar, carroceria inclina na curva, mola amortecida
     { const acc = (v.sp - (v.lastSp == null ? v.sp : v.lastSp)) / Math.max(dt, 1e-3); v.lastSp = v.sp; const kS = Math.min(1, dt * 6), soft = v.k === 'moto' ? 0.4 : 1;
@@ -169,12 +194,13 @@ function stepVehicles(dt) {
     if (v.dead) { syncVehMesh(v); continue; }
     // motor
     if (!v.air) {
-      const road = roadDist(v.x, v.z) < 5, max = d.max * (road ? 1 : 0.8) * (v.water ? 0.08 : 1);
+      const road = roadDist(v.x, v.z) < 5, max = d.boat ? (v.float ? d.max : 1.4) : d.max * (road ? 1 : 0.8) * (v.water ? 0.08 : 1);
       if (v.thr > 0.05) v.sp += (v.sp < -0.5 ? 16 : d.acc * (1 - clamp(v.sp / max, 0, 1) * 0.85)) * v.thr * dt;
       else if (v.thr < -0.05) v.sp += (v.sp > 0.5 ? -18 : v.sp > -7 ? -5 : 0) * -v.thr * dt;
       else v.sp -= Math.sign(v.sp) * Math.min(Math.abs(v.sp), (drv ? 2.5 : 6) * dt);
       if (v.sp > max) v.sp += (max - v.sp) * Math.min(1, dt * 2);
-      v.sp -= Math.sin(v.pitch) * 7 * dt;
+      if (!d.boat) v.sp -= Math.sin(v.pitch) * 7 * dt;
+      else if (v.float && Math.abs(v.sp) > 6 && (v.wakeT = (v.wakeT || 0) - dt) <= 0) { v.wakeT = 0.07; puff(v.x - vfx(v) * d.hl + rr(-0.4, 0.4), 0.15, v.z - vfz(v) * d.hl + rr(-0.4, 0.4), '#f2f6f8', 0.5, 0.9); } // espuma atrás
       v.yaw -= v.str * d.turn * clamp(v.sp / 5, -1, 1) * (1 - clamp(Math.abs(v.sp) / 55, 0, 0.45)) * dt;
       if (v.water && drv) v.revT += dt;
     }

@@ -164,7 +164,7 @@ function botThink(a) {
     // longe da zona: pega um veículo vazio por perto (os colegas do jogador ficam com ele)
     if (a.team !== G.player.team && G.matchT > (ai.vehCd || 0) && Math.hypot(ai.zoneGo[0] - a.x, ai.zoneGo[1] - a.z) > 170) {
       const v = nearVeh(a, 55);
-      if (v && !v.seats[0] && v.hp > 350 && !v.water) { ai.vehT = v; ai.wantDrive = true; ai.vtx = ai.zoneGo[0]; ai.vtz = ai.zoneGo[1]; ai.goal = 'getveh'; ai.tx = v.x; ai.tz = v.z; return; }
+      if (v && !v.d.boat && !v.seats[0] && v.hp > 350 && !v.water) { ai.vehT = v; ai.wantDrive = true; ai.vtx = ai.zoneGo[0]; ai.vtz = ai.zoneGo[1]; ai.goal = 'getveh'; ai.tx = v.x; ai.tz = v.z; return; }
     }
     ai.goal = 'zone'; ai.tx = ai.zoneGo[0]; ai.tz = ai.zoneGo[1]; ai.sprint = true; return;
   }
