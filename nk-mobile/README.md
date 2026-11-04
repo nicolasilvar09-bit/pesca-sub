@@ -185,3 +185,7 @@ Escolha no lobby (**Mapa: Ilha NK / Balneário**). Mapa original do NK Mobile, d
 - Câmera com leve inclinação ao andar de lado e virar, e respiração sutil parado
 - Arma com peso: atrasa ao andar, frear e pular; abaixa e sobe ao trocar de arma; fica mais baixa agachado/deitado
 - Recuo visual diferente por tipo de arma (pistola, submetralhadora, fuzil, DMR, sniper, escopeta) e ciclo do ferrolho/ação depois do tiro
+
+## Lobby novo (atualização)
+- Formato de lobby de battle royale com a identidade do NK Mobile (preto e vermelho): cartão do jogador no topo (avatar, nome, **nível** e ranking), esquadrão em fila no centro com o **nome em cima de cada um** ("+ CONVIDAR" no lugar dos bots), **JOGAR** grande à direita com mapa, modo e bots logo acima, atalhos à esquerda
+- Painéis novos: **Personagem** (nome e visual) e **Carreira** (partidas, vitórias, taxa de vitória, top 10, abates, abates por morte e por partida, melhor colocação, dano)
