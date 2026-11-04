@@ -41,7 +41,7 @@ const G = {
 
 // configurações e estatísticas do jogador (ficam no aparelho)
 const SET_KEY = 'ilhazero_v1';
-const SET = Object.assign({ name: 'Jogador', char: 0, sens: 1, adsSens: 0.8, quality: 1, fov: 90, view: 'tpp', vol: 0.8, mode: 'squad', diff: 'mix', matches: 0, wins: 0, kills: 0, best: 0, dmg: 0 },
+const SET = Object.assign({ name: 'Jogador', char: 0, sens: 1, adsSens: 0.8, quality: 1, fov: 90, view: 'tpp', vol: 0.8, mode: 'squad', diff: 'mix', matches: 0, wins: 0, rp: 1000, top10: 0, kills: 0, best: 0, dmg: 0 },
   (() => { try { return JSON.parse(localStorage.getItem(SET_KEY) || '{}'); } catch (e) { return {}; } })());
 function saveSet(cloud) { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) { } if (cloud !== false && typeof cloudPush === 'function') cloudPush(); }
 

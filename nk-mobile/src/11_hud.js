@@ -109,6 +109,7 @@ const itemIcon = k => { const t = itemInfo(k).type; if (t === 'throw') return TH
 let hudT = 0, feedEl = null;
 function updateHud(dt) {
   const p = G.player, v = G.view; if (!p) return;
+  statStep(dt);
   const w = curW(p), zoom = p.alive && p.ads && w ? sightZoom(w) : 1;
   const air = p.mode !== 'ground', alive = p.alive;
   // mira / luneta
@@ -177,6 +178,7 @@ function updateHud(dt) {
   // feed de abates
   const now = G.matchT; G.feed = G.feed.filter(f => now - f.t < 6);
   $('feed').innerHTML = G.feed.map(f => `<div class="${f.me ? 'me' : ''}">${f.html}</div>`).join('');
+  hudPlus();
   drawMini();
 }
 function compass(yaw) {
@@ -208,7 +210,7 @@ function addFeed(src, a, wn, knocked) {
   const s = src && src !== a ? `<b>${src.name}</b> ${knocked ? 'derrubou' : 'abateu'} <b>${a.name}</b> <small>${wn || ''}</small>` : `<b>${a.name}</b> ${wn === 'zona' ? 'morreu na zona' : wn === 'queda' ? 'caiu de muito alto' : knocked ? 'foi derrubado' : 'morreu'}`;
   G.feed.push({ html: s, t: G.matchT, me }); if (G.feed.length > 5) G.feed.shift();
   if (G.net.on && !G.net.applying) netSend('feed', { html: s, killer: actIx(src), kn: !!knocked, vname: a.name, team: a.team });
-  if (src === G.player && !knocked) toast(`💀 Você abateu ${a.name}!`, 1.8, 'gold');
+  if (src === G.player && !knocked) killBanner(a, wn);
   hudDirty();
 }
 
@@ -300,9 +302,10 @@ function openMenu() {
   <label>Sensibilidade na mira <input type="range" min="0.3" max="2" step="0.05" value="${SET.adsSens}" id="sAds"></label>
   <label>Campo de visão <input type="range" min="75" max="105" step="1" value="${SET.fov || 90}" id="sFov"></label>
   <label>Gráficos <select id="sQ"><option value="0">Leve</option><option value="1">Médio</option><option value="2">Alto</option></select></label>
+  <button class="btn alt" id="mLay" style="margin:4px 0">🎛 PERSONALIZAR BOTÕES</button>
   <label>Volume <input type="range" min="0" max="1" step="0.05" value="${SET.vol}" id="sVol"></label>
   <div class="row"><button id="mBack" class="btn">VOLTAR AO JOGO</button><button id="mQuit" class="btn red">SAIR DA PARTIDA</button></div></div>`;
-  $('sQ').value = SET.quality;
+  $('sQ').value = SET.quality; $('mLay').onclick = openLayout;
   $('sSens').oninput = e => { SET.sens = +e.target.value; saveSet(); }; $('sAds').oninput = e => { SET.adsSens = +e.target.value; saveSet(); };
   $('sVol').oninput = e => { SET.vol = +e.target.value; saveSet(); }; $('sFov').oninput = e => { SET.fov = +e.target.value; saveSet(); }; $('sQ').onchange = e => { SET.quality = +e.target.value; saveSet(); applyQuality(); };
   $('mBack').onclick = () => closePanels();

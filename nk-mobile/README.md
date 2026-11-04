@@ -122,3 +122,11 @@ O teste compila o JavaScript e simula partidas inteiras (esquadrão e solo) num 
 - Sangue ao acertar (borrifo + mancha no chão)
 - Som em camadas (estalo, corpo grave, eco maior nas cidades); de longe chega abafado e **atrasado** (velocidade do som) e vem do lado certo (esquerda/direita)
 - Zunido quando uma bala inimiga passa perto da cabeça; clique de arma vazia
+
+## Telas e HUD (atualização)
+- Painel da equipe no canto (número, nome, vida; derrubado em vermelho, morto riscado, 🚗 dentro de veículo)
+- Aviso de abate no centro com contagem, arma e distância
+- Alertas: zona fechando, nova área segura, 30 s para fechar, "restam 25/10/5/3/2 jogadores"
+- Tela de fim estilo PUBG: colocação, abates, tiros na cabeça, dano, abate mais longe, tempo, distância percorrida, precisão, curas, tabela da equipe
+- **Ranking por pontos** (Bronze → Prata → Ouro → Platina → Diamante → Mestre) que sobe/desce a cada partida; aparece no lobby
+- **Personalizar botões** (Configurações): arrastar, mudar o tamanho e a transparência; fica salvo (também na nuvem)
