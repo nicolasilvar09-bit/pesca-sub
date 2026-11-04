@@ -3,7 +3,7 @@
 Jogo de tiro battle royale em 3D (mapa: Ilha NK) (Three.js), feito para celular deitado. Tudo num arquivo só (`index.html`), roda no navegador.
 
 ## Fase 1 (pronta)
-- Ilha de ~1,1 km com 6 cidades (Porto Azul, Vila Cores, Centro, Base Militar, Fazenda Sol, Usina) e 26 casas isoladas
+- Ilha de ~1,5 km com 15 cidades e ~85 casas isoladas (era ~1,1 km na primeira versão)
 - Casas, sobrados, prédios de 3–4 andares com escada e terraço, galpões, containers, árvores, pedras e estradas; cores vivas
 - 50 jogadores por partida; bots de nível **médio** e **alto** completam as vagas (ou "misto")
 - Modos **Solo, Dupla, Trio e Esquadrão** (colegas bots seguem você, revivem e lutam junto)
@@ -137,3 +137,10 @@ O teste compila o JavaScript e simula partidas inteiras (esquadrão e solo) num 
 - **Avisam a equipe**: quem vê um inimigo passa a posição; os colegas vêm ajudar e os bons **flanqueiam** (contornam pelo lado)
 - **Audição**: ouvem tiros (até ~180 m) e passos de quem corre perto; vão investigar ou ficam atentos olhando para o lado do barulho
 - Atiradores deitam de longe com fuzil de precisão, inclinam o corpo agachados, pulam de lado em briga curta
+
+## Mapa maior (atualização)
+- Ilha 40% maior (~1,5 km), zona e avião ajustados ao novo tamanho; 44 veículos
+- 5 cidades novas: **Cidade Alta**, **Pedreira**, **Vila Nova**, **Quartel Sul** (militar, loot forte) e **Rancho**, com estradas ligando tudo
+- **Rio** que desce do morro ao norte até o mar ao sul (raso, dá para atravessar a pé) com **pontes** nas estradas
+- Colinas novas a leste e o dobro de árvores
+- **Casas mobiliadas**: sofá, cama com travesseiro, estante, geladeira, TV e mesa com pés — servem de cobertura

@@ -1,7 +1,7 @@
 // ================= lobby: personagem, modo (solo/dupla/trio/esquadrão), dificuldade dos bots e equipe =================
 const LOB = { actors: [], x: 0, z: 0, y: 0, yaw: 0, t: 0 };
 (function findSpot() { // praia com o mar ao fundo
-  for (let r = 300; r < 600; r += 4) { const a = 2.2, x = Math.cos(a) * r, z = Math.sin(a) * r, h = groundH(x, z); if (h < 5 && !bldAt(x, z, 6)) { LOB.x = x; LOB.z = z; LOB.y = h; LOB.yaw = a; break; } }
+  for (let r = 420; r < 840; r += 4) { const a = 2.2, x = Math.cos(a) * r, z = Math.sin(a) * r, h = groundH(x, z); if (h < 5 && !bldAt(x, z, 6)) { LOB.x = x; LOB.z = z; LOB.y = h; LOB.yaw = a; break; } }
 })();
 const MODES = [['solo', 'Solo', 1], ['duo', 'Dupla', 2], ['trio', 'Trio', 3], ['squad', 'Esquadrão', 4]];
 const DIFFS = [['medio', 'Médio'], ['alto', 'Alto'], ['mix', 'Misto']];

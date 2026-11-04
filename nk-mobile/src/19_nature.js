@@ -63,7 +63,7 @@ function refreshNature(cx, cz) {
   const R = [55, 95, 130][SET.quality] || 95, R2 = R * R;
   for (const t of TREES) {
     const [x, z, h, s, round, ti, idx] = t; if ((x - cx) ** 2 + (z - cz) ** 2 > R2) continue;
-    const r = hsh(x, z), beach = h < 6 && Math.hypot(x, z) > 380;
+    const r = hsh(x, z), beach = h < 6 && Math.hypot(x, z) > 520;
     const k = beach ? TREE_PALM[0] : round ? TREE_ROUND[Math.floor(r * TREE_ROUND.length)] : TREE_PINE[Math.floor(r * TREE_PINE.length)];
     if (!put(k, x, h - 0.05, z, (round ? 6.6 : 8.2) * s * (0.9 + r * 0.25), r * 6.28)) continue;
     ZERO_M.toArray(tm.array, ti * 16); for (const j of idx) ZERO_M.toArray(round ? c2.array : cm.array, j * 16);

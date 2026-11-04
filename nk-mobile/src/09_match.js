@@ -1,6 +1,6 @@
 // ================= partida: avião, salto, paraquedas, zona azul, drop de suprimentos, equipes e fim =================
-const PHASES = [[100, 60, 390, 0.6], [70, 50, 240, 1.5], [55, 40, 145, 3], [45, 35, 85, 5], [35, 30, 45, 8], [25, 25, 20, 10], [20, 25, 0, 14]];
-const ZONE = { cx: 0, cz: 0, r: 760, nx: 0, nz: 0, nr: 390, ph: 0, st: 'wait', t: 100, T: 100, dmg: 0, sx: 0, sz: 0, sr: 0 };
+const PHASES = [[110, 70, 520, 0.6], [80, 55, 300, 1.5], [55, 40, 145, 3], [45, 35, 85, 5], [35, 30, 45, 8], [25, 25, 20, 10], [20, 25, 0, 14]];
+const ZONE = { cx: 0, cz: 0, r: 1040, nx: 0, nz: 0, nr: 520, ph: 0, st: 'wait', t: 100, T: 100, dmg: 0, sx: 0, sz: 0, sr: 0 };
 const zoneWall = new T.Mesh(new T.CylinderGeometry(1, 1, 1, 72, 1, true), new T.MeshBasicMaterial({ color: 0x3a7bff, transparent: true, opacity: 0.28, side: T.DoubleSide, depthWrite: false, fog: false }));
 zoneWall.renderOrder = 2; scene.add(zoneWall);
 function nextCircle() {
@@ -35,7 +35,7 @@ function planeMesh(col) {
     bx(-2.2, 0.8, -15, 4.4, 1, 3, '#74c0fc'),
   ]), new T.MeshLambertMaterial({ vertexColors: true }));
 }
-const PLANE = { m: planeMesh('#ff6b35'), x0: 0, z0: 0, dx: 1, dz: 0, t: 0, len: 1500, sp: 78, y: 330, on: false };
+const PLANE = { m: planeMesh('#ff6b35'), x0: 0, z0: 0, dx: 1, dz: 0, t: 0, len: 2000, sp: 82, y: 330, on: false };
 const DROPP = { m: planeMesh('#2b8a3e'), x0: 0, z0: 0, dx: 1, dz: 0, t: 0, len: 1500, sp: 90, y: 240, on: false, tx: 0, tz: 0, dropped: false };
 scene.add(PLANE.m, DROPP.m); PLANE.m.visible = DROPP.m.visible = false;
 function setPath(P, ang, off, cx, cz) {
@@ -176,7 +176,7 @@ function startMatch2(opt) {
     }
   }
   for (const a of G.actors) if (a.team === 1 && a.bot) { setLanding(a, 0, 0); a.ai.offX = rr(-8, 8); a.ai.offZ = rr(-8, 8); }
-  Object.assign(ZONE, { cx: 0, cz: 0, r: 760, ph: 0, dmg: 0 }); nextCircle();
+  Object.assign(ZONE, { cx: 0, cz: 0, r: 1040, ph: 0, dmg: 0 }); nextCircle();
   ZONE.nx = rr(-120, 120); ZONE.nz = rr(-120, 120);
   G.matchT = 0; G.over = false; G.watch = false; G.deathLog = []; G.place = 0; G.feed = []; G.drops = [170, 360]; G.result = null;
   G.phase = 'match';

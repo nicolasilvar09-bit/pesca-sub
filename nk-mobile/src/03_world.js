@@ -16,20 +16,44 @@ const TOWNS = [
   { n: 'Jardim', x: 175, z: -110, r: 80, kind: 'city', tier: 2 },
   { n: 'Prainha', x: 15, z: 335, r: 78, kind: 'village', tier: 1 },
   { n: 'Farol Leste', x: 430, z: 35, r: 70, kind: 'village', tier: 2 },
-];
+].map(t => Object.assign(t, { x: t.x * MS, z: t.z * MS })).concat([ // cidades novas (mapa maior)
+  { n: 'Cidade Alta', x: 330, z: 120, r: 105, kind: 'city', tier: 2 },
+  { n: 'Pedreira', x: 200, z: -560, r: 80, kind: 'factory', tier: 2 },
+  { n: 'Vila Nova', x: -420, z: -420, r: 85, kind: 'village', tier: 1 },
+  { n: 'Quartel Sul', x: -330, z: 600, r: 88, kind: 'military', tier: 3 },
+  { n: 'Rancho', x: 560, z: 300, r: 75, kind: 'farm', tier: 1 },
+]);
 const ROADS = [ // trechos de estrada [x0,z0,x1,z1]
   [-335, 300, -210, 150], [-210, 150, 70, 45], [70, 45, 335, -240], [70, 45, 275, 290], [-120, -255, 70, 45],
   [-380, -85, -120, -255], [-380, -85, -210, 150], [275, 290, 150, 430], [335, -240, 120, -400],
   [-165, 95, 70, 45], [175, -110, 70, 45], [175, -110, 335, -240], [15, 335, 70, 45], [15, 335, -335, 300], [430, 35, 335, -240], [430, 35, 275, 290],
-];
+].map(r => r.map(v => v * MS));
+{ // estradas das cidades novas
+  const T_ = n => TOWNS.find(t => t.n === n), link = (a, b) => { const p = T_(a), q = T_(b); ROADS.push([p.x, p.z, q.x, q.z]); };
+  link('Cidade Alta', 'Centro'); link('Cidade Alta', 'Farol Leste'); link('Cidade Alta', 'Jardim');
+  link('Pedreira', 'Jardim'); link('Pedreira', 'Base Militar'); link('Vila Nova', 'Usina'); link('Vila Nova', 'Vila Cores');
+  link('Quartel Sul', 'Prainha'); link('Quartel Sul', 'Porto Azul'); link('Rancho', 'Fazenda Sol'); link('Rancho', 'Farol Leste');
+}
+// rio que desce do morro ao norte até o mar ao sul (raso: dá para atravessar a pé; as estradas passam por pontes)
+const RIVER = [[-40, -560], [40, -420], [60, -250], [-10, -130], [-80, -40], [-90, 200], [-120, 330], [-110, 480], [-110, 760]];
+function riverDist(x, z) {
+  let m = 1e9;
+  for (let i = 0; i < RIVER.length - 1; i++) {
+    const a = RIVER[i], b = RIVER[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz;
+    const t = clamp(((x - a[0]) * dx + (z - a[1]) * dz) / L, 0, 1);
+    m = Math.min(m, Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t));
+  }
+  return m;
+}
 
 // ---------- relevo ----------
 function rawH(x, z) {
   const d = Math.hypot(x, z), a = Math.atan2(z, x);
-  const edge = 548 + NZ.fbm(Math.cos(a) * 1.7 + 11, Math.sin(a) * 1.7 + 11, 3) * 85;
-  const s = smooth(clamp((edge - d) / 150, 0, 1));
+  const edge = 548 * MS + NZ.fbm(Math.cos(a) * 1.7 + 11, Math.sin(a) * 1.7 + 11, 3) * 100;
+  const s = smooth(clamp((edge - d) / 180, 0, 1));
   let h = 10 + NZ.fbm(x / 300 + 3, z / 300 + 7, 4) * 34 + NZ.fbm(x / 70, z / 70, 2) * 3;
-  h += 42 * Math.exp(-((x + 30) ** 2 + (z + 440) ** 2) / (2 * 105 * 105)); // morro ao norte
+  h += 42 * Math.exp(-((x + 30 * MS) ** 2 + (z + 440 * MS) ** 2) / (2 * 140 * 140)); // morro ao norte
+  h += 22 * Math.exp(-((x - 520) ** 2 + (z + 120) ** 2) / (2 * 90 * 90)); // colinas a leste
   h = Math.max(h, 2.5);
   return lerp(-16, h, s);
 }
@@ -37,8 +61,9 @@ const PADS = []; // áreas planas (cidades e casas isoladas)
 for (const t of TOWNS) { t.h = Math.max(4, rawH(t.x, t.z)); PADS.push({ x: t.x, z: t.z, r: t.r, b: 45, h: t.h }); }
 // casas isoladas espalhadas pela ilha
 const LONE = [];
-for (let k = 0; k < 900 && LONE.length < 50; k++) {
-  const x = wr(-470, 470), z = wr(-470, 470), h = rawH(x, z);
+for (let k = 0; k < 1600 && LONE.length < 85; k++) {
+  const x = wr(-470 * MS, 470 * MS), z = wr(-470 * MS, 470 * MS), h = rawH(x, z);
+  if (riverDist(x, z) < 28) continue;
   if (h < 4 || h > 45) continue;
   if (TOWNS.some(t => Math.hypot(t.x - x, t.z - z) < t.r + 50)) continue;
   if (LONE.some(p => Math.hypot(p.x - x, p.z - z) < 34)) continue;
@@ -53,7 +78,12 @@ function padH(x, z, h) {
   return h;
 }
 const H = new Float32Array(GN * GN);
-for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) { const x = -HALF + i * CELL, z = -HALF + j * CELL; H[j * GN + i] = padH(x, z, rawH(x, z)); }
+const townAt = (x, z, pad = 0) => TOWNS.find(t => Math.hypot(t.x - x, t.z - z) < t.r + pad);
+function riverCarve(x, z, h) {
+  const d = riverDist(x, z); if (d > 22 || roadDist(x, z) < 7 || townAt(x, z, 6)) return h;
+  return Math.min(h, lerp(-0.85, h, smooth(clamp((d - 7) / 15, 0, 1))));
+}
+for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) { const x = -HALF + i * CELL, z = -HALF + j * CELL; H[j * GN + i] = riverCarve(x, z, padH(x, z, rawH(x, z))); }
 function groundH(x, z) {
   const gx = (x + HALF) / CELL, gz = (z + HALF) / CELL;
   if (gx < 0 || gz < 0 || gx >= GN - 1 || gz >= GN - 1) return -16;
@@ -70,7 +100,6 @@ function roadDist(x, z) {
   }
   return m;
 }
-const townAt = (x, z, pad = 0) => TOWNS.find(t => Math.hypot(t.x - x, t.z - z) < t.r + pad);
 
 // ---------- malha do terreno ----------
 (function buildTerrain() {
@@ -296,10 +325,32 @@ function building(o) {
         addBox(xa, fy, za, xa + L / 10, fy + (i + 1) * rise, zb, '#b8afa0');
       }
     }
-    // pontos de saque deste andar
+    // móveis (casas e sobrados): sofá, cama, estante, geladeira encostados nas paredes e mesa no meio — também servem de cobertura
+    const furn = [];
+    if (fh < 4 && !o.noFurn && w >= 6 && d >= 6) {
+      const zS = st ? SC + 0.35 : z0 + WT + 0.1, zE = z1 - WT - (k === 0 && sides.includes('s') ? 0.2 : 0.1);
+      const KINDS = { sofa: [0.85, 2.0, 0.8, '#5a6e8a'], bed: [1.5, 2.0, 0.55, '#e6e1d6'], shelf: [0.4, 1.3, 1.9, '#7a5233'], fridge: [0.7, 0.7, 1.8, '#dedcd6'], tv: [0.45, 1.4, 0.6, '#3a3632'] };
+      const wallPiece = (side) => {
+        const kn = wpk(k > 0 ? ['bed', 'bed', 'shelf', 'sofa'] : ['sofa', 'shelf', 'fridge', 'tv', 'sofa']), [dep, len, h, c] = KINDS[kn];
+        const lo = zS + len / 2 + 0.2, hi = zE - len / 2 - 1.3; if (hi <= lo) return;
+        const zc = wr(lo, hi), xa = side === 'e' ? x1 - WT - dep : x0 + WT, xb = xa + dep;
+        furn.push([xa, zc - len / 2, xb, zc + len / 2]);
+        if (kn === 'bed') { addBox(xa, fy, zc - len / 2, xb, fy + 0.32, zc + len / 2, '#7a5233', { mat: 4 }); addBox(xa + 0.05, fy + 0.32, zc - len / 2 + 0.05, xb - 0.05, fy + h, zc + len / 2 - 0.05, c, { nocol: true }); addBox(xa + 0.15, fy + h, zc + len / 2 - 0.55, xb - 0.15, fy + h + 0.12, zc + len / 2 - 0.15, '#f4f2ee', { nocol: true }); }
+        else if (kn === 'sofa') { addBox(xa, fy, zc - len / 2, xb, fy + 0.45, zc + len / 2, c); const bx0 = side === 'e' ? xb - 0.22 : xa, bx1 = bx0 + 0.22; addBox(bx0, fy + 0.45, zc - len / 2, bx1, fy + h, zc + len / 2, c, { nocol: true }); }
+        else addBox(xa, fy, zc - len / 2, xb, fy + h, zc + len / 2, c, kn === 'shelf' ? { mat: 4 } : undefined);
+      };
+      if (!(k === 0 && sides.includes('e'))) wallPiece('e');
+      if (!(k === 0 && sides.includes('w')) && (!st || w > 9)) wallPiece('w');
+      if (w >= 8 && d >= 7) { // mesa no meio
+        const tx = (x0 + x1) / 2 + wr(-0.6, 0.6), tz = (Math.max(zS, z0 + 2) + zE) / 2 + wr(-0.5, 0.5);
+        if (!furn.some(f => tx > f[0] - 1.2 && tx < f[2] + 1.2)) { addBox(tx - 0.7, fy + 0.7, tz - 0.45, tx + 0.7, fy + 0.76, tz + 0.45, '#8a5e3a', { mat: 4 }); for (const [ox, oz] of [[-0.6, -0.36], [0.56, -0.36], [-0.6, 0.32], [0.56, 0.32]]) addBox(tx + ox, fy, tz + oz, tx + ox + 0.05, fy + 0.7, tz + oz + 0.05, '#6a4528', { nocol: true }); addCollider(tx - 0.7, fy, tz - 0.45, tx + 0.7, fy + 0.76, tz + 0.45); furn.push([tx - 0.7, tz - 0.45, tx + 0.7, tz + 0.45]); }
+      }
+    }
+    // pontos de saque deste andar (fora dos móveis)
     const n = Math.max(2, Math.floor(w * d / 26));
     for (let i = 0; i < n; i++) {
       const px = wr(x0 + 0.8, x1 - 0.8), pz = wr(st ? SC + 0.4 : z0 + 0.8, z1 - 0.8);
+      if (furn.some(f => px > f[0] - 0.35 && px < f[2] + 0.35 && pz > f[1] - 0.35 && pz < f[3] + 0.35)) continue;
       if (pz < z1 - 0.5) B.spots.push([px, fy + 0.02, pz]);
     }
   }
@@ -394,11 +445,31 @@ const warehouse = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, fh: 6, do
 })();
 
 // ---------- árvores, arbustos e pedras (instanciados: 1 desenho para todas) ----------
+(function bridges() {
+  const parts = [];
+  for (const r of ROADS) {
+    const dx = r[2] - r[0], dz = r[3] - r[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L;
+    let best = 1e9, bt = -1;
+    for (let t = 0; t <= L; t += 2) { const d = riverDist(r[0] + ux * t, r[1] + uz * t); if (d < best) { best = d; bt = t; } }
+    if (best > 4) continue;
+    const cx = r[0] + ux * bt, cz = r[1] + uz * bt, ry = Math.atan2(ux, uz), len = 30, gy = groundH(cx, cz);
+    for (const sd of [-1, 1]) {
+      const ox = -uz * sd * 4.9, oz = ux * sd * 4.9;
+      parts.push({ g: GEO.box, x: cx + ox, y: gy + 0.95, z: cz + oz, sx: 0.18, sy: 0.14, sz: len, ry, c: '#d9d6cf' }); // corrimão
+      parts.push({ g: GEO.box, x: cx + ox, y: gy + 0.25, z: cz + oz, sx: 0.4, sy: 0.5, sz: len, ry, c: '#8d8a84' }); // mureta
+      parts.push({ g: GEO.box, x: cx + ox * 1.02, y: gy - 1.4, z: cz + oz * 1.02, sx: 0.5, sy: 2.6, sz: len - 6, ry, c: '#7e7b75' }); // viga lateral
+      for (let i = -7; i <= 7; i++) parts.push({ g: GEO.box, x: cx + ox + ux * i * 2, y: gy + 0.6, z: cz + oz + uz * i * 2, sx: 0.14, sy: 0.7, sz: 0.14, c: '#cfccc5' }); // postes do corrimão
+    }
+    for (const e of [-1, 1]) parts.push({ g: GEO.box, x: cx + ux * e * 13, y: gy - 2, z: cz + uz * e * 13, sx: 10.5, sy: 4, sz: 1.2, ry, c: '#7a7770' }); // cabeceiras
+  }
+  if (!parts.length) return;
+  const m = new T.Mesh(mergeParts(parts), new T.MeshLambertMaterial({ vertexColors: true })); m.castShadow = m.receiveShadow = true; scene.add(m);
+})();
 const TREES = [], NAT = {};
 (function nature() {
   const tr = [], rk = [], bu = [];
-  for (let k = 0; k < 9000 && tr.length < 1300; k++) {
-    const x = wr(-560, 560), z = wr(-560, 560), h = groundH(x, z);
+  for (let k = 0; k < 16000 && tr.length < 2200; k++) {
+    const x = wr(-560 * MS, 560 * MS), z = wr(-560 * MS, 560 * MS), h = groundH(x, z);
     if (h < 2.5 || h > 60) continue;
     if (townAt(x, z, 12) || roadDist(x, z) < 7) continue;
     if (FOOT.some(f => Math.abs(f.x - x) < f.w / 2 + 3 && Math.abs(f.z - z) < f.d / 2 + 3)) continue;
