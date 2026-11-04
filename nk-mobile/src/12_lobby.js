@@ -65,7 +65,7 @@ function renderLobby() {
   $('chP').onclick = () => { SET.char = (SET.char + CHARS.length - 1) % CHARS.length; saveSet(); charChanged(); lobbyActors(); renderLobby(); };
   $('chN').onclick = () => { SET.char = (SET.char + 1) % CHARS.length; saveSet(); charChanged(); lobbyActors(); renderLobby(); };
   el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const sz = MODES.find(m => m[0] === b.dataset.m)[2]; if (PARTY.pid && PARTY.members.length > sz) { toast('O esquadrão tem ' + PARTY.members.length + ' pessoas: escolha um modo maior.', 2.5); return; } G.mode = SET.mode = b.dataset.m; saveSet(); lobbyActors(); renderLobby(); partyState(); });
-  el.querySelectorAll('[data-map]').forEach(b => b.onclick = () => switchMap(b.dataset.map));
+  el.querySelectorAll('[data-map]').forEach(b => b.onclick = openMapSel);
   el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { G.diff = SET.diff = b.dataset.d; saveSet(); renderLobby(); partyState(); });
   el.querySelectorAll('[data-inv]').forEach(b => b.onclick = openFriends); $('lFr').onclick = openFriends;
   const guest = PARTY.pid && !partyLead();
@@ -74,6 +74,13 @@ function renderLobby() {
   $('lPlay').onclick = play;
 }
 // trocar de mapa: o mundo é montado ao abrir o jogo, então recarrega (rápido, fica no cache)
+// painel com a imagem das duas ilhas para escolher
+function openMapSel() {
+  const el = $('mapSelP'); el.classList.remove('hidden');
+  el.innerHTML = `<div class="box mapsel"><h3>Escolha o mapa</h3><div class="mcards">${Object.keys(MAPS).map(k => `<div class="mcard ${k === MAPID ? 'on' : ''}" data-pick="${k}"><img src="assets/maps/${k}.jpg" alt=""><b>${MAPS[k].n}</b><small>${MAPS[k].d}</small><button class="btn ${k === MAPID ? 'alt' : ''}">${k === MAPID ? 'MAPA ATUAL' : 'JOGAR AQUI'}</button></div>`).join('')}</div><button class="btn alt" id="msX">FECHAR</button></div>`;
+  el.querySelectorAll('[data-pick]').forEach(c => c.onclick = () => { const k = c.dataset.pick; if (k === MAPID) { el.classList.add('hidden'); return; } switchMap(k); });
+  $('msX').onclick = e => { e.stopPropagation(); el.classList.add('hidden'); };
+}
 function switchMap(id) {
   if (id === MAPID || !MAPS[id]) return;
   if (PARTY.pid && PARTY.members.length > 1) { toast('Escolha o mapa antes de chamar o esquadrão (ou saia dele para trocar).', 3); return; }
