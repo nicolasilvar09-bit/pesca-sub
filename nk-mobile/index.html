@@ -7401,7 +7401,7 @@ function botAlert(a, src) {
 const _E1 = {}, _S2 = {}, _items = [];
 function botScan(a) {
   const P = botP(a), w = curW(a), z = w && w.att.sight ? ATT[w.att.sight].zoom : 1;
-  const R = P.range * (z >= 4 ? 1.35 : 1); eyePos(a, _E1);
+  const R = P.range * (z >= 4 ? 1.35 : 1) * (typeof WX === 'undefined' ? 1 : WX.k === 'noite' ? 0.55 : WX.k === 'chuva' ? 0.75 : WX.k === 'nublado' ? 0.85 : 1); eyePos(a, _E1);
   let best = null, bd = 1e12;
   for (const t of G.actors) {
     if (!t.alive || t.team === a.team || (t.mode !== 'ground' && t.mode !== 'chute')) continue;
@@ -9192,6 +9192,7 @@ void main(){
     addCollider(x - 0.1, h, z - 0.1, x + 0.1, h + 5.8, z + 0.1, 'pole');
   });
   for (const m2 of [pole, arm, head]) { m2.castShadow = true; scene.add(m2); NATURE_MESH.push(m2); }
+  GFX.lamps = L;
 })();
 
 // ---------- sol ----------
@@ -10583,6 +10584,7 @@ const WEATHER = {
   dia: { n: 'Dia de sol', el: 42, az: 29, sc: 0xffe2b8, si: 1.9, hs: 0xbfd6ee, hg: 0x6b6150, hi: 0.85, fog: null, fk: 1, ex: 0.92, tb: 6.5, ry: 1.4, sky: true },
   tarde: { n: 'Fim de tarde', el: 9, az: 205, sc: 0xffae6a, si: 1.95, hs: 0xdcc2ad, hg: 0x62524a, hi: 0.85, fog: 0xdcbfa4, fk: 0.85, ex: 1.06, tb: 9, ry: 2.4, sky: true },
   nublado: { n: 'Nublado', el: 55, az: 60, sc: 0xdde3ea, si: 0.75, hs: 0xc6ced6, hg: 0x6f6f68, hi: 1.25, fog: 0xb3bbc2, fk: 0.6, ex: 0.95, tb: 14, ry: 0.6, sky: false },
+  noite: { n: 'Noite', el: 38, az: 140, sc: 0x9fb6e8, si: 0.42, hs: 0x3a4868, hg: 0x16181e, hi: 0.62, fog: 0x161d2c, fk: 0.55, ex: 1.15, tb: 1, ry: 0.2, sky: false, night: true },
   chuva: { n: 'Chuva', el: 60, az: 80, sc: 0xc9d1da, si: 0.5, hs: 0xa9b3bc, hg: 0x585d5e, hi: 1.05, fog: 0x98a2aa, fk: 0.42, ex: 0.9, tb: 18, ry: 0.4, sky: false, rain: true },
 };
 const WX = { k: 'dia', rainOn: false };
@@ -10602,18 +10604,45 @@ function setWeather(k) {
   if (typeof SKY2 !== 'undefined' && SKY2) { const u = SKY2.material.uniforms; u.sunPosition.value.copy(SUN_DIR); u.turbidity.value = w.tb; u.rayleigh.value = w.ry; SKY2.visible = w.sky; }
   for (const m of SUNDISK) { m.position.copy(SUN_DIR).multiplyScalar(2000); m.lookAt(0, 0, 0); m.visible = w.sky; }
   if (GFX.water) { GFX.water.uniforms.uSun.value.copy(SUN_DIR); GFX.water.uniforms.uSky.value.set(w.sky ? 0xb5c6d2 : w.fog); }
-  WX.rainOn = !!w.rain; RAIN.visible = WX.rainOn;
+  WX.rainOn = !!w.rain; RAIN.visible = WX.rainOn; nightExtras(!!w.night);
 }
 // a qualidade gráfica também mexe na névoa: reaplica o clima depois
 const _aq = applyQuality; applyQuality = function () { _aq(); if (typeof WX !== 'undefined' && WEATHER[WX.k].fk !== 1) setWeather(WX.k); };
 function pickWeather(seed) {
   const r = seed ? mulberry(seed ^ 0x5bd1e995)() : Math.random();
-  const tab = MAPID === 'bal' ? [['dia', 40], ['tarde', 20], ['nublado', 15], ['chuva', 25]] : [['dia', 50], ['tarde', 20], ['nublado', 18], ['chuva', 12]];
+  const tab = MAPID === 'bal' ? [['dia', 34], ['tarde', 20], ['nublado', 15], ['chuva', 23], ['noite', 8]] : [['dia', 44], ['tarde', 20], ['nublado', 16], ['chuva', 12], ['noite', 8]];
   let s = 0; for (const [k, p] of tab) { s += p / 100; if (r < s) return k; } return 'dia';
 }
 const _smW = startMatch; startMatch = function (opt) { const out = _smW.apply(this, arguments); setWeather(pickWeather(opt && opt.seed)); if (WX.k !== 'dia') setTimeout(() => toast('Clima: ' + WEATHER[WX.k].n, 2.5), 2500); return out; };
 const _tlW = toLobby; toLobby = function () { const out = _tlW.apply(this, arguments); setWeather('dia'); return out; };
 
+// ---------- noite: lua, estrelas, janelas acesas e brilho dos postes ----------
+const STARS = (() => {
+  const N = 900, p = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) { const u = Math.random() * 2 - 1, a = Math.random() * 6.283, y = Math.abs(u) * 0.95 + 0.05, r = Math.sqrt(1 - y * y); p.set([Math.cos(a) * r * 2100, y * 2100, Math.sin(a) * r * 2100], i * 3); }
+  const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(p, 3));
+  const m = new T.Points(g, new T.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, fog: false, depthWrite: false })); // opaco: desenhado antes de tudo, então prédio e morro cobrem
+  m.visible = false; m.renderOrder = -9; m.frustumCulled = false; SKY.add(m); return m;
+})();
+let LAMPGLOW = null;
+function lampGlow() {
+  if (LAMPGLOW || !GFX.lamps) return LAMPGLOW;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,225,150,0.9)'); gr.addColorStop(0.3, 'rgba(255,200,110,0.35)'); gr.addColorStop(1, 'rgba(255,180,80,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  const L = GFX.lamps, pos = new Float32Array(L.length * 3);
+  L.forEach(([x, z, h, a], i) => pos.set([x + Math.sin(a) * 1.35, h + 5.55, z + Math.cos(a) * 1.35], i * 3));
+  const geo = new T.BufferGeometry(); geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+  LAMPGLOW = new T.Points(geo, new T.PointsMaterial({ map: new T.CanvasTexture(cv), size: 9, transparent: true, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
+  LAMPGLOW.visible = false; scene.add(LAMPGLOW); return LAMPGLOW;
+}
+const _glassEm = new T.Color(0x1a3a50);
+function nightExtras(on) {
+  WX.night = on; STARS.visible = on;
+  for (const m of SUNDISK) { m.material.color.set(on ? 0xdfe8ff : 0xfff4cc); m.visible = m.visible || on; m.scale.setScalar(on ? 0.45 : 1); }
+  if (on) for (const m of SUNDISK) m.visible = true;
+  if (GLASS.mesh) { GLASS.mesh.material.emissive.set(on ? 0xc9883a : _glassEm); GLASS.mesh.material.opacity = on ? 0.75 : 0.42; } // janelas acesas
+  const lg = lampGlow(); if (lg) lg.visible = on;
+}
 // ---------- chuva: riscos que caem numa caixa em volta da câmera (tudo na placa de vídeo) ----------
 const RAIN = (() => {
   const N = 2600, pos = new Float32Array(N * 2 * 3), end = new Float32Array(N * 2);
@@ -10661,7 +10690,10 @@ function stepWeather(dt) {
   // passarinhos de dia na mata (mais no Balneário)
   if ((AMB.birdT -= dt) <= 0) {
     AMB.birdT = rr(1.5, MAPID === 'bal' ? 4 : 7);
-    if (!WX.rainOn && WX.k !== 'nublado' && cy - gh < 30 && AMB.sea < 0.6) {
+    if (WX.night && cy - gh < 30) { // grilos à noite
+      const out = sOut(now, rr(-0.8, 0.8)), f = rr(4200, 5200), v = 0.012 * (inMatch ? 1 : 0.7);
+      for (let i = 0; i < 6; i++) sTone(now + i * 0.06, f, f * 0.98, 0.035, v, 'sine', out);
+    } else if (!WX.rainOn && WX.k !== 'nublado' && cy - gh < 30 && AMB.sea < 0.6) {
       const out = sOut(now, rr(-0.8, 0.8)), f0 = rr(2200, 4200), nn = 2 + Math.floor(Math.random() * 4), v = (MAPID === 'bal' ? 0.03 : 0.02) * (inMatch ? 1 : 0.7);
       for (let i = 0; i < nn; i++) sTone(now + i * rr(0.08, 0.16), f0 * rr(0.9, 1.15), f0 * rr(1.1, 1.4), 0.07, v, 'sine', out);
     }

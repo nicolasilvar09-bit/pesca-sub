@@ -154,6 +154,7 @@ void main(){
     addCollider(x - 0.1, h, z - 0.1, x + 0.1, h + 5.8, z + 0.1, 'pole');
   });
   for (const m2 of [pole, arm, head]) { m2.castShadow = true; scene.add(m2); NATURE_MESH.push(m2); }
+  GFX.lamps = L;
 })();
 
 // ---------- sol ----------

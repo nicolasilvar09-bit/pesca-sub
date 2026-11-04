@@ -16,7 +16,7 @@ function botAlert(a, src) {
 const _E1 = {}, _S2 = {}, _items = [];
 function botScan(a) {
   const P = botP(a), w = curW(a), z = w && w.att.sight ? ATT[w.att.sight].zoom : 1;
-  const R = P.range * (z >= 4 ? 1.35 : 1); eyePos(a, _E1);
+  const R = P.range * (z >= 4 ? 1.35 : 1) * (typeof WX === 'undefined' ? 1 : WX.k === 'noite' ? 0.55 : WX.k === 'chuva' ? 0.75 : WX.k === 'nublado' ? 0.85 : 1); eyePos(a, _E1);
   let best = null, bd = 1e12;
   for (const t of G.actors) {
     if (!t.alive || t.team === a.team || (t.mode !== 'ground' && t.mode !== 'chute')) continue;
