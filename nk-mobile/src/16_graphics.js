@@ -261,7 +261,11 @@ function shadowFollow(x, y, z) {
 }
 // chamado todo quadro
 function gfxStep(dt, fx, fy, fz) {
-  GFX.t += dt; GRASS_U.value = GFX.t; if (typeof natureStep === 'function') natureStep(dt, fx, fz); if (GFX.water) GFX.water.uniforms.uT.value = GFX.t;
+  // alto = mais de 45 m acima do chão (avião, queda livre, paraquedas): sem grama, sem árvore detalhada, sombra congelada
+  const high = fy - Math.max(groundH(fx, fz), 0) > 45;
+  GFX.t += dt; GRASS_U.value = GFX.t; if (typeof natureStep === 'function') natureStep(dt, fx, fz, high); if (GFX.water) GFX.water.uniforms.uT.value = GFX.t;
+  if (GFX.shadow) renderer.shadowMap.autoUpdate = !high || (GFX.shT = (GFX.shT || 0) + dt) > 1 && !(GFX.shT = 0);
   shadowFollow(fx, fy, fz);
-  if (GFX.grassOn && Math.hypot(fx - GFX.gx, fz - GFX.gz) > 8) refreshGrass(fx, fz);
+  grassM.visible = flowerM.visible = GFX.grassOn && !high;
+  if (GFX.grassOn && !high && Math.hypot(fx - GFX.gx, fz - GFX.gz) > 8) refreshGrass(fx, fz);
 }

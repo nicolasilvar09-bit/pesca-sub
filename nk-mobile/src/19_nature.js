@@ -72,7 +72,12 @@ function refreshNature(cx, cz) {
   tm.needsUpdate = cm.needsUpdate = c2.needsUpdate = bm.needsUpdate = true;
   for (const k in NATR.inst) if (NATR.inst[k]) NATR.inst[k].instanceMatrix.needsUpdate = true;
 }
-function natureStep(dt, fx, fz) { NAT_WIND.value += dt; if (NATR.ready && Math.hypot(fx - NATR.cx, fz - NATR.cz) > 14) refreshNature(fx, fz); }
+// no alto (avião, queda, paraquedas) não precisa de árvore detalhada: mostra só as simples e para de recalcular
+function natureStep(dt, fx, fz, high) {
+  NAT_WIND.value += dt; if (!NATR.ready) return;
+  if (high) { if (!NATR.off) { NATR.off = true; refreshNature(1e6, 1e6); } return; }
+  if (NATR.off || Math.hypot(fx - NATR.cx, fz - NATR.cz) > 14) { NATR.off = false; refreshNature(fx, fz); }
+}
 
 // ---------- céu realista (dispersão atmosférica) ----------
 const SKY2 = (() => {

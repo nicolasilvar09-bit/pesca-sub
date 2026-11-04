@@ -59,10 +59,12 @@ function drawScene() {
 function dynRes() {
   const now = performance.now();
   if (!dynRes.t) dynRes.t = now;
-  if (now - dynRes.t < 2500 || G.phase !== 'match' || !G.fps) return;
+  if (now - dynRes.t < 3000 || G.phase !== 'match' || !G.fps) return;
   dynRes.t = now;
+  // cada troca de resolução recria a imagem interna (dá um soluço): troca pouco, num passo só, e sobe devagar
   let d = DYN;
-  if (G.fps < 38 && DYN > 0.6) d = Math.max(0.6, DYN - 0.1);
-  else if (G.fps > 55 && DYN < 1) d = Math.min(1, DYN + 0.05);
-  if (d !== DYN) { DYN = d; applyRes(); }
+  if (G.fps < 36 && DYN > 0.6) { d = Math.max(0.6, Math.round(DYN * Math.sqrt(G.fps / 48) * 10) / 10); dynRes.good = 0; }
+  else if (G.fps > 56 && DYN < 1) { if ((dynRes.good = (dynRes.good || 0) + 1) >= 4) { d = Math.min(1, DYN + 0.1); dynRes.good = 0; } }
+  else dynRes.good = 0;
+  if (Math.abs(d - DYN) > 0.01) { DYN = d; applyRes(); }
 }
