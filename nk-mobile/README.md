@@ -194,6 +194,6 @@ Escolha no lobby (**Mapa: Ilha NK / Balneário**). Mapa original do NK Mobile, d
 Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem dinheiro de verdade): ~20 por partida + 6 por abate + 15 no top 10 + 60 na vitória; começa com 300.
 - **Skins**: 44 de arma (2 para cada uma das 22 armas), 10 roupas + 1 exclusiva do passe, 5 capacetes, 5 mochilas, 10 paraquedas, 5 veículos (jipe, sedã, buggy, moto, lancha). Estampas: camuflado, digital, listras, liso, metálico, tigrado e carbono
 - **Caixa NK** (100 fichas): roleta com chance por raridade — Comum 60%, Raro 28%, Épico 10%, Lendário 2%; repetido vira 40 fichas
-- **Passe de Elite NK — Temporada 1 (grátis)**: 30 níveis com XP de cada partida; fichas, caixas, itens épicos e no nível 30 a roupa exclusiva **Comandante NK**
+- **Passe de Elite NK — Temporada 1 (grátis)**: 30 níveis com XP de cada partida; fichas, caixas, itens épicos e o conjunto exclusivo **Coroa Imperial** (preto com linhas vermelhas que brilham, filetes dourados e coroa): capacete no nível 10, M416 no 20, sedã no 25 e traje no 30. As artes de divulgação ficam em `assets/pass/`
 - **Armário**: equipa cada item (a roupa aparece no lobby e na partida; a skin de veículo vale quando você assume o volante)
 - Bots também aparecem às vezes com roupas, capacetes, mochilas e paraquedas diferentes

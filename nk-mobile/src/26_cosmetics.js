@@ -2,7 +2,7 @@
 // skins de arma (2 por arma), roupas (10 + 1 do passe), capacetes (5), mochilas (5), paraquedas (10), veículos (1 por tipo)
 // tudo original do NK Mobile; as caixas usam fichas ganhas jogando (sem dinheiro de verdade)
 const RAR = { c: { n: 'Comum', c: '#9aa3ad', w: 60 }, r: { n: 'Raro', c: '#3ec7ff', w: 28 }, e: { n: 'Épico', c: '#b36bff', w: 10 }, l: { n: 'Lendário', c: '#ffb703', w: 2 } };
-const PATN = { camo: 0, digital: 1, stripe: 2, solid: 3, metal: 4, tiger: 5, carbon: 6 };
+const PATN = { camo: 0, digital: 1, stripe: 2, solid: 3, metal: 4, tiger: 5, carbon: 6, imperial: 7 };
 // temas: [id, nome, raridade, estampa, cor 1, cor 2, cor 3]
 const THEMES = [
   ['selva', 'Selva', 'c', 'camo', '#3d5a2a', '#6b7f3a', '#2a2f1e'], ['deserto', 'Deserto', 'c', 'camo', '#b89a6a', '#8a7048', '#d8c49a'],
@@ -15,17 +15,23 @@ const THEMES = [
   ['coral', 'Coral', 'r', 'stripe', '#ff7f6e', '#ffd3b0', '#2a2a2a'], ['marfim', 'Marfim', 'r', 'solid', '#efe6d2', '#c9b98e', '#5a4a30'],
   ['cobra', 'Cobra', 'e', 'tiger', '#2f4a1e', '#c9b23a', '#111'], ['prata', 'Prata', 'e', 'metal', '#b8c0c8', '#f2f6fa', '#5c6670'],
   ['vulcao', 'Vulcão', 'l', 'tiger', '#0d0d0f', '#e1141c', '#ffcf3a'], ['aurora', 'Aurora', 'l', 'stripe', '#1b1f4a', '#3ee07a', '#b36bff'],
+  ['imperial', 'Coroa Imperial', 'l', 'imperial', '#0c0c10', '#ff1e1e', '#d9a93a'], // tema exclusivo do Passe de Elite
 ];
+const TH_ROLL = THEMES.filter(t => t[0] !== 'imperial'); // o tema do passe não sai em arma de caixa
 const TH = Object.fromEntries(THEMES.map(t => [t[0], { id: t[0], n: t[1], rar: t[2], pat: t[3], c: [t[4], t[5], t[6]] }]));
 const COS = {}, COSL = [];
 const addCos = (id, cat, n, rar, d) => { const o = Object.assign({ id, cat, n, rar }, d); COS[id] = o; COSL.push(o); return o; };
 // armas: 2 temas por arma
-Object.keys(WEAP).forEach((k, i) => { for (const j of [(i * 2) % 20, (i * 2 + 7) % 20]) { const t = THEMES[j]; addCos(`w:${k}:${t[0]}`, 'wpn', `${WEAP[k].n} · ${t[1]}`, t[2], { wk: k, th: t[0] }); } });
+Object.keys(WEAP).forEach((k, i) => { for (const j of [(i * 2) % 20, (i * 2 + 7) % 20]) { const t = TH_ROLL[j]; addCos(`w:${k}:${t[0]}`, 'wpn', `${WEAP[k].n} · ${t[1]}`, t[2], { wk: k, th: t[0] }); } });
 // roupas
 [['out:selva', 'Patrulha da Selva', 'c', 'selva'], ['out:deserto', 'Duna', 'c', 'deserto'], ['out:urbano', 'Concreto', 'c', 'urbano'], ['out:artico', 'Nevasca', 'r', 'artico'],
  ['out:noturno', 'Sombra Noturna', 'r', 'noturno'], ['out:oceano', 'Maré', 'r', 'oceano'], ['out:oliva', 'Recruta', 'c', 'oliva'], ['out:coral', 'Verão', 'r', 'coral'],
  ['out:lava', 'Brasa', 'e', 'lava'], ['out:aurora', 'Aurora Boreal', 'l', 'aurora']].forEach(([id, n, r, th]) => addCos(id, 'out', n, r, { th }));
-addCos('out:pass', 'out', 'Comandante NK', 'l', { th: 'rubro', pass: true }); // só no Passe de Elite
+// conjunto Coroa Imperial: só no Passe de Elite (arte de referência em assets/pass)
+addCos('out:pass', 'out', 'Traje Coroa Imperial', 'l', { th: 'imperial', pass: true, img: 'roupa' });
+addCos('w:M416:imperial', 'wpn', 'M416 · Coroa Imperial', 'l', { wk: 'M416', th: 'imperial', pass: true, img: 'arma' });
+addCos('helm:imperial', 'helm', 'Capacete Coroa Imperial', 'l', { th: 'imperial', pass: true, img: 'capacete' });
+addCos('veh:imperial', 'veh', 'Sedã Coroa Imperial', 'l', { vk: 'seda', th: 'imperial', col: '#0c0c10', pass: true, img: 'carro' });
 // capacetes e mochilas
 [['helm:selva', 'Capacete Selva', 'c', 'selva'], ['helm:urbano', 'Capacete Urbano', 'c', 'urbano'], ['helm:artico', 'Capacete Ártico', 'r', 'artico'], ['helm:rubro', 'Capacete Rubro', 'e', 'rubro'], ['helm:ouro', 'Capacete Dourado', 'l', 'ouro']].forEach(([id, n, r, th]) => addCos(id, 'helm', n, r, { th }));
 [['bag:deserto', 'Mochila Duna', 'c', 'deserto'], ['bag:oliva', 'Mochila Recruta', 'c', 'oliva'], ['bag:oceano', 'Mochila Maré', 'r', 'oceano'], ['bag:neon', 'Mochila Neon', 'e', 'neon'], ['bag:prata', 'Mochila Prata', 'l', 'prata']].forEach(([id, n, r, th]) => addCos(id, 'bag', n, r, { th }));
@@ -67,7 +73,26 @@ vec3 skinPat(vec3 p) {
   if (uPat < 3.5) { float s = fract(p.y * 1.2 + p.z); return s < 0.9 ? mix(uA, uB, vn(p.xz * 1.5) * 0.4) : uC; }
   if (uPat < 4.5) { float n = vn(p.xy * 1.4 + p.z); return mix(uA, uB, smoothstep(0.3, 0.8, n)) * 1.08; }
   if (uPat < 5.5) { float s = sin((p.x + vn(p.yz * 1.7) * 1.4) * 5.0); return s > 0.35 ? uB : s > 0.2 ? uC : uA; }
-  vec2 g = floor(p.xy * 9.0); float c = mod(g.x + g.y, 2.0); return mix(uA, uB, c * 0.6) + uC * step(0.97, fract(p.y * 0.6)) * 0.4;
+  if (uPat < 6.5) { vec2 g = floor(p.xy * 9.0); float c = mod(g.x + g.y, 2.0); return mix(uA, uB, c * 0.6) + uC * step(0.97, fract(p.y * 0.6)) * 0.4; }
+  vec3 col = uA * (0.9 + vn(p.xy * 1.2) * 0.2); // fibra preta
+  float a = fract((p.x * 0.7 + p.y * 0.45 + p.z * 0.3) * 0.55), b = fract((p.x * -0.5 + p.y * 0.8 + p.z * 0.2) * 0.42);
+  float wa = fwidth(a) * 1.2, wb = fwidth(b) * 1.2; // de longe as linhas viram uma média suave (sem pontinhos)
+  float ka = clamp(1.0 - wa * 12.0, 0.0, 1.0), kb = clamp(1.0 - wb * 12.0, 0.0, 1.0);
+  float ga = smoothstep(0.94 - wa, 0.94 + wa, a), gb = smoothstep(0.965 - wb, 0.965 + wb, b);
+  float ra = 1.0 - smoothstep(0.035 - wa, 0.035 + wa, abs(a - 0.5)), rb = 1.0 - smoothstep(0.02 - wb, 0.02 + wb, abs(b - 0.25));
+  col = mix(col, uC, clamp(mix(0.04, ga, ka) * 0.95 + mix(0.02, gb, kb) * 0.9, 0.0, 1.0)); // filetes dourados
+  col = mix(col, uB, clamp(mix(0.03, ra, ka) + mix(0.015, rb, kb), 0.0, 1.0) * 0.85); // faixas vermelhas
+  // coroa: 3 pontas sobre uma base, repetida espaçada
+  vec2 c = fract(vec2(p.x + p.z * 0.7, p.y) * 0.22) - 0.5; c *= 3.2;
+  float crown = step(abs(c.x), 0.55) * step(-0.38, c.y) * step(c.y, -0.18);
+  crown = max(crown, step(abs(c.x), 0.55) * step(-0.18, c.y) * step(c.y, 0.32 - min(min(abs(c.x + 0.42), abs(c.x)), abs(c.x - 0.42)) * 1.5));
+  return mix(col, uC * 1.15, crown);
+}
+float skinGlow(vec3 p) { // linhas que brilham (só no tema imperial)
+  if (uPat < 6.5) return 0.0;
+  float a = fract((p.x * 0.7 + p.y * 0.45 + p.z * 0.3) * 0.55), b = fract((p.x * -0.5 + p.y * 0.8 + p.z * 0.2) * 0.42);
+  float wa = fwidth(a) * 1.2, wb = fwidth(b) * 1.2, ka = clamp(1.0 - wa * 12.0, 0.0, 1.0), kb = clamp(1.0 - wb * 12.0, 0.0, 1.0);
+  return clamp((1.0 - smoothstep(0.035 - wa, 0.035 + wa, abs(a - 0.5))) * ka + (1.0 - smoothstep(0.02 - wb, 0.02 + wb, abs(b - 0.25))) * kb, 0.0, 1.0); // de longe, sem brilho
 }`;
 const _skinMats = {};
 // material de skin para armas, capacete e mochila (estampa no espaço do objeto)
@@ -80,7 +105,8 @@ function skinMat(th, vc, scale) {
     Object.assign(sh.uniforms, U);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vOp;').replace('#include <begin_vertex>', `#include <begin_vertex>\nvOp = position * ${(12 * (scale || 1)).toFixed(1)};`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vOp;\n' + GLSL_NOISE + SKIN_GLSL)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n  { float l = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = skinPat(vOp) * (0.55 + l * 1.1); }');
+      .replace('#include <color_fragment>', '#include <color_fragment>\n  { float l = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = skinPat(vOp) * (0.55 + l * 1.1); }')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uB * skinGlow(vOp) * 0.55;');
   };
   m.customProgramCacheKey = () => 'skin' + (vc ? 'v' : 'n');
   return _skinMats[key] = m;
@@ -99,6 +125,9 @@ function outfitPatch(mt, th, keepSkin) {
     float gr = tc.g / max(tc.r, 1e-3), br = tc.b / max(tc.r, 1e-3); // pele: verde ~40-85% do vermelho, azul ~22-80% (roupa vermelha fica de fora)
     float skinK = uKeep * smoothstep(0.36, 0.46, gr) * (1.0 - smoothstep(0.84, 0.94, gr)) * smoothstep(0.2, 0.3, br) * (1.0 - smoothstep(0.78, 0.88, br)) * step(tc.b, tc.g) * step(0.05, tc.r);
     diffuseColor.rgb = mix(skinPat(vec3(vUv * 14.0, 0.0)) * (0.32 + l * 1.5), tc, skinK); }
+  #endif`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  #ifdef USE_UV
+  totalEmissiveRadiance += uB * skinGlow(vec3(vUv * 14.0, 0.0)) * 0.45;
   #endif`);
   };
   mt.customProgramCacheKey = () => 'outfit' + (keepSkin ? 'k' : 'n'); mt.needsUpdate = true;
@@ -151,7 +180,7 @@ function chuteGeoFor(a) {
 // veículos: ao assumir o volante, o carro ganha a sua pintura
 const _evC = enterVeh; enterVeh = function (a, v, seat) {
   const ok = _evC(a, v, seat);
-  if (ok && a === G.player && v.seats[0] === a) { const sid = SET.equip.veh[v.k], s = sid && COS[sid]; if (s && v.skin !== sid && !v.dead) { v.mesh.geometry.dispose(); v.mesh.geometry = vehGeo(v.k, s.col); v.skin = sid; } }
+  if (ok && a === G.player && v.seats[0] === a) { const sid = SET.equip.veh[v.k], s = sid && COS[sid]; if (s && v.skin !== sid && !v.dead) { v.mesh.geometry.dispose(); v.mesh.geometry = vehGeo(v.k, s.col); if (s.th) v.mesh.material = skinMat(s.th, true, 0.07); v.skin = sid; } }
   return ok;
 };
 
@@ -159,7 +188,10 @@ const _evC = enterVeh; enterVeh = function (a, v, seat) {
 const PASS_N = 30, PASS_XP = 300;
 const passLv = () => Math.min(PASS_N, Math.floor(SET.pxp / PASS_XP));
 function passReward(l) { // l = 1..30
-  if (l === PASS_N) return { out: 'out:pass', t: 'Roupa exclusiva' };
+  if (l === PASS_N) return { out: 'out:pass', t: 'Traje Coroa Imperial' };
+  if (l === 10) return { out: 'helm:imperial', t: 'Capacete Coroa Imperial' };
+  if (l === 20) return { out: 'w:M416:imperial', t: 'M416 Coroa Imperial' };
+  if (l === 25) return { out: 'veh:imperial', t: 'Sedã Coroa Imperial' };
   if (l % 5 === 0) return { box: 1, t: 'Caixa NK' };
   if (l === 12 || l === 24) return { item: 'e', t: 'Item épico' };
   return { coins: 40 + l * 4, t: (40 + l * 4) + ' fichas' };
@@ -185,7 +217,8 @@ function rollItem(rarFilter) {
 function grant(o) { if (owns(o.id)) { SET.coins += 40; saveSet(); return false; } SET.inv.push(o.id); saveSet(); return true; }
 function cardHtml(o, extra) {
   const c = cosCols(o), r = RAR[o.rar];
-  return `<div class="cos-card" style="--rc:${r.c}"><div class="cos-sw" style="background:linear-gradient(135deg,${c[0]} 0 45%,${c[1]} 45% 75%,${c[2]} 75%)">${CAT[o.cat][0]}</div><b>${o.n}</b><small style="color:${r.c}">${r.n}</small>${extra || ''}</div>`;
+  const sw = o.img ? `<div class="cos-sw" style="background:#000 url(assets/pass/${o.img}.jpg) center/cover"></div>` : `<div class="cos-sw" style="background:linear-gradient(135deg,${c[0]} 0 45%,${c[1]} 45% 75%,${c[2]} 75%)">${CAT[o.cat][0]}</div>`;
+  return `<div class="cos-card" style="--rc:${r.c}">${sw}<b>${o.n}</b><small style="color:${r.c}">${r.n}</small>${extra || ''}</div>`;
 }
 // painel de caixas/passe/armário: ✕ fixo no canto (sempre visível, mesmo em tela baixa) + fechar tocando fora da caixa
 function cosPanel(html) {
@@ -237,19 +270,19 @@ function openPass() {
   const lv = passLv(), into = SET.pxp - lv * PASS_XP;
   const cards = Array.from({ length: PASS_N }, (_, i) => {
     const l = i + 1, rw = passReward(l), got = SET.pcl.includes(l), can = l <= lv && !got;
-    const icon = rw.out ? '👕' : rw.box ? '🎁' : rw.item ? '✨' : '🪙';
-    return `<div class="ps-c ${l <= lv ? 'on' : ''} ${rw.out ? 'big' : ''}"><small>NÍVEL ${l}</small><div class="ps-i">${icon}</div><b>${rw.out ? COS['out:pass'].n : rw.t}</b>${got ? '<em>✔ pego</em>' : can ? `<button class="btn" data-cl="${l}">PEGAR</button>` : `<em>🔒</em>`}</div>`;
+    const icon = rw.out ? `<img src="assets/pass/${COS[rw.out].img}.jpg" alt="">` : rw.box ? '🎁' : rw.item ? '✨' : '🪙';
+    return `<div class="ps-c ${l <= lv ? 'on' : ''} ${rw.out ? 'big' : ''}"><small>NÍVEL ${l}</small><div class="ps-i">${icon}</div><b>${rw.t}</b>${got ? '<em>✔ pego</em>' : can ? `<button class="btn" data-cl="${l}">PEGAR</button>` : `<em>🔒</em>`}</div>`;
   }).join('');
-  const el = cosPanel(`<h3>⭐ Passe de Elite NK · Temporada 1 <small class="free">GRÁTIS</small></h3>
+  const el = cosPanel(`<div class="ps-ban" style="background-image:url(assets/pass/banner.jpg)"><div><b>PASSE DE ELITE · TEMPORADA 1</b><span>Coroa Imperial</span><small class="free">GRÁTIS</small></div></div>
     <div class="ps-top">Nível <b>${lv}</b>/${PASS_N} <div class="ps-bar"><i style="width:${lv >= PASS_N ? 100 : Math.round(into / PASS_XP * 100)}%"></i></div><small>${lv >= PASS_N ? 'completo!' : into + ' / ' + PASS_XP + ' XP'} · cada partida dá XP (abates, top 10 e vitória dão mais)</small></div>
     <div class="ps-row">${cards}</div>
-    <div class="ps-ex">Recompensa final: ${cardHtml(COS['out:pass'], '<small>exclusiva do passe</small>')}</div>
+    <div class="ps-ex">${['out:pass', 'w:M416:imperial', 'veh:imperial', 'helm:imperial'].map(id => `<div class="ps-ii"><img src="assets/pass/${COS[id].img}.jpg" alt=""><b>${COS[id].n}</b><small>nível ${{ 'out:pass': 30, 'w:M416:imperial': 20, 'veh:imperial': 25, 'helm:imperial': 10 }[id]}${owns(id) ? ' · ✔ seu' : ''}</small></div>`).join('')}</div>
     <div class="row"><button class="btn alt" data-x>FECHAR</button></div>`);
   el.querySelectorAll('[data-cl]').forEach(b => b.onclick = () => {
     const l = +b.dataset.cl, rw = passReward(l); if (SET.pcl.includes(l) || l > passLv()) return; SET.pcl.push(l);
-    if (rw.coins) SET.coins += rw.coins; if (rw.box) SET.coins += BOX_COST; if (rw.out) { if (!owns(rw.out)) SET.inv.push(rw.out); }
+    if (rw.coins) SET.coins += rw.coins; if (rw.box) SET.coins += BOX_COST; if (rw.out) { if (!owns(rw.out)) SET.inv.push(rw.out); equip(COS[rw.out]); }
     if (rw.item) grant(rollItem(rw.item));
-    saveSet(); sfx('win'); toast(rw.out ? 'Roupa exclusiva desbloqueada!' : rw.box ? 'Caixa grátis: +100 fichas para abrir' : 'Recompensa recebida!', 2); openPass();
+    saveSet(); sfx('win'); toast(rw.out ? COS[rw.out].n + ' desbloqueado e equipado!' : rw.box ? 'Caixa grátis: +100 fichas para abrir' : 'Recompensa recebida!', 2); openPass();
   });
   const row = el.querySelector('.ps-row'); if (row) row.scrollLeft = Math.max(0, (lv - 2) * 96);
 }
