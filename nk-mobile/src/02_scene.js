@@ -7,7 +7,7 @@ const scene = new T.Scene();
 const SKY_C = new T.Color(MAPID === 'bal' ? 0xc6d4cf : 0xc3ced6); // névoa atmosférica (no Balneário, mais úmida e esverdeada)
 scene.background = SKY_C.clone();
 scene.fog = new T.Fog(SKY_C, 120, 950);
-const camera = new T.PerspectiveCamera(75, innerWidth / innerHeight, 0.06, 2600);
+const camera = new T.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 2600); // near maior = profundidade mais precisa (menos tremido de faces próximas no celular)
 camera.rotation.order = 'YXZ';
 scene.add(camera);
 const HEMI = new T.HemisphereLight(0xbfd6ee, 0x6b6150, 0.85); scene.add(HEMI);

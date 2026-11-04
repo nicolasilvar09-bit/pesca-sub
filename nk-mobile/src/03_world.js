@@ -322,8 +322,8 @@ function wallRun(axis, c0, c1, a0, a1, y0, y1, ops, color) {
     // moldura: peitoril e verga brancos (janela) ou batente de madeira (porta)
     const fr = (a, b, ya, yb, col) => { if (axis === 'x') addBox(a, ya, c0 - 0.06, b, yb, c1 + 0.06, col, { nocol: true }); else addBox(c0 - 0.06, ya, a, c1 + 0.06, yb, b, col, { nocol: true }); };
     if (o.lo > y0 + 0.1) { const cm = (c0 + c1) / 2; if (axis === 'x') GLASS.p.push([o.a, o.lo, cm, o.b, o.hi, cm]); else GLASS.p.push([cm, o.lo, o.a, cm, o.hi, o.b]);
-      const km = CUR_MAT; CUR_MAT = 0; fr(o.a - 0.1, o.b + 0.1, o.lo - 0.09, o.lo, '#fbfaf5'); fr(o.a - 0.1, o.b + 0.1, o.hi, o.hi + 0.09, '#fbfaf5'); fr(o.a - 0.06, o.a, o.lo, o.hi, '#fbfaf5'); fr(o.b, o.b + 0.06, o.lo, o.hi, '#fbfaf5'); CUR_MAT = km; }
-    else if (o.hi - o.lo < 3) { fr(o.a - 0.1, o.b + 0.1, o.hi, o.hi + 0.12, '#8d5a34'); fr(o.a - 0.1, o.a, o.lo, o.hi, '#8d5a34'); fr(o.b, o.b + 0.1, o.lo, o.hi, '#8d5a34'); }
+      const km = CUR_MAT; CUR_MAT = 0; fr(o.a - 0.1, o.b + 0.1, o.lo - 0.09, o.lo + 0.03, '#fbfaf5'); fr(o.a - 0.1, o.b + 0.1, o.hi - 0.03, o.hi + 0.09, '#fbfaf5'); fr(o.a - 0.06, o.a + 0.03, o.lo, o.hi, '#fbfaf5'); fr(o.b - 0.03, o.b + 0.06, o.lo, o.hi, '#fbfaf5'); CUR_MAT = km; }
+    else if (o.hi - o.lo < 3) { fr(o.a - 0.1, o.b + 0.1, o.hi - 0.04, o.hi + 0.12, '#8d5a34'); fr(o.a - 0.1, o.a + 0.04, o.lo, o.hi, '#8d5a34'); fr(o.b - 0.04, o.b + 0.1, o.lo, o.hi, '#8d5a34'); }
   }
   put(cur, a1, y0, y1);
 }
