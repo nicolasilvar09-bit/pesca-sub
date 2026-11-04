@@ -142,7 +142,7 @@ function partyCreate() {
   PARTY.pid = ON.s.uid.slice(0, 8) + Date.now().toString(36); PARTY.lead = ON.s.uid; PARTY.members = [meMember()];
   wsJoin(partyTop(), false); return true;
 }
-function partyState() { if (partyLead()) { pSend('p_state', { members: PARTY.members, mode: G.mode, diff: G.diff, lead: PARTY.lead }); renderLobby(); } }
+function partyState() { if (partyLead()) { pSend('p_state', { members: PARTY.members, mode: G.mode, diff: G.diff, lead: PARTY.lead, map: MAPID }); renderLobby(); } }
 function partyInvite(uid) {
   if (!partyCreate()) return;
   if (PARTY.members.length >= 4) { toast('O esquadrão está cheio (4).', 2.5); return; }
@@ -181,6 +181,7 @@ function partyLeave(quiet) {
 }
 function partyMsg(ev, d) {
   if (ev === 'p_state' && d.from === PARTY.lead) {
+    if (d.map && d.map !== MAPID && MAPS[d.map]) { SET.map = d.map; saveSet(false); toast('O líder está no mapa ' + MAPS[d.map].n + '. Trocando...', 3); setTimeout(() => { location.href = location.pathname + '?sala=' + PARTY.pid + '.' + PARTY.lead; }, 900); return; }
     PARTY.members = d.members; G.mode = d.mode; G.diff = d.diff; clearInterval(PARTY.joinIv);
     if (!d.members.some(m => m.uid === ON.s.uid)) { partyLeave(true); return; }
     if (G.phase === 'lobby') { lobbyActors(); renderLobby(); }

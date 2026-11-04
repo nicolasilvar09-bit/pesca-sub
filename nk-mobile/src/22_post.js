@@ -46,6 +46,7 @@ function postResize() {
 }
 function postWanted() { const q = QUAL[SET.quality] || QUAL[1]; return !!q.post && !window.__noPost && postSupported(); }
 function drawScene() {
+  dynRes(); // antes de desenhar: mudar o tamanho da tela limpa a imagem, então nunca depois
   const want = postWanted();
   if (want && !PP) { postInit(); postResize(); }
   if (PP && PP.on !== want) { PP.on = want; if (GFX.water) GFX.water.uniforms.uLin.value = want ? 1 : 0; scene.fog.color.copy(SKY_C); scene.background.copy(SKY_C); if (want) { scene.fog.color.convertSRGBToLinear(); scene.background.convertSRGBToLinear(); } } // névoa: mesma cor final na tela com ou sem o passe
@@ -53,7 +54,6 @@ function drawScene() {
     renderer.setRenderTarget(PP.rt); renderer.render(scene, camera);
     renderer.setRenderTarget(null); renderer.render(PP.sc, PP.cam);
   } else renderer.render(scene, camera);
-  dynRes();
 }
 // resolução dinâmica: se cair abaixo de ~38 FPS reduz a resolução aos poucos; com folga, volta
 function dynRes() {

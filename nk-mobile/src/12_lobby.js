@@ -1,7 +1,7 @@
 // ================= lobby: personagem, modo (solo/dupla/trio/esquadrão), dificuldade dos bots e equipe =================
 const LOB = { actors: [], x: 0, z: 0, y: 0, yaw: 0, t: 0 };
 (function findSpot() { // praia com o mar ao fundo
-  for (let r = 420; r < 840; r += 4) { const a = 2.2, x = Math.cos(a) * r, z = Math.sin(a) * r, h = groundH(x, z); if (h < 5 && !bldAt(x, z, 6)) { LOB.x = x; LOB.z = z; LOB.y = h; LOB.yaw = a; break; } }
+  for (let r = 420 * MK; r < 840 * MK; r += 4) { const a = 2.2, x = Math.cos(a) * r, z = Math.sin(a) * r, h = groundH(x, z); if (h < 5 && h > 0.7 && !bldAt(x, z, 6)) { LOB.x = x; LOB.z = z; LOB.y = h; LOB.yaw = a; break; } }
 })();
 const MODES = [['solo', 'Solo', 1], ['duo', 'Dupla', 2], ['trio', 'Trio', 3], ['squad', 'Esquadrão', 4]];
 const DIFFS = [['medio', 'Médio'], ['alto', 'Alto'], ['mix', 'Misto']];
@@ -49,10 +49,12 @@ function renderLobby() {
   <div class="lright">
     <label class="lab">Modo</label>
     <div class="seg">${MODES.map(m => `<button data-m="${m[0]}" class="${G.mode === m[0] ? 'on' : ''}">${m[1]}</button>`).join('')}</div>
+    <label class="lab">Mapa</label>
+    <div class="seg">${Object.keys(MAPS).map(k => `<button data-map="${k}" class="${MAPID === k ? 'on' : ''}">${MAPS[k].n}</button>`).join('')}</div>
     <label class="lab">Bots</label>
     <div class="seg">${DIFFS.map(d => `<button data-d="${d[0]}" class="${G.diff === d[0] ? 'on' : ''}">${d[1]}</button>`).join('')}</div>
     <button class="btn play" id="lPlay">JOGAR</button>
-    <div class="hint">Mapa: Ilha NK · bots completam as 50 vagas${HUM.ready || HUM.failed ? "" : "<br>Carregando personagens realistas..."}</div>
+    <div class="hint">${MAPS[MAPID].d} · bots completam as 50 vagas${HUM.ready || HUM.failed ? "" : "<br>Carregando personagens realistas..."}</div>
   </div>
   <div class="squad">${Array.from({ length: n }, (_, i) => { const m = PARTY.pid ? PARTY.members[i] : (i === 0 ? { uid: 'me', name: SET.name } : null);
     if (m) { const me = !PARTY.pid || m.uid === (ON.s && ON.s.uid); return `<div class="slot ${me ? 'me' : 'fr'}">${(m.name || 'Jogador').replace(/</g, '')}${m.uid === PARTY.lead ? ' 👑' : ''}<small>${me ? 'você' : 'amigo'}</small></div>`; }
@@ -63,12 +65,20 @@ function renderLobby() {
   $('chP').onclick = () => { SET.char = (SET.char + CHARS.length - 1) % CHARS.length; saveSet(); charChanged(); lobbyActors(); renderLobby(); };
   $('chN').onclick = () => { SET.char = (SET.char + 1) % CHARS.length; saveSet(); charChanged(); lobbyActors(); renderLobby(); };
   el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const sz = MODES.find(m => m[0] === b.dataset.m)[2]; if (PARTY.pid && PARTY.members.length > sz) { toast('O esquadrão tem ' + PARTY.members.length + ' pessoas: escolha um modo maior.', 2.5); return; } G.mode = SET.mode = b.dataset.m; saveSet(); lobbyActors(); renderLobby(); partyState(); });
+  el.querySelectorAll('[data-map]').forEach(b => b.onclick = () => switchMap(b.dataset.map));
   el.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { G.diff = SET.diff = b.dataset.d; saveSet(); renderLobby(); partyState(); });
   el.querySelectorAll('[data-inv]').forEach(b => b.onclick = openFriends); $('lFr').onclick = openFriends;
   const guest = PARTY.pid && !partyLead();
-  if (guest) { $('lPlay').textContent = 'AGUARDANDO O LÍDER'; $('lPlay').disabled = true; $('lPlay').classList.add('wait'); el.querySelectorAll('[data-m],[data-d]').forEach(b => b.disabled = true); }
+  if (guest) { $('lPlay').textContent = 'AGUARDANDO O LÍDER'; $('lPlay').disabled = true; $('lPlay').classList.add('wait'); el.querySelectorAll('[data-m],[data-d],[data-map]').forEach(b => b.disabled = true); }
   $('lSet').onclick = () => { G.phase = 'lobbyMenu'; openMenu(); $('mQuit').style.display = 'none'; $('mBack').onclick = () => { closePanels(); G.phase = 'lobby'; }; };
   $('lPlay').onclick = play;
+}
+// trocar de mapa: o mundo é montado ao abrir o jogo, então recarrega (rápido, fica no cache)
+function switchMap(id) {
+  if (id === MAPID || !MAPS[id]) return;
+  if (PARTY.pid && PARTY.members.length > 1) { toast('Escolha o mapa antes de chamar o esquadrão (ou saia dele para trocar).', 3); return; }
+  if (PARTY.pid) partyLeave(true);
+  SET.map = id; saveSet(false); $('loading').classList.remove('hidden'); location.href = location.pathname;
 }
 function charChanged() { if (PARTY.pid) { if (partyLead()) { const m = PARTY.members.find(x => x.uid === ON.s.uid); if (m) { m.char = SET.char; m.name = myName(); } partyState(); } else pSend('p_char', { char: SET.char, name: myName() }); } }
 function play() {

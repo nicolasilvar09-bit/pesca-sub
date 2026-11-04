@@ -144,3 +144,13 @@ O teste compila o JavaScript e simula partidas inteiras (esquadrão e solo) num 
 - **Rio** que desce do morro ao norte até o mar ao sul (raso, dá para atravessar a pé) com **pontes** nas estradas
 - Colinas novas a leste e o dobro de árvores
 - **Casas mobiliadas**: sofá, cama com travesseiro, estante, geladeira, TV e mesa com pés — servem de cobertura
+
+## Segundo mapa: Balneário
+Escolha no lobby (**Mapa: Ilha NK / Balneário**). Mapa original do NK Mobile, de selva tropical (~1,2 km):
+- Selva fechada (quase o dobro de árvores, coqueiros por toda parte, mato mais alto), morros íngremes, dois rios, duas lagoas e baías recortadas
+- **Centro Balneário**: cidade grande com ruas em grade, prédios de 5 a 7 andares, praça com chafariz, bancos e canteiros, carros estacionados
+- **Orla Dourada**: resort com hotéis brancos, chalés, piscina com espreguiçadeiras e guarda-sóis
+- **Palafitas**: casas de madeira sobre o mar com passarelas até a areia
+- **Templo do Morro**: templo em degraus no topo do morro mais alto, colunas e muros em ruínas (loot forte)
+- **Mercado Velho**: sobrados coloridos e barracas com toldo; mais Quartel da Mata, Arrozal, Vila Caiçara, Porto Pesqueiro, Mirante, Usina Velha e Cachoeira
+- No esquadrão online, o mapa é o do líder (quem entrar num mapa diferente troca sozinho)

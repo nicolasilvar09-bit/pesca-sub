@@ -2,8 +2,12 @@
 const T = THREE;
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
-const MAP = 1760, HALF = MAP / 2, CELL = 5, GN = MAP / CELL + 1; // ilha de ~1,5 km dentro de 1,76 km
-const MS = 1.375; // escala do mapa em relação à primeira versão (1,28 km)
+// mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
+const MAPID = (() => { try { const q = new URLSearchParams(location.search).get('mapa'); if (q) return q === 'balneario' ? 'bal' : 'nk'; return JSON.parse(localStorage.getItem('ilhazero_v1') || '{}').map === 'bal' ? 'bal' : 'nk'; } catch (e) { return 'nk'; } })();
+const MAPS = { nk: { n: 'Ilha NK', d: 'Ilha de 1,5 km, 15 cidades e um rio' }, bal: { n: 'Balneário', d: 'Selva tropical de 1,2 km, cidades grandes, resort e palafitas' } };
+const MAP = MAPID === 'bal' ? 1440 : 1760, HALF = MAP / 2, CELL = 5, GN = MAP / CELL + 1; // Ilha NK: ~1,5 km dentro de 1,76 km
+const MS = 1.375; // escala da Ilha NK em relação à primeira versão (1,28 km)
+const MK = MAP / 1760; // tamanho do mapa atual em relação à Ilha NK (zona, avião, veículos)
 const GRAV = 9.81;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -42,7 +46,7 @@ const G = {
 
 // configurações e estatísticas do jogador (ficam no aparelho)
 const SET_KEY = 'ilhazero_v1';
-const SET = Object.assign({ name: 'Jogador', char: 0, sens: 1, adsSens: 0.8, quality: 1, fov: 90, view: 'tpp', vol: 0.8, mode: 'squad', diff: 'mix', matches: 0, wins: 0, rp: 1000, top10: 0, kills: 0, best: 0, dmg: 0 },
+const SET = Object.assign({ name: 'Jogador', char: 0, sens: 1, adsSens: 0.8, quality: 1, fov: 90, map: 'nk', view: 'tpp', vol: 0.8, mode: 'squad', diff: 'mix', matches: 0, wins: 0, rp: 1000, top10: 0, kills: 0, best: 0, dmg: 0 },
   (() => { try { return JSON.parse(localStorage.getItem(SET_KEY) || '{}'); } catch (e) { return {}; } })());
 function saveSet(cloud) { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) { } if (cloud !== false && typeof cloudPush === 'function') cloudPush(); }
 

@@ -207,8 +207,8 @@ function windMat() {
   };
   return m;
 }
-const GRASS_N = 6500, FLOWER_N = 700;
-const grassM = new T.InstancedMesh(tuftGeo(6, 0.28, 0.55, '#3f5a24', '#93a74e'), windMat(), GRASS_N);
+const GRASS_N = MAPID === 'bal' ? 9500 : 6500, FLOWER_N = MAPID === 'bal' ? 900 : 700; // Balneário: mato mais alto e mais denso
+const grassM = new T.InstancedMesh((MAPID === 'bal' ? tuftGeo(7, 0.34, 0.78, '#2f5a1e', '#86a845') : tuftGeo(6, 0.28, 0.55, '#3f5a24', '#93a74e')), windMat(), GRASS_N);
 const flowerM = new T.InstancedMesh(tuftGeo(2, 0.3, 0.42, '#3f5a24', '#7d9a44', true), windMat(), FLOWER_N);
 grassM.frustumCulled = flowerM.frustumCulled = false; grassM.count = flowerM.count = 0; scene.add(grassM, flowerM);
 const FLOWER_C = ['#e8d66a', '#e9e4d8', '#c9a8d8', '#d8c05a', '#f0f0e8', '#b9c870'].map(c => new T.Color(c));

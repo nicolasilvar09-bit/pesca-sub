@@ -5,7 +5,50 @@ const WR = mulberry(4242); // o mapa é sempre o mesmo
 const wr = (a, b) => a + WR() * (b - a);
 const wpk = a => a[Math.floor(WR() * a.length)];
 
-const TOWNS = [
+// ---------- Balneário: selva tropical (mapa original do NK Mobile) ----------
+function balTowns() {
+  return [
+    { n: 'Centro Balneário', x: 0, z: 60, r: 128, kind: 'city', tier: 2, big: true },
+    { n: 'Orla Dourada', x: 335, z: 335, r: 95, kind: 'resort', tier: 2 },
+    { n: 'Palafitas', x: -470, z: 250, r: 72, kind: 'stilt', tier: 1 },
+    { n: 'Templo do Morro', x: -120, z: -330, r: 72, kind: 'ruins', tier: 3 },
+    { n: 'Quartel da Mata', x: 300, z: -255, r: 86, kind: 'military', tier: 3 },
+    { n: 'Arrozal', x: -335, z: -60, r: 86, kind: 'farm', tier: 1 },
+    { n: 'Vila Caiçara', x: 125, z: 425, r: 80, kind: 'village', tier: 1 },
+    { n: 'Mercado Velho', x: -232, z: 145, r: 76, kind: 'market', tier: 2 },
+    { n: 'Porto Pesqueiro', x: 432, z: -20, r: 76, kind: 'port', tier: 2 },
+    { n: 'Mirante', x: 85, z: -470, r: 62, kind: 'village', tier: 2 },
+    { n: 'Usina Velha', x: -385, z: -330, r: 70, kind: 'factory', tier: 2 },
+    { n: 'Cachoeira', x: -150, z: 405, r: 62, kind: 'village', tier: 1 },
+  ];
+}
+function balRoads() {
+  const R = [], T_ = n => TOWNS.find(t => t.n === n), link = (a, b) => { const p = T_(a), q = T_(b); R.push([p.x, p.z, q.x, q.z]); };
+  [['Centro Balneário', 'Mercado Velho'], ['Centro Balneário', 'Orla Dourada'], ['Centro Balneário', 'Quartel da Mata'], ['Centro Balneário', 'Porto Pesqueiro'],
+   ['Centro Balneário', 'Vila Caiçara'], ['Centro Balneário', 'Arrozal'], ['Mercado Velho', 'Palafitas'], ['Mercado Velho', 'Cachoeira'], ['Cachoeira', 'Vila Caiçara'],
+   ['Arrozal', 'Usina Velha'], ['Usina Velha', 'Templo do Morro'], ['Templo do Morro', 'Mirante'], ['Mirante', 'Quartel da Mata'], ['Quartel da Mata', 'Porto Pesqueiro'],
+   ['Porto Pesqueiro', 'Orla Dourada'], ['Orla Dourada', 'Vila Caiçara'], ['Arrozal', 'Mercado Velho'], ['Templo do Morro', 'Centro Balneário']].forEach(([a, b]) => link(a, b));
+  // ruas internas: avenidas em cruz nas cidades; no centro, uma grade de quarteirões
+  for (const t of TOWNS) {
+    if (!['city', 'resort', 'market'].includes(t.kind)) continue;
+    const e = t.r - 10; R.push([t.x - e, t.z, t.x + e, t.z], [t.x, t.z - e, t.x, t.z + e]);
+    if (t.big) for (const o of [-50, 50]) R.push([t.x - e, t.z + o, t.x + e, t.z + o], [t.x + o, t.z - e, t.x + o, t.z + e]);
+  }
+  return R;
+}
+// relevo: morros íngremes, cristas, baías recortadas
+function rawHB(x, z) {
+  const d = Math.hypot(x, z), a = Math.atan2(z, x);
+  const edge = 600 + NZ.fbm(Math.cos(a) * 2.2 + 5, Math.sin(a) * 2.2 + 5, 4) * 140;
+  const s = smooth(clamp((edge - d) / 120, 0, 1));
+  let h = 9 + NZ.fbm(x / 210 + 1, z / 210 + 9, 4) * 38 + Math.abs(NZ.fbm(x / 85 - 4, z / 85 + 2, 3)) * 16;
+  h += 72 * Math.exp(-((x + 120) ** 2 + (z + 330) ** 2) / (2 * 115 * 115)); // morro do templo
+  h += 34 * Math.exp(-((x - 85) ** 2 + (z + 470) ** 2) / (2 * 85 * 85)); // mirante
+  h += 26 * Math.exp(-((x - 320) ** 2 + (z + 140) ** 2) / (2 * 105 * 105));
+  h = Math.max(h, 2.5);
+  return lerp(-14, h, s);
+}
+const TOWNS = MAPID === 'bal' ? balTowns() : [
   { n: 'Porto Azul', x: -335, z: 300, r: 100, kind: 'port', tier: 2 },
   { n: 'Vila Cores', x: -120, z: -255, r: 92, kind: 'village', tier: 1 },
   { n: 'Centro', x: 70, z: 45, r: 112, kind: 'city', tier: 2 },
@@ -23,23 +66,28 @@ const TOWNS = [
   { n: 'Quartel Sul', x: -330, z: 600, r: 88, kind: 'military', tier: 3 },
   { n: 'Rancho', x: 560, z: 300, r: 75, kind: 'farm', tier: 1 },
 ]);
-const ROADS = [ // trechos de estrada [x0,z0,x1,z1]
+const ROADS = MAPID === 'bal' ? balRoads() : [ // trechos de estrada [x0,z0,x1,z1]
   [-335, 300, -210, 150], [-210, 150, 70, 45], [70, 45, 335, -240], [70, 45, 275, 290], [-120, -255, 70, 45],
   [-380, -85, -120, -255], [-380, -85, -210, 150], [275, 290, 150, 430], [335, -240, 120, -400],
   [-165, 95, 70, 45], [175, -110, 70, 45], [175, -110, 335, -240], [15, 335, 70, 45], [15, 335, -335, 300], [430, 35, 335, -240], [430, 35, 275, 290],
 ].map(r => r.map(v => v * MS));
-{ // estradas das cidades novas
+if (MAPID !== 'bal') { // estradas das cidades novas
   const T_ = n => TOWNS.find(t => t.n === n), link = (a, b) => { const p = T_(a), q = T_(b); ROADS.push([p.x, p.z, q.x, q.z]); };
   link('Cidade Alta', 'Centro'); link('Cidade Alta', 'Farol Leste'); link('Cidade Alta', 'Jardim');
   link('Pedreira', 'Jardim'); link('Pedreira', 'Base Militar'); link('Vila Nova', 'Usina'); link('Vila Nova', 'Vila Cores');
   link('Quartel Sul', 'Prainha'); link('Quartel Sul', 'Porto Azul'); link('Rancho', 'Fazenda Sol'); link('Rancho', 'Farol Leste');
 }
 // rio que desce do morro ao norte até o mar ao sul (raso: dá para atravessar a pé; as estradas passam por pontes)
-const RIVER = [[-40, -560], [40, -420], [60, -250], [-10, -130], [-80, -40], [-90, 200], [-120, 330], [-110, 480], [-110, 760]];
+const RIVERS = MAPID === 'bal' ? [
+  [[-70, -250], [-40, -150], [-120, -60], [-150, 40], [-85, 250], [-55, 340], [-35, 470], [-20, 700]],
+  [[185, -120], [240, 40], [300, 165], [420, 205], [640, 245]],
+] : [[[-40, -560], [40, -420], [60, -250], [-10, -130], [-80, -40], [-90, 200], [-120, 330], [-110, 480], [-110, 760]]];
+const RIVER = RIVERS[0];
+const LAKES = MAPID === 'bal' ? [[205, -415, 52], [-300, 330, 38]] : []; // lagoas (fundas: nada)
 function riverDist(x, z) {
   let m = 1e9;
-  for (let i = 0; i < RIVER.length - 1; i++) {
-    const a = RIVER[i], b = RIVER[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz;
+  for (const RV of RIVERS) for (let i = 0; i < RV.length - 1; i++) {
+    const a = RV[i], b = RV[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz;
     const t = clamp(((x - a[0]) * dx + (z - a[1]) * dz) / L, 0, 1);
     m = Math.min(m, Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t));
   }
@@ -48,6 +96,7 @@ function riverDist(x, z) {
 
 // ---------- relevo ----------
 function rawH(x, z) {
+  if (MAPID === 'bal') return rawHB(x, z);
   const d = Math.hypot(x, z), a = Math.atan2(z, x);
   const edge = 548 * MS + NZ.fbm(Math.cos(a) * 1.7 + 11, Math.sin(a) * 1.7 + 11, 3) * 100;
   const s = smooth(clamp((edge - d) / 180, 0, 1));
@@ -58,11 +107,12 @@ function rawH(x, z) {
   return lerp(-16, h, s);
 }
 const PADS = []; // áreas planas (cidades e casas isoladas)
-for (const t of TOWNS) { t.h = Math.max(4, rawH(t.x, t.z)); PADS.push({ x: t.x, z: t.z, r: t.r, b: 45, h: t.h }); }
+for (const t of TOWNS) { t.h = Math.max(4, rawH(t.x, t.z)); const st = t.kind === 'stilt'; PADS.push({ x: t.x, z: t.z, r: st ? 24 : t.r, b: st ? 18 : 45, h: t.h }); }
 // casas isoladas espalhadas pela ilha
 const LONE = [];
-for (let k = 0; k < 1600 && LONE.length < 85; k++) {
-  const x = wr(-470 * MS, 470 * MS), z = wr(-470 * MS, 470 * MS), h = rawH(x, z);
+const LONE_N = MAPID === 'bal' ? 60 : 85, LONE_R = MAPID === 'bal' ? 560 : 470 * MS;
+for (let k = 0; k < 1600 && LONE.length < LONE_N; k++) {
+  const x = wr(-LONE_R, LONE_R), z = wr(-LONE_R, LONE_R), h = rawH(x, z);
   if (riverDist(x, z) < 28) continue;
   if (h < 4 || h > 45) continue;
   if (TOWNS.some(t => Math.hypot(t.x - x, t.z - z) < t.r + 50)) continue;
@@ -80,6 +130,7 @@ function padH(x, z, h) {
 const H = new Float32Array(GN * GN);
 const townAt = (x, z, pad = 0) => TOWNS.find(t => Math.hypot(t.x - x, t.z - z) < t.r + pad);
 function riverCarve(x, z, h) {
+  for (const [lx, lz, lr] of LAKES) { const d = Math.hypot(x - lx, z - lz) - lr; if (d < 26) h = Math.min(h, lerp(-2.8, h, smooth(clamp(d / 26, 0, 1)))); }
   const d = riverDist(x, z); if (d > 22 || roadDist(x, z) < 7 || townAt(x, z, 6)) return h;
   return Math.min(h, lerp(-0.85, h, smooth(clamp((d - 7) / 15, 0, 1))));
 }
@@ -105,7 +156,9 @@ function roadDist(x, z) {
 (function buildTerrain() {
   const pos = new Float32Array(GN * GN * 3), col = new Float32Array(GN * GN * 3), c = new T.Color();
   const sand = new T.Color('#b8a77e'), wet = new T.Color('#a89a72'), road = new T.Color('#4a4b4e'), line = new T.Color('#d9d2a8');
-  const pave = new T.Color('#86837c'), rock = new T.Color('#85827c'), g1 = new T.Color('#617a3c'), g2 = new T.Color('#8a8f52'), g3 = new T.Color('#4f6933');
+  const BALC = MAPID === 'bal';
+  const pave = new T.Color(BALC ? '#8f8b82' : '#86837c'), rock = new T.Color(BALC ? '#7d7a6e' : '#85827c'), g1 = new T.Color(BALC ? '#4d7a2e' : '#617a3c'), g2 = new T.Color(BALC ? '#7a9a3c' : '#8a8f52'), g3 = new T.Color(BALC ? '#355e24' : '#4f6933');
+  if (BALC) { sand.set('#d9c99a'); wet.set('#bfae80'); }
   for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
     const k = j * GN + i, x = -HALF + i * CELL, z = -HALF + j * CELL, h = H[k];
     pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
@@ -113,7 +166,7 @@ function roadDist(x, z) {
     const n = NZ.n(x / 40, z / 40) * 0.5 + 0.5, t = townAt(x, z), rd = roadDist(x, z);
     if (h < -1) c.copy(wet); else if (h < 1.6) c.copy(sand);
     else if (rd < 4.5) c.copy(rd < 0.5 ? line : road);
-    else if (t && (t.kind === 'city' || t.kind === 'military' || t.kind === 'port' || t.kind === 'factory') && Math.hypot(t.x - x, t.z - z) < t.r) c.copy(pave).multiplyScalar(0.94 + n * 0.08);
+    else if (t && ['city', 'military', 'port', 'factory', 'resort', 'market'].includes(t.kind) && Math.hypot(t.x - x, t.z - z) < t.r) c.copy(pave).multiplyScalar(0.94 + n * 0.08);
     else if (sl > 3.2 || h > 52) c.copy(rock).multiplyScalar(0.9 + n * 0.2);
     else { c.copy(g1).lerp(n > 0.55 ? g2 : g3, Math.abs(n - 0.55) * 1.6); }
     col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
@@ -283,10 +336,13 @@ function slabWithHole(x0, z0, x1, z1, y0, y1, hole, color) {
 function building(o) {
   const w = o.w, d = o.d, x0 = o.x - w / 2, x1 = o.x + w / 2, z0 = o.z - d / 2, z1 = o.z + d / 2;
   const wm = o.wallMat != null ? o.wallMat : (o.roof === 'gable' ? (WR() < 0.35 ? 1 : 0) : (WR() < 0.5 ? 3 : 1));
-  const fh = o.fh || 3.2, floors = o.floors || 1, col = wm === 1 && !o.col ? wpk(['#8e4a36', '#7f4330', '#93573c', '#7a4c3a', '#8a5a44']) : o.col || wpk(WALL), gy = groundH(o.x, o.z);
+  const fh = o.fh || 3.2, floors = o.floors || 1, col = wm === 1 && !o.col ? wpk(['#8e4a36', '#7f4330', '#93573c', '#7a4c3a', '#8a5a44']) : o.col || wpk(WALL), gy = o.stilt != null ? o.stilt - 0.15 : o.gy != null ? o.gy : groundH(o.x, o.z);
   const y0 = gy + 0.15, top = y0 + floors * fh;
   const B = { x0, z0, x1, z1, y: y0, top, floors, fh, doors: [], spots: [], tier: o.tier || 1 };
-  addBox(x0 - 0.3, gy - 2, z0 - 0.3, x1 + 0.3, y0, z1 + 0.3, '#9c958a', { mat: 3 }); // base
+  if (o.stilt != null) { // palafita: pilares de madeira até o fundo e uma varanda em volta
+    for (const [px, pz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1], [(x0 + x1) / 2, z0], [(x0 + x1) / 2, z1]]) addBox(px - 0.18, Math.min(groundH(px, pz), 0) - 1, pz - 0.18, px + 0.18, y0 - 0.15, pz + 0.18, '#5e4129', { mat: 4 });
+    addBox(x0 - 1.4, y0 - 0.3, z0 - 1.4, x1 + 1.4, y0, z1 + 1.4, '#8a6340', { mat: 4 });
+  } else addBox(x0 - 0.3, gy - 2, z0 - 0.3, x1 + 0.3, y0, z1 + 0.3, '#9c958a', { mat: 3 }); // base
   if (fh < 4) addBox(x0 + WT, y0 - 0.02, z0 + WT, x1 - WT, y0 + 0.01, z1 - WT, '#a8784e', { mat: 4, nocol: true }); // assoalho
   CUR_MAT = wm;
   const dw = o.doorW || 1.4, sides = o.doors || ['s'];
@@ -396,17 +452,84 @@ const house2 = (t, x, z, w, d) => building({ x, z, w, d, floors: 2, roof: WR() <
 const apart = (t, x, z, w, d, f) => building({ x, z, w, d, floors: f, roofAccess: true, trim: wpk(ROOF), doors: doorsToward(t, x, z), tier: t.tier });
 const warehouse = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, fh: 6, doorW: 3.4, doorH: 4.2, doors: WR() < 0.5 ? ['n', 's'] : ['e', 'w'], noWin: true, wallMat: 5, col: wpk(['#8ecae6', '#ffb703', '#e5e5e5', '#adb5bd', '#f28482']), trim: '#3d405b', tier: t.tier });
 
+// enfeites e lugares especiais do Balneário
+function balExtras(t) {
+  const gy = t.h;
+  if (t.kind === 'city' || t.kind === 'resort' || t.kind === 'market') {
+    // praça num quarteirão: chafariz, bancos, canteiros e postes
+    const px = t.x + (t.big ? 25 : 18), pz = t.z + (t.big ? 25 : 18);
+    if (free(px, pz, 16, 16, 1)) {
+      FOOT.push({ x: px, z: pz, w: 16, d: 16 });
+      addBox(px - 8, gy, pz - 8, px + 8, gy + 0.08, pz + 8, '#cfc8b8', { nocol: true, mat: 3 });
+      addBox(px - 2.6, gy, pz - 2.6, px + 2.6, gy + 0.6, pz + 2.6, '#bdb5a3', { mat: 3 }); addBox(px - 2.2, gy + 0.45, pz - 2.2, px + 2.2, gy + 0.55, pz + 2.2, '#4fa3c7', { nocol: true });
+      addBox(px - 0.35, gy, pz - 0.35, px + 0.35, gy + 2.2, pz + 0.35, '#d8d2c4'); addBox(px - 0.9, gy + 2.2, pz - 0.9, px + 0.9, gy + 2.4, pz + 0.9, '#d8d2c4', { nocol: true });
+      for (const [bx2, bz2, ax] of [[-6, 0, 'z'], [6, 0, 'z'], [0, -6, 'x'], [0, 6, 'x']]) { const L = 1.8; if (ax === 'x') addBox(px + bx2 - L, gy, pz + bz2 - 0.3, px + bx2 + L, gy + 0.45, pz + bz2 + 0.3, '#7a5233', { mat: 4 }); else addBox(px + bx2 - 0.3, gy, pz + bz2 - L, px + bx2 + 0.3, gy + 0.45, pz + bz2 + L, '#7a5233', { mat: 4 }); }
+      for (const [cx2, cz2] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) { addBox(px + cx2 - 1, gy, pz + cz2 - 1, px + cx2 + 1, gy + 0.5, pz + cz2 + 1, '#9c958a', { mat: 3 }); addBox(px + cx2 - 0.8, gy + 0.5, pz + cz2 - 0.8, px + cx2 + 0.8, gy + 1.5, pz + cz2 + 0.8, '#3f7a35', { nocol: true }); }
+    }
+    // carros estacionados e pontos de ônibus ao longo das avenidas (cobertura)
+    for (let i = 0; i < (t.big ? 14 : 6); i++) place(t, 2.2, 4.6, 4, (x, z) => { const g2 = groundH(x, z), c = wpk(['#c0392b', '#2c3e50', '#ecf0f1', '#f1c40f', '#16a085', '#7f8c8d']), al = WR() < 0.5; const w2 = al ? 4.4 : 2, d2 = al ? 2 : 4.4; addBox(x - w2 / 2, g2 + 0.3, z - d2 / 2, x + w2 / 2, g2 + 1.0, z + d2 / 2, c); addBox(x - w2 / 2 * 0.6, g2 + 1.0, z - d2 / 2 * 0.6, x + w2 / 2 * 0.6, g2 + 1.5, z + d2 / 2 * 0.6, '#9fb4c0', { nocol: true }); });
+  }
+  if (t.kind === 'resort') { // piscina com espreguiçadeiras e guarda-sóis
+    const px = t.x - 20, pz = t.z - 18;
+    if (free(px, pz, 22, 14, 1)) {
+      FOOT.push({ x: px, z: pz, w: 22, d: 14 });
+      addBox(px - 11, gy, pz - 7, px + 11, gy + 0.1, pz + 7, '#e8e1d2', { nocol: true, mat: 3 });
+      addBox(px - 8, gy + 0.1, pz - 4, px + 8, gy + 0.14, pz + 4, '#38b6d8', { nocol: true });
+      for (const sd of [-1, 1]) addBox(px - 8.4, gy, pz + sd * 4.2 - 0.2, px + 8.4, gy + 0.35, pz + sd * 4.2 + 0.2, '#ffffff', { mat: 3 });
+      for (let i = -3; i <= 3; i++) { const ux = px + i * 2.6; addBox(ux - 0.4, gy, pz + 5.2, ux + 0.4, gy + 0.4, pz + 6.6, '#f4f1ea'); addBox(ux - 0.05, gy, pz + 6.4, ux + 0.05, gy + 2.3, pz + 6.5, '#ddd', { nocol: true }); addBox(ux - 1.1, gy + 2.3, pz + 5.4, ux + 1.1, gy + 2.45, pz + 7.5, wpk(['#ff6b6b', '#ffd93d', '#4ecdc4', '#ffffff']), { nocol: true }); }
+    }
+  }
+  if (t.kind === 'market') { // barracas com toldo colorido
+    for (let i = 0; i < 12; i++) place(t, 3.4, 2.6, 4, (x, z) => { const g2 = groundH(x, z); addBox(x - 1.6, g2, z - 0.5, x + 1.6, g2 + 0.95, z + 0.5, '#8a6340', { mat: 4 }); for (const [ox, oz] of [[-1.6, -1.2], [1.5, -1.2], [-1.6, 1.1], [1.5, 1.1]]) addBox(x + ox, g2, z + oz, x + ox + 0.1, g2 + 2.3, z + oz + 0.1, '#6a4a2e', { nocol: true }); addBox(x - 1.8, g2 + 2.3, z - 1.4, x + 1.8, g2 + 2.42, z + 1.4, wpk(['#e63946', '#f4a261', '#2a9d8f', '#e9c46a', '#457b9d']), { nocol: true }); });
+  }
+  if (t.kind === 'stilt') { // casas sobre palafitas no mar, com passarelas até a areia
+    const a0 = Math.atan2(t.z, t.x); let made = 0;
+    for (let k = 0; k < 200 && made < 16; k++) {
+      const an = a0 + (WR() - 0.5) * 1.8, r = 20 + WR() * (t.r + 35), x = Math.round(t.x + Math.cos(an) * r), z = Math.round(t.z + Math.sin(an) * r), h0 = groundH(x, z);
+      if (h0 > 0.8 || h0 < -9 || !free(x, z, 9, 8, 3)) continue;
+      FOOT.push({ x, z, w: 9, d: 8 }); made++;
+      const dr = doorsToward(t, x, z)[0], deck = 2.2;
+      building({ x, z, w: 7, d: 6, floors: 1, roof: 'gable', stilt: deck, roofCol: wpk(['#6b4f2a', '#8a6a3a', '#5a4632']), col: wpk(['#a67c52', '#9c6b43', '#b88b5a', '#c49a6c']), wallMat: 4, doors: [dr], tier: 1 });
+      // passarela até a terra firme
+      const dx = dr === 'e' ? 1 : dr === 'w' ? -1 : 0, dz = dr === 's' ? 1 : dr === 'n' ? -1 : 0;
+      let sx = x + dx * 4.4, sz = z + dz * 4;
+      for (let i = 0; i < 30; i++) {
+        const bx0 = Math.min(sx, sx + dx * 2) - (dx ? 0 : 0.9), bx1 = Math.max(sx, sx + dx * 2) + (dx ? 0 : 0.9), bz0 = Math.min(sz, sz + dz * 2) - (dz ? 0 : 0.9), bz1 = Math.max(sz, sz + dz * 2) + (dz ? 0 : 0.9);
+        addBox(bx0, deck - 0.25, bz0, bx1, deck, bz1, '#8a6340', { mat: 4 });
+        if (i % 2 === 0) addBox(sx - 0.12, Math.min(groundH(sx, sz), 0) - 1, sz - 0.12, sx + 0.12, deck - 0.25, sz + 0.12, '#5e4129', { nocol: true });
+        sx += dx * 2; sz += dz * 2; if (groundH(sx, sz) > deck - 0.5) break;
+      }
+    }
+    for (let i = 0; i < 6; i++) place(t, 3, 2, 4, (x, z) => { const g2 = groundH(x, z); addBox(x - 1.5, g2, z - 0.6, x + 1.5, g2 + 0.7, z + 0.6, '#3d6e8c', { mat: 5 }); }); // barcos na areia
+  }
+  if (t.kind === 'ruins') { // templo em degraus no alto do morro, colunas e muros quebrados
+    const st = '#8f8a78', st2 = '#7d7866', moss = '#6f7a5a';
+    FOOT.push({ x: t.x, z: t.z, w: 32, d: 32 });
+    [[15, 0, 2.2], [11, 2.2, 2.2], [7, 4.4, 2.2]].forEach(([hw, y, h], i) => addBox(t.x - hw, gy + y - (i ? 0 : 1), t.z - hw, t.x + hw, gy + y + h, t.z + hw, i % 2 ? st2 : st, { mat: 3 }));
+    for (let i = 0; i < 15; i++) { const y = gy + i * 0.44, zz = t.z + 15 + 3.2 - i * (8.4 / 15); addBox(t.x - 2.2, gy - 1, zz - 0.6, t.x + 2.2, y + 0.44, zz, '#a39d8a', { mat: 3 }); } // escadaria
+    building({ x: t.x, z: t.z, w: 8, d: 8, floors: 1, gy: gy + 6.6, col: '#a39d8a', trim: '#6d685a', wallMat: 3, doors: ['s', 'n'], noFurn: true, tier: 3 });
+    for (let k = 0; k < 14; k++) { const an = k / 14 * Math.PI * 2, x = t.x + Math.cos(an) * 26, z = t.z + Math.sin(an) * 26, g2 = groundH(x, z), h = k % 3 === 0 ? 1.6 + WR() * 1.5 : 5.5; addBox(x - 0.7, g2 - 0.5, z - 0.7, x + 0.7, g2 + h, z + 0.7, WR() < 0.4 ? moss : st, { mat: 3 }); if (h > 5) addBox(x - 0.95, g2 + h, z - 0.95, x + 0.95, g2 + h + 0.45, z + 0.95, st2, { mat: 3 }); }
+    for (let k = 0; k < 10; k++) { const an = WR() * Math.PI * 2, r = 36 + WR() * 24, x = t.x + Math.cos(an) * r, z = t.z + Math.sin(an) * r, g2 = groundH(x, z), L = 3 + WR() * 5, h = 1 + WR() * 2.2; if (!free(x, z, L, 1, 1)) continue; FOOT.push({ x, z, w: L, d: 1 }); if (WR() < 0.5) addBox(x - L / 2, g2 - 0.3, z - 0.4, x + L / 2, g2 + h, z + 0.4, WR() < 0.5 ? moss : st2, { mat: 3 }); else addBox(x - 0.4, g2 - 0.3, z - L / 2, x + 0.4, g2 + h, z + L / 2, WR() < 0.5 ? moss : st2, { mat: 3 }); }
+    for (let k = 0; k < 4; k++) { const an = k / 4 * Math.PI * 2 + 0.6, x = Math.round(t.x + Math.cos(an) * 44), z = Math.round(t.z + Math.sin(an) * 44); if (free(x, z, 7, 7)) { FOOT.push({ x, z, w: 7, d: 7 }); building({ x, z, w: 6.5, d: 6.5, floors: 1, col: '#9a947f', trim: '#6d685a', wallMat: 3, doors: doorsToward(t, x, z), noFurn: true, tier: 3 }); } }
+  }
+}
 (function buildTowns() {
   for (const t of TOWNS) {
-    const n = { village: 22, city: 20, port: 13, military: 11, farm: 10, factory: 11 }[t.kind];
+    const n = t.big ? 30 : { village: 22, city: 20, port: 13, military: 11, farm: 10, factory: 11, resort: 9, market: 14, stilt: 0, ruins: 0 }[t.kind];
     let made = 0;
     for (let i = 0; i < n * 3 && made < n; i++) {
       if (t.kind === 'village') { const two = WR() < 0.35, w = two ? 10 : 8 + Math.round(WR() * 2), d = two ? 8 : 7; if (place(t, w, d, 5, (x, z) => (two ? house2 : house)(t, x, z, w, d))) made++; }
       else if (t.kind === 'city') {
         const r = WR();
-        if (r < 0.5) { const f = 3 + (WR() < 0.5 ? 1 : 0); if (place(t, 12, 12, 5, (x, z) => apart(t, x, z, 12, 12, f))) made++; }
+        if (t.big && r < 0.3) { const f = 5 + Math.floor(WR() * 3), w2 = 14, d2 = 12; if (place(t, w2, d2, 6, (x, z) => building({ x, z, w: w2, d: d2, floors: f, roofAccess: true, col: wpk(['#e8e2d6', '#d4dde3', '#f0e6cf', '#c9d6cf', '#e3d3c3']), trim: wpk(['#2f6f8f', '#b5543c', '#3d405b', '#6a994e']), wallMat: 3, doors: doorsToward(t, x, z), tier: 3 }))) made++; } // prédios altos
+        else if (r < 0.5) { const f = 3 + (WR() < 0.5 ? 1 : 0); if (place(t, 12, 12, 5, (x, z) => apart(t, x, z, 12, 12, f))) made++; }
         else if (r < 0.8) { if (place(t, 10, 8, 5, (x, z) => house2(t, x, z, 10, 8))) made++; }
         else if (place(t, 8, 7, 5, (x, z) => house(t, x, z, 8, 7))) made++;
+      } else if (t.kind === 'resort') { // hotéis brancos de vários andares e chalés
+        if (made < 4) { const f = 3 + Math.floor(WR() * 3); if (place(t, 16, 11, 6, (x, z) => building({ x, z, w: 16, d: 11, floors: f, roofAccess: true, col: '#f4efe6', trim: wpk(['#2ec4b6', '#ff9f1c', '#e71d36', '#3a86ff']), wallMat: 3, doors: doorsToward(t, x, z), tier: 2 }))) made++; }
+        else if (place(t, 8, 7, 5, (x, z) => building({ x, z, w: 8, d: 7, floors: 1, roof: 'gable', roofCol: wpk(['#c2703d', '#d9a441', '#8a5a2b']), col: wpk(['#f7e8c9', '#ffffff', '#e9f5f2']), doors: doorsToward(t, x, z), tier: 2 }))) made++;
+      } else if (t.kind === 'market') { // sobrados coloridos com loja embaixo
+        if (place(t, 10, 8, 5, (x, z) => building({ x, z, w: 10, d: 8, floors: 2, roof: 'flat', col: wpk(['#f2c14e', '#f78154', '#4d9078', '#b4436c', '#5fad56', '#e8d5b7']), trim: '#ffffff', doors: doorsToward(t, x, z), tier: 2 }))) made++;
       } else if (t.kind === 'port') {
         if (made < 4) { if (place(t, 22, 14, 6, (x, z) => warehouse(t, x, z, 22, 14))) made++; }
         else if (WR() < 0.5) { if (place(t, 7, 7, 5, (x, z) => container(x, z, WR() < 0.5 ? 'x' : 'z', 1 + (WR() < 0.4 ? 1 : 0)))) made++; }
@@ -428,6 +551,7 @@ const warehouse = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, fh: 6, do
     }
     // coberturas soltas (caixas de madeira) entre as casas
     for (let i = 0; i < 10; i++) place(t, 2, 2, 3, (x, z) => crateBox(x, z, 1.2 + WR() * 0.4));
+    if (MAPID === 'bal') balExtras(t);
     if (t.kind === 'military') { // muro com portões
       const gy = t.h, r = t.r - 4, hW = 2.6, g = 7;
       const seg = (ax, az, bx2, bz) => { if (Math.abs(ax - bx2) > 0.1) addBox(Math.min(ax, bx2), gy, az - 0.3, Math.max(ax, bx2), gy + hW, az + 0.3, '#c2c5aa', { mat: 3 }); else addBox(ax - 0.3, gy, Math.min(az, bz), ax + 0.3, gy + hW, Math.max(az, bz), '#c2c5aa', { mat: 3 }); };
@@ -468,15 +592,16 @@ const warehouse = (t, x, z, w, d) => building({ x, z, w, d, floors: 1, fh: 6, do
 const TREES = [], NAT = {};
 (function nature() {
   const tr = [], rk = [], bu = [];
-  for (let k = 0; k < 16000 && tr.length < 2200; k++) {
-    const x = wr(-560 * MS, 560 * MS), z = wr(-560 * MS, 560 * MS), h = groundH(x, z);
+  const BALN = MAPID === 'bal', NTR = BALN ? 4200 : 2200, NRG = BALN ? 700 : 560 * MS;
+  for (let k = 0; k < (BALN ? 30000 : 16000) && tr.length < NTR; k++) {
+    const x = wr(-NRG, NRG), z = wr(-NRG, NRG), h = groundH(x, z);
     if (h < 2.5 || h > 60) continue;
     if (townAt(x, z, 12) || roadDist(x, z) < 7) continue;
     if (FOOT.some(f => Math.abs(f.x - x) < f.w / 2 + 3 && Math.abs(f.z - z) < f.d / 2 + 3)) continue;
-    const dens = NZ.n(x / 90 + 40, z / 90 - 40); if (dens < -0.15 && WR() < 0.8) continue;
+    const dens = NZ.n(x / 90 + 40, z / 90 - 40); if (dens < (BALN ? -0.4 : -0.15) && WR() < 0.8) continue;
     const r = WR();
-    if (r < 0.62) tr.push([x, h, z, 0.8 + WR() * 0.6]);
-    else if (r < 0.9) bu.push([x, h, z, 0.7 + WR() * 0.7]);
+    if (r < (BALN ? 0.6 : 0.62)) tr.push([x, h, z, 0.8 + WR() * (BALN ? 0.8 : 0.6)]);
+    else if (r < (BALN ? 0.96 : 0.9)) bu.push([x, h, z, 0.7 + WR() * 0.7]);
     else rk.push([x, h, z, 0.8 + WR() * 1.6]);
   }
   const dummy = new T.Object3D(), c = new T.Color();
@@ -486,8 +611,8 @@ const TREES = [], NAT = {};
   let nc = 0, nr = 0;
   tr.forEach(([x, h, z, s], i) => {
     const th = 2.6 * s; dummy.position.set(x, h + th / 2, z); dummy.scale.set(s, th, s); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); trunk.setMatrixAt(i, dummy.matrix);
-    const round = NZ.n(x / 60, z / 60) > 0.1;
-    c.setHSL(round ? 0.2 + WR() * 0.07 : 0.27 + WR() * 0.06, 0.42, 0.24 + WR() * 0.09, 'srgb');
+    const round = BALN ? NZ.n(x / 60, z / 60) > -0.45 : NZ.n(x / 60, z / 60) > 0.1;
+    c.setHSL(round ? (BALN ? 0.24 : 0.2) + WR() * 0.07 : 0.27 + WR() * 0.06, BALN ? 0.55 : 0.42, (BALN ? 0.2 : 0.24) + WR() * 0.09, 'srgb');
     if (round) { // copa redonda: 3 bolos de folhas
       for (const [ox, oy, oz, k] of [[0, 1.6, 0, 1], [0.9, 1.1, 0.4, 0.7], [-0.7, 1.2, -0.6, 0.72]]) {
         dummy.position.set(x + ox * s, h + th + oy * s, z + oz * s); dummy.scale.set(2.2 * s * k, 1.9 * s * k, 2.2 * s * k); dummy.rotation.set(WR(), WR(), 0); dummy.updateMatrix(); crown2.setMatrixAt(nr, dummy.matrix);
