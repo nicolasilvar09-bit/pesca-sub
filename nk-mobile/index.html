@@ -273,6 +273,8 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
 .lb-sb span{font-size:20px;line-height:1}.lb-sb.pass{border-color:#ffb703;background:linear-gradient(180deg,rgba(255,183,3,.28),rgba(10,10,12,.75))}
 .lb-sb .dot{position:absolute;top:3px;right:5px;width:9px;height:9px;border-radius:50%;background:#e1141c;box-shadow:0 0 6px #e1141c}
 #cosP{display:flex;align-items:center;justify-content:center;z-index:36}
+.cos-x{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));right:calc(10px + var(--sr));z-index:40;width:42px;height:42px;border-radius:50%;background:#e1141c;color:#fff;font-size:20px;font-weight:900;box-shadow:0 2px 10px rgba(0,0,0,.5);border:2px solid rgba(255,255,255,.85)}
+@media (max-height:420px){#cosP .box.cosb{max-height:calc(100vh - 16px);padding-top:10px}}
 #cosP .box.cosb{background:#141419;border:1px solid rgba(225,20,28,.35);border-radius:16px;padding:12px 16px;width:min(720px,96vw);max-height:94vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
 #cosP h3{margin:0}#cosP h3 small{font-size:11px;opacity:.7}.free{background:#3ee07a;color:#062;border-radius:6px;padding:1px 6px;font-weight:900}
 .cos-coins{font-size:14px}.cos-coins b{color:var(--y)}
@@ -5581,7 +5583,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '04/11 15:42'; // data da versão (preenchida pelo build.py)
+const BUILD = '04/11 15:55'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -11267,7 +11269,15 @@ function cardHtml(o, extra) {
   const c = cosCols(o), r = RAR[o.rar];
   return `<div class="cos-card" style="--rc:${r.c}"><div class="cos-sw" style="background:linear-gradient(135deg,${c[0]} 0 45%,${c[1]} 45% 75%,${c[2]} 75%)">${CAT[o.cat][0]}</div><b>${o.n}</b><small style="color:${r.c}">${r.n}</small>${extra || ''}</div>`;
 }
-function cosPanel(html) { const el = $('cosP'); el.classList.remove('hidden'); el.innerHTML = `<div class="box cosb">${html}</div>`; const x = el.querySelector('[data-x]'); if (x) x.onclick = () => { el.classList.add('hidden'); renderLobby(); }; return el; }
+// painel de caixas/passe/armário: ✕ fixo no canto (sempre visível, mesmo em tela baixa) + fechar tocando fora da caixa
+function cosPanel(html) {
+  const el = $('cosP'); el.classList.remove('hidden');
+  el.innerHTML = `<button class="cos-x" aria-label="Fechar">✕</button><div class="box cosb">${html}</div>`;
+  const close = () => { el.classList.add('hidden'); renderLobby(); };
+  el.querySelectorAll('[data-x], .cos-x').forEach(x => x.onclick = close);
+  el.onclick = e => { if (e.target === el) close(); };
+  return el;
+}
 function openBox() {
   const odds = ['c', 'r', 'e', 'l'].map(k => `<span style="color:${RAR[k].c}">${RAR[k].n} ${RAR[k].w}%</span>`).join(' · ');
   const el = cosPanel(`<h3>🎁 Caixa NK</h3><div class="cos-coins">🪙 <b>${SET.coins}</b> fichas</div><div class="cos-reel"><div class="cos-strip" id="cStrip"></div><i class="cos-mark"></i></div>

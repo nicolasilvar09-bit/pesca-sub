@@ -271,6 +271,8 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
 .lb-sb span{font-size:20px;line-height:1}.lb-sb.pass{border-color:#ffb703;background:linear-gradient(180deg,rgba(255,183,3,.28),rgba(10,10,12,.75))}
 .lb-sb .dot{position:absolute;top:3px;right:5px;width:9px;height:9px;border-radius:50%;background:#e1141c;box-shadow:0 0 6px #e1141c}
 #cosP{display:flex;align-items:center;justify-content:center;z-index:36}
+.cos-x{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));right:calc(10px + var(--sr));z-index:40;width:42px;height:42px;border-radius:50%;background:#e1141c;color:#fff;font-size:20px;font-weight:900;box-shadow:0 2px 10px rgba(0,0,0,.5);border:2px solid rgba(255,255,255,.85)}
+@media (max-height:420px){#cosP .box.cosb{max-height:calc(100vh - 16px);padding-top:10px}}
 #cosP .box.cosb{background:#141419;border:1px solid rgba(225,20,28,.35);border-radius:16px;padding:12px 16px;width:min(720px,96vw);max-height:94vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
 #cosP h3{margin:0}#cosP h3 small{font-size:11px;opacity:.7}.free{background:#3ee07a;color:#062;border-radius:6px;padding:1px 6px;font-weight:900}
 .cos-coins{font-size:14px}.cos-coins b{color:var(--y)}

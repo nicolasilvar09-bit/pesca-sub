@@ -187,7 +187,15 @@ function cardHtml(o, extra) {
   const c = cosCols(o), r = RAR[o.rar];
   return `<div class="cos-card" style="--rc:${r.c}"><div class="cos-sw" style="background:linear-gradient(135deg,${c[0]} 0 45%,${c[1]} 45% 75%,${c[2]} 75%)">${CAT[o.cat][0]}</div><b>${o.n}</b><small style="color:${r.c}">${r.n}</small>${extra || ''}</div>`;
 }
-function cosPanel(html) { const el = $('cosP'); el.classList.remove('hidden'); el.innerHTML = `<div class="box cosb">${html}</div>`; const x = el.querySelector('[data-x]'); if (x) x.onclick = () => { el.classList.add('hidden'); renderLobby(); }; return el; }
+// painel de caixas/passe/armário: ✕ fixo no canto (sempre visível, mesmo em tela baixa) + fechar tocando fora da caixa
+function cosPanel(html) {
+  const el = $('cosP'); el.classList.remove('hidden');
+  el.innerHTML = `<button class="cos-x" aria-label="Fechar">✕</button><div class="box cosb">${html}</div>`;
+  const close = () => { el.classList.add('hidden'); renderLobby(); };
+  el.querySelectorAll('[data-x], .cos-x').forEach(x => x.onclick = close);
+  el.onclick = e => { if (e.target === el) close(); };
+  return el;
+}
 function openBox() {
   const odds = ['c', 'r', 'e', 'l'].map(k => `<span style="color:${RAR[k].c}">${RAR[k].n} ${RAR[k].w}%</span>`).join(' · ');
   const el = cosPanel(`<h3>🎁 Caixa NK</h3><div class="cos-coins">🪙 <b>${SET.coins}</b> fichas</div><div class="cos-reel"><div class="cos-strip" id="cStrip"></div><i class="cos-mark"></i></div>
