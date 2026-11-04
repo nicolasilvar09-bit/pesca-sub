@@ -234,5 +234,5 @@ function stepMatch(dt) {
     for (let j = i + 1; j < act.length; j++) { const b = act[j]; if (!b.alive || b.mode !== 'ground' || b.veh || b.vault) continue;
       const dx = b.x - a.x, dz = b.z - a.z, d2 = dx * dx + dz * dz; if (d2 > 0.42 || d2 < 1e-6 || Math.abs(a.y - b.y) > 1.2) continue;
       const d = Math.sqrt(d2), p = (0.65 - d) / 2 / d; a.x -= dx * p; a.z -= dz * p; b.x += dx * p; b.z += dz * p; } }
-  netTick(dt); stepNades(dt); stepVehicles(dt); stepBullets(dt); stepFx2(dt); stepCrates(dt); stepFx(dt);
+  netTick(dt); stepNades(dt); stepVehicles(dt); stepBullets(dt); stepFx2(dt); stepGunFx(dt); stepCrates(dt); stepFx(dt);
 }

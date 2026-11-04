@@ -109,7 +109,8 @@ function fireShot(a, ox, oy, oz, dx, dy, dz) {
   if (d.burst) a.burstN++;
   if (G.net.on && !a.remote) G.net.shots.push([actIx(a), +ox.toFixed(2), +oy.toFixed(2), +oz.toFixed(2), +fx.toFixed(4), +(fy + zero).toFixed(4), +fz.toFixed(4), w.k]);
   shotSound(a, d, mods.quiet); muzzleFlash(a, mods.quiet);
-  if (a === G.player) { G.flash = 0.05; G.camKick = (G.camKick || 0) + d.rec * mods.rec; }
+  gunFx(a, d, mods);
+  if (a === G.player) { G.flash = 0.05; G.camKick = (G.camKick || 0) + d.rec * mods.rec; G.vmK = Math.min(2.5, (G.vmK || 0) + d.rec * mods.rec); }
   else if (!mods.quiet) a.lastShotT = G.matchT;
   if (w.mag === 0 && a.bot) startReload(a);
   return true;
@@ -123,6 +124,7 @@ function stepBullets(dt) {
     const sx = b.vx * dt, sy = b.vy * dt, sz = b.vz * dt, len = Math.hypot(sx, sy, sz), dx = sx / len, dy = sy / len, dz = sz / len;
     const ts = rayStatic(b.x, b.y, b.z, dx, dy, dz, len);
     const ha = rayActors(b.x, b.y, b.z, dx, dy, dz, len, b.o, b.team);
+    if (!b.wz && b.o !== G.player) nearMiss(b, dx, dy, dz, len);
     b.life += dt;
     const hv = rayVehicles(b.x, b.y, b.z, dx, dy, dz, len, b.o.veh);
     if (hv.v && hv.t < ts && (!ha.a || hv.t < ha.t)) {
@@ -132,13 +134,13 @@ function stepBullets(dt) {
     }
     if (ha.a && ha.t < ts) {
       const hx = b.x + dx * ha.t, hy = b.y + dy * ha.t, hz = b.z + dz * ha.t;
-      puff(hx, hy, hz, '#d61f1f', 0.25, 0.35);
+      bloodFx(hx, hy, hz, dx, dy, dz, ha.a);
       const dist = Math.hypot(hx - b.o.x, hz - b.o.z);
       const fall = b.fall ? clamp(1 - Math.hypot(hx - b.sx, hz - b.sz) / 45, 0.12, 1) : 1;
       if (!b.vis) hurt(ha.a, b.dmg * fall * (ha.head ? b.head : 1) * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn);
       BUL.splice(i, 1); continue;
     }
-    if (ts < len) { const hx = b.x + dx * ts, hy = b.y + dy * ts, hz = b.z + dz * ts; puff(hx, hy, hz, '#d8cfb8', 0.3, 0.5); if (RAY_BOX) bulletDecal(hx, hy, hz, RAY_BOX); BUL.splice(i, 1); continue; }
+    if (ts < len) { const hx = b.x + dx * ts, hy = b.y + dy * ts, hz = b.z + dz * ts; puff(hx, hy, hz, RAY_BOX ? '#d8cfb8' : '#8a7458', 0.3, 0.5); if (RAY_BOX) bulletDecal(hx, hy, hz, RAY_BOX); else dirtFx(hx, hy, hz); BUL.splice(i, 1); continue; }
     b.x += sx; b.y += sy; b.z += sz;
     if (b.life > 2.6 || b.y < -20) { BUL.splice(i, 1); continue; }
     if (n < TRC_N && b.life > 0.02) { const j = n++ * 6; trcPos[j] = b.px; trcPos[j + 1] = b.py; trcPos[j + 2] = b.pz; trcPos[j + 3] = b.x; trcPos[j + 4] = b.y; trcPos[j + 5] = b.z; }
@@ -233,8 +235,8 @@ function punch(a) {
 function startReload(a) {
   const w = curW(a); if (!w || a.reloadT > 0 || a.knocked) return;
   if (w.mag >= magSize(w) || !ammoOf(a, w)) return;
-  a.reloadT = wdef(w).rel; a.healT = 0; a.healK = null;
-  if (a === G.player) sfx('reload');
+  a.reloadT = a.relTot = wdef(w).rel; a.healT = 0; a.healK = null;
+  if (a === G.player) reloadSounds(a, a.relTot, wdef(w).cls);
 }
 function finishReload(a) { const w = curW(a); if (w) autoFill(a, w); }
 function canHeal(a, k) {

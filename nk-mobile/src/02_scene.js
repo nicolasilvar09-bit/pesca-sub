@@ -43,7 +43,7 @@ const MAT = {
   terrain: new T.MeshLambertMaterial({ vertexColors: true }),
   actor: new T.MeshLambertMaterial({ vertexColors: true }),
   item: new T.MeshLambertMaterial({ vertexColors: true, emissive: 0x222222 }),
-  view: new T.MeshLambertMaterial({ vertexColors: true, depthTest: true }),
+  view: new T.MeshPhongMaterial({ vertexColors: true, depthTest: true, shininess: 45, specular: 0x4a4a4a, emissive: 0x16171a }),
 };
 
 // junta várias peças (caixa, esfera, cilindro) numa geometria só com cor por vértice: 1 desenho por objeto

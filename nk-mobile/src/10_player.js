@@ -53,7 +53,7 @@ function playerStep(dt) {
     if (edge && d.burst) p.burstLeft = 3;
     let want = d.auto ? IN.fire : d.burst ? p.burstLeft > 0 : edge;
     if (want && p.healT > 0) { p.healT = 0; p.healK = null; }
-    if (want && w.mag <= 0 && p.reloadT <= 0) { if (ammoOf(p, w)) startReload(p); else if (edge) toast('Sem munição para ' + d.n, 1.5, 'bad'); want = false; }
+    if (want && w.mag <= 0 && p.reloadT <= 0) { if (ammoOf(p, w)) startReload(p); else if (edge) sfx('dry'), toast('Sem munição para ' + d.n, 1.5, 'bad'); want = false; }
     if (want && aimAndFire(p) && p.burstLeft > 0) p.burstLeft--;
   } else if (IN.fire && !w && !p.knocked && p.mode === 'ground' && !p.swim) { if (!p.trigPrev && !G.punchTip) { G.punchTip = 1; toast('Sem arma: socando! Pegue armas no chão ou em caixas.', 2); } punch(p); }
   p.trigger = IN.fire; p.trigPrev = IN.fire;
@@ -198,9 +198,19 @@ function updateCamera(dt) {
     const spr = Math.hypot(p.vx, p.vz) > 5.6 && !p.ads ? 1 : 0; v.vmRun = (v.vmRun || 0) + (spr - (v.vmRun || 0)) * Math.min(1, dt * 7);
     const bb = Math.min(1, Math.hypot(p.vx, p.vz) / 5) * (p.onGround ? 1 : 0) * (p.ads ? 0.15 : 1), ph = v.bob || 0, land = landDip(p);
     const bobX = Math.cos(ph) * 0.012 * bb, bobY = -Math.abs(Math.sin(ph)) * 0.012 * bb + Math.sin(G.t * 1.6) * 0.002 - land * 0.025;
-    if (p.ads) { const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y; VM.position.set(v.swx * 0.05 + bobX * 0.3, -top + v.swy * 0.04 + bobY * 0.3, -0.22 + kick); }
-    else VM.position.set(0.2 + v.swx * 0.35 + bobX - v.vmRun * 0.06, -0.19 + bob * 0 + v.swy * 0.25 + bobY - v.vmRun * 0.05, -0.3 + kick + v.vmRun * 0.03);
-    VM.rotation.set((p.reloadT > 0 ? -0.5 : 0) - v.swy * 0.6 - v.vmRun * 0.35, v.swx * 0.9 + v.vmRun * 0.5, v.swx * 0.5 + v.vmRun * 0.25);
+    // mira: a arma desliza até o olho em ~0,2 s (não pula de posição)
+    v.adsK = (v.adsK || 0) + ((p.ads ? 1 : 0) - (v.adsK || 0)) * (1 - Math.exp(-dt * 16)); const ak = v.adsK;
+    const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y;
+    // recarga em fases: inclina e abaixa, troca o pente, volta e puxa o ferrolho
+    const rp2 = p.reloadT > 0 && p.relTot ? 1 - p.reloadT / p.relTot : 1;
+    const rk = p.reloadT > 0 ? smooth(clamp(rp2 / 0.18, 0, 1)) * (1 - smooth(clamp((rp2 - 0.8) / 0.2, 0, 1))) : 0;
+    const magJ = p.reloadT > 0 && rp2 > 0.55 && rp2 < 0.68 ? Math.sin((rp2 - 0.55) / 0.13 * Math.PI) : 0, bolt = p.reloadT > 0 && rp2 > 0.84 ? Math.sin((rp2 - 0.84) / 0.16 * Math.PI) : 0;
+    // coice com mola: a arma vai para trás e sobe a cada tiro e volta
+    G.vmK = (G.vmK || 0) * Math.exp(-dt * 15);
+    const hx = 0.15 + v.swx * 0.35 + bobX - v.vmRun * 0.05, hy = -0.135 + v.swy * 0.25 + bobY - v.vmRun * 0.04, hz = -0.3 + v.vmRun * 0.03;
+    const ax = v.swx * 0.05 + bobX * 0.3, ay = -top + v.swy * 0.04 + bobY * 0.3, az = -0.22;
+    VM.position.set(lerp(hx, ax, ak) - rk * 0.03, lerp(hy, ay, ak) - rk * 0.01 + magJ * 0.012, lerp(hz, az, ak) + kick * 0.5 + G.vmK * 0.035 + bolt * 0.01);
+    VM.rotation.set(-v.swy * 0.6 - v.vmRun * 0.35 * (1 - ak) + rk * 0.22 + G.vmK * 0.05 + magJ * 0.06, v.swx * 0.9 + v.vmRun * 0.5 * (1 - ak) + rk * 0.35, v.swx * 0.5 + v.vmRun * 0.25 * (1 - ak) + rk * 0.55 - bolt * 0.12);
   }
   if (G.shake > 0) { G.shake -= dt; camera.rotation.x += gauss() * 0.012 * G.shake; camera.rotation.y += gauss() * 0.012 * G.shake; }
   SKY.position.copy(camera.position); if (typeof SKY2 !== 'undefined' && SKY2) SKY2.position.copy(camera.position);

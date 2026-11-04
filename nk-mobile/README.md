@@ -113,3 +113,12 @@ O teste compila o JavaScript e simula partidas inteiras (esquadrão e solo) num 
 - **Campo de visão** ajustável (75–105) nas configurações, medido na horizontal como no PUBG
 - **Física**: aceleração e freada com inércia, mais lento subindo ladeira, aterrissagem amortecida (anda devagar por um instante)
 - **Corpo**: parado, o tronco gira até ~60° antes dos pés acompanharem (com passinhos); deitar e agachar com transição suave; joelho dobra ao aterrissar; inclina para frente correndo, para dentro nas curvas e balança ao arrancar/frear
+
+## Armas e tiro (atualização)
+- Arma em 1ª pessoa mais clara e visível, com brilho de metal; mira desliza suave até o olho
+- Coice com mola (a arma vai para trás e volta), recarga animada em fases (tira o pente, coloca, puxa o ferrolho) com som de cada etapa
+- Cápsulas ejetadas que quicam no chão (com tilintar), cartucho vermelho na escopeta, ferrolho nos fuzis de precisão
+- Clarão do cano que ilumina o ambiente, fumacinha no cano, poeira ao acertar a terra
+- Sangue ao acertar (borrifo + mancha no chão)
+- Som em camadas (estalo, corpo grave, eco maior nas cidades); de longe chega abafado e **atrasado** (velocidade do som) e vem do lado certo (esquerda/direita)
+- Zunido quando uma bala inimiga passa perto da cabeça; clique de arma vazia

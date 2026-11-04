@@ -167,7 +167,7 @@ function spawnLoot() {
 // ---------- visual dos itens ----------
 // ---------- armas detalhadas (formas reais de cada modelo; cano para -z, cabo perto de z=+0.06) ----------
 const GUNGEO = {}, GUN_MUZ = {}, GUN_TOP = {};
-const GC_ = { st: '#2b2c30', bk: '#1a1b1e', pl: '#232428', wd: '#8a5530', dw: '#5e3a1e', tan: '#b89a6a', od: '#4e5a3c', gr: '#56653e', bl: '#30343c' };
+const GC_ = { st: '#43464c', bk: '#2c2e33', pl: '#36383d', wd: '#8a5530', dw: '#5e3a1e', tan: '#b89a6a', od: '#56633f', gr: '#5e6e44', bl: '#454b55' };
 const Bc = (x, y, z, w, h, d, c, rx, ry, rz) => ({ g: GEO.box, x, y, z, sx: w, sy: h, sz: d, c, rx: rx || 0, ry: ry || 0, rz: rz || 0 });
 const Cz = (x, y, z, r, len, c, seg) => ({ g: seg === 6 ? GEO.cyl6 : GEO.cyl, x, y, z, rx: Math.PI / 2, sx: r * 2, sy: len, sz: r * 2, c });
 const GUNS = {
