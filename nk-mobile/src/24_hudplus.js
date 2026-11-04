@@ -42,6 +42,10 @@ function killBanner(a, wn) {
 }
 function hudPlus() {
   const p = G.player; if (!p) return;
+  // queda/paraquedas: altura e velocidade (como nos battle royale)
+  const ai = $('airI'), air = p.alive && (p.mode === 'fall' || p.mode === 'chute');
+  if (ai) { ai.classList.toggle('hidden', !air); if (air) { const h = Math.max(0, p.y - Math.max(groundH(p.x, p.z), 0)), sp = Math.hypot(p.vx, p.vy, p.vz) * 3.6;
+    ai.innerHTML = `<div class="ab"><i style="height:${clamp(h / 7.2, 0, 100)}%"></i></div><div><b>${Math.round(h)}</b> m<br><b>${Math.round(sp)}</b> km/h<br><small>${p.mode === 'fall' ? (p.diveK > 0.5 ? 'MERGULHANDO' : p.glideK > 0.5 ? 'PLANANDO' : 'QUEDA LIVRE') : 'PARAQUEDAS'}</small></div>`; } }
   // equipe: nome, vida (derrubado em vermelho, morto riscado)
   const tm = $('team');
   if (tm) {

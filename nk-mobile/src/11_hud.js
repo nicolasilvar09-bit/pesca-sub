@@ -30,7 +30,7 @@ function onDown(e) {
   if (joyId === null && jd < 115 && !$('joy').classList.contains('hidden')) {
     // joystick fixo: o centro é sempre o do círculo na tela; o dedo só arrasta a bolinha
     const j = $('joy'), r = j.getBoundingClientRect();
-    joyId = e.pointerId; joyOx = r.left + r.width / 2; joyOy = r.top + r.height / 2; PT[e.pointerId] = { k: 'joy' };
+    joyId = e.pointerId; joyOx = r.left + r.width / 2; joyOy = r.top + r.height / 2; PT[e.pointerId] = { k: 'joy' }; if (IN.sprintLock) { IN.sprintLock = false; j.classList.remove('lock'); } // tocar de novo destrava
     j.classList.add('on'); onMove(e);
   } else PT[e.pointerId] = { k: 'look', x: e.clientX, y: e.clientY };
 }
@@ -40,6 +40,7 @@ function onMove(e) {
   if (t.k === 'joy') {
     let dx = e.clientX - joyOx, dy = e.clientY - joyOy; const d = Math.hypot(dx, dy), R = 55;
     IN.sprint = dy < -R * 1.35; // empurrar além do círculo = correr
+    if (dy < -R * 2.1 && G.player && G.player.mode === 'ground' && !G.player.veh) { IN.sprintLock = true; $('joy').classList.add('lock'); } // arrastar bem para cima: trava a corrida
     if (d > R) { dx *= R / d; dy *= R / d; }
     IN.mx = dx / R; IN.my = -dy / R; $('joyK').style.transform = `translate(${dx}px,${dy}px)`;
   } else if (t.k === 'look') { IN.ldx += e.clientX - t.x; IN.ldy += e.clientY - t.y; t.x = e.clientX; t.y = e.clientY; }
@@ -47,7 +48,7 @@ function onMove(e) {
 function onUp(e) {
   if (e.pointerType === 'mouse' && document.pointerLockElement === $('cv')) { if (e.button === 0) IN.fire = false; }
   const t = PT[e.pointerId]; if (!t) return;
-  if (t.k === 'joy') { joyId = null; IN.mx = IN.my = 0; IN.sprint = false; $('joyK').style.transform = ''; $('joy').classList.remove('on'); }
+  if (t.k === 'joy') { joyId = null; if (IN.sprintLock) { IN.mx = 0; IN.my = 1; IN.sprint = true; $('joyK').style.transform = 'translate(0px,-55px)'; } else { IN.mx = IN.my = 0; IN.sprint = false; $('joyK').style.transform = ''; } $('joy').classList.remove('on'); }
   if (t.fire) IN.fire = Object.values(PT).some(o => o !== t && o.fire);
   if (t.k === 'hold') { IN.hold[t.id] = Object.values(PT).some(o => o !== t && o.k === 'hold' && o.id === t.id); if (!IN.hold[t.id]) { const el = $('b_' + t.id); if (el) el.classList.remove('on'); } }
   delete PT[e.pointerId];

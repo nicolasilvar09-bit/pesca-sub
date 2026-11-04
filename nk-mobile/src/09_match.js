@@ -35,7 +35,7 @@ function planeMesh(col) {
     bx(-2.2, 0.8, -15, 4.4, 1, 3, '#74c0fc'),
   ]), new T.MeshLambertMaterial({ vertexColors: true }));
 }
-const PLANE = { m: planeMesh('#ff6b35'), x0: 0, z0: 0, dx: 1, dz: 0, t: 0, len: 2000 * MK, sp: 82, y: 330, on: false };
+const PLANE = { m: planeMesh('#ff6b35'), x0: 0, z0: 0, dx: 1, dz: 0, t: 0, len: 2000 * MK, sp: 82, y: 720, on: false }; // acima das nuvens: ~10 s de queda livre
 const DROPP = { m: planeMesh('#2b8a3e'), x0: 0, z0: 0, dx: 1, dz: 0, t: 0, len: 1500, sp: 90, y: 240, on: false, tx: 0, tz: 0, dropped: false };
 scene.add(PLANE.m, DROPP.m); PLANE.m.visible = DROPP.m.visible = false;
 function setPath(P, ang, off, cx, cz) {
@@ -87,19 +87,42 @@ function stepCrates(dt) {
 
 // ---------- no ar: queda livre e paraquedas ----------
 function jumpOut(a) {
-  a.mode = 'fall'; a.vx = PLANE.dx * 20; a.vz = PLANE.dz * 20; a.vy = -5; a.y = PLANE.y - 4;
+  a.mode = 'fall'; a.vx = PLANE.dx * 24; a.vz = PLANE.dz * 24; a.vy = -3; a.y = PLANE.y - 4; a.fallT = 0; a.diveK = a.glideK = 0; // sai com o embalo do avião
   if (a === G.player) { G.view.pitch = -0.6; toast('Arraste para frente para mergulhar mais rápido.', 2.5); for (const m of teamMates(a)) if (m.bot && m.mode === 'plane') m.ai.jumpDelay = rr(0.3, 1.4); }
 }
 const _air = [];
-function stepAir(a, dt, wx, wz, push) {
+// queda estilo battle royale: ~173 km/h parado, até ~234 km/h mergulhando, ~140 km/h planando para longe
+// paraquedas: ~32 km/h para frente, mais rápido inclinando, flutua puxando para trás
+function stepAir(a, dt, wx, wz, push, ctl) {
   const gh = groundH(a.x, a.z);
   if (a.mode === 'fall') {
-    const tv = -(38 + 22 * push); a.vy += (tv - a.vy) * Math.min(1, dt * 1.5);
-    const hs = 6 + 30 * push; applyAir(a, dt, wx, wz, hs, 1.2);
-    if (a.y - Math.max(gh, 0) < (a.bot ? a.ai.chuteH : 115)) openChute(a);
+    a.fallT = (a.fallT || 0) + dt;
+    if (ctl) { // jogador: câmera + joystick
+      const dive = ctl.fwd > 0 ? clamp((-ctl.pitch - 0.15) / 0.85, 0, 1) * ctl.fwd : 0, glide = ctl.fwd > 0 ? ctl.fwd * (1 - dive) : 0, brake = ctl.fwd < 0 ? -ctl.fwd : 0;
+      const fx = -Math.sin(ctl.yaw), fz = -Math.cos(ctl.yaw), rx = Math.cos(ctl.yaw), rz = -Math.sin(ctl.yaw);
+      const hsp = ctl.fwd > 0 ? 10 + 29 * glide + 6 * dive : 9 * (1 - brake) + 2;
+      const tvx = fx * hsp + rx * ctl.side * 9, tvz = fz * hsp + rz * ctl.side * 9;
+      a.vx += (tvx - a.vx) * Math.min(1, dt * 0.9); a.vz += (tvz - a.vz) * Math.min(1, dt * 0.9);
+      const tv = -(48 + 17 * dive - 8 * glide + 4 * brake); a.vy += (tv - a.vy) * Math.min(1, dt * 1.1);
+      a.diveK = (a.diveK || 0) + (dive - (a.diveK || 0)) * Math.min(1, dt * 3); a.glideK = (a.glideK || 0) + (glide - (a.glideK || 0)) * Math.min(1, dt * 3);
+    } else {
+      const tv = -(46 + 19 * push); a.vy += (tv - a.vy) * Math.min(1, dt * 1.1);
+      applyAir(a, dt, wx, wz, 8 + 28 * push, 0.9); a.diveK = push > 0.8 ? 0.6 : 0.2;
+    }
+    if (a.y - Math.max(gh, 0) < (a.bot ? a.ai.chuteH : 150)) openChute(a); // abre sozinho perto do chão
   } else {
-    const tv = -(5.5 + 3.5 * push); a.vy += (tv - a.vy) * Math.min(1, dt * 2.5);
-    applyAir(a, dt, wx, wz, 3 + 10 * push, 1.5);
+    a.chuteT = (a.chuteT || 0) + dt;
+    if (a.chYaw == null) a.chYaw = a.yaw;
+    let fwd = push, lean = 0;
+    if (ctl) { // vira aos poucos para onde a câmera/joystick aponta; frente = desce e anda mais; trás = flutua
+      const want = ctl.yaw + Math.atan2(-ctl.side, Math.max(0.35, ctl.fwd + 0.35)) * (Math.abs(ctl.side) > 0.1 ? 1 : 0);
+      const dy = wrapA(want - a.chYaw), turn = clamp(dy, -1.15 * dt, 1.15 * dt); a.chYaw = wrapA(a.chYaw + turn); a.bank = (a.bank || 0) + (clamp(dy * 1.5, -1, 1) - (a.bank || 0)) * Math.min(1, dt * 3);
+      fwd = ctl.fwd; lean = ctl.fwd > 0 ? clamp((-ctl.pitch - 0.1) / 0.8, 0, 1) * ctl.fwd : 0;
+    } else { a.chYaw = Math.atan2(-wx, -wz); a.bank = 0; }
+    const hsp = fwd > 0 ? 8.5 + 4.5 * fwd + 3 * lean : 8.5 + 5 * fwd, open = smooth(clamp(a.chuteT / 1.2, 0, 1));
+    const tvx = -Math.sin(a.chYaw) * hsp, tvz = -Math.cos(a.chYaw) * hsp;
+    a.vx += (tvx - a.vx) * Math.min(1, dt * 1.2); a.vz += (tvz - a.vz) * Math.min(1, dt * 1.2);
+    const tv = -(5.5 + (fwd > 0 ? 1.5 * fwd + 2.5 * lean : 1.7 * fwd)); a.vy += (tv - a.vy) * Math.min(1, dt * (0.6 + 2.4 * open)); // freio do velame enche em ~1 s
   }
   const ny = a.y + a.vy * dt, nx = clamp(a.x + a.vx * dt, -HALF + 4, HALF - 4), nz = clamp(a.z + a.vz * dt, -HALF + 4, HALF - 4);
   let sup = groundH(nx, nz);
@@ -110,8 +133,8 @@ function stepAir(a, dt, wx, wz, push) {
   else if (ny <= sup) { a.y = sup; land(a); }
 }
 function applyAir(a, dt, wx, wz, hs, k) { const kk = Math.min(1, dt * k); a.vx += (wx * hs - a.vx) * kk; a.vz += (wz * hs - a.vz) * kk; }
-function openChute(a) { if (a.mode !== 'fall') return; a.mode = 'chute'; a.vy = Math.max(a.vy, -14); if (a === G.player) sfx('chute'); }
-function land(a) { a.mode = 'ground'; a.vy = 0; a.onGround = true; a.stance = 'stand'; if (a === G.player) toast('Pouso! Procure armas e equipamentos nas casas.', 2.5); }
+function openChute(a) { if (a.mode !== 'fall') return; a.mode = 'chute'; a.chuteT = 0; a.chYaw = a.yaw; a.bank = 0; if (a === G.player) { sfx('chute'); G.shake = 0.35; } }
+function land(a) { const hv = Math.hypot(a.vx, a.vz); a.mode = 'ground'; a.landAt = G.t; a.landK = clamp(0.35 + hv / 25, 0.35, 0.9); a.vx *= 0.4; a.vz *= 0.4; a.vy = 0; a.onGround = true; a.stance = 'stand'; a.chYaw = null; a.fallT = 0; if (a === G.player) toast('Pouso! Procure armas e equipamentos nas casas.', 2.5); } // pouso: amortece e perde o embalo
 // bots no ar: miram no ponto de pouso (colegas do jogador seguem o jogador)
 function botAir(a, dt) {
   const ai = a.ai, p = G.player;

@@ -177,7 +177,7 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   const ld = a.mode === 'ground' ? landDip(a) : 0;
   m.root.position.set(0, 0, 0); m.root.rotation.set(0, Math.PI, 0);
   if (m.pk > 0.01 && a.mode === 'ground') { m.root.rotation.set(-Math.PI / 2 * m.pk, Math.PI, 0); m.root.position.set(0, 0.16 * m.pk - Math.sin(m.pk * Math.PI) * 0.3, 0); }
-  else if (a.mode === 'fall') m.root.rotation.set(-1.25, Math.PI, 0);
+  else if (a.mode === 'fall') m.root.rotation.set(-0.95 - (a.diveK || 0) * 0.55 + (a.glideK || 0) * 0.1, Math.PI, Math.sin(G.t * 2.1 + a.id) * 0.04); // mergulho de cabeça; planando, mais deitado
   if (!prone) m.root.position.y += m.cy - ld * 0.2;
   if (Math.abs(m.twist) > 0.01 && !prone && a.mode === 'ground') m.root.rotation.y = Math.PI - m.twist;
   m.g.updateMatrixWorld(true);
@@ -213,7 +213,8 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   if (a.mode === 'chute') {
     for (const s of ['L', 'R']) { const sg = s === 'L' ? -1 : 1; ik2(B[`Bip01_${s}_UpperArm`], B[`Bip01_${s}_Forearm`], B[`Bip01_${s}_Hand`], B.Bip01_Head.getWorldPosition(_E).addScaledVector(_UP, 0.45).addScaledVector(_R, sg * 0.3), _pole.copy(_R).multiplyScalar(sg)); }
   } else if (a.mode === 'fall') {
-    for (const s of ['L', 'R']) { const sg = s === 'L' ? -1 : 1; aimBone(B[`Bip01_${s}_UpperArm`], B[`Bip01_${s}_Forearm`], _C.copy(_R).multiplyScalar(sg).addScaledVector(_UP, 0.5)); }
+    const dk = a.diveK || 0; // mergulhando: braços para trás colados ao corpo; planando: abertos
+    for (const s of ['L', 'R']) { const sg = s === 'L' ? -1 : 1; aimBone(B[`Bip01_${s}_UpperArm`], B[`Bip01_${s}_Forearm`], _C.copy(_R).multiplyScalar(sg * (1 - dk * 0.75)).addScaledVector(_UP, 0.5 - dk * 0.9).addScaledVector(_F, -dk * 0.9)); }
   } else if (a.veh && a.seat === 0) {
     const ch = B.Bip01_Spine2.getWorldPosition(new T.Vector3());
     for (const s of ['L', 'R']) { const sg = s === 'L' ? -1 : 1; ik2(B[`Bip01_${s}_UpperArm`], B[`Bip01_${s}_Forearm`], B[`Bip01_${s}_Hand`], _H1.copy(ch).addScaledVector(_F, 0.42).addScaledVector(_UP, -0.12).addScaledVector(_R, sg * 0.17), _pole.set(0, -1, 0).addScaledVector(_R, sg * 0.5)); }

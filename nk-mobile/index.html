@@ -235,6 +235,11 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
 @media (max-height:420px){.lright{top:50px;gap:4px}.lab{margin-top:0;font-size:10px}.seg button{padding:6px 2px;font-size:12px}.btn.play{font-size:20px;padding:8px;margin-top:4px}.hint{display:none}.mapbtn img{width:34px;height:34px}}
 @media (max-height:330px){.lright .lab{display:none}}
 @media (max-width:900px){.slot{min-width:84px;padding:5px 8px;font-size:11px}.lon .pill{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+
+#airI{position:absolute;left:calc(150px + var(--sl));top:42%;display:flex;gap:8px;align-items:stretch;background:var(--bg);padding:6px 10px;border-radius:10px;font-size:12px;pointer-events:none;line-height:1.35}
+#airI b{font-size:17px;color:#fff}#airI small{font-size:9px;letter-spacing:1px;color:var(--y);font-weight:800}
+#airI .ab{width:6px;background:rgba(255,255,255,.18);border-radius:3px;position:relative;overflow:hidden}#airI .ab i{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(#7fd3ff,#3ec7ff)}
+#joy.lock{border-color:var(--y)}#joy.lock::after{content:'🔒 CORRENDO';position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;color:var(--y);white-space:nowrap;text-shadow:0 1px 2px #000}
 </style>
 </head><body>
 <canvas id="cv"></canvas>
@@ -250,6 +255,7 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
   <div id="team"></div>
   <div id="alert"></div>
   <div id="kb"></div>
+  <div id="airI" class="hidden"></div>
   <div id="cross"><i></i></div>
   <div id="scope" class="hidden"><i></i><u></u></div>
   <div id="hitm"></div>
@@ -7850,7 +7856,7 @@ function planeMesh(col) {
     bx(-2.2, 0.8, -15, 4.4, 1, 3, '#74c0fc'),
   ]), new T.MeshLambertMaterial({ vertexColors: true }));
 }
-const PLANE = { m: planeMesh('#ff6b35'), x0: 0, z0: 0, dx: 1, dz: 0, t: 0, len: 2000 * MK, sp: 82, y: 330, on: false };
+const PLANE = { m: planeMesh('#ff6b35'), x0: 0, z0: 0, dx: 1, dz: 0, t: 0, len: 2000 * MK, sp: 82, y: 720, on: false }; // acima das nuvens: ~10 s de queda livre
 const DROPP = { m: planeMesh('#2b8a3e'), x0: 0, z0: 0, dx: 1, dz: 0, t: 0, len: 1500, sp: 90, y: 240, on: false, tx: 0, tz: 0, dropped: false };
 scene.add(PLANE.m, DROPP.m); PLANE.m.visible = DROPP.m.visible = false;
 function setPath(P, ang, off, cx, cz) {
@@ -7902,19 +7908,42 @@ function stepCrates(dt) {
 
 // ---------- no ar: queda livre e paraquedas ----------
 function jumpOut(a) {
-  a.mode = 'fall'; a.vx = PLANE.dx * 20; a.vz = PLANE.dz * 20; a.vy = -5; a.y = PLANE.y - 4;
+  a.mode = 'fall'; a.vx = PLANE.dx * 24; a.vz = PLANE.dz * 24; a.vy = -3; a.y = PLANE.y - 4; a.fallT = 0; a.diveK = a.glideK = 0; // sai com o embalo do avião
   if (a === G.player) { G.view.pitch = -0.6; toast('Arraste para frente para mergulhar mais rápido.', 2.5); for (const m of teamMates(a)) if (m.bot && m.mode === 'plane') m.ai.jumpDelay = rr(0.3, 1.4); }
 }
 const _air = [];
-function stepAir(a, dt, wx, wz, push) {
+// queda estilo battle royale: ~173 km/h parado, até ~234 km/h mergulhando, ~140 km/h planando para longe
+// paraquedas: ~32 km/h para frente, mais rápido inclinando, flutua puxando para trás
+function stepAir(a, dt, wx, wz, push, ctl) {
   const gh = groundH(a.x, a.z);
   if (a.mode === 'fall') {
-    const tv = -(38 + 22 * push); a.vy += (tv - a.vy) * Math.min(1, dt * 1.5);
-    const hs = 6 + 30 * push; applyAir(a, dt, wx, wz, hs, 1.2);
-    if (a.y - Math.max(gh, 0) < (a.bot ? a.ai.chuteH : 115)) openChute(a);
+    a.fallT = (a.fallT || 0) + dt;
+    if (ctl) { // jogador: câmera + joystick
+      const dive = ctl.fwd > 0 ? clamp((-ctl.pitch - 0.15) / 0.85, 0, 1) * ctl.fwd : 0, glide = ctl.fwd > 0 ? ctl.fwd * (1 - dive) : 0, brake = ctl.fwd < 0 ? -ctl.fwd : 0;
+      const fx = -Math.sin(ctl.yaw), fz = -Math.cos(ctl.yaw), rx = Math.cos(ctl.yaw), rz = -Math.sin(ctl.yaw);
+      const hsp = ctl.fwd > 0 ? 10 + 29 * glide + 6 * dive : 9 * (1 - brake) + 2;
+      const tvx = fx * hsp + rx * ctl.side * 9, tvz = fz * hsp + rz * ctl.side * 9;
+      a.vx += (tvx - a.vx) * Math.min(1, dt * 0.9); a.vz += (tvz - a.vz) * Math.min(1, dt * 0.9);
+      const tv = -(48 + 17 * dive - 8 * glide + 4 * brake); a.vy += (tv - a.vy) * Math.min(1, dt * 1.1);
+      a.diveK = (a.diveK || 0) + (dive - (a.diveK || 0)) * Math.min(1, dt * 3); a.glideK = (a.glideK || 0) + (glide - (a.glideK || 0)) * Math.min(1, dt * 3);
+    } else {
+      const tv = -(46 + 19 * push); a.vy += (tv - a.vy) * Math.min(1, dt * 1.1);
+      applyAir(a, dt, wx, wz, 8 + 28 * push, 0.9); a.diveK = push > 0.8 ? 0.6 : 0.2;
+    }
+    if (a.y - Math.max(gh, 0) < (a.bot ? a.ai.chuteH : 150)) openChute(a); // abre sozinho perto do chão
   } else {
-    const tv = -(5.5 + 3.5 * push); a.vy += (tv - a.vy) * Math.min(1, dt * 2.5);
-    applyAir(a, dt, wx, wz, 3 + 10 * push, 1.5);
+    a.chuteT = (a.chuteT || 0) + dt;
+    if (a.chYaw == null) a.chYaw = a.yaw;
+    let fwd = push, lean = 0;
+    if (ctl) { // vira aos poucos para onde a câmera/joystick aponta; frente = desce e anda mais; trás = flutua
+      const want = ctl.yaw + Math.atan2(-ctl.side, Math.max(0.35, ctl.fwd + 0.35)) * (Math.abs(ctl.side) > 0.1 ? 1 : 0);
+      const dy = wrapA(want - a.chYaw), turn = clamp(dy, -1.15 * dt, 1.15 * dt); a.chYaw = wrapA(a.chYaw + turn); a.bank = (a.bank || 0) + (clamp(dy * 1.5, -1, 1) - (a.bank || 0)) * Math.min(1, dt * 3);
+      fwd = ctl.fwd; lean = ctl.fwd > 0 ? clamp((-ctl.pitch - 0.1) / 0.8, 0, 1) * ctl.fwd : 0;
+    } else { a.chYaw = Math.atan2(-wx, -wz); a.bank = 0; }
+    const hsp = fwd > 0 ? 8.5 + 4.5 * fwd + 3 * lean : 8.5 + 5 * fwd, open = smooth(clamp(a.chuteT / 1.2, 0, 1));
+    const tvx = -Math.sin(a.chYaw) * hsp, tvz = -Math.cos(a.chYaw) * hsp;
+    a.vx += (tvx - a.vx) * Math.min(1, dt * 1.2); a.vz += (tvz - a.vz) * Math.min(1, dt * 1.2);
+    const tv = -(5.5 + (fwd > 0 ? 1.5 * fwd + 2.5 * lean : 1.7 * fwd)); a.vy += (tv - a.vy) * Math.min(1, dt * (0.6 + 2.4 * open)); // freio do velame enche em ~1 s
   }
   const ny = a.y + a.vy * dt, nx = clamp(a.x + a.vx * dt, -HALF + 4, HALF - 4), nz = clamp(a.z + a.vz * dt, -HALF + 4, HALF - 4);
   let sup = groundH(nx, nz);
@@ -7925,8 +7954,8 @@ function stepAir(a, dt, wx, wz, push) {
   else if (ny <= sup) { a.y = sup; land(a); }
 }
 function applyAir(a, dt, wx, wz, hs, k) { const kk = Math.min(1, dt * k); a.vx += (wx * hs - a.vx) * kk; a.vz += (wz * hs - a.vz) * kk; }
-function openChute(a) { if (a.mode !== 'fall') return; a.mode = 'chute'; a.vy = Math.max(a.vy, -14); if (a === G.player) sfx('chute'); }
-function land(a) { a.mode = 'ground'; a.vy = 0; a.onGround = true; a.stance = 'stand'; if (a === G.player) toast('Pouso! Procure armas e equipamentos nas casas.', 2.5); }
+function openChute(a) { if (a.mode !== 'fall') return; a.mode = 'chute'; a.chuteT = 0; a.chYaw = a.yaw; a.bank = 0; if (a === G.player) { sfx('chute'); G.shake = 0.35; } }
+function land(a) { const hv = Math.hypot(a.vx, a.vz); a.mode = 'ground'; a.landAt = G.t; a.landK = clamp(0.35 + hv / 25, 0.35, 0.9); a.vx *= 0.4; a.vz *= 0.4; a.vy = 0; a.onGround = true; a.stance = 'stand'; a.chYaw = null; a.fallT = 0; if (a === G.player) toast('Pouso! Procure armas e equipamentos nas casas.', 2.5); } // pouso: amortece e perde o embalo
 // bots no ar: miram no ponto de pouso (colegas do jogador seguem o jogador)
 function botAir(a, dt) {
   const ai = a.ai, p = G.player;
@@ -8089,7 +8118,7 @@ function playerStep(dt) {
   let wx = fx * IN.my + rx * IN.mx, wz = fz * IN.my + rz * IN.mx; const wl = Math.hypot(wx, wz);
   if (wl > 1) { wx /= wl; wz /= wl; }
   if (p.mode === 'plane') return;
-  if (p.mode === 'fall' || p.mode === 'chute') { const push = Math.min(1, wl), n = wl || 1; stepAir(p, dt, wx / n, wz / n, push); return; }
+  if (p.mode === 'fall' || p.mode === 'chute') { const push = Math.min(1, wl), n = wl || 1; stepAir(p, dt, wx / n, wz / n, push, { fwd: IN.my, side: IN.mx, pitch: v.pitch, yaw: v.yaw }); if (p.mode === 'chute' && p.chYaw != null) p.yaw = p.chYaw; return; }
   // no chão
   if (p.veh && p.seat === 0) {
     const H2 = IN.hold, st = (H2.drvR ? 1 : 0) - (H2.drvL ? 1 : 0);
@@ -8100,6 +8129,7 @@ function playerStep(dt) {
     const sprint = IN.sprint && IN.my > 0.6 && !p.ads && p.stance === 'stand';
     applyMove(p, dt, wx, wz, p.reviving ? 0 : moveSpeed(p, sprint));
     if (sprint && IN.fire) IN.sprint = false;
+    if (IN.sprintLock && (IN.fire || IN.adsOn || p.stance !== 'stand')) { IN.sprintLock = false; IN.my = 0; IN.sprint = false; $('joy').classList.remove('lock'); $('joyK').style.transform = ''; }
   }
   // tiro
   if (w && !p.knocked && !p.swim) {
@@ -8167,7 +8197,7 @@ function pLean(dir) { const p = G.player; p.leanT = p.leanT === dir ? 0 : dir; }
 function pAct() {
   const p = G.player;
   if (p.mode === 'plane') { jumpOut(p); return; }
-  if (p.mode === 'fall') { openChute(p); return; }
+  if (p.mode === 'fall') { if ((p.fallT || 0) > 1.2) openChute(p); return; }
   if (p.veh) { leaveVeh(p); return; }
   const c = ctx();
   if (c.knocked) { p.reviving = c.knocked; p.reviveT = 0; toast('Revivendo... fique parado.', 2); return; }
@@ -8222,11 +8252,11 @@ function updateCamera(dt) {
     // desliza junto ao inclinar e encosta na parede de forma suave
     const air = tgt.mode !== 'ground', rx = Math.cos(yaw), rz = -Math.sin(yaw);
     const sprint = !air && Math.hypot(tgt.vx, tgt.vz) > 5.6;
-    let dist = air ? (tgt.mode === 'chute' ? 7 : 5.5) : tgt.knocked ? 3.2 : tgt.stance === 'prone' ? 2.6 : sprint ? 3.25 : 3.0;
+    let dist = air ? (tgt.mode === 'chute' ? 9.5 : 6) : tgt.knocked ? 3.2 : tgt.stance === 'prone' ? 2.6 : sprint ? 3.25 : 3.0;
     if (!air && pitch < -0.4) dist *= 1 + (-pitch - 0.4) * 0.35; // olhando para baixo afasta um pouco
     const lean = tgt.lean || 0, sh = air ? 0 : 0.72 + lean * 0.42;
     const tx = tgt.x + rx * sh, tz = tgt.z + rz * sh;
-    const ty = tgt.y + (air ? 1.4 : tgt.knocked || tgt.stance === 'prone' ? 0.85 : tgt.stance === 'crouch' ? 1.35 : 1.72) - Math.abs(lean) * 0.08 - landDip(tgt) * 0.16;
+    const ty = tgt.y + (air ? (tgt.mode === 'chute' ? 3.2 : 1.4) : tgt.knocked || tgt.stance === 'prone' ? 0.85 : tgt.stance === 'crouch' ? 1.35 : 1.72) - Math.abs(lean) * 0.08 - landDip(tgt) * 0.16;
     if (!v.piv || v.pivT !== tgt || Math.hypot(v.piv.x - tx, v.piv.z - tz) > 4 || Math.abs(v.piv.y - ty) > 4) { v.piv = { x: tx, y: ty, z: tz }; v.pivT = tgt; v.cd = dist; }
     const kh = 1 - Math.exp(-dt * (air ? 12 : 26)), kv = 1 - Math.exp(-dt * 9);
     v.piv.x += (tx - v.piv.x) * kh; v.piv.z += (tz - v.piv.z) * kh; v.piv.y += (ty - v.piv.y) * kv;
@@ -8303,7 +8333,7 @@ function onDown(e) {
   if (joyId === null && jd < 115 && !$('joy').classList.contains('hidden')) {
     // joystick fixo: o centro é sempre o do círculo na tela; o dedo só arrasta a bolinha
     const j = $('joy'), r = j.getBoundingClientRect();
-    joyId = e.pointerId; joyOx = r.left + r.width / 2; joyOy = r.top + r.height / 2; PT[e.pointerId] = { k: 'joy' };
+    joyId = e.pointerId; joyOx = r.left + r.width / 2; joyOy = r.top + r.height / 2; PT[e.pointerId] = { k: 'joy' }; if (IN.sprintLock) { IN.sprintLock = false; j.classList.remove('lock'); } // tocar de novo destrava
     j.classList.add('on'); onMove(e);
   } else PT[e.pointerId] = { k: 'look', x: e.clientX, y: e.clientY };
 }
@@ -8313,6 +8343,7 @@ function onMove(e) {
   if (t.k === 'joy') {
     let dx = e.clientX - joyOx, dy = e.clientY - joyOy; const d = Math.hypot(dx, dy), R = 55;
     IN.sprint = dy < -R * 1.35; // empurrar além do círculo = correr
+    if (dy < -R * 2.1 && G.player && G.player.mode === 'ground' && !G.player.veh) { IN.sprintLock = true; $('joy').classList.add('lock'); } // arrastar bem para cima: trava a corrida
     if (d > R) { dx *= R / d; dy *= R / d; }
     IN.mx = dx / R; IN.my = -dy / R; $('joyK').style.transform = `translate(${dx}px,${dy}px)`;
   } else if (t.k === 'look') { IN.ldx += e.clientX - t.x; IN.ldy += e.clientY - t.y; t.x = e.clientX; t.y = e.clientY; }
@@ -8320,7 +8351,7 @@ function onMove(e) {
 function onUp(e) {
   if (e.pointerType === 'mouse' && document.pointerLockElement === $('cv')) { if (e.button === 0) IN.fire = false; }
   const t = PT[e.pointerId]; if (!t) return;
-  if (t.k === 'joy') { joyId = null; IN.mx = IN.my = 0; IN.sprint = false; $('joyK').style.transform = ''; $('joy').classList.remove('on'); }
+  if (t.k === 'joy') { joyId = null; if (IN.sprintLock) { IN.mx = 0; IN.my = 1; IN.sprint = true; $('joyK').style.transform = 'translate(0px,-55px)'; } else { IN.mx = IN.my = 0; IN.sprint = false; $('joyK').style.transform = ''; } $('joy').classList.remove('on'); }
   if (t.fire) IN.fire = Object.values(PT).some(o => o !== t && o.fire);
   if (t.k === 'hold') { IN.hold[t.id] = Object.values(PT).some(o => o !== t && o.k === 'hold' && o.id === t.id); if (!IN.hold[t.id]) { const el = $('b_' + t.id); if (el) el.classList.remove('on'); } }
   delete PT[e.pointerId];
@@ -8759,7 +8790,20 @@ function sfx(k) {
 }
 
 // ================= laço principal =================
-const CHUTE_GEO = mergeParts([{ g: GEO.hsph, y: 0, sx: 5.2, sy: 2.2, sz: 3.6, c: '#ff4fa3' }, { g: GEO.hsph, y: 0.05, sx: 3.2, sy: 2.25, sz: 3.65, c: '#ffe14d' }]);
+// paraquedas de células (velame retangular em arco) com cordas até o arnês
+const CHUTE_GEO = (() => {
+  const p = [], N = 9, W = 7.2, cols = ['#e8562a', '#f4f1ea', '#e8562a', '#2c4a6e', '#f4f1ea', '#2c4a6e', '#e8562a', '#f4f1ea', '#e8562a'];
+  for (let i = 0; i < N; i++) {
+    const t = (i + 0.5) / N - 0.5, a = t * 1.15, x = Math.sin(a) * W * 0.62, y = Math.cos(a) * 1.4 + 1.0;
+    p.push({ g: GEO.box, x, y, z: 0, sx: W / N * 1.04, sy: 0.32, sz: 2.8, rz: -a, c: cols[i] });
+    p.push({ g: GEO.box, x, y: y - 0.2, z: -1.35, sx: W / N * 1.0, sy: 0.12, sz: 0.12, rz: -a, c: '#1d1d1d' }); // boca das células
+  }
+  for (const sx of [-1, 1]) for (const z of [-1.0, 0.0, 1.0]) for (const k of [0.25, 0.5]) {
+    const a = sx * k * 1.15, x = Math.sin(a) * W * 0.62, y = Math.cos(a) * 1.4 + 0.85, dx = x, dy = y - (-3.0), len = Math.hypot(dx, dy, z);
+    p.push({ g: GEO.cyl6, x: x / 2, y: (y - 3.0) / 2, z: z / 2, sx: 0.025, sy: len, sz: 0.025, rz: -Math.atan2(dx, dy), rx: Math.atan2(z, dy), c: '#dddddd' });
+  }
+  return mergeParts(p);
+})();
 function drawActors(dt, hideSelf) {
   const cx = camera.position.x, cz = camera.position.z; humanFrame(); stepCorpses(dt);
   for (const a of G.actors) {
@@ -8767,7 +8811,7 @@ function drawActors(dt, hideSelf) {
     animateModel(a, dt, cx, cz, hideSelf && a === G.player);
     const m = a.model, on = a.alive && a.mode === 'chute';
     if (on && !m.chute) { m.chute = new T.Mesh(CHUTE_GEO, MAT.actor); m.chute.position.y = 4.4; m.g.add(m.chute); }
-    if (m.chute) m.chute.visible = on;
+    if (m.chute) { m.chute.visible = on; if (on) { const o = smooth(clamp((a.chuteT || 0) / 0.9, 0, 1)); m.chute.scale.set(0.25 + 0.75 * o, 0.4 + 0.6 * o, 0.5 + 0.5 * o); m.chute.rotation.set(Math.sin(G.t * 1.3 + a.id) * 0.04 - Math.min(0.12, Math.hypot(a.vx, a.vz) * 0.006), 0, -(a.bank || 0) * 0.32); } } // abre enchendo e inclina nas curvas
   }
 }
 let last = performance.now(), fpsN = 0, fpsT = 0;
@@ -9569,7 +9613,7 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   const ld = a.mode === 'ground' ? landDip(a) : 0;
   m.root.position.set(0, 0, 0); m.root.rotation.set(0, Math.PI, 0);
   if (m.pk > 0.01 && a.mode === 'ground') { m.root.rotation.set(-Math.PI / 2 * m.pk, Math.PI, 0); m.root.position.set(0, 0.16 * m.pk - Math.sin(m.pk * Math.PI) * 0.3, 0); }
-  else if (a.mode === 'fall') m.root.rotation.set(-1.25, Math.PI, 0);
+  else if (a.mode === 'fall') m.root.rotation.set(-0.95 - (a.diveK || 0) * 0.55 + (a.glideK || 0) * 0.1, Math.PI, Math.sin(G.t * 2.1 + a.id) * 0.04); // mergulho de cabeça; planando, mais deitado
   if (!prone) m.root.position.y += m.cy - ld * 0.2;
   if (Math.abs(m.twist) > 0.01 && !prone && a.mode === 'ground') m.root.rotation.y = Math.PI - m.twist;
   m.g.updateMatrixWorld(true);
@@ -9605,7 +9649,8 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   if (a.mode === 'chute') {
     for (const s of ['L', 'R']) { const sg = s === 'L' ? -1 : 1; ik2(B[`Bip01_${s}_UpperArm`], B[`Bip01_${s}_Forearm`], B[`Bip01_${s}_Hand`], B.Bip01_Head.getWorldPosition(_E).addScaledVector(_UP, 0.45).addScaledVector(_R, sg * 0.3), _pole.copy(_R).multiplyScalar(sg)); }
   } else if (a.mode === 'fall') {
-    for (const s of ['L', 'R']) { const sg = s === 'L' ? -1 : 1; aimBone(B[`Bip01_${s}_UpperArm`], B[`Bip01_${s}_Forearm`], _C.copy(_R).multiplyScalar(sg).addScaledVector(_UP, 0.5)); }
+    const dk = a.diveK || 0; // mergulhando: braços para trás colados ao corpo; planando: abertos
+    for (const s of ['L', 'R']) { const sg = s === 'L' ? -1 : 1; aimBone(B[`Bip01_${s}_UpperArm`], B[`Bip01_${s}_Forearm`], _C.copy(_R).multiplyScalar(sg * (1 - dk * 0.75)).addScaledVector(_UP, 0.5 - dk * 0.9).addScaledVector(_F, -dk * 0.9)); }
   } else if (a.veh && a.seat === 0) {
     const ch = B.Bip01_Spine2.getWorldPosition(new T.Vector3());
     for (const s of ['L', 'R']) { const sg = s === 'L' ? -1 : 1; ik2(B[`Bip01_${s}_UpperArm`], B[`Bip01_${s}_Forearm`], B[`Bip01_${s}_Hand`], _H1.copy(ch).addScaledVector(_F, 0.42).addScaledVector(_UP, -0.12).addScaledVector(_R, sg * 0.17), _pole.set(0, -1, 0).addScaledVector(_R, sg * 0.5)); }
@@ -10562,6 +10607,10 @@ function killBanner(a, wn) {
 }
 function hudPlus() {
   const p = G.player; if (!p) return;
+  // queda/paraquedas: altura e velocidade (como nos battle royale)
+  const ai = $('airI'), air = p.alive && (p.mode === 'fall' || p.mode === 'chute');
+  if (ai) { ai.classList.toggle('hidden', !air); if (air) { const h = Math.max(0, p.y - Math.max(groundH(p.x, p.z), 0)), sp = Math.hypot(p.vx, p.vy, p.vz) * 3.6;
+    ai.innerHTML = `<div class="ab"><i style="height:${clamp(h / 7.2, 0, 100)}%"></i></div><div><b>${Math.round(h)}</b> m<br><b>${Math.round(sp)}</b> km/h<br><small>${p.mode === 'fall' ? (p.diveK > 0.5 ? 'MERGULHANDO' : p.glideK > 0.5 ? 'PLANANDO' : 'QUEDA LIVRE') : 'PARAQUEDAS'}</small></div>`; } }
   // equipe: nome, vida (derrubado em vermelho, morto riscado)
   const tm = $('team');
   if (tm) {
@@ -10763,6 +10812,8 @@ function ambLoops() {
 }
 function stepWeather(dt) {
   AMB.t += dt;
+  { const q = QUAL[SET.quality] || QUAL[1], w = WEATHER[WX.k] || WEATHER.dia, base = q.fog * w.fk, up = Math.max(0, camera.position.y - 60) * 1.1;
+    scene.fog.far = base + up; scene.fog.near = base * 0.12 + up * 0.55; }
   if (RAIN.visible) { RAIN.material.uniforms.uT.value = AMB.t; RAIN.material.uniforms.uCam.value.copy(camera.position); }
   if (!AC || AC.state !== 'running') return;
   const L = ambLoops(); if (!L) return;

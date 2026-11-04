@@ -35,7 +35,7 @@ function playerStep(dt) {
   let wx = fx * IN.my + rx * IN.mx, wz = fz * IN.my + rz * IN.mx; const wl = Math.hypot(wx, wz);
   if (wl > 1) { wx /= wl; wz /= wl; }
   if (p.mode === 'plane') return;
-  if (p.mode === 'fall' || p.mode === 'chute') { const push = Math.min(1, wl), n = wl || 1; stepAir(p, dt, wx / n, wz / n, push); return; }
+  if (p.mode === 'fall' || p.mode === 'chute') { const push = Math.min(1, wl), n = wl || 1; stepAir(p, dt, wx / n, wz / n, push, { fwd: IN.my, side: IN.mx, pitch: v.pitch, yaw: v.yaw }); if (p.mode === 'chute' && p.chYaw != null) p.yaw = p.chYaw; return; }
   // no chão
   if (p.veh && p.seat === 0) {
     const H2 = IN.hold, st = (H2.drvR ? 1 : 0) - (H2.drvL ? 1 : 0);
@@ -46,6 +46,7 @@ function playerStep(dt) {
     const sprint = IN.sprint && IN.my > 0.6 && !p.ads && p.stance === 'stand';
     applyMove(p, dt, wx, wz, p.reviving ? 0 : moveSpeed(p, sprint));
     if (sprint && IN.fire) IN.sprint = false;
+    if (IN.sprintLock && (IN.fire || IN.adsOn || p.stance !== 'stand')) { IN.sprintLock = false; IN.my = 0; IN.sprint = false; $('joy').classList.remove('lock'); $('joyK').style.transform = ''; }
   }
   // tiro
   if (w && !p.knocked && !p.swim) {
@@ -113,7 +114,7 @@ function pLean(dir) { const p = G.player; p.leanT = p.leanT === dir ? 0 : dir; }
 function pAct() {
   const p = G.player;
   if (p.mode === 'plane') { jumpOut(p); return; }
-  if (p.mode === 'fall') { openChute(p); return; }
+  if (p.mode === 'fall') { if ((p.fallT || 0) > 1.2) openChute(p); return; }
   if (p.veh) { leaveVeh(p); return; }
   const c = ctx();
   if (c.knocked) { p.reviving = c.knocked; p.reviveT = 0; toast('Revivendo... fique parado.', 2); return; }
@@ -168,11 +169,11 @@ function updateCamera(dt) {
     // desliza junto ao inclinar e encosta na parede de forma suave
     const air = tgt.mode !== 'ground', rx = Math.cos(yaw), rz = -Math.sin(yaw);
     const sprint = !air && Math.hypot(tgt.vx, tgt.vz) > 5.6;
-    let dist = air ? (tgt.mode === 'chute' ? 7 : 5.5) : tgt.knocked ? 3.2 : tgt.stance === 'prone' ? 2.6 : sprint ? 3.25 : 3.0;
+    let dist = air ? (tgt.mode === 'chute' ? 9.5 : 6) : tgt.knocked ? 3.2 : tgt.stance === 'prone' ? 2.6 : sprint ? 3.25 : 3.0;
     if (!air && pitch < -0.4) dist *= 1 + (-pitch - 0.4) * 0.35; // olhando para baixo afasta um pouco
     const lean = tgt.lean || 0, sh = air ? 0 : 0.72 + lean * 0.42;
     const tx = tgt.x + rx * sh, tz = tgt.z + rz * sh;
-    const ty = tgt.y + (air ? 1.4 : tgt.knocked || tgt.stance === 'prone' ? 0.85 : tgt.stance === 'crouch' ? 1.35 : 1.72) - Math.abs(lean) * 0.08 - landDip(tgt) * 0.16;
+    const ty = tgt.y + (air ? (tgt.mode === 'chute' ? 3.2 : 1.4) : tgt.knocked || tgt.stance === 'prone' ? 0.85 : tgt.stance === 'crouch' ? 1.35 : 1.72) - Math.abs(lean) * 0.08 - landDip(tgt) * 0.16;
     if (!v.piv || v.pivT !== tgt || Math.hypot(v.piv.x - tx, v.piv.z - tz) > 4 || Math.abs(v.piv.y - ty) > 4) { v.piv = { x: tx, y: ty, z: tz }; v.pivT = tgt; v.cd = dist; }
     const kh = 1 - Math.exp(-dt * (air ? 12 : 26)), kv = 1 - Math.exp(-dt * 9);
     v.piv.x += (tx - v.piv.x) * kh; v.piv.z += (tz - v.piv.z) * kh; v.piv.y += (ty - v.piv.y) * kv;

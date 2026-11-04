@@ -172,3 +172,10 @@ Escolha no lobby (**Mapa: Ilha NK / Balneário**). Mapa original do NK Mobile, d
 - **Prédios grandes por dentro**: cada andar tem corredor e 2–3 salas com porta — escritórios (mesa, monitor, cadeira) e cozinhas (balcão) — luta sala a sala
 - **Lobby**: painel com a imagem de cada ilha para escolher o mapa
 - **Lanchas** (9 na Ilha NK, 12 no Balneário) na costa, portos e lagoas: 4 lugares, ~70 km/h, boiam e balançam com as ondas, bico sobe ao acelerar, espuma atrás; na terra ficam encalhadas (andam só devagar). Bots não pegam lancha sozinhos, mas entram de passageiro na sua
+
+## Queda, paraquedas e corrida (atualização)
+- Avião voa a ~720 m (acima das nuvens): ~10 s de queda livre
+- **Queda livre**: ~173 km/h parado; olhar para baixo + frente = **mergulho** até ~234 km/h; olhar para frente + frente = **planar** para longe (~140 km/h na horizontal); trás = freia. O corpo muda de pose (de cabeça no mergulho, braços abertos planando)
+- **Paraquedas** de células com cordas, abre enchendo, inclina nas curvas; vira aos poucos; frente = mais rápido e desce mais, trás = flutua; abre sozinho a ~150 m; dá para abrir antes no botão
+- Painel de **altura e velocidade** na queda; pouso amortecido que perde o embalo; névoa mais distante quando se está no alto
+- **Trava de corrida**: arraste o joystick bem para cima — aparece "🔒 CORRENDO" e dá para soltar o dedo; toque no joystick, mire ou atire para destravar

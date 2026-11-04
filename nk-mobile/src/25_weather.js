@@ -90,6 +90,8 @@ function ambLoops() {
 }
 function stepWeather(dt) {
   AMB.t += dt;
+  { const q = QUAL[SET.quality] || QUAL[1], w = WEATHER[WX.k] || WEATHER.dia, base = q.fog * w.fk, up = Math.max(0, camera.position.y - 60) * 1.1;
+    scene.fog.far = base + up; scene.fog.near = base * 0.12 + up * 0.55; }
   if (RAIN.visible) { RAIN.material.uniforms.uT.value = AMB.t; RAIN.material.uniforms.uCam.value.copy(camera.position); }
   if (!AC || AC.state !== 'running') return;
   const L = ambLoops(); if (!L) return;
