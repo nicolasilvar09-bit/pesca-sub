@@ -32,7 +32,7 @@ function balRoads() {
   for (const t of TOWNS) {
     if (!['city', 'resort', 'market'].includes(t.kind)) continue;
     const e = t.r - 10; R.push([t.x - e, t.z, t.x + e, t.z], [t.x, t.z - e, t.x, t.z + e]);
-    if (t.big) for (const o of [-50, 50]) R.push([t.x - e, t.z + o, t.x + e, t.z + o], [t.x + o, t.z - e, t.x + o, t.z + e]);
+    if (t.big) for (const o of [-t.r * 0.4, t.r * 0.4]) R.push([t.x - e, t.z + o, t.x + e, t.z + o], [t.x + o, t.z - e, t.x + o, t.z + e]);
   }
   return R;
 }
@@ -66,11 +66,13 @@ const TOWNS = MAPID === 'bal' ? balTowns() : [
   { n: 'Quartel Sul', x: -330, z: 600, r: 88, kind: 'military', tier: 3 },
   { n: 'Rancho', x: 560, z: 300, r: 75, kind: 'farm', tier: 1 },
 ]);
+// mapa de 3 km: tudo se afasta na mesma proporção; as cidades crescem um pouco menos (e ganham mais prédios)
+for (const t of TOWNS) { t.x *= WS; t.z *= WS; t.r = Math.round(t.r * 1.45); }
 const ROADS = MAPID === 'bal' ? balRoads() : [ // trechos de estrada [x0,z0,x1,z1]
   [-335, 300, -210, 150], [-210, 150, 70, 45], [70, 45, 335, -240], [70, 45, 275, 290], [-120, -255, 70, 45],
   [-380, -85, -120, -255], [-380, -85, -210, 150], [275, 290, 150, 430], [335, -240, 120, -400],
   [-165, 95, 70, 45], [175, -110, 70, 45], [175, -110, 335, -240], [15, 335, 70, 45], [15, 335, -335, 300], [430, 35, 335, -240], [430, 35, 275, 290],
-].map(r => r.map(v => v * MS));
+].map(r => r.map(v => v * MS * WS));
 if (MAPID !== 'bal') { // estradas das cidades novas
   const T_ = n => TOWNS.find(t => t.n === n), link = (a, b) => { const p = T_(a), q = T_(b); ROADS.push([p.x, p.z, q.x, q.z]); };
   link('Cidade Alta', 'Centro'); link('Cidade Alta', 'Farol Leste'); link('Cidade Alta', 'Jardim');
@@ -82,20 +84,35 @@ const RIVERS = MAPID === 'bal' ? [
   [[-70, -250], [-40, -150], [-120, -60], [-150, 40], [-85, 250], [-55, 340], [-35, 470], [-20, 700]],
   [[185, -120], [240, 40], [300, 165], [420, 205], [640, 245]],
 ] : [[[-40, -560], [40, -420], [60, -250], [-10, -130], [-80, -40], [-90, 200], [-120, 330], [-110, 480], [-110, 760]]];
+for (const RV of RIVERS) for (const pt of RV) { pt[0] *= WS; pt[1] *= WS; }
 const RIVER = RIVERS[0];
-const LAKES = MAPID === 'bal' ? [[205, -415, 52], [-300, 330, 38]] : []; // lagoas (fundas: nada)
-function riverDist(x, z) {
-  let m = 1e9;
-  for (const RV of RIVERS) for (let i = 0; i < RV.length - 1; i++) {
-    const a = RV[i], b = RV[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz;
-    const t = clamp(((x - a[0]) * dx + (z - a[1]) * dz) / L, 0, 1);
-    m = Math.min(m, Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t));
+const LAKES = (MAPID === 'bal' ? [[205, -415, 52], [-300, 330, 38]] : [[-260, -330, 40], [420, 360, 34]]).map(l => l.map(v => v * WS)); // lagoas (fundas: nada)
+// índice por região para distância a segmentos (estradas, rios): cada consulta olha só o que está perto.
+// longe de tudo (mais que PAD metros) devolve 999 — nenhum uso precisa de distância maior que isso
+function segIndex(segs, PAD) {
+  const C = 48, N = Math.ceil(MAP / C), cells = new Map();
+  for (const sg of segs) {
+    const x0 = Math.min(sg[0], sg[2]) - PAD, x1 = Math.max(sg[0], sg[2]) + PAD, z0 = Math.min(sg[1], sg[3]) - PAD, z1 = Math.max(sg[1], sg[3]) + PAD;
+    for (let cz = Math.floor((z0 + HALF) / C); cz <= Math.floor((z1 + HALF) / C); cz++) for (let cx = Math.floor((x0 + HALF) / C); cx <= Math.floor((x1 + HALF) / C); cx++) {
+      const k = cz * N + cx; let l = cells.get(k); if (!l) cells.set(k, l = []); l.push(sg);
+    }
   }
-  return m;
+  return (x, z) => {
+    const l = cells.get(Math.floor((z + HALF) / C) * N + Math.floor((x + HALF) / C)); if (!l) return 999;
+    let m = 999;
+    for (const r of l) { const dx = r[2] - r[0], dz = r[3] - r[1], L = dx * dx + dz * dz || 1, t = clamp(((x - r[0]) * dx + (z - r[1]) * dz) / L, 0, 1), d = Math.hypot(x - r[0] - dx * t, z - r[1] - dz * t); if (d < m) m = d; }
+    return m;
+  };
+}
+let _riverQ = null, _roadQ = null, _padG = null;
+function riverDist(x, z) {
+  if (!_riverQ) { const sg = []; for (const RV of RIVERS) for (let i = 0; i < RV.length - 1; i++) sg.push([RV[i][0], RV[i][1], RV[i + 1][0], RV[i + 1][1]]); _riverQ = segIndex(sg, 60); }
+  return _riverQ(x, z);
 }
 
 // ---------- relevo ----------
 function rawH(x, z) {
+  x /= WS; z /= WS; // o relevo também é ampliado (morros mais largos)
   if (MAPID === 'bal') return rawHB(x, z);
   const d = Math.hypot(x, z), a = Math.atan2(z, x);
   const edge = 548 * MS + NZ.fbm(Math.cos(a) * 1.7 + 11, Math.sin(a) * 1.7 + 11, 3) * 100;
@@ -110,8 +127,8 @@ const PADS = []; // áreas planas (cidades e casas isoladas)
 for (const t of TOWNS) { t.h = Math.max(4, rawH(t.x, t.z)); const st = t.kind === 'stilt'; PADS.push({ x: t.x, z: t.z, r: st ? 24 : t.r, b: st ? 18 : 45, h: t.h }); }
 // casas isoladas espalhadas pela ilha
 const LONE = [];
-const LONE_N = MAPID === 'bal' ? 60 : 85, LONE_R = MAPID === 'bal' ? 560 : 470 * MS;
-for (let k = 0; k < 1600 && LONE.length < LONE_N; k++) {
+const LONE_N = Math.round((MAPID === 'bal' ? 60 : 85) * 2.6), LONE_R = (MAPID === 'bal' ? 560 : 470 * MS) * WS;
+for (let k = 0; k < 6000 && LONE.length < LONE_N; k++) {
   const x = wr(-LONE_R, LONE_R), z = wr(-LONE_R, LONE_R), h = rawH(x, z);
   if (riverDist(x, z) < 28) continue;
   if (h < 4 || h > 45) continue;
@@ -121,7 +138,9 @@ for (let k = 0; k < 1600 && LONE.length < LONE_N; k++) {
   LONE.push({ x, z, h }); PADS.push({ x, z, r: 11, b: 12, h });
 }
 function padH(x, z, h) {
-  for (const p of PADS) {
+  if (!_padG) { _padG = new Map(); for (const p of PADS) { const R = p.r + p.b; for (let cz = Math.floor((p.z - R + HALF) / 48); cz <= Math.floor((p.z + R + HALF) / 48); cz++) for (let cx = Math.floor((p.x - R + HALF) / 48); cx <= Math.floor((p.x + R + HALF) / 48); cx++) { const k = cz * 1000 + cx; let l = _padG.get(k); if (!l) _padG.set(k, l = []); l.push(p); } } }
+  const near = _padG.get(Math.floor((z + HALF) / 48) * 1000 + Math.floor((x + HALF) / 48)); if (!near) return h;
+  for (const p of near) {
     const d = Math.hypot(x - p.x, z - p.z); if (d > p.r + p.b) continue;
     h = lerp(h, p.h, smooth(clamp((p.r + p.b - d) / p.b, 0, 1)));
   }
@@ -143,13 +162,8 @@ function groundH(x, z) {
   return fx + fz <= 1 ? h00 + (h10 - h00) * fx + (h01 - h00) * fz : h11 + (h01 - h11) * (1 - fx) + (h10 - h11) * (1 - fz);
 }
 function roadDist(x, z) {
-  let m = 1e9;
-  for (const r of ROADS) {
-    const dx = r[2] - r[0], dz = r[3] - r[1], L = dx * dx + dz * dz;
-    const t = clamp(((x - r[0]) * dx + (z - r[1]) * dz) / L, 0, 1);
-    m = Math.min(m, Math.hypot(x - r[0] - dx * t, z - r[1] - dz * t));
-  }
-  return m;
+  if (!_roadQ || _roadQ.n !== ROADS.length) { _roadQ = segIndex(ROADS, 40); _roadQ.n = ROADS.length; }
+  return _roadQ(x, z);
 }
 
 // ---------- malha do terreno ----------
@@ -180,7 +194,7 @@ function roadDist(x, z) {
   g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('color', new T.BufferAttribute(col, 3));
   g.setIndex(new T.BufferAttribute(idx, 1)); g.computeVertexNormals();
   TERRAIN = new T.Mesh(g, MAT.terrain); scene.add(TERRAIN);
-  const water = WATER = new T.Mesh(new T.PlaneGeometry(5000, 5000), new T.MeshLambertMaterial({ color: 0x2a6f8f, transparent: true, opacity: 0.84 }));
+  const water = WATER = new T.Mesh(new T.PlaneGeometry(12000, 12000), new T.MeshLambertMaterial({ color: 0x2a6f8f, transparent: true, opacity: 0.84 }));
   water.rotation.x = -Math.PI / 2; water.position.y = 0; scene.add(water);
 })();
 
@@ -541,7 +555,7 @@ function balExtras(t) {
 }
 (function buildTowns() {
   for (const t of TOWNS) {
-    const n = t.big ? 30 : { village: 22, city: 20, port: 13, military: 11, farm: 10, factory: 11, resort: 9, market: 14, stilt: 0, ruins: 0 }[t.kind];
+    const n = Math.round((t.big ? 30 : { village: 22, city: 20, port: 13, military: 11, farm: 10, factory: 11, resort: 9, market: 14, stilt: 0, ruins: 0 }[t.kind]) * 1.9); // cidades maiores, quase o dobro de prédios
     let made = 0;
     for (let i = 0; i < n * 3 && made < n; i++) {
       if (t.kind === 'village') { const two = WR() < 0.35, w = two ? 10 : 8 + Math.round(WR() * 2), d = two ? 8 : 7; if (place(t, w, d, 5, (x, z) => (two ? house2 : house)(t, x, z, w, d))) made++; }
@@ -597,7 +611,7 @@ function balExtras(t) {
 // ---------- árvores, arbustos e pedras (instanciados: 1 desenho para todas) ----------
 // ---------- campo preenchido: estruturas entre as cidades (cobertura e pontos de interesse, como em todo mapa de tiro) ----------
 const DECO = []; // peças só visuais (cercas e postes inclinados), juntadas numa malha só
-const ISL_R = MAPID === 'bal' ? 560 : 700;
+const ISL_R = (MAPID === 'bal' ? 560 : 700) * WS;
 function landSpot(w, d, o) {
   o = o || {};
   for (let k = 0; k < 60; k++) {
@@ -640,7 +654,7 @@ function wreck(x, z) { // carro abandonado (enferrujado)
   addBox(x - w2 / 2 * 0.62, g2 + 1.0, z - d2 / 2 * 0.62, x + w2 / 2 * 0.62, g2 + 1.45, z + d2 / 2 * 0.62, '#3a3e40');
 }
 (function countryside() {
-  const AREA = MAPID === 'bal' ? 0.75 : 1, N = k => Math.round(k * AREA);
+  const AREA = (MAPID === 'bal' ? 0.75 : 1) * WS * WS * 0.75, N = k => Math.round(k * AREA); // ~3x mais estruturas no campo
   // sítios: casa + celeiro + galpão + cerca + feno + trator
   for (let i = 0; i < N(14); i++) {
     const sp = landSpot(40, 34, { slope: 3, maxH: 45 }); if (!sp) continue; const [x, z] = sp;
@@ -685,7 +699,7 @@ function wreck(x, z) { // carro abandonado (enferrujado)
   for (let i = 0; i < N(40); i++) { const sp = landSpot(6, 6, { slope: 8, m: 2 }); if (!sp) continue; const [x, z, h] = sp; FOOT.push({ x, z, w: 6, d: 6 }); const s2 = 1.4 + WR() * 2.2; addBox(x - s2, h - 0.6, z - s2 * 0.8, x + s2, h + s2 * 1.1, z + s2 * 0.8, wpk(STONE), { mat: 3 }); if (WR() < 0.6) { const s3 = s2 * 0.6, ox = s2 * 1.1; addBox(x + ox - s3, groundH(x + ox, z) - 0.4, z - s3, x + ox + s3, groundH(x + ox, z) + s3, z + s3, wpk(STONE), { mat: 3 }); } }
   for (let i = 0; i < N(18); i++) { const sp = landSpot(7, 7, { slope: 2.5 }); if (!sp) continue; FOOT.push({ x: sp[0], z: sp[1], w: 7, d: 7 }); container(sp[0], sp[1], WR() < 0.5 ? 'x' : 'z', WR() < 0.25 ? 2 : 1); }
   // torres de rádio nos morros (visual alto) com casinha
-  const hills = []; for (let k = 0; k < 400 && hills.length < 3; k++) { const x = wr(-ISL_R, ISL_R), z = wr(-ISL_R, ISL_R), h = groundH(x, z); if (h > 45 && !townAt(x, z, 20) && free(x, z, 8, 8) && hills.every(q => Math.hypot(q[0] - x, q[1] - z) > 300)) hills.push([x, z, h]); }
+  const hills = []; for (let k = 0; k < 900 && hills.length < 7; k++) { const x = wr(-ISL_R, ISL_R), z = wr(-ISL_R, ISL_R), h = groundH(x, z); if (h > 45 && !townAt(x, z, 20) && free(x, z, 8, 8) && hills.every(q => Math.hypot(q[0] - x, q[1] - z) > 300)) hills.push([x, z, h]); }
   for (const [x, z, h] of hills) {
     FOOT.push({ x, z, w: 10, d: 10 }); building({ x: x + 5, z, w: 5, d: 4, floors: 1, col: '#d8d4cc', wallMat: 3, doors: ['s'], noFurn: true, tier: 2 });
     for (let k = 0; k < 4; k++) { const ox = k % 2 ? 1 : -1, oz = k < 2 ? 1 : -1; DECO.push({ g: GEO.box, x: x - 3 + ox * 0.9, y: h + 14, z: z + oz * 0.9, sx: 0.14, sy: 28, sz: 0.14, c: k % 2 ? '#c0392b' : '#ecf0f1' }); }
@@ -750,8 +764,8 @@ function wreck(x, z) { // carro abandonado (enferrujado)
 const TREES = [], NAT = {};
 (function nature() {
   const tr = [], rk = [], bu = [];
-  const BALN = MAPID === 'bal', NTR = BALN ? 5600 : 4200, NRG = BALN ? 700 : 560 * MS;
-  for (let k = 0; k < 42000 && tr.length < NTR; k++) {
+  const BALN = MAPID === 'bal', NTR = Math.round((BALN ? 5600 : 4200) * 2.7), NRG = (BALN ? 700 : 560 * MS) * WS;
+  for (let k = 0; k < 120000 && tr.length < NTR; k++) {
     const x = wr(-NRG, NRG), z = wr(-NRG, NRG), h = groundH(x, z);
     if (h < 2.5 || h > 60) continue;
     if (townAt(x, z, 12) || roadDist(x, z) < 7) continue;
@@ -795,10 +809,10 @@ const TREES = [], NAT = {};
   Object.assign(NAT, { trunk, crown, crown2, bush, rock, bu, rk });
   // nuvens
   // nuvens fofas: cada uma é um cacho de 6 bolas, mais achatado embaixo
-  const cl = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshLambertMaterial({ color: 0xffffff, emissive: 0x6d7682 }), 55 * 6);
+  const cl = new T.InstancedMesh(new T.IcosahedronGeometry(1, 1), new T.MeshLambertMaterial({ color: 0xffffff, emissive: 0x6d7682 }), 110 * 6);
   let ci = 0;
-  for (let i = 0; i < 55; i++) {
-    const cx = wr(-1300, 1300), cy = wr(330, 430), cz = wr(-1300, 1300), sc = wr(0.7, 1.4);
+  for (let i = 0; i < 110; i++) {
+    const cx = wr(-1300 * WS, 1300 * WS), cy = wr(330, 430), cz = wr(-1300 * WS, 1300 * WS), sc = wr(0.7, 1.4);
     for (let k = 0; k < 6; k++) { const r = wr(16, 30) * sc; dummy.position.set(cx + wr(-45, 45) * sc, cy + wr(0, 14) * sc, cz + wr(-25, 25) * sc); dummy.scale.set(r * 1.3, r * 0.75, r); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); cl.setMatrixAt(ci++, dummy.matrix); }
   }
   scene.add(cl);

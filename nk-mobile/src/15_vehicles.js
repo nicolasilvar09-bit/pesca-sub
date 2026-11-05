@@ -46,7 +46,7 @@ function spawnVehicles() {
   VEH.length = 0;
   const kinds = ['jipe', 'jipe', 'seda', 'seda', 'seda', 'buggy', 'buggy', 'moto', 'moto', 'moto'];
   let tries = 0;
-  while (VEH.length < Math.round(44 * MK) && tries++ < 900) {
+  while (VEH.length < 80 && tries++ < 2500) {
     const r = pick(ROADS), t = rr(0.08, 0.92), dx = r[2] - r[0], dz = r[3] - r[1], L = Math.hypot(dx, dz), side = Math.random() < 0.5 ? -1 : 1;
     const x = r[0] + dx * t - dz / L * 6 * side, z = r[1] + dz * t + dx / L * 6 * side, h = groundH(x, z);
     if (h < 1.5 || bldAt(x, z, 3) || VEH.some(v => Math.hypot(v.x - x, v.z - z) < 30)) continue;
@@ -59,7 +59,7 @@ function spawnVehicles() {
     addVehicle(k, x, z, yaw);
   }
   // lanchas: água funda perto da terra (costa, portos, lagoas), a frente virada para o mar aberto
-  const nb = MAPID === 'bal' ? 12 : 9; let bt = 0, nbt = 0;
+  const nb = MAPID === 'bal' ? 20 : 15; let bt = 0, nbt = 0;
   while (nbt < nb && bt++ < 4000) {
     const x = rr(-HALF + 30, HALF - 30), z = rr(-HALF + 30, HALF - 30), h = groundH(x, z);
     if (h > -1.6 || h < -9) continue;

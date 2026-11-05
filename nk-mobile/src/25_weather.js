@@ -129,6 +129,7 @@ const _gsC = gfxStep; gfxStep = function (dt, fx, fy, fz) {
   if ((_cullT -= dt) > 0) return; _cullT = 0.4;
   const far = scene.fog.far + 60, cp = camera.position;
   for (const m of CHUNK_MESH) { const bs = m.geometry.boundingSphere; if (!bs) continue; m.visible = _cv.copy(bs.center).distanceTo(cp) - bs.radius < far; }
+  for (const m of GLASS.meshes || []) { const bs = m.geometry.boundingSphere; m.visible = _cv.copy(bs.center).distanceTo(cp) - bs.radius < far * 0.8; }
 };
 
 // ---------- ajuste automático de desempenho ----------

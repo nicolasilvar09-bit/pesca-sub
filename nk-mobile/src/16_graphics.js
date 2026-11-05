@@ -70,15 +70,21 @@ function patchNoise(mat, kind) {
 patchNoise(MAT.terrain, 'terrain'); patchNoise(MAT.world, 'wall');
 
 // ---------- vidro nas janelas (só visual: as balas passam) ----------
+// vidros separados por bloco do mapa (somem junto com os prédios distantes; antes ficavam flutuando no céu)
 (function glass() {
-  const pos = [];
+  const mat = new T.MeshLambertMaterial({ color: 0x8fc8e8, emissive: 0x1a3a50, transparent: true, opacity: 0.42, side: T.DoubleSide, depthWrite: false });
+  const byChunk = new Map();
   for (const [x0, y0, z0, x1, y1, z1] of GLASS.p) {
+    const k = Math.floor((z0 + HALF) / CH) * 1000 + Math.floor((x0 + HALF) / CH); let pos = byChunk.get(k); if (!pos) byChunk.set(k, pos = []);
     if (Math.abs(x1 - x0) > 0.01) pos.push(x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y0, z0, x1, y1, z0, x0, y1, z0);
     else pos.push(x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y0, z0, x0, y1, z1, x0, y1, z0);
   }
-  const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
-  const m = new T.Mesh(g, new T.MeshLambertMaterial({ color: 0x8fc8e8, emissive: 0x1a3a50, transparent: true, opacity: 0.42, side: T.DoubleSide, depthWrite: false }));
-  m.renderOrder = 1; scene.add(m); GLASS.mesh = m;
+  GLASS.meshes = [];
+  for (const pos of byChunk.values()) {
+    const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); g.computeBoundingSphere();
+    const m = new T.Mesh(g, mat); m.renderOrder = 1; scene.add(m); GLASS.meshes.push(m);
+  }
+  GLASS.mesh = { material: mat }; GLASS.p = null;
 })();
 
 // ---------- sombra de contato no terreno (em volta das casas e embaixo das árvores) ----------

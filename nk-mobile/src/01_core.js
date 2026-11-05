@@ -6,7 +6,8 @@ T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
 const MAPID = (() => { try { const q = new URLSearchParams(location.search).get('mapa'); if (q) return q === 'balneario' ? 'bal' : 'nk'; return JSON.parse(localStorage.getItem('ilhazero_v1') || '{}').map === 'bal' ? 'bal' : 'nk'; } catch (e) { return 'nk'; } })();
 const MAPS = { nk: { n: 'Ilha NK', d: 'Ilha de 1,5 km, 15 cidades e um rio' }, bal: { n: 'Balneário', d: 'Selva tropical de 1,2 km, cidades grandes, resort e palafitas' } };
-const MAP = MAPID === 'bal' ? 1440 : 1760, HALF = MAP / 2, CELL = 5, GN = MAP / CELL + 1; // Ilha NK: ~1,5 km dentro de 1,76 km
+const MAP = 3360, HALF = MAP / 2, CELL = 6, GN = MAP / CELL + 1; // ~3 km de ilha nos dois mapas (múltiplo de 160 e 16 por causa das grades)
+const WS = MAPID === 'bal' ? 3360 / 1440 : 3360 / 1760; // ampliação do mapa em relação à versão anterior // Ilha NK: ~1,5 km dentro de 1,76 km
 const MS = 1.375; // escala da Ilha NK em relação à primeira versão (1,28 km)
 const MK = MAP / 1760; // tamanho do mapa atual em relação à Ilha NK (zona, avião, veículos)
 const GRAV = 9.81;

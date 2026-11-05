@@ -197,3 +197,9 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - **Passe de Elite NK — Temporada 1 (grátis)**: 30 níveis com XP de cada partida; fichas, caixas, itens épicos e o conjunto exclusivo **Coroa Imperial** (preto com linhas vermelhas que brilham, filetes dourados e coroa): capacete no nível 10, M416 no 20, sedã no 25 e traje no 30. As artes de divulgação ficam em `assets/pass/`
 - **Armário**: equipa cada item (a roupa aparece no lobby e na partida; a skin de veículo vale quando você assume o volante)
 - Bots também aparecem às vezes com roupas, capacetes, mochilas e paraquedas diferentes
+
+## Mapas de 3 km (atualização)
+- **Ilha NK** e **Balneário** passaram para ~3 km de ilha (cerca de 4 a 5 vezes a área anterior). Relevo, cidades, estradas, rios e lagoas ampliados na mesma proporção
+- Cidades ~45% maiores com quase o dobro de prédios; ~2,6x mais casas isoladas; ~3x mais estruturas no campo (sítios, ruínas, torres, acampamentos, trincheiras, muros, contêineres, postos); ~2,7x mais árvores; nuvens no céu todo
+- 80 veículos e 15–20 lanchas; avião mais rápido; zona com as duas primeiras fases mais longas (partida de ~12–13 min)
+- Desempenho: estradas, rios e áreas planas consultados por região (o mapa monta ~2x mais rápido que sem isso); vidros das janelas somem junto com os prédios distantes
