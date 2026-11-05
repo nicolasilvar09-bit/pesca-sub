@@ -33,3 +33,6 @@ Feito por código dentro do jogo.
 
 ## Animações (assets/chars/anims_kin.json)
 - **KinemIQ Free Animation Pack** — movimentos da *Universal Animation Library* de **Quaternius** (quaternius.com), limpos e exportados pela KinemIQ (kinemiq.app). Licença **CC0 1.0** (domínio público). Adaptadas ao esqueleto dos personagens do NK Mobile: andar, correr, sprint, agachado parado e andando, no ar, aterrissagem, escalada, queda ao morrer, soco, reação a tiro e parado relaxado.
+
+## Árvores realistas (assets/nature/fm_*.glb)
+- **Free Starter Forest Pack — Oak, Birch & Spruce** por **FoliMesh** (folimesh.itch.io / folimesh.com), "100% gratuita para projetos pessoais e comerciais". No jogo estão só os níveis de detalhe 2 e 3, com texturas reduzidas para 512 px.

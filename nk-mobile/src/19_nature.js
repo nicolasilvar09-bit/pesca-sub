@@ -30,7 +30,28 @@ function natGeo(scn) {
   geo.translate(-c.x, -box.min.y, -c.z); geo.scale(1 / h, 1 / h, 1 / h); geo.computeBoundingSphere();
   return geo;
 }
+// árvores realistas FoliMesh (bétula, carvalho, abeto): 2 níveis de detalhe (perto ~3,5 mil triângulos, longe ~1 mil), texturas de casca e folha
+const FM = { ready: false, sp: {} }, FM_N = ['birch', 'oak', 'spruce'], FM_CAP = { 2: 160, 3: 600 };
+function fmMat(src, leaves) {
+  const m = new T.MeshLambertMaterial({ map: src.map, color: 0xffffff, alphaTest: leaves ? 0.5 : 0, side: leaves ? T.DoubleSide : T.FrontSide });
+  if (leaves) { m.onBeforeCompile = sh => { sh.uniforms.uT = NAT_WIND; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uT;').replace('#include <begin_vertex>', `#include <begin_vertex>
+      #ifdef USE_INSTANCING
+      float ph = instanceMatrix[3][0] * 0.13 + instanceMatrix[3][2] * 0.07; float hh = max(position.y * 0.08, 0.0);
+      transformed.x += sin(uT * 1.4 + ph + position.y * 0.3) * 0.06 * hh; transformed.z += cos(uT * 1.1 + ph) * 0.05 * hh;
+      #endif`); }; m.customProgramCacheKey = () => 'fmleaf'; }
+  return m;
+}
+function loadFoliMesh(L, done) {
+  let left = FM_N.length;
+  for (const n of FM_N) L.load(`assets/nature/fm_${n}.glb`, g => {
+    const box = new T.Box3().setFromObject(g.scene), sp = { h: box.max.y - box.min.y, lv: { 2: [], 3: [] } };
+    g.scene.traverse(o => { if (!o.isMesh) return; const mm = o.name.match(/^L([23])_(\w+)/); if (!mm) return; const leaves = mm[2] === 'leaves';
+      const im = new T.InstancedMesh(o.geometry, fmMat(o.material, leaves), FM_CAP[mm[1]]); im.count = 0; im.frustumCulled = false; im.castShadow = mm[1] === '2'; im.receiveShadow = true; scene.add(im); sp.lv[mm[1]].push(im); });
+    FM.sp[n] = sp; if (--left === 0) { FM.ready = true; NATR.cx = 1e9; done && done(); } // força redesenhar as árvores perto
+  }, undefined, () => { if (--left === 0) { FM.ready = Object.keys(FM.sp).length > 0; done && done(); } });
+}
 function loadNature(L, done) {
+  loadFoliMesh(L);
   const all = [...TREE_ROUND, ...TREE_PINE, ...TREE_PALM, ...BUSHES, ...ROCKS]; let left = all.length;
   for (const k of all) L.load(`assets/nature/${k}.glb`, g => { NATR.types[k] = natGeo(g.scene); if (--left === 0) setupNature(done); }, undefined, () => { if (--left === 0) setupNature(done); });
 }
@@ -63,13 +84,16 @@ function refreshNature(cx, cz) {
   const span = l => l.length ? [Math.min(...l), Math.max(...l)] : null, old = { t: span(H.t), c: span(H.c), c2: span(H.c2), b: span(H.b) };
   back(tm.array, NATR.orig.trunk, H.t); back(cm.array, NATR.orig.crown, H.c); back(c2.array, NATR.orig.crown2, H.c2); back(bm.array, NATR.orig.bush, H.b);
   for (const k in NATR.inst) if (NATR.inst[k]) NATR.inst[k].count = 0;
+  const useFM = FM.ready && SET.quality >= 1; if (FM.ready) for (const n in FM.sp) for (const l of [2, 3]) for (const im of FM.sp[n].lv[l]) im.count = 0;
+  const putFM = (n, x, y, z, hgt, rot) => { const sp = FM.sp[n]; if (!sp) return false; const l = (x - cx) ** 2 + (z - cz) ** 2 < 42 * 42 ? 2 : 3, ims = sp.lv[l]; if (!ims.length || ims[0].count >= FM_CAP[l]) return false; _nd.position.set(x, y, z); _nd.rotation.set(0, rot, 0); _nd.scale.setScalar(hgt / sp.h); _nd.updateMatrix(); for (const im of ims) im.setMatrixAt(im.count++, _nd.matrix); return true; };
   const put = (k, x, y, z, h, rot) => { const m = NATR.inst[k]; if (!m || m.count >= 420) return false; _nd.position.set(x, y, z); _nd.rotation.set(0, rot, 0); _nd.scale.setScalar(h); _nd.updateMatrix(); m.setMatrixAt(m.count++, _nd.matrix); return true; };
   const R = [55, 95, 130][SET.quality] || 95, R2 = R * R;
   for (const t of TREES) {
     const [x, z, h, s, round, ti, idx] = t; if ((x - cx) ** 2 + (z - cz) ** 2 > R2) continue;
     const r = hsh(x, z), beach = h < 6 && Math.hypot(x, z) > 520 * MK || MAPID === 'bal' && r > 0.62; // no Balneário, coqueiros por toda parte
     const k = beach ? TREE_PALM[0] : round ? TREE_ROUND[Math.floor(r * TREE_ROUND.length)] : MAPID === 'bal' ? TREE_PALM[0] : TREE_PINE[Math.floor(r * TREE_PINE.length)];
-    if (!put(k, x, h - 0.05, z, (round ? 6.6 : 8.2) * s * (0.9 + r * 0.25), r * 6.28)) continue;
+    const hgt = (round ? 6.6 : 8.2) * s * (0.9 + r * 0.25), fmN = useFM && !beach && k !== TREE_PALM[0] ? (round ? (r < 0.5 ? 'birch' : 'oak') : 'spruce') : null;
+    if (!(fmN && putFM(fmN, x, h - 0.08, z, hgt * (round ? 1.35 : 1.25), r * 6.28)) && !put(k, x, h - 0.05, z, hgt, r * 6.28)) continue; // realistas são um pouco maiores (árvore adulta)
     ZERO_M.toArray(tm.array, ti * 16); H.t.push(ti); for (const j of idx) { ZERO_M.toArray(round ? c2.array : cm.array, j * 16); (round ? H.c2 : H.c).push(j); }
   }
   (NAT.bu || []).forEach(([x, h, z, s], i) => { if ((x - cx) ** 2 + (z - cz) ** 2 > R2) return; const r = hsh(x, z); if (put(BUSHES[Math.floor(r * BUSHES.length)], x, h - 0.05, z, 1.5 * s, r * 6.28)) { ZERO_M.toArray(bm.array, i * 16); H.b.push(i); } });
@@ -77,6 +101,7 @@ function refreshNature(cx, cz) {
   const send = (attr, o, list) => { const n = span(list), lo = Math.min(o ? o[0] : 1e9, n ? n[0] : 1e9), hi = Math.max(o ? o[1] : -1, n ? n[1] : -1); if (hi < 0) return; attr.updateRange.offset = lo * 16; attr.updateRange.count = (hi - lo + 1) * 16; attr.needsUpdate = true; };
   send(tm, old.t, H.t); send(cm, old.c, H.c); send(c2, old.c2, H.c2); send(bm, old.b, H.b);
   for (const k in NATR.inst) if (NATR.inst[k]) NATR.inst[k].instanceMatrix.needsUpdate = true;
+  if (FM.ready) for (const n in FM.sp) for (const l of [2, 3]) for (const im of FM.sp[n].lv[l]) im.instanceMatrix.needsUpdate = true;
 }
 // no alto (avião, queda, paraquedas) não precisa de árvore detalhada: mostra só as simples e para de recalcular
 function natureStep(dt, fx, fz, high) {

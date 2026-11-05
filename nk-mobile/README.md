@@ -206,3 +206,6 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 
 ## Animações novas (atualização)
 - 12 animações do pacote **KinemIQ / Quaternius (CC0)** adaptadas aos personagens: andar, correr, **sprint**, agachado parado e **andando agachado**, **no ar** (pulo/queda curta), **aterrissagem**, **escalada** (ao saltar janela/muro), **queda ao morrer**, **soco**, **reação a tiro** e parado relaxado (lobby)
+
+## Árvores realistas (atualização)
+- Bétula, carvalho e abeto do **FoliMesh** (grátis para uso pessoal e comercial) perto do jogador nos gráficos Médio e Alto: até ~42 m versão detalhada (~3,5 mil triângulos), até 95–130 m versão leve (~1 mil); longe continuam as árvores simples. Folhas com textura de verdade e balanço com o vento
