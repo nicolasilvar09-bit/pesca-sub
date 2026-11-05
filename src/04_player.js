@@ -84,7 +84,8 @@ function catchFish(f) {
   if (noTakeAt(f.pos)) { SV.money -= 500; ecoFine(); toast(`Área de preservação (piscinas naturais): aqui é só foto! ${sp.name} apreendido e multa de R$ 500.`, 5, 'bad'); AU.bad(); save(); return; }
   if (sp.protected) { SV.money -= 1000; ecoFine(); toast(`${sp.name.toUpperCase()}, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
   if (f.len < sp.min) { SV.money -= 200; ecoFine(); toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
-  if (ecoCheck(f)) return; // defeso ou cota do dia
+  if (!f.legend && ecoCheck(f)) return; // defeso ou cota do dia (o lendário nunca está em defeso)
+  if (f.legend) legendCatch(f);
   P.stringer.push(tagCatch({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len })); ecoCatch(f.kg);
   const rec = !sp.ornamental && !!SV.best[f.key] && SV.best[f.key] < f.kg && f.kg > 1;
   if (!sp.ornamental) addXP(15 + f.kg * 12);
@@ -291,6 +292,7 @@ function updateSwim(dt, t) {
   sambaInput();
   const sens = 0.0042 * OPT.sens;
   P.yaw -= IN.lookX * sens; P.pitch = clamp(P.pitch - IN.lookY * sens * (OPT.inv ? -1 : 1), -1.5, 1.4);
+  gyroApply(); // inclinar o celular também mira
   const surfY = waveH(P.pos.x, P.pos.z, t);
   const cp = Math.cos(P.pitch), fwd = _a.set(-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp), right = _b.set(Math.cos(P.yaw), 0, -Math.sin(P.yaw));
   const finK = FINS[SV.fins].k * (1 + 0.03 * lvl('trKick')), mv = Math.hypot(IN.jx, IN.jy);

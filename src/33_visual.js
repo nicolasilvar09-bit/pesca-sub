@@ -46,7 +46,7 @@ function bakeShallow() {
   const tex = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
   waterMat.uniforms.uShal.value = tex; waterMat.uniforms.uShalB.value.set(x0, z0, 1 / (x1 - x0), 1 / (z1 - z0)); SHAL.ms = performance.now() - t0;
 }
-const SHAL_COL = () => AMZ ? 'vec3(0.17,0.21,0.10)' : NE ? 'vec3(0.10,0.66,0.62)' : 'vec3(0.08,0.42,0.38)';
+const SHAL_COL = () => AMZ ? 'vec3(0.17,0.21,0.10)' : NE ? 'vec3(0.10,0.66,0.62)' : AC ? 'vec3(0.09,0.58,0.64)' : 'vec3(0.08,0.42,0.38)';
 
 // trecho do shader da água vista de cima: raso claro, espuma na beira e nas cristas, brilho do sol
 const WATER_TOP = () => `

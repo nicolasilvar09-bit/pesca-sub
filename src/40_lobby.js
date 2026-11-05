@@ -5,10 +5,11 @@ const LB = { pid: null, lead: null, members: [], dest: 'cv', spot: null, mode: '
 // pontos de cada destino (nomes fixos: os pontos dos outros destinos não estão carregados)
 const LB_SPOTS = {
   cv: [['botinas', 'Ilhas Botinas'], ['laje', 'Laje Branca'], ['jorge', 'Jorge Grego'], ['naufragio', 'Naufrágio'], ['aventureiro', 'Aventureiro'], ['cargueiro', 'Cargueiro'], ['fora', 'Parcel de Fora'], ['pedrameio', 'Pedra do Meio'], ['lajefunda', 'Laje Funda'], ['plataforma', 'Plataforma de Fora']],
+  ac: [['forno', 'Praia do Forno'], ['porcos_ac', 'Ilha dos Porcos'], ['boqueirao', 'Boqueirão'], ['cherne_ac', 'Saco do Cherne'], ['pedravermelha', 'Pedra Vermelha'], ['farol_fora', 'Paredão do Farol'], ['naufragio_ac', 'Naufrágio do Inglês']],
   ne: [['arrecife', 'Arrecife da Barra'], ['cabecos', 'Cabeços'], ['naufragio_ne', 'Naufrágio do Vapor'], ['parcel_ne', 'Parcel das Paredes'], ['farol', 'Farol'], ['paredefunda', 'Paredão Fundo'], ['sueste', 'Parcel do Sueste'], ['cargueiro_ne', 'Naufrágio do Cargueiro']],
   amz: [['praia', 'Praia'], ['igapo', 'Igapó'], ['canal', 'Canal do Tapajós'], ['lago', 'Lago Verde'], ['pedral', 'Pedral'], ['pocao', 'Poção do Tapajós']],
 };
-const LB_DEST = { cv: 'Costa Verde', ne: 'Costa dos Corais', amz: 'Amazonas' };
+const LB_DEST = { cv: 'Costa Verde', ne: 'Costa dos Corais', amz: 'Amazonas', ac: 'Arraial do Cabo' };
 const LB_MODES = [['livre', '🤿 Pesca livre', 'Todos no mesmo ponto, sem placar. Cada um vende o que pegar.'], ['desafio', '⚔️ Desafio 10 min', 'Cada um por si: ganha quem pegar mais na medida. Prêmio 1º R$ 800 · 2º R$ 350 · 3º R$ 150.'], ['dupla', '🤝 Dupla vs bots', 'Só com 2: vocês dois contra 2 duplas. Prêmio 1º R$ 1.800 para cada.'], ['mundial', '🏆 Mundial', 'Vocês são a seleção brasileira (até 3) contra 11 países, num cenário com frota, TV e helicóptero. Inscrição R$ 500 cada. 1º lugar R$ 15.000 para cada.']];
 const LB_CHAT = ['Bora!', 'Tô pronto', '1 minuto', 'Onde vamos?', 'Partiu fundo!', 'GG'];
 const lbIsLead = () => LB.pid && LB.lead === (ON.s && ON.s.uid);

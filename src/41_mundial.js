@@ -2,7 +2,7 @@
 // frota de equipes de vários países ancorada em volta da arena, boias marcando a área, barco da organização
 // com faixas dos patrocinadores, helicóptero e lancha da TV. Duas baterias, pesagem, pódio e prêmios das empresas.
 const WORLD = { scene: null, day: 0, boats: [], heli: null, tv: null, buoys: null, chk: 0, hornT: 0 };
-const WORLD_ARENA = { cv: 'laje', ne: 'cabecos', amz: 'lago' };
+const WORLD_ARENA = { cv: 'laje', ne: 'cabecos', amz: 'lago', ac: 'pedravermelha' };
 const WORLD_FEE = 500, WORLD_BAT = 420, WORLD_GAP = 25; // inscrição, duração de cada bateria e do intervalo (s)
 // marcas inventadas (nada de empresas reais)
 const SPONSORS = [
@@ -53,7 +53,7 @@ function titleTex() {
     const gr = g.createLinearGradient(0, 0, 1024, 0); gr.addColorStop(0, '#0a2a3a'); gr.addColorStop(0.5, '#0e4a5e'); gr.addColorStop(1, '#0a2a3a');
     g.fillStyle = gr; g.fillRect(0, 0, 1024, 160); g.fillStyle = '#ffb020'; g.fillRect(0, 0, 1024, 10); g.fillRect(0, 150, 1024, 10);
     g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '900 64px system-ui, sans-serif'; g.fillText('MUNDIAL DE PESCA SUB', 512, 66);
-    g.fillStyle = '#7ff0d8'; g.font = '700 30px system-ui, sans-serif'; g.fillText('APNEIA · ARBALETE · ' + (AMZ ? 'TAPAJÓS' : NE ? 'COSTA DOS CORAIS' : 'COSTA VERDE'), 512, 122);
+    g.fillStyle = '#7ff0d8'; g.font = '700 30px system-ui, sans-serif'; g.fillText('APNEIA · ARBALETE · ' + (AMZ ? 'TAPAJÓS' : NE ? 'COSTA DOS CORAIS' : AC ? 'ARRAIAL DO CABO' : 'COSTA VERDE'), 512, 122);
   });
 }
 
@@ -178,7 +178,7 @@ function startWorld(opts) {
   if (P.mode === 'swim') climbBoat();
   BOAT.pos.set(me.x + Math.cos(me.yaw) * (5 + slot * 6), 0, me.z - Math.sin(me.yaw) * (5 + slot * 6)); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
   // peixe extra na arena: a organização escolheu o melhor pesqueiro
-  const pop = (AMZ ? popAmz() : NE ? popNe() : POP)[S.id] || [];
+  const pop = (AMZ ? popAmz() : NE ? popNe() : AC ? popAc() : POP)[S.id] || [];
   for (const [key, groups, [a, b]] of pop) for (let g = 0; g < groups; g++) spawnGroup(S, key, Math.round(rand(a, b)), 1.15);
   const teams = {}; const mk = name => teams[name] = { kg: 0, n: 0, sp: new Set(), mates: [] };
   // um atleta de cada país nadando, saindo do próprio barco (força × 0,55: forte, mas dá para ganhar) + 2 pelo rádio

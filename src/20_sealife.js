@@ -125,7 +125,7 @@ function startBoil() {
     if (x < WB.x0 + 50 || x > WB.x1 - 50 || z < WB.z0 + 50 || z > WB.z1 - 50 || H(x, z) > -8) continue;
     const spot = { id: 'boil' + (++BOIL.n), x, z, r: 25, zone: 'boil' }; ZONES.push(spot);
     const sc = newSchool(spot); sc.c.set(x, -1.2, z); sc.boil = true; SCHOOLS.push(sc);
-    const preds = AMZ ? ['tucunare', 'tucunare', 'douradorio', 'douradorio', 'cachorra'] : NE ? ['xareu', 'cavala', 'cavala', 'bicuda', 'dourado'] : ['xareu', 'xareu', 'olhete', 'sororoca', 'enchova', 'bicuda'];
+    const preds = AMZ ? ['tucunare', 'tucunare', 'douradorio', 'douradorio', 'cachorra'] : NE ? ['xareu', 'cavala', 'cavala', 'bicuda', 'dourado'] : AC ? ['xareu', 'enchova', 'olhete', 'sororoca', 'bicuda'] : ['xareu', 'xareu', 'olhete', 'sororoca', 'enchova', 'bicuda'];
     for (let i = 0; i < 3; i++) spawnGroup(spot, pick(preds), Math.round(rand(3, 6)));
     Object.assign(BOIL, { on: true, x, z, t: rand(110, 160), sc, spot });
     const dir = ['norte', 'nordeste', 'leste', 'sudeste', 'sul', 'sudoeste', 'oeste', 'noroeste'][Math.round(((Math.atan2(x - P.pos.x, -(z - P.pos.z)) + TAU) % TAU) / (TAU / 8)) % 8];
@@ -168,7 +168,7 @@ const EVSPAWN = [
   { id: 'lua2', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'jorge', key: 'dentao', n: [1, 2], msg: 'Lua cheia: dentão caçando no costão da Jorge Grego.' },
   { id: 'frente', when: () => COND.frontOn, spot: 'foz', key: 'robalo', n: [3, 5], msg: 'Água mexida da frente fria: robalo entrou na foz!' },
   { id: 'atum', when: () => COND.vis > 1.15 && SV.tod >= 5.5 && SV.tod < 9, spot: 'plataforma', key: 'atumrabino', n: [4, 7], msg: 'Amanhecer de água azul: cardume de atum-rabino subiu na Plataforma de Fora!' },
-  ...evAmz(), ...evNe(),
+  ...evAmz(), ...evNe(), ...evAc(),
 ];
 let evT = 0;
 function updateEvents(dt) {
@@ -186,6 +186,7 @@ function eventsHTML() {
   const ev = [];
   if (AMZ) return eventsAmzHTML();
   if (NE) return eventsNeHTML();
+  if (AC) return eventsAcHTML();
   if (weekend()) ev.push(['Torneio do fim de semana', 'Campeonatos pagam o dobro hoje.']);
   if (fullMoon()) ev.push(['Lua cheia', 'À noite, chernes e dentões saem para caçar na Laje Branca e na Jorge Grego.']);
   if (COND.vis > 1.3) ev.push(['Água azul', 'Albacora e dourado subindo no Parcel de Fora e no Aventureiro.']);

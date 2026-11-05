@@ -136,7 +136,7 @@ function wsMsg(m) {
   if (m.event === 'phx_reply' && m.ref === '1') { if (m.payload && m.payload.status === 'ok') { ON.joined = true; ON.tJoin = performance.now() - ON.t0; wsTrack(); if (ON.ready) lbResync(); } return; }
   if (m.event === 'presence_state') { ON.online = {}; presenceMeta(m.payload, (k, v) => { if (k !== ON.s.uid) ON.online[k] = v; }); return; }
   if (m.event === 'presence_diff') {
-    presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; lbFriendOnline(k); if (LB.open) lbRender(); if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
+    presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; lbFriendOnline(k); if (LB.open) lbRender(); if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais', ac: 'em Arraial do Cabo' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
     presenceMeta(m.payload.leaves || {}, k => { if (ON.online[k] && isFriend(k)) toast(`${ON.online[k].name} saiu do jogo.`, 2.5); delete ON.online[k]; dropRemote(k); }); if (LB.open) lbRender();
     if (shopTab === 'online' && !$('marinaPanel').classList.contains('hide')) renderShop();
     return;
@@ -151,6 +151,7 @@ function onBcast(ev, d) {
   if (!isFriend(d.from)) return;
   if (ev === 'pos' && d.region === REGION) remoteState(d);
   if (ev.startsWith('ride_')) { rideMsg(ev, d); return; }
+  if (ev === 'club_inv') { clubInvite(d); return; }
   if (ev === 'chal' || ev === 'duo_inv') { ON.inv = d; d.kind = ev === 'duo_inv' ? 'duo' : 'chal'; showInvite(d); }
   if (ev === 'duo_ok' && ON.wait && ON.wait.to === d.from) { const w = ON.wait; ON.wait = null; startDuoHost(w.spot, d.from, d.name, d.at); }
   if (ev === 'duo_no' && ON.wait && ON.wait.to === d.from) { ON.wait = null; toast(`${d.name} não pode agora.`, 3); }
@@ -275,7 +276,7 @@ function onlineHTML() {
     <div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="btn alt" id="onLogin">ENTRAR (OUTRO APARELHO)</button><button class="btn gold" id="onProtect">PROTEGER ESTA CONTA</button></div></div>`;
   h += `<div class="n" style="margin:6px 0">Amigos online (${ON.friends.length})</div><div class="list">` + (ON.friends.length ? ON.friends.map(f => {
     const o = ON.online[f.id], here = o && o.region === REGION;
-    const where = o ? (here ? '🟢 jogando no mesmo destino' : `🟡 jogando ${({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[o.region] || 'na Costa Verde')}`) : '⚪ offline';
+    const where = o ? (here ? '🟢 jogando no mesmo destino' : `🟡 jogando ${({ amz: 'no Amazonas', ne: 'na Costa dos Corais', ac: 'em Arraial do Cabo' }[o.region] || 'na Costa Verde')}`) : '⚪ offline';
     return `<div class="it"><span class="av" style="background:#7a2a2a">${f.name[0]}</span><div style="flex:1"><div class="n">${f.name} <span class="d">· Nv ${f.level || 1}</span></div><div class="d">${where}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${here ? `<button class="btn" data-ongo="${f.id}">IR ATÉ</button><button class="btn alt" data-onride="${f.id}" ${RIDE.on ? 'disabled' : ''}>🚤 CARONA</button><button class="btn gold" data-onchal="${f.id}" ${COMP.on ? 'disabled' : ''}>DESAFIAR</button><button class="btn gold" data-onduo="${f.id}" ${COMP.on ? 'disabled' : ''}>DUPLA</button>` : ''}<button class="btn alt" data-ondel="${f.id}">✕</button></div></div>`;
   }).join('') : '<div class="it"><div class="d">Nenhum amigo ainda. Adicione pelo código.</div></div>') + '</div>';

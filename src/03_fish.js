@@ -430,13 +430,13 @@ const POP_FORA_COSTA = [['olhete', 1, [2, 4], 0.5], ['sororoca', 1, [3, 5], 0.5]
 function spawnAll() {
   // só as espécies do destino atual
   for (const k of Object.keys(SPECIES)) if (spInRegion(k)) makePool(k, SPECIES[k].shape, fishTex(k), k === 'mero' || k === 'pirarucu' || SPECIES[k].shape === 'shark' ? 8 : k === 'atumrabino' ? 60 : 260);
-  const POPR = AMZ ? popAmz() : NE ? popNe() : POP;
+  const POPR = AMZ ? popAmz() : NE ? popNe() : AC ? popAc() : POP;
   for (const s of SPOTS) {
     const pop = POPR[s.id] || DEEP_POP[s.id]; if (!pop) continue;
     for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0, ng = nGroups(groups, densSpot()); g < ng; g++) if (Math.random() < chance) spawnGroup(s, key, Math.round(rand(a, b)), big);
   }
   for (const z of ZONES) {
-    const pop = AMZ ? POP_ZONE_AMZ : NE ? POP_ZONE_NE : z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
+    const pop = AMZ ? POP_ZONE_AMZ : NE ? POP_ZONE_NE : AC ? popZoneAc() : z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
     for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0, ng = nGroups(groups, densZone()); g < ng; g++) if (Math.random() < chance) spawnGroup(z, key, Math.round(rand(a, b)), big);
   }
 }

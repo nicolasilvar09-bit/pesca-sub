@@ -16,3 +16,10 @@ python3 build.py && node tests/smoke.js
 Compila o JavaScript (pega erro de sintaxe e nome declarado duas vezes) e abre o jogo nos 3 destinos
 num navegador sem tela (Playwright): lancha, mergulho, todas as abas da loja, um campeonato inteiro e
 um Mundial. Se aparecer "NÃO publicar", algo quebrou.
+
+## Servidor online (Supabase)
+
+Rodar uma vez cada arquivo no SQL Editor do Supabase (só usa a chave pública do jogo, nunca a secreta):
+
+- `supabase/records.sql`: ranking semanal, maior peixe, mais fundo e Desafio da semana
+- `supabase/clubs.sql`: clubes de pesca e ranking de clubes

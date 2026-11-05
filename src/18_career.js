@@ -9,7 +9,7 @@ function addXP(n, why) {
   if (!n || n < 1) return;
   const l0 = level(); SV.xp = (SV.xp || 0) + Math.round(n); const l1 = level();
   if (l1 > l0) {
-    const prize = 60 * l1; // metade do antigo: nos níveis altos o prêmio ficava gordo demais SV.money += prize; AU.coin(); buzz([40, 60, 40, 60, 80]);
+    const prize = 60 * l1; SV.money += prize; AU.coin(); buzz([40, 60, 40, 60, 80]); // metade do antigo: nos níveis altos o prêmio ficava gordo demais
     toast(`NÍVEL ${l1}! ${rankName(l1)} · prêmio ${fmtR(prize)}`, 5, 'gold');
   }
   careerHUD();
@@ -37,6 +37,8 @@ const ACH = [
   { id: 'fora', n: 'Mar aberto', d: 'Mergulhe no Parcel de Fora.', r: 600, t: () => !!(SV.visited || {}).fora },
   { id: 'all', n: 'Conhece a baía', d: 'Mergulhe em todos os pontos de pesca.', r: 2500, t: () => SPOTS.filter(s => s.r).every(s => (SV.visited || {})[s.id]) },
   { id: 'night', n: 'Noturno', d: 'Pegue um peixe depois das 19h.', r: 400, t: () => !!SV.nightCatch },
+  { id: 'legend', n: 'Caçador de lendas', d: 'Pesque um peixe lendário (Diário › História).', r: 3000, t: () => Object.values(SV.leg || {}).some(l => l.caught) },
+  { id: 'legend3', n: 'Lenda das lendas', d: 'Pesque o lendário de 3 destinos.', r: 10000, t: () => Object.values(SV.leg || {}).filter(l => l.caught).length >= 3 },
 ];
 let achT = 0;
 function checkAch(dt) {

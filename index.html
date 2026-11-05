@@ -353,6 +353,7 @@ const TAU = Math.PI * 2;
 const REGION = (() => { try { return JSON.parse(localStorage.getItem('pescasub_costaverde_v1') || '{}').region || 'cv'; } catch (e) { return 'cv'; } })();
 const AMZ = REGION === 'amz';
 const NE = REGION === 'ne'; // Costa dos Corais (AL/PE)
+const AC = REGION === 'ac'; // Arraial do Cabo (RJ)
 const V3 = THREE.Vector3;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -465,15 +466,16 @@ const ISLANDS = [
 ];
 const LAJE = { x: -330, z: -180 };
 const FOZ = { x: -615, z: 560 };
-const PIER = AMZ ? pierAmz() : NE ? pierNe() : { x: 0, z0: 790, z1: 700 };
+const PIER = AMZ ? pierAmz() : NE ? pierNe() : AC ? pierAc() : { x: 0, z0: 790, z1: 700 };
 // área jogável: 3,2 km de lado; a baía original fica no canto sudoeste
-const WB = AMZ || NE ? { x0: -900, x1: 1500, z0: -1300, z1: 1100 } : { x0: -780, x1: 2420, z0: -2420, z1: 780 };
+const WB = AMZ || NE || AC ? { x0: -900, x1: 1500, z0: -1300, z1: 1100 } : { x0: -780, x1: 2420, z0: -2420, z1: 780 };
 const IG = { e: 1480, o: -1640 }; // Ilha Grande: ponta leste (x) e costa de fora (z)
 const FORA = { x: 1960, z: -2060 }, CARG = { x: 2080, z: -720 }, LAGOA = { x: 1050, z: -655 };
 
 function H(x, z) {
   if (AMZ) return Hamz(x, z);
   if (NE) return Hne(x, z);
+  if (AC) return Hac(x, z);
   let h = -16 + 3.5 * fbm(x * 0.004 + 7, z * 0.004 - 3, 3) + 0.9 * fbm(x * 0.03, z * 0.03, 2);
   // fora da baía o fundo cai: lado de fora da Ilha Grande e canal leste
   h -= 20 * smooth(IG.o + 60, IG.o - 420, z) + 7 * smooth(900, 2200, x) * (1 - smooth(500, 760, z));
@@ -517,7 +519,7 @@ function H(x, z) {
   if (h < 0 && df < 220) h = lerp(h, Math.max(h, -5.5 + df * 0.018), 1 - smooth(40, 210, df));
   return platDeep(x, z, Hextra(x, z, h));
 }
-const murkAt = (x, z) => AMZ ? murkAmz(x, z) : NE ? 0 : Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z - FOZ.z)), smooth(-600, -650, x) * (1 - smooth(40, 80, Math.abs(z - FOZ.z))));
+const murkAt = (x, z) => AMZ ? murkAmz(x, z) : NE || AC ? 0 : Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z - FOZ.z)), smooth(-600, -650, x) * (1 - smooth(40, 80, Math.abs(z - FOZ.z))));
 
 // ================= renderer / cena =================
 let renderer, scene, camera, hemi, sun;
@@ -565,7 +567,7 @@ float causF(vec2 uv){ vec2 p=mod(uv*6.28318,6.28318)-250.0; vec2 i=p; float c=1.
 `;
 const UW_FRAG_BODY = `
  if(vWP.y<0.05){ float dp=max(-vWP.y,0.0);
-${AMZ ? uwMurkAmz() : NE ? uwNe() : `  float murk=1.0-smoothstep(110.0,240.0,distance(vWP.xz,vec2(${FOZ.x}.0,${FOZ.z}.0)));
+${AMZ ? uwMurkAmz() : NE ? uwNe() : AC ? uwAc() : `  float murk=1.0-smoothstep(110.0,240.0,distance(vWP.xz,vec2(${FOZ.x}.0,${FOZ.z}.0)));
   murk=max(murk,smoothstep(-600.0,-650.0,vWP.x)*(1.0-smoothstep(40.0,80.0,abs(vWP.z-(${FOZ.z}.0)))));
   vec3 ab=vec3(exp(-dp*0.13),exp(-dp*0.035),exp(-dp*0.028));
   gl_FragColor.rgb*=mix(ab,ab*vec3(0.55,0.6,0.32),murk);`}
@@ -630,7 +632,7 @@ function terrColor(x, y, z, ny, c) {
     c.lerp(_tc.setRGB(0.32, 0.30, 0.26), smooth(0.9, 0.65, ny));
     const m = murkAt(x, z); c.lerp(_tc.setRGB(0.36, 0.31, 0.22), m * 0.85);
     if (AMZ) { c.lerp(_tc.setRGB(0.42, 0.34, 0.24), smooth(-1.5, -6, y) * 0.55); return c; }
-    if (NE) c.lerp(_tc.setRGB(0.9, 0.87, 0.76), 0.55); // areia branca de coral // rio: fundo de areia e lodo marrom
+    if (NE) c.lerp(_tc.setRGB(0.9, 0.87, 0.76), 0.55); if (AC) c.lerp(_tc.setRGB(0.95, 0.94, 0.9), 0.6); // areia branca de coral // rio: fundo de areia e lodo marrom
     if (fbm(x * 0.02 + 40, z * 0.02, 2) > 0.25 && y > -14) c.lerp(_tc.setRGB(0.30, 0.38, 0.22), 0.35); // manchas de alga
     if (y > -10 && y < -1.5 && meadowAt(x, z) > 0.42) c.lerp(_tc.setRGB(0.2, 0.3, 0.14), smooth(0.42, 0.5, meadowAt(x, z)) * 0.8); // prado de capim-marinho
     if (y < -3 && gravelAt(x, z) > 0.34) c.lerp(_tc.setRGB(0.42, 0.4, 0.36), smooth(0.34, 0.44, gravelAt(x, z)) * 0.6); // cascalho
@@ -718,7 +720,7 @@ function buildWater() {
           float fr=0.02+0.98*pow(1.0-max(dot(N,V),0.0),5.0);
           vec3 R=reflect(-V,N); R.y=abs(R.y);
           vec3 refl=skyCol(R)+vec3(1.0,0.9,0.72)*pow(max(dot(R,uSun),0.0),600.0)*7.0*smoothstep(-0.05,0.05,uSun.y);
-          vec3 deep=${AMZ ? 'vec3(0.07,0.11,0.07)' : NE ? 'vec3(0.02,0.25,0.33)' : 'vec3(0.03,0.19,0.24)'}*(0.1+0.9*uDay);
+          vec3 deep=${AMZ ? 'vec3(0.07,0.11,0.07)' : NE ? 'vec3(0.02,0.25,0.33)' : AC ? 'vec3(0.02,0.21,0.33)' : 'vec3(0.03,0.19,0.24)'}*(0.1+0.9*uDay);
 ` + WATER_TOP() + `
         } else {
           float cw=dot(-V,N);
@@ -910,7 +912,7 @@ function rayTex() {
 function dotTex() { return canvasTex(32, 32, (g) => { const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }, false); }
 
 // ======= pontos de pesca =======
-const SPOTS = AMZ ? spotsAmz() : NE ? spotsNe() : [
+const SPOTS = AMZ ? spotsAmz() : NE ? spotsNe() : AC ? spotsAc() : [
   { id: 'marina', name: 'Marina Balneário', x: 0, z: 690, type: 'marina', desc: 'Venda do pescado, loja e combustível.' },
   { id: 'botinas', name: 'Ilhas Botinas', x: 300, z: 196, r: 40, depth: '2–10 m', desc: 'Parcel raso e água clara. Muito sargo, garoupas pequenas e robalo de passagem.' },
   { id: 'laje', name: 'Laje Branca', x: LAJE.x, z: LAJE.z, r: 42, depth: '5–23 m', desc: 'Laje isolada no meio da baía, cheia de tocas. Garoupa, badejo, cardume de xaréu. Dizem que tem mero.' },
@@ -969,7 +971,7 @@ function addHole(R, a, spot) {
 function buildRocksAndDecor() {
   const r = mulberry(42);
   buildDeepSpots();
-  if (AMZ) buildRiverRocks(r); else if (NE) buildReefNe(r); else {
+  if (AMZ) buildRiverRocks(r); else if (NE) buildReefNe(r); else if (AC) buildRocksAc(r); else {
   // Laje Branca
   for (let i = 0; i < 90; i++) {
     const a = r() * TAU, d = Math.pow(r(), 0.75) * 44, x = LAJE.x + Math.cos(a) * d, z = LAJE.z + Math.sin(a) * d;
@@ -1038,7 +1040,7 @@ function buildRocksAndDecor() {
   groups.forEach((list, gi) => {
     chunked(geos[gi], mat, list.map(R => { const it = [R.x, R.y, R.z]; it.R = R; return it; }), (it, k, im) => { const R = it.R; e.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15)); q.setFromEuler(e); R.q = q.clone(); R.gi = gi; s.set(R.r, R.r * R.sy, R.r); pp.set(R.x, R.y, R.z); m4.compose(pp, q, s); im.setMatrixAt(k, m4); }, 300);
   });
-  if (AMZ) buildRiverWorld(); else if (NE) buildWorldNe(); else {
+  if (AMZ) buildRiverWorld(); else if (NE) buildWorldNe(); else if (AC) buildWorldAc(); else {
   buildWreck({ x: NAUF.x, z: NAUF.z, ry: 0.6, L: 34, spot: 'naufragio' });
   buildWreck({ x: CARG.x, z: CARG.z, ry: -0.45, L: 48, spot: 'cargueiro' });
   buildPlatform();
@@ -1087,7 +1089,7 @@ function buildRocksAndDecor() {
 
 // ================= terra: árvores, casas, píer, bóias =================
 function buildLand() {
-  if (AMZ) buildForestAmz(); else if (NE) buildCoastNe(); else {
+  if (AMZ) buildForestAmz(); else if (NE) buildCoastNe(); else if (AC) buildCoastAc(); else {
   const trees = [], houses = [];
   for (let i = 0; i < 26000 && trees.length < 5200; i++) {
     const x = rand(-1500, 3000), z = rand(-2600, 1300), h = H(x, z);
@@ -1616,13 +1618,13 @@ const POP_FORA_COSTA = [['olhete', 1, [2, 4], 0.5], ['sororoca', 1, [3, 5], 0.5]
 function spawnAll() {
   // só as espécies do destino atual
   for (const k of Object.keys(SPECIES)) if (spInRegion(k)) makePool(k, SPECIES[k].shape, fishTex(k), k === 'mero' || k === 'pirarucu' || SPECIES[k].shape === 'shark' ? 8 : k === 'atumrabino' ? 60 : 260);
-  const POPR = AMZ ? popAmz() : NE ? popNe() : POP;
+  const POPR = AMZ ? popAmz() : NE ? popNe() : AC ? popAc() : POP;
   for (const s of SPOTS) {
     const pop = POPR[s.id] || DEEP_POP[s.id]; if (!pop) continue;
     for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0, ng = nGroups(groups, densSpot()); g < ng; g++) if (Math.random() < chance) spawnGroup(s, key, Math.round(rand(a, b)), big);
   }
   for (const z of ZONES) {
-    const pop = AMZ ? POP_ZONE_AMZ : NE ? POP_ZONE_NE : z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
+    const pop = AMZ ? POP_ZONE_AMZ : NE ? POP_ZONE_NE : AC ? popZoneAc() : z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
     for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0, ng = nGroups(groups, densZone()); g < ng; g++) if (Math.random() < chance) spawnGroup(z, key, Math.round(rand(a, b)), big);
   }
 }
@@ -1728,7 +1730,8 @@ function catchFish(f) {
   if (noTakeAt(f.pos)) { SV.money -= 500; ecoFine(); toast(`Área de preservação (piscinas naturais): aqui é só foto! ${sp.name} apreendido e multa de R$ 500.`, 5, 'bad'); AU.bad(); save(); return; }
   if (sp.protected) { SV.money -= 1000; ecoFine(); toast(`${sp.name.toUpperCase()}, espécie protegida por lei! Multa ambiental: R$ 1.000.`, 5, 'bad'); AU.bad(); save(); return; }
   if (f.len < sp.min) { SV.money -= 200; ecoFine(); toast(`${sp.name} de ${cm} cm está abaixo da medida mínima (${Math.round(sp.min * 100)} cm). Peixe apreendido e multa de R$ 200.`, 5, 'bad'); AU.bad(); save(); return; }
-  if (ecoCheck(f)) return; // defeso ou cota do dia
+  if (!f.legend && ecoCheck(f)) return; // defeso ou cota do dia (o lendário nunca está em defeso)
+  if (f.legend) legendCatch(f);
   P.stringer.push(tagCatch({ key: f.key, name: sp.name, cm, kg: f.kg, len: f.len })); ecoCatch(f.kg);
   const rec = !sp.ornamental && !!SV.best[f.key] && SV.best[f.key] < f.kg && f.kg > 1;
   if (!sp.ornamental) addXP(15 + f.kg * 12);
@@ -1935,6 +1938,7 @@ function updateSwim(dt, t) {
   sambaInput();
   const sens = 0.0042 * OPT.sens;
   P.yaw -= IN.lookX * sens; P.pitch = clamp(P.pitch - IN.lookY * sens * (OPT.inv ? -1 : 1), -1.5, 1.4);
+  gyroApply(); // inclinar o celular também mira
   const surfY = waveH(P.pos.x, P.pos.z, t);
   const cp = Math.cos(P.pitch), fwd = _a.set(-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp), right = _b.set(Math.cos(P.yaw), 0, -Math.sin(P.yaw));
   const finK = FINS[SV.fins].k * (1 + 0.03 * lvl('trKick')), mv = Math.hypot(IN.jx, IN.jy);
@@ -2084,7 +2088,7 @@ function drawMap() {
   const tmp = document.createElement('canvas'); tmp.width = tmp.height = N; tmp.getContext('2d').putImageData(img, 0, 0);
   g.imageSmoothingEnabled = true; g.drawImage(tmp, 0, 0, cv.width, cv.height);
   g.strokeStyle = 'rgba(255,255,255,.08)'; for (let i = 1; i < 8; i++) { g.beginPath(); g.moveTo(i * 45, 0); g.lineTo(i * 45, 360); g.moveTo(0, i * 45); g.lineTo(360, i * 45); g.stroke(); }
-  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = 'bold 11px system-ui'; g.fillText('N ↑', 8, 16); if (NE) { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ARRECIFES', 40, 200); g.fillText('COSTA DOS CORAIS', 115, 352); } else if (AMZ) { g.fillText('RIO TAPAJÓS →', 140, 150); g.fillText('FLORESTA', 40, 30); g.fillText('ALTER DO CHÃO', 120, 352); } else { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ILHA GRANDE', 70, 160); g.fillText('ANGRA DOS REIS', 215, 352); }
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = 'bold 11px system-ui'; g.fillText('N ↑', 8, 16); if (NE) { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ARRECIFES', 40, 200); g.fillText('COSTA DOS CORAIS', 115, 352); } else if (AC) { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ILHA DO FAROL', 250, 120); g.fillText('ARRAIAL DO CABO', 115, 352); } else if (AMZ) { g.fillText('RIO TAPAJÓS →', 140, 150); g.fillText('FLORESTA', 40, 30); g.fillText('ALTER DO CHÃO', 120, 352); } else { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ILHA GRANDE', 70, 160); g.fillText('ANGRA DOS REIS', 215, 352); }
   const box = $('mapBox');
   SPOTS.forEach(s => {
     const m = document.createElement('div'); m.className = 'mk' + (s.type === 'marina' ? ' m' : '') + (mapU(s.x) > 70 ? ' l' : ''); m.dataset.id = s.id;
@@ -2162,7 +2166,7 @@ function updateHUD(dt) {
     const f = camFwd(_a); const rel = Math.atan2(dx, -dz) - Math.atan2(f.x, -f.z);
     $('cArr').style.transform = `rotate(${rel * 180 / Math.PI}deg)`;
     $('cTxt').textContent = `${d.name} · ${dist < 1000 ? Math.round(dist) + ' m' : (dist / 1000).toFixed(1).replace('.', ',') + ' km'}`;
-    if (swim) { $('cTxt').textContent = `Barco · ${Math.round(P.boatDist)} m`; const bx = BOAT.pos.x - P.pos.x, bz = BOAT.pos.z - P.pos.z; $('cArr').style.transform = `rotate(${(Math.atan2(bx, -bz) - Math.atan2(f.x, -f.z)) * 180 / Math.PI}deg)`; }
+    if (swim) { $('cTxt').textContent = `Barco · ${Math.round(P.boatDist || 0)} m`; const bx = BOAT.pos.x - P.pos.x, bz = BOAT.pos.z - P.pos.z; $('cArr').style.transform = `rotate(${(Math.atan2(bx, -bz) - Math.atan2(f.x, -f.z)) * 180 / Math.PI}deg)`; }
   }
   // elásticos
   const def = GUN.def; let pips = '';
@@ -2200,7 +2204,7 @@ function step(dt) {
   updateDiver(dt, T); rideTick(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt); updateIntro(dt); updateRare2(dt); updateWorldScene(dt, T); updateStory(dt); updateConsole(dt); updateBoatLights(dt, T); updateShareBtn(dt); ecoDayRoll(); updateEcon2();
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updateAc(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt); updateIntro(dt); updateRare2(dt); updateWorldScene(dt, T); updateStory(dt); updateConsole(dt); updateBoatLights(dt, T); updateShareBtn(dt); ecoDayRoll(); updateLegend(dt); updateEcon2();
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -2208,9 +2212,9 @@ function updateEnv(dt) {
   camUnder = c.y < sY - 0.02; camMurk = murkAt(c.x, c.z); updateTerrain(c); updateClock(started && !paused ? dt : 0);
   if (camUnder) {
     const k = clamp(-c.y / 28, 0, 1);
-    if (AMZ) _col.setRGB(lerp(0.15, 0.03, k), lerp(0.30, 0.08, k), lerp(0.19, 0.05, k)); else if (NE) _col.setRGB(lerp(0.07, 0.01, k), lerp(0.5, 0.15, k), lerp(0.56, 0.24, k)); else _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k));
+    if (AMZ) _col.setRGB(lerp(0.15, 0.03, k), lerp(0.30, 0.08, k), lerp(0.19, 0.05, k)); else if (NE) _col.setRGB(lerp(0.07, 0.01, k), lerp(0.5, 0.15, k), lerp(0.56, 0.24, k)); else if (AC) _col.setRGB(lerp(0.05, 0.01, k), lerp(0.44, 0.12, k), lerp(0.56, 0.24, k)); else _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k));
     _col.lerp(MURKC, camMurk).multiplyScalar(0.06 + 0.94 * DAY.amb);
-    scene.fog.color.copy(_col); scene.fog.density = lerp(AMZ ? 0.075 : NE ? 0.03 : 0.042, AMZ ? 0.16 : 0.15, camMurk) / COND.vis;
+    scene.fog.color.copy(_col); scene.fog.density = lerp(AMZ ? 0.075 : NE ? 0.03 : AC ? 0.027 : 0.042, AMZ ? 0.16 : 0.15, camMurk) / COND.vis;
     scene.background = scene.fog.color; sky.visible = false; sun.intensity = lerp(1.3, 0.7, k) * (1 - camMurk * 0.4) * DAY.sun + 0.12 * DAY.moon; hemi.intensity = 0.65 * DAY.amb;
   } else { scene.fog.color.copy(HAZE); scene.fog.density = 0.0006 * (1 + COND.cloud * 0.8); scene.background = null; sky.visible = true; sun.intensity = 1.7 * DAY.sun + 0.13 * DAY.moon; hemi.intensity = 0.75 * DAY.amb; }
   waterMat.uniforms.uUnder.value = camUnder ? 1 : 0; waterMat.uniforms.uFogC.value.copy(scene.fog.color); waterMat.uniforms.uFogD.value = scene.fog.density;
@@ -2244,10 +2248,11 @@ function startGame() {
   if (innerHeight > innerWidth) toast('Dica: na horizontal o jogo fica melhor.', 4);
   try { const d = document.documentElement; if (d.requestFullscreen && matchMedia('(pointer:coarse)').matches) d.requestFullscreen().then(() => { try { screen.orientation.lock('landscape').catch(() => { }); } catch (e) { } }).catch(() => { }); } catch (e) { }
   BOAT.camYaw = 0; camera.position.set(BOAT.pos.x, 6, BOAT.pos.z + 12);
+  // avisos da largada um de cada vez, em vez de quatro empilhados
   toast('Joystick: acelera e vira a lancha. Siga a seta laranja até o ponto.', 5);
-  toast('Toque MAPA para escolher outro destino.', 5);
-  backupReminder(); seedXP(); setupTut(); careerHUD(); introStart();
-  const D = ensureDaily(); if (D.list.some(m => !m.done)) toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5);
+  setTimeout(() => toast('Toque MAPA para escolher outro destino.', 5), 5500);
+  setTimeout(backupReminder, 22000); seedXP(); setupTut(); careerHUD(); introStart();
+  const D = ensureDaily(); if (D.list.some(m => !m.done)) setTimeout(() => toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5), 11000);
 }
 // o mundo é montado em etapas, soltando a página entre elas: a conexão online anda junto em vez de esperar o 3D todo
 const yieldUI = () => new Promise(r => setTimeout(r, 0));
@@ -2257,7 +2262,7 @@ async function init() {
   initRenderer(); sky = buildSky(); await yieldUI(); buildTerrain(); await yieldUI(); buildWater(); buildRocksAndDecor(); await yieldUI(); buildLand(); mergeMarina(); bakeShallow(); buildFX(); await yieldUI();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); await yieldUI(); buildLife(); initExtra(); await yieldUI();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); setupRide(); setupHudCompact(); setupBoatLights(); setupShare(); $('menu').classList.add('live');
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupAc(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); setupRide(); setupHudCompact(); setupBoatLights(); setupShare(); setupGyro(); $('menu').classList.add('live');
   $('playBtn').onclick = startGame;
   ON.ready = true;
   // ganchos para os testes automáticos (tests/smoke.js)
@@ -2317,7 +2322,7 @@ function buildLife() {
       SWARMS.push(sw);
     }
   }
-  for (const id of AMZ ? ['praia', 'lago', 'lago', 'igapo', 'canal'] : NE ? ['piscinas', 'piscinas', 'arrecife', 'cabecos', 'farol'] : ['jorge', 'laje', 'gipoia', 'lagoa', 'lagoa', 'castelhanos', 'cataguases']) { const s = spotById(id); const m = buildTurtle(); TURTLES.push({ m, spot: s, pos: new V3(s.x, H(s.x, s.z) + 3, s.z), vel: new V3(), tgt: new V3(), t: 0, yaw: 0, flap: 0, breathe: rand(30, 80) }); }
+  for (const id of AMZ ? ['praia', 'lago', 'lago', 'igapo', 'canal'] : NE ? ['piscinas', 'piscinas', 'arrecife', 'cabecos', 'farol'] : AC ? ['gruta', 'gruta', 'forno', 'porcos_ac', 'boqueirao'] : ['jorge', 'laje', 'gipoia', 'lagoa', 'lagoa', 'castelhanos', 'cataguases']) { const s = spotById(id); const m = buildTurtle(); TURTLES.push({ m, spot: s, pos: new V3(s.x, H(s.x, s.z) + 3, s.z), vel: new V3(), tgt: new V3(), t: 0, yaw: 0, flap: 0, breathe: rand(30, 80) }); }
   STR.line = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(40 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xd8d0a0 }));
   STR.line.frustumCulled = false; scene.add(STR.line);
   if (!AMZ) { buildDecor2(); buildRockDetail(); }
@@ -3039,7 +3044,7 @@ const SHOP_AREAS = [
   { id: 'marina', ic: '⚓', n: 'Marina', tabs: [['sell', 'Vender pescado'], ['fuel', 'Combustível'], ['boats', 'Lanchas'], ['viagem', 'Viagem']] },
   { id: 'equip', ic: '🎯', n: 'Equipamento', tabs: [['equip', 'Arbaletes e roupas'], ['apneia', 'Apneia'], ['extras', 'Extras']] },
   { id: 'comp', ic: '🏆', n: 'Competições', tabs: [['comp', 'Campeonato e Mundial'], ['chal', 'Desafio da semana'], ['rank', 'Ranking online']] },
-  { id: 'social', ic: '👥', n: 'Social', tabs: [['online', 'Online e grupo'], ['amigos', 'Amigos']] },
+  { id: 'social', ic: '👥', n: 'Social', tabs: [['online', 'Online e grupo'], ['amigos', 'Amigos'], ['clube', 'Clube']] },
   { id: 'diario', ic: '📖', n: 'Diário', tabs: [['next', 'Próximos'], ['hist', 'História'], ['miss', 'Missões'], ['album', 'Álbum'], ['eco', 'Pesca consciente'], ['car', 'Conquistas'], ['rec', 'Recordes'], ['guia', 'Guia de espécies'], ['mar', 'Boletim']] },
 ];
 function openShop(atMarina) { shopAtMarina = !!atMarina; paused = true; $('marinaPanel').classList.remove('hide'); renderShop(); }
@@ -3087,12 +3092,13 @@ function renderShop() {
   if (shopTab === 'online') h = onlineHTML();
   if (shopTab === 'rank') h = rankHTML();
   if (shopTab === 'chal') h = chalHTML();
+  if (shopTab === 'clube') h = clubHTML();
   if (shopTab === 'album') h = albumHTML();
   if (shopTab === 'eco') h = ecoHTML();
   if (shopTab === 'viagem') h = travelHTML(at);
   if (shopTab === 'extras') h = extrasHTML(at);
   if (shopTab === 'next') h = nextHTML();
-  if (shopTab === 'hist') h = storyHTML();
+  if (shopTab === 'hist') h = legHTML() + storyHTML();
   if (shopTab === 'car') h = careerHTML();
   if (shopTab === 'amigos') h = friendsHTML();
   if (shopTab === 'rec') h = '<div class="list">' + Object.keys(SPECIES).filter(k => !SPECIES[k].protected && !SPECIES[k].ornamental).map(k => `<div class="it"><div><div class="n">${SPECIES[k].name}</div><div class="d">Medida mínima ${Math.round(SPECIES[k].min * 100)} cm · ${fmtR(SPECIES[k].price)}/kg</div></div><b>${SV.best[k] ? fmtKg(SV.best[k]) + ' kg' : '—'}</b></div>`).join('') + `<div class="it"><div class="n">Campeonatos vencidos</div><b>${SV.wins || 0}</b></div></div>`;
@@ -3115,7 +3121,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
-  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindBoatUp(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindChal(); bindAlbum(B); bindEco(); bindWorld(); bindStory(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
+  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindBoatUp(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindChal(); bindAlbum(B); bindEco(); bindWorld(); bindStory(); bindLeg(B); bindClub(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
@@ -3133,8 +3139,8 @@ function placeRig(r, pos, yaw, pitch, under, mv, kick) {
 
 // ---------- campeonato ----------
 const COMP = { on: false, t: 0, spot: null, bots: [], me: { n: 0, kg: 0 } };
-const BOT_DEF = AMZ ? [['Raimundo', 0x1b1e22], ['Jacira', 0x23304a], ['Seu Bené', 0x3b2b1e]] : NE ? [['Zé Jangadeiro', 0x1b1e22], ['Marinalva', 0x23304a], ['Cícero do Pontal', 0x3b2b1e]] : [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
-const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && !defesoOf(f.key) && f.state !== 'hooked' && f.state !== 'dead';
+const BOT_DEF = AMZ ? [['Raimundo', 0x1b1e22], ['Jacira', 0x23304a], ['Seu Bené', 0x3b2b1e]] : NE ? [['Zé Jangadeiro', 0x1b1e22], ['Marinalva', 0x23304a], ['Cícero do Pontal', 0x3b2b1e]] : AC ? [['Tião do Forno', 0x1b1e22], ['Dandara', 0x23304a], ['Seu Valdir', 0x3b2b1e]] : [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
+const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && !defesoOf(f.key) && !f.legend && f.state !== 'hooked' && f.state !== 'dead';
 function startComp(id, duo, live) {
   const s = spotById(id); if (!s || COMP.on) return;
   const fee = live ? 0 : duo ? 200 : 100;
@@ -3385,7 +3391,7 @@ function rollCond() {
   SWELL.k = COND.swell; CU.uSwell.value = COND.swell; CU.uCloud.value = COND.cloud;
   rollFront(); rollWeather(); WX.day = SV.day;
 }
-const visM = () => Math.round(0.83 / ((AMZ ? 0.075 : NE ? 0.03 : 0.042) / COND.vis));
+const visM = () => Math.round(0.83 / ((AMZ ? 0.075 : NE ? 0.03 : AC ? 0.027 : 0.042) / COND.vis));
 const condTxt = () => `Visibilidade ~${visM()} m · ${AMZ ? `rio na ${season()}` : `ondas ${(0.55 * COND.swell).toFixed(1).replace('.', ',')} m`} · correnteza ${COND.cur < 0.85 ? 'fraca' : COND.cur < 1.2 ? 'moderada' : 'forte'} · ${COND.cloud > 0.5 ? 'nublado' : COND.cloud > 0.2 ? 'poucas nuvens' : 'céu limpo'} · ${wxTxt()}`;
 
 function updateClock(dt) {
@@ -3432,7 +3438,7 @@ function fishAct(key) { const k = smooth(-0.1, 0.35, DAY.el); return NOCT[key] ?
 // aba "Boletim do mar" na loja/marina
 function bulletinHTML() {
   return eventsHTML() + `<div class="it" style="margin-bottom:8px"><div><div class="n">Dia ${SV.day || 1} · ${hhmm(SV.tod || 7)}</div><div class="d">${condTxt()}</div></div></div>
-    <div class="list">${AMZ ? bulletinAmz() : NE ? bulletinNe() : `
+    <div class="list">${AMZ ? bulletinAmz() : NE ? bulletinNe() : AC ? bulletinAc() : `
     <div class="it"><div><div class="n">Visibilidade</div><div class="d">${COND.vis > 1.25 ? 'Água azul: dia de procurar peixe longe, no Parcel de Fora ou em Castelhanos.' : COND.vis < 0.8 ? 'Água turva: fique nos pontos rasos e abrigados, e leve lanterna.' : 'Água normal na baía.'}</div></div></div>
     <div class="it"><div><div class="n">Mar</div><div class="d">${COND.swell > 1.25 ? 'Ondulação grande: o lado de fora da Ilha Grande fica perigoso. Prefira a baía.' : 'Mar tranquilo para atravessar.'}</div></div></div>`}
     <div class="it"><div><div class="n">Esperar</div><div class="d">O peixe muda com a hora: ${AMZ ? 'de manhã o tucunaré caça na beira, à noite a traíra e o surubim saem.' : 'de manhã a garoupa sai da toca, no fim da tarde o robalo caça.'}</div></div>
@@ -3461,11 +3467,14 @@ function optRow(label, ctrl) { return `<div class="it"><div class="n">${label}</
 function renderOpt() {
   const seg = (k, opts) => opts.map(([v, n]) => `<button class="btn ${OPT[k] === v ? 'gold' : 'alt'}" data-opt="${k}" data-v="${v}">${n}</button>`).join('');
   $('optBody').innerHTML = '<div class="list">' +
+    optRow('Idioma / Language', `<button class="btn ${EN ? 'alt' : 'gold'}" data-lang="pt">PORTUGUÊS</button><button class="btn ${EN ? 'gold' : 'alt'}" data-lang="en">ENGLISH</button>`) +
     optRow('Qualidade gráfica', seg('q', QUALITY.map((q, i) => [i, q.name]))) +
     optRow('Mostrar FPS (desempenho)', seg('fps', [[true, 'SIM'], [false, 'NÃO']])) +
     optRow('Dificuldade dos bots', seg('bots', [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil']])) +
     optRow('Sensibilidade da câmera', `<input type="range" min="0.4" max="2.2" step="0.1" value="${OPT.sens}" data-range="sens"><b>${OPT.sens.toFixed(1)}×</b>`) +
     optRow('Inverter eixo vertical', seg('inv', [[false, 'NÃO'], [true, 'SIM']])) +
+    optRow('Mira por giroscópio<div class="d">Incline o celular para ajustar a mira embaixo d\'água</div>', `<button class="btn ${OPT.gyro ? 'gold' : 'alt'}" data-gyro="1">LIGADA</button><button class="btn ${OPT.gyro ? 'alt' : 'gold'}" data-gyro="0">DESLIGADA</button>`) +
+    (OPT.gyro ? optRow('Força do giroscópio', `<input type="range" min="0.4" max="2.5" step="0.1" value="${OPT.gyroK || 1}" data-range="gyroK"><b>${(OPT.gyroK || 1).toFixed(1)}×</b>`) : '') +
     optRow('Volume', `<input type="range" min="0" max="1" step="0.05" value="${OPT.vol}" data-range="vol"><b>${Math.round(OPT.vol * 100)}%</b>`) +
     optRow('Música', seg('mus', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
     optRow('Vibração', seg('vib', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
@@ -3482,7 +3491,9 @@ function renderOpt() {
     if (k === 'third' && P.mode !== 'swim') THIRD = OPT.third;
     saveOpt(); applyOpt(); AU.click(); renderOpt();
   });
-  B.querySelectorAll('[data-range]').forEach(r => r.oninput = () => { OPT[r.dataset.range] = +r.value; r.nextElementSibling.textContent = r.dataset.range === 'vol' ? Math.round(OPT.vol * 100) + '%' : OPT.sens.toFixed(1) + '×'; saveOpt(); applyOpt(); });
+  B.querySelectorAll('[data-range]').forEach(r => r.oninput = () => { OPT[r.dataset.range] = +r.value; r.nextElementSibling.textContent = r.dataset.range === 'vol' ? Math.round(OPT.vol * 100) + '%' : OPT[r.dataset.range].toFixed(1) + '×'; saveOpt(); applyOpt(); });
+  B.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { if ((b.dataset.lang === 'en') !== EN) setLang(b.dataset.lang); });
+  B.querySelectorAll('[data-gyro]').forEach(b => b.onclick = async () => { const on = b.dataset.gyro === '1'; AU.click(); if (await gyroEnable(on) && on) toast('Mira por giroscópio ligada: incline o celular embaixo d\'água para mirar.', 4); renderOpt(); });
   // backup: o save inteiro vira um código de texto (copiar e colar em outro app, navegador ou aparelho)
   const bk = $('optBk'), code = $('optCode'), txt = $('optBkTxt'), load = $('optLoad');
   $('optExp').onclick = async () => {
@@ -4230,7 +4241,7 @@ function addXP(n, why) {
   if (!n || n < 1) return;
   const l0 = level(); SV.xp = (SV.xp || 0) + Math.round(n); const l1 = level();
   if (l1 > l0) {
-    const prize = 60 * l1; // metade do antigo: nos níveis altos o prêmio ficava gordo demais SV.money += prize; AU.coin(); buzz([40, 60, 40, 60, 80]);
+    const prize = 60 * l1; SV.money += prize; AU.coin(); buzz([40, 60, 40, 60, 80]); // metade do antigo: nos níveis altos o prêmio ficava gordo demais
     toast(`NÍVEL ${l1}! ${rankName(l1)} · prêmio ${fmtR(prize)}`, 5, 'gold');
   }
   careerHUD();
@@ -4258,6 +4269,8 @@ const ACH = [
   { id: 'fora', n: 'Mar aberto', d: 'Mergulhe no Parcel de Fora.', r: 600, t: () => !!(SV.visited || {}).fora },
   { id: 'all', n: 'Conhece a baía', d: 'Mergulhe em todos os pontos de pesca.', r: 2500, t: () => SPOTS.filter(s => s.r).every(s => (SV.visited || {})[s.id]) },
   { id: 'night', n: 'Noturno', d: 'Pegue um peixe depois das 19h.', r: 400, t: () => !!SV.nightCatch },
+  { id: 'legend', n: 'Caçador de lendas', d: 'Pesque um peixe lendário (Diário › História).', r: 3000, t: () => Object.values(SV.leg || {}).some(l => l.caught) },
+  { id: 'legend3', n: 'Lenda das lendas', d: 'Pesque o lendário de 3 destinos.', r: 10000, t: () => Object.values(SV.leg || {}).filter(l => l.caught).length >= 3 },
 ];
 let achT = 0;
 function checkAch(dt) {
@@ -4600,7 +4613,7 @@ function startBoil() {
     if (x < WB.x0 + 50 || x > WB.x1 - 50 || z < WB.z0 + 50 || z > WB.z1 - 50 || H(x, z) > -8) continue;
     const spot = { id: 'boil' + (++BOIL.n), x, z, r: 25, zone: 'boil' }; ZONES.push(spot);
     const sc = newSchool(spot); sc.c.set(x, -1.2, z); sc.boil = true; SCHOOLS.push(sc);
-    const preds = AMZ ? ['tucunare', 'tucunare', 'douradorio', 'douradorio', 'cachorra'] : NE ? ['xareu', 'cavala', 'cavala', 'bicuda', 'dourado'] : ['xareu', 'xareu', 'olhete', 'sororoca', 'enchova', 'bicuda'];
+    const preds = AMZ ? ['tucunare', 'tucunare', 'douradorio', 'douradorio', 'cachorra'] : NE ? ['xareu', 'cavala', 'cavala', 'bicuda', 'dourado'] : AC ? ['xareu', 'enchova', 'olhete', 'sororoca', 'bicuda'] : ['xareu', 'xareu', 'olhete', 'sororoca', 'enchova', 'bicuda'];
     for (let i = 0; i < 3; i++) spawnGroup(spot, pick(preds), Math.round(rand(3, 6)));
     Object.assign(BOIL, { on: true, x, z, t: rand(110, 160), sc, spot });
     const dir = ['norte', 'nordeste', 'leste', 'sudeste', 'sul', 'sudoeste', 'oeste', 'noroeste'][Math.round(((Math.atan2(x - P.pos.x, -(z - P.pos.z)) + TAU) % TAU) / (TAU / 8)) % 8];
@@ -4643,7 +4656,7 @@ const EVSPAWN = [
   { id: 'lua2', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'jorge', key: 'dentao', n: [1, 2], msg: 'Lua cheia: dentão caçando no costão da Jorge Grego.' },
   { id: 'frente', when: () => COND.frontOn, spot: 'foz', key: 'robalo', n: [3, 5], msg: 'Água mexida da frente fria: robalo entrou na foz!' },
   { id: 'atum', when: () => COND.vis > 1.15 && SV.tod >= 5.5 && SV.tod < 9, spot: 'plataforma', key: 'atumrabino', n: [4, 7], msg: 'Amanhecer de água azul: cardume de atum-rabino subiu na Plataforma de Fora!' },
-  ...evAmz(), ...evNe(),
+  ...evAmz(), ...evNe(), ...evAc(),
 ];
 let evT = 0;
 function updateEvents(dt) {
@@ -4661,6 +4674,7 @@ function eventsHTML() {
   const ev = [];
   if (AMZ) return eventsAmzHTML();
   if (NE) return eventsNeHTML();
+  if (AC) return eventsAcHTML();
   if (weekend()) ev.push(['Torneio do fim de semana', 'Campeonatos pagam o dobro hoje.']);
   if (fullMoon()) ev.push(['Lua cheia', 'À noite, chernes e dentões saem para caçar na Laje Branca e na Jorge Grego.']);
   if (COND.vis > 1.3) ev.push(['Água azul', 'Albacora e dourado subindo no Parcel de Fora e no Aventureiro.']);
@@ -5128,8 +5142,9 @@ const DESTS = [
   { id: 'cv', name: 'Costa Verde (RJ)', desc: 'Baía da Ilha Grande: costões, lajes, naufrágios e mar aberto.' },
   { id: 'amz', name: 'Amazonas · Baixo Tapajós (PA)', desc: 'Rio de água clara, igapó, lago de várzea e água preta. Tucunaré, dourado, cachorra, pirarucu.' },
   { id: 'ne', name: 'Costa dos Corais (AL/PE)', desc: 'Água azul e quente: piscinas naturais, arrecifes, cabeços de coral, naufrágio e parcel. Guaiúba, cavala, pargo e tubarões.', price: 4000, flag: 'neUnlocked' },
+  { id: 'ac', name: 'Arraial do Cabo (RJ)', desc: 'Água fria e cristalina da ressurgência: paredões da Ilha do Farol, Boqueirão, Pedra Vermelha e naufrágio. Olho-de-boi, enchova, garoupa e badejo.', price: 3500, flag: 'acUnlocked' },
 ];
-const marinaName = () => AMZ ? 'Porto da Vila do Tapajós' : NE ? 'Marina do Pontal' : 'Marina Balneário';
+const marinaName = () => AMZ ? 'Porto da Vila do Tapajós' : NE ? 'Marina do Pontal' : AC ? 'Marina da Praia dos Anjos' : 'Marina Balneário';
 // preço e marca de liberação de cada destino (a Costa Verde já vem liberada)
 const destPrice = d => d.id === 'amz' ? TRIP_PRICE : d.price || 0;
 const destOwned = d => d.id === 'cv' || (d.id === 'amz' ? SV.amzUnlocked : SV[d.flag]);
@@ -5145,9 +5160,9 @@ function travelTo(id) {
   const d = DESTS.find(x => x.id === id); if (!d) return;
   if (!destOwned(d)) { const pr = destPrice(d); if (SV.money < pr) return; SV.money -= pr; if (id === 'amz') SV.amzUnlocked = true; else SV[d.flag] = true; }
   if (P.stringer.length) { SV.cooler.push(...P.stringer); P.stringer = []; }
-  SV.region = id; SV.dest = { amz: 'praia', ne: 'arrecife' }[id] || 'botinas'; SV.tod = 7; SV.day = (SV.day || 1) + TRIP_DAYS; SV.fuel = Math.max(SV.fuel, 40);
+  SV.region = id; SV.dest = { amz: 'praia', ne: 'arrecife', ac: 'forno' }[id] || 'botinas'; SV.tod = 7; SV.day = (SV.day || 1) + TRIP_DAYS; SV.fuel = Math.max(SV.fuel, 40);
   save(); SAVE_LOCK = true;
-  $('black').style.opacity = 1; toast({ amz: 'Embarcando para Santarém e Alter do Chão...', ne: 'Voando para Maceió e seguindo para a Costa dos Corais...' }[id] || 'Voltando para Angra dos Reis...', 3);
+  $('black').style.opacity = 1; toast({ amz: 'Embarcando para Santarém e Alter do Chão...', ne: 'Voando para Maceió e seguindo para a Costa dos Corais...', ac: 'Pegando a estrada para a Região dos Lagos, rumo a Arraial do Cabo...' }[id] || 'Voltando para Angra dos Reis...', 3);
   setTimeout(() => location.reload(), 900);
 }
 function bindTravel(on) { on('[data-trip]', b => travelTo(b.dataset.trip)); }
@@ -5504,7 +5519,7 @@ function buildCoastNe() {
 }
 
 // ---------- área de preservação e tubarão cabeça-chata ----------
-function noTakeAt(p) { if (!NE) return false; const S = spotById('piscinas'); return !!S && Math.hypot(p.x - S.x, p.z - S.z) < 170; }
+function noTakeAt(p) { if (AC) return noTakeAc(p); if (!NE) return false; const S = spotById('piscinas'); return !!S && Math.hypot(p.x - S.x, p.z - S.z) < 170; }
 let ntTip = false, sharkT = 0;
 function updateNe(dt, t) {
   if (!NE) return;
@@ -5630,6 +5645,164 @@ function updatePlatform(dt, t) {
   if (!PLAT.warned && near < 400 && started) { PLAT.warned = true; toast('Plataforma de Fora: pesca oceânica em água azul, ~85 m de fundo. Atum-rabino, anchova e olho-de-boi rodando as pernas.', 6, 'gold'); toast('Na vida real é proibido navegar a menos de 500 m de plataformas de petróleo (zona de segurança). Esta plataforma é fictícia.', 7); }
   // ronco grave dos geradores perto da plataforma
   if (near < 260 && AU.ctx && AU.ctx.state === 'running' && (PLAT.humT = (PLAT.humT || 0) - dt) <= 0) { PLAT.humT = 1.9; AU.tone(48, 46, 2.0, 0.05 * (1 - near / 260), 'sawtooth'); }
+}
+
+// ================= destino Arraial do Cabo (RJ): água fria e muito clara, paredões da Ilha do Farol e o Boqueirão =================
+// a costa corre de oeste para leste ao sul (z positivo); a Ilha do Farol fica ao norte-leste, separada do Pontal pelo Boqueirão.
+// a ressurgência traz água fria e transparente do fundo: visibilidade alta, peixe pelágico encostando no costão.
+function acCoast(x) { return 560 + 50 * Math.sin(x * 0.003) + 20 * Math.sin(x * 0.013 + 1); }
+function acFarol() { return { x: 900, z: -340 }; }  // Ilha do Farol (Ilha de Cabo Frio), alongada leste-oeste
+function acPorcos() { return { x: -420, z: -120 }; }
+function acPedra() { return { x: -80, z: -720 }; } // Pedra Vermelha (laje submersa)
+// distância até o segmento do Pontal do Atalaia (da praia até a ponta, de frente para a ilha)
+function acPontal(x, z) { const ax = 380, az = acCoast(380) - 10, bx = 470, bz = -40, dx = bx - ax, dz = bz - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz), 0, 1); return Math.hypot(x - ax - dx * t, z - az - dz * t); }
+function Hac(x, z) {
+  const s = acCoast(x) - z;
+  let h;
+  if (s < 0) h = 1.4 + 8 * smooth(-10, -140, s) * (0.6 + 0.8 * fbm(x * 0.008, z * 0.008, 3)) + 55 * smooth(-160, -520, s) * (0.5 + 0.5 * fbm(x * 0.005 + 3, z * 0.005, 3));
+  else if (s < 70) h = lerp(1.2, -3, smooth(0, 70, s));
+  else if (s < 950) h = lerp(-3, -16, smooth(70, 950, s)) + 1.6 * fbm(x * 0.012 + 4, z * 0.012, 3) + 0.5 * fbm(x * 0.06, z * 0.06, 2);
+  else h = lerp(-16, -42, smooth(950, 1650, s)) + 1.5 * fbm(x * 0.01, z * 0.01, 3);
+  // Ilha do Farol: morro alto, paredão que cai direto para ~26 m
+  const F = acFarol(), df = Math.hypot((x - F.x) / 1.55, z - F.z) * (1 + 0.12 * fbm(x * 0.01, z * 0.01, 2));
+  if (df < 255) h = df < 215 ? 4 + 112 * (1 - (df / 215) ** 2) + 3 * fbm(x * 0.04, z * 0.04, 2) : lerp(2, -26 + 2 * fbm(x * 0.05, z * 0.05, 2), smooth(215, 252, df));
+  else if (df < 400) h = Math.min(h, lerp(-26, h, smooth(255, 400, df)));
+  // Pontal do Atalaia: crista de pedra saindo da praia em direção à ilha (o Boqueirão é o canal entre os dois)
+  const dp = acPontal(x, z); if (dp < 70) h = Math.max(h, lerp(26 * (1 - dp / 40) + 3 * fbm(x * 0.05, z * 0.05, 2), h, smooth(28, 70, dp)));
+  // Ilha dos Porcos
+  const P = acPorcos(), dq = Math.hypot(x - P.x, z - P.z); if (dq < 150) h = Math.max(h, lerp(34 * (1 - dq / 55) + 2 * fbm(x * 0.05, z * 0.05, 2), h, smooth(40, 150, dq)));
+  // Pedra Vermelha: pináculo que sobe até ~9 m
+  const V = acPedra(), dv = Math.hypot(x - V.x, z - V.z); if (dv < 90) h = Math.max(h, lerp(-9 + 1.5 * fbm(x * 0.08, z * 0.08, 2), h, smooth(10, 90, dv)));
+  return h;
+}
+function uwAc() { return `  float murk=0.0;
+  vec3 ab=vec3(exp(-dp*0.1),exp(-dp*0.022),exp(-dp*0.024));
+  gl_FragColor.rgb*=ab;`; }
+function pierAc() { const zs = acCoast(0); for (let z = zs; z > zs - 260; z -= 2) if (Hac(0, z) < -2.6) return { x: 0, z0: Math.max(z + 60, zs + 6), z1: z }; return { x: 0, z0: zs + 6, z1: zs - 90 }; }
+function spotsAc() {
+  const c = x => acCoast(x), F = acFarol();
+  return [
+    { id: 'anjos', name: 'Marina da Praia dos Anjos', x: PIER.x, z: PIER.z1 - 10, type: 'marina', desc: 'Porto dos pescadores de Arraial: venda do pescado, loja, combustível e viagens.' },
+    { id: 'forno', name: 'Praia do Forno', x: -230, z: c(-230) - 140, r: 45, depth: '3–10 m', desc: 'Costão abrigado e água clarinha: sargo, salema, marimbá, budião e frade. Ótimo para começar.' },
+    { id: 'porcos_ac', name: 'Ilha dos Porcos', x: acPorcos().x, z: acPorcos().z + 80, r: 50, depth: '5–18 m', desc: 'Costão da ilha cheio de tocas: garoupa, badejo, sargo e cangulo.' },
+    { id: 'boqueirao', name: 'Boqueirão', x: 520, z: -200, r: 50, depth: '8–22 m', cur: [0.38, 0.08], desc: 'Canal entre o Pontal e a Ilha do Farol: correnteza forte e peixe de passagem. Olho-de-boi, xaréu, enchova e sororoca.' },
+    { id: 'gruta', name: 'Gruta Azul', x: F.x + 390, z: F.z + 60, r: 45, depth: '4–15 m', noTake: true, desc: 'Área de preservação: SÓ FOTO. Gruta de água azul-turquesa no paredão da ilha, com tartarugas e cardumes.' },
+    { id: 'cherne_ac', name: 'Saco do Cherne', x: F.x - 230, z: F.z - 230, r: 50, depth: '15–28 m', desc: 'Pé do paredão, fundo de pedra grande: garoupa, badejo e cherne nas tocas fundas.' },
+    { id: 'pedravermelha', name: 'Pedra Vermelha', x: acPedra().x, z: acPedra().z, r: 50, depth: '9–25 m', desc: 'Pináculo isolado no azul. Olho-de-boi, enchova, bicuda e dourado rondando a pedra.' },
+    { id: 'farol_fora', name: 'Paredão do Farol', x: F.x + 170, z: F.z - 280, r: 60, depth: '18–40 m', cur: [0.42, -0.15], desc: 'Lado de fora da ilha, mar aberto batendo no paredão: albacora, dourado e olho-de-boi grande. Correnteza e água fria.' },
+    { id: 'naufragio_ac', name: 'Naufrágio do Inglês', x: 160, z: -260, r: 45, depth: '12–20 m', desc: 'Casco de ferro de um cargueiro antigo: garoupas, badejos e cardume de cocoroca dentro das chapas.' },
+  ];
+}
+function noTakeAc(p) { const S = spotById('gruta'); return !!S && Math.hypot(p.x - S.x, p.z - S.z) < 110; }
+
+// ---------- peixes: os da Costa Verde que também vivem em Arraial ----------
+for (const k of ['sargo', 'marimba', 'salema', 'budiao', 'frade', 'garoupa', 'badejo', 'cherne', 'cangulo', 'xareu', 'enchova', 'sororoca', 'olhodeboi', 'bicuda', 'dourado', 'albacora', 'olhete', 'pampo', 'cocoroca', 'mero']) if (SPECIES[k]) SPECIES[k].regs = [...new Set([...(SPECIES[k].regs || ['cv']), 'ac'])];
+function popAc() {
+  return {
+    forno: [['sargo', 4, [4, 8]], ['salema', 3, [6, 10]], ['marimba', 3, [5, 9]], ['budiao', 3, [1, 3]], ['frade', 2, [1, 2]], ['garoupa', 2, [1, 1]], ['cocoroca', 2, [6, 10]]],
+    porcos_ac: [['garoupa', 5, [1, 1]], ['badejo', 3, [1, 1]], ['sargo', 3, [4, 8]], ['cangulo', 3, [1, 3]], ['salema', 2, [6, 10]], ['xareu', 2, [3, 6]], ['budiao', 2, [1, 2]]],
+    boqueirao: [['olhodeboi', 4, [1, 3], 1, 1.2], ['xareu', 4, [3, 7]], ['enchova', 4, [3, 7]], ['sororoca', 3, [2, 5]], ['olhete', 3, [2, 5]], ['bicuda', 2, [1, 3]], ['garoupa', 2, [1, 1]]],
+    gruta: [['frade', 3, [1, 2]], ['budiao', 3, [1, 3]], ['salema', 3, [6, 10]], ['sargo', 2, [4, 7]], ['marimba', 2, [5, 9]]],
+    cherne_ac: [['garoupa', 5, [1, 1], 1, 1.25], ['badejo', 4, [1, 1], 1, 1.2], ['cherne', 3, [1, 1], 0.9], ['mero', 1, [1, 1], 0.5], ['cangulo', 2, [1, 3]], ['xareu', 2, [3, 6]]],
+    pedravermelha: [['olhodeboi', 4, [1, 3], 1, 1.25], ['enchova', 3, [3, 7]], ['bicuda', 3, [1, 3]], ['dourado', 3, [2, 5]], ['olhete', 3, [2, 5]], ['xareu', 2, [3, 6]], ['garoupa', 2, [1, 1]]],
+    farol_fora: [['albacora', 3, [3, 6], 0.8], ['dourado', 3, [2, 5]], ['olhodeboi', 4, [1, 3], 1, 1.35], ['enchova', 3, [3, 7]], ['bicuda', 2, [1, 3]], ['sororoca', 2, [2, 5]]],
+    naufragio_ac: [['garoupa', 4, [1, 1], 1, 1.2], ['badejo', 3, [1, 1]], ['cocoroca', 4, [8, 14]], ['cherne', 1, [1, 1], 0.7], ['xareu', 2, [3, 6]], ['cangulo', 2, [1, 3]]],
+  };
+}
+function popZoneAc() { return [['sargo', 1, [4, 7], 0.8], ['salema', 1, [5, 9], 0.7], ['garoupa', 2, [1, 1], 0.8], ['budiao', 1, [1, 2], 0.6], ['xareu', 1, [3, 5], 0.4], ['cangulo', 1, [1, 2], 0.6], ['enchova', 1, [3, 5], 0.35]]; }
+
+// ---------- mundo: costões, paredão, pontal, laje e naufrágio ----------
+function acRing(cx, cz, sx, n, seed, holeChance, spotNear) {
+  const r = mulberry(seed);
+  for (let k = 0; k < n; k++) {
+    const a = r() * TAU, ca = Math.cos(a) * sx, sa = Math.sin(a); let shore = null;
+    for (let d = 10; d < 400; d += 2) if (H(cx + ca * d, cz + sa * d) < -1.2) { shore = d; break; }
+    if (shore == null) continue;
+    const dd = shore + Math.pow(r(), 1.5) * 34, x = cx + ca * dd, z = cz + sa * dd, h = H(x, z); if (h > -1) continue;
+    const rad = lerp(4.6, 1.1, (dd - shore) / 34) * (0.55 + r() * 0.7), R = addRock(x, h + rad * 0.25, z, rad, spotNear(x, z));
+    if (rad > 2.2 && r() < holeChance) addHole(R, a + Math.PI + rand(-0.6, 0.6), R.spot);
+  }
+}
+function buildRocksAc(r) {
+  fitSpot('forno', 3, 10); fitSpot('porcos_ac', 5, 18); fitSpot('boqueirao', 8, 22); fitSpot('gruta', 4, 15); fitSpot('cherne_ac', 15, 28); fitSpot('pedravermelha', 9, 25); fitSpot('farol_fora', 18, 40); fitSpot('naufragio_ac', 12, 20);
+  const spotNear = (x, z) => { let b = null, bd = 150; for (const s of SPOTS) if (s.r) { const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; b = s.id; } } return b; };
+  const F = acFarol(), P = acPorcos(), V = acPedra();
+  acRing(F.x, F.z, 1.55, 1900, 301, 0.55, spotNear);   // paredão da Ilha do Farol, todo em volta
+  acRing(P.x, P.z, 1, 320, 302, 0.5, spotNear);         // Ilha dos Porcos
+  // Pontal do Atalaia: pedras dos dois lados da crista
+  for (let i = 0; i < 260; i++) { const t = r(), x = lerp(380, 470, t) + (r() - 0.5) * 90, z = lerp(acCoast(380) - 10, -40, t) + (r() - 0.5) * 90, h = H(x, z); if (h > -1.2 || h < -20) continue; const rad = 1.2 + r() * 3.4, R = addRock(x, h + rad * 0.25, z, rad, spotNear(x, z)); if (rad > 2.6 && r() < 0.4) addHole(R, r() * TAU, R.spot); }
+  // Pedra Vermelha: monte de pedras com tocas
+  for (let i = 0; i < 110; i++) { const a = r() * TAU, d = Math.pow(r(), 0.75) * 55, x = V.x + Math.cos(a) * d, z = V.z + Math.sin(a) * d, rad = lerp(5, 1.2, d / 55) * (0.6 + r() * 0.7), R = addRock(x, H(x, z) + rad * 0.25, z, rad, 'pedravermelha'); if (rad > 2.4 && r() < 0.5) addHole(R, r() * TAU, 'pedravermelha'); }
+  // costão da praia (Forno e arredores)
+  for (let x = WB.x0 + 40; x < 380; x += 4.5) { if (r() < 0.55) continue; const z0 = acCoast(x); let z = z0; for (let i = 0; i < 60 && H(x, z) > -1.2; i++) z -= 3; z -= r() * 14; const h = H(x, z); if (h > -1 || h < -9) continue; const rad = 0.9 + r() * 2.2; addRock(x, h + rad * 0.25, z, rad, spotNear(x, z)); }
+  // zonas de pesca no costão da ilha e da praia
+  for (let k = 0; k < 12; k++) { const a = k / 12 * TAU, x = F.x + Math.cos(a) * 1.55 * 285, z = F.z + Math.sin(a) * 285, h = H(x, z); if (h < -6 && SPOTS.every(s => Math.hypot(s.x - x, s.z - z) > 110)) ZONES.push({ id: 'zfa' + k, x, z, r: 40, zone: 'costao' }); }
+  for (let x = WB.x0 + 120; x < 360; x += 190) { const z = acCoast(x) - 110, h = H(x, z); if (h < -3 && SPOTS.every(s => Math.hypot(s.x - x, s.z - z) > 110)) ZONES.push({ id: 'zpr' + Math.round(x), x, z, r: 40, zone: 'costao' }); }
+}
+function buildWorldAc() { const W = spotById('naufragio_ac'); buildWreck({ x: W.x, z: W.z, ry: -0.7, L: 38, spot: 'naufragio_ac' }); }
+// terra: dunas brancas, restinga, casas da vila e o farol no alto da ilha
+const ACFX = { lamp: null, beam: null };
+function buildCoastAc() {
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new V3(), pp = new V3(), bush = [], houses = [];
+  for (let i = 0; i < 40000 && bush.length < 2600; i++) {
+    const x = rand(WB.x0 - 200, WB.x1 + 200), z = rand(-480, 1300), h = H(x, z);
+    if (h < 1.6 || (Math.abs(x - PIER.x) < 22 && z < PIER.z0 + 12)) continue;
+    if (h > 3 || Math.random() < 0.5) bush.push([x, h, z]);
+  }
+  for (let i = 0; i < 8000 && houses.length < 70; i++) { const x = rand(-480, 380), z = acCoast(x) + rand(35, 260), h = H(x, z); if (h > 1.5 && h < 30 && Math.abs(x - PIER.x) > 22) houses.push([x, h, z]); }
+  // restinga: arbustos baixos e arredondados (vento forte do cabo)
+  const bG = new THREE.IcosahedronGeometry(1.6, 0); bG.scale(1.4, 0.7, 1.4); bG.translate(0, 0.5, 0);
+  const bIM = new THREE.InstancedMesh(bG, new THREE.MeshLambertMaterial({ color: 0xffffff }), bush.length);
+  bush.forEach((t, i) => { const k = rand(0.6, 1.8); s.set(k, k * rand(0.7, 1.2), k); pp.set(t[0], t[1] - 0.3, t[2]); q.setFromAxisAngle(new V3(0, 1, 0), rand(0, TAU)); m4.compose(pp, q, s); bIM.setMatrixAt(i, m4); bIM.setColorAt(i, new THREE.Color().setHSL(rand(0.22, 0.3), 0.35, rand(0.2, 0.32))); });
+  scene.add(bIM); LAND.push(bIM);
+  const hG = new THREE.BoxGeometry(6, 3.6, 7); hG.translate(0, 1.8, 0); const rG = new THREE.ConeGeometry(5, 2.2, 4); rG.rotateY(Math.PI / 4); rG.translate(0, 4.7, 0);
+  const HC = [0xffffff, 0xf4f0e4, 0x9fd4e8, 0xf6d48a, 0xe8b0a8, 0xb8e0c0];
+  const hIM = new THREE.InstancedMesh(hG, new THREE.MeshLambertMaterial({ color: 0xffffff }), houses.length), rIM = new THREE.InstancedMesh(rG, new THREE.MeshLambertMaterial({ color: 0xb4532a }), houses.length);
+  houses.forEach((t, i) => { const k = rand(0.8, 1.3); q.setFromAxisAngle(new V3(0, 1, 0), rand(-0.3, 0.3)); s.set(k, k, k); pp.set(t[0], t[1] - 0.3, t[2]); m4.compose(pp, q, s); hIM.setMatrixAt(i, m4); rIM.setMatrixAt(i, m4); hIM.setColorAt(i, new THREE.Color(HC[i % HC.length])); });
+  scene.add(hIM, rIM); LAND.push(hIM, rIM);
+  // o farol no alto da ilha: torre branca e lanterna que acende à noite
+  const F = acFarol(), fy = H(F.x, F.z), g = new THREE.Group(); g.position.set(F.x, fy - 1, F.z);
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3.2, 18, 12), new THREE.MeshLambertMaterial({ color: 0xf6f6f2 })); tower.position.y = 9; g.add(tower);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(2.45, 2.6, 2.4, 12), new THREE.MeshLambertMaterial({ color: 0xc8302a })); band.position.y = 13; g.add(band);
+  ACFX.lamp = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 2.4, 10), new THREE.MeshStandardMaterial({ color: 0xfff4c8, emissive: 0xffe9a0, emissiveIntensity: 0.2 })); ACFX.lamp.position.y = 19.4; g.add(ACFX.lamp);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(2.2, 2, 10), new THREE.MeshLambertMaterial({ color: 0xc8302a })); cap.position.y = 21.6; g.add(cap);
+  ACFX.beam = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex(), color: 0xfff0b0, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false })); ACFX.beam.position.y = 19.4; ACFX.beam.scale.setScalar(0.1); g.add(ACFX.beam);
+  scene.add(g);
+}
+function updateAc(dt, t) {
+  if (!AC || !ACFX.lamp) return;
+  // o farol pisca à noite (um lampejo a cada 10 s, visível de longe)
+  const night = clamp((0.5 - DAY.amb) * 3, 0, 1), flash = Math.max(0, Math.sin(t * TAU / 10) * 4 - 3);
+  ACFX.lamp.material.emissiveIntensity = 0.2 + night * (0.6 + flash * 1.5);
+  const d = camera.position.distanceTo(ACFX.beam.getWorldPosition(_t1));
+  ACFX.beam.visible = night > 0.05; ACFX.beam.scale.setScalar(night * (6 + flash * 18) * clamp(d / 400, 0.5, 4));
+}
+
+// ---------- textos, eventos e chegada ----------
+function evAc() {
+  return [
+    { reg: 'ac', id: 'ressur_ac', when: () => COND.vis > 1.25, spot: 'farol_fora', key: 'olhodeboi', n: [3, 6], msg: 'Ressurgência: a água fria e azul subiu no Paredão do Farol e o olho-de-boi encostou!' },
+    { reg: 'ac', id: 'manha_ac', when: () => SV.tod >= 6 && SV.tod < 10, spot: 'boqueirao', key: 'enchova', n: [4, 8], msg: 'Maré virando de manhã: cardume de enchova passando no Boqueirão.' },
+    { reg: 'ac', id: 'lua_ac', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'cherne_ac', key: 'badejo', n: [1, 2], msg: 'Lua cheia: badejos grandes saíram das tocas no Saco do Cherne.' },
+  ];
+}
+function eventsAcHTML() {
+  const ev = [];
+  if (weekend()) ev.push(['Torneio do fim de semana', 'Campeonatos pagam o dobro hoje.']);
+  ev.push(['Maré', 'De manhã a maré vira e a enchova passa no Boqueirão.']);
+  if (fullMoon()) ev.push(['Lua cheia', 'À noite, badejos grandes no Saco do Cherne.']);
+  if (COND.vis > 1.25) ev.push(['Ressurgência', 'Água fria e azul: olho-de-boi e dourado no Paredão do Farol e na Pedra Vermelha.']);
+  return `<div class="it" style="margin-bottom:8px"><div><div class="n">${weekday()} · eventos do dia</div><div class="d">${ev.map(([n, d]) => `<b>${n}:</b> ${d}`).join('<br>')}</div></div></div>`;
+}
+function bulletinAc() {
+  return `<div class="it"><div><div class="n">Visibilidade</div><div class="d">${COND.vis > 1.25 ? 'Ressurgência: água fria e cristalina, mais de 20 m de visibilidade. Dia de ir no Paredão do Farol.' : COND.vis < 0.8 ? 'Vento sul mexeu a água: fique na Praia do Forno e na Ilha dos Porcos.' : 'Água azul e fria, boa em todo lugar.'}</div></div></div>
+    <div class="it"><div><div class="n">Mar</div><div class="d">${COND.swell > 1.25 ? 'Mar grande batendo no paredão de fora: cuidado no Boqueirão e no Paredão do Farol.' : 'Mar tranquilo por dentro da ilha.'}</div></div></div>
+    <div class="it"><div><div class="n">Regras</div><div class="d">A Gruta Azul é área de preservação: só foto. Mero é protegido. Na vida real, Arraial é Reserva Extrativista Marinha e a pesca sub tem regras próprias: informe-se antes.</div></div></div>`;
+}
+function setupAc() {
+  if (!AC) return;
+  $('menuReg').textContent = 'PESCA SUB · ARRAIAL DO CABO'; $('menuTag').textContent = 'Apneia na água fria e cristalina do cabo'; $('mapTitle').textContent = 'Carta náutica · Arraial do Cabo';
+  if (!SV.acVisited) { SV.acVisited = true; save(); setTimeout(() => { toast('Bem-vindo a Arraial do Cabo! A ressurgência traz água fria e muito clara: dá para ver o peixe de longe, e ele também vê você.', 7, 'gold'); toast('Na vida real, Arraial é Reserva Extrativista Marinha: a pesca subaquática tem regras próprias. Informe-se antes.', 7); }, 1500); }
 }
 
 // ================= online (Supabase): login anônimo, save na nuvem, amigos por código, amigo ao vivo e desafio =================
@@ -5770,7 +5943,7 @@ function wsMsg(m) {
   if (m.event === 'phx_reply' && m.ref === '1') { if (m.payload && m.payload.status === 'ok') { ON.joined = true; ON.tJoin = performance.now() - ON.t0; wsTrack(); if (ON.ready) lbResync(); } return; }
   if (m.event === 'presence_state') { ON.online = {}; presenceMeta(m.payload, (k, v) => { if (k !== ON.s.uid) ON.online[k] = v; }); return; }
   if (m.event === 'presence_diff') {
-    presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; lbFriendOnline(k); if (LB.open) lbRender(); if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
+    presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; lbFriendOnline(k); if (LB.open) lbRender(); if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais', ac: 'em Arraial do Cabo' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
     presenceMeta(m.payload.leaves || {}, k => { if (ON.online[k] && isFriend(k)) toast(`${ON.online[k].name} saiu do jogo.`, 2.5); delete ON.online[k]; dropRemote(k); }); if (LB.open) lbRender();
     if (shopTab === 'online' && !$('marinaPanel').classList.contains('hide')) renderShop();
     return;
@@ -5785,6 +5958,7 @@ function onBcast(ev, d) {
   if (!isFriend(d.from)) return;
   if (ev === 'pos' && d.region === REGION) remoteState(d);
   if (ev.startsWith('ride_')) { rideMsg(ev, d); return; }
+  if (ev === 'club_inv') { clubInvite(d); return; }
   if (ev === 'chal' || ev === 'duo_inv') { ON.inv = d; d.kind = ev === 'duo_inv' ? 'duo' : 'chal'; showInvite(d); }
   if (ev === 'duo_ok' && ON.wait && ON.wait.to === d.from) { const w = ON.wait; ON.wait = null; startDuoHost(w.spot, d.from, d.name, d.at); }
   if (ev === 'duo_no' && ON.wait && ON.wait.to === d.from) { ON.wait = null; toast(`${d.name} não pode agora.`, 3); }
@@ -5909,7 +6083,7 @@ function onlineHTML() {
     <div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="btn alt" id="onLogin">ENTRAR (OUTRO APARELHO)</button><button class="btn gold" id="onProtect">PROTEGER ESTA CONTA</button></div></div>`;
   h += `<div class="n" style="margin:6px 0">Amigos online (${ON.friends.length})</div><div class="list">` + (ON.friends.length ? ON.friends.map(f => {
     const o = ON.online[f.id], here = o && o.region === REGION;
-    const where = o ? (here ? '🟢 jogando no mesmo destino' : `🟡 jogando ${({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[o.region] || 'na Costa Verde')}`) : '⚪ offline';
+    const where = o ? (here ? '🟢 jogando no mesmo destino' : `🟡 jogando ${({ amz: 'no Amazonas', ne: 'na Costa dos Corais', ac: 'em Arraial do Cabo' }[o.region] || 'na Costa Verde')}`) : '⚪ offline';
     return `<div class="it"><span class="av" style="background:#7a2a2a">${f.name[0]}</span><div style="flex:1"><div class="n">${f.name} <span class="d">· Nv ${f.level || 1}</span></div><div class="d">${where}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${here ? `<button class="btn" data-ongo="${f.id}">IR ATÉ</button><button class="btn alt" data-onride="${f.id}" ${RIDE.on ? 'disabled' : ''}>🚤 CARONA</button><button class="btn gold" data-onchal="${f.id}" ${COMP.on ? 'disabled' : ''}>DESAFIAR</button><button class="btn gold" data-onduo="${f.id}" ${COMP.on ? 'disabled' : ''}>DUPLA</button>` : ''}<button class="btn alt" data-ondel="${f.id}">✕</button></div></div>`;
   }).join('') : '<div class="it"><div class="d">Nenhum amigo ainda. Adicione pelo código.</div></div>') + '</div>';
@@ -6327,7 +6501,7 @@ function throwChum() {
   // os peixes em volta vêm ver
   for (const f of FISHES) if (f.alive && (f.state === 'wander' || f.state === 'alert') && f.pos.distanceTo(P.pos) < 30 && !f.sp.protected) { f.state = 'curious'; f.t = rand(10, 18); }
   // e chega um grupo novo atrás do cheiro
-  const opts = AMZ ? ['pacu', 'tambaqui', 'piranha', 'matrinxa', 'aracu'] : NE ? ['guaiuba', 'ariaco', 'saramunete', 'sargo', 'xareu'] : ['sargo', 'salema', 'cocoroca', 'marimba', 'xareu', 'canhanha'];
+  const opts = AMZ ? ['pacu', 'tambaqui', 'piranha', 'matrinxa', 'aracu'] : NE ? ['guaiuba', 'ariaco', 'saramunete', 'sargo', 'xareu'] : AC ? ['sargo', 'salema', 'marimba', 'cocoroca', 'xareu'] : ['sargo', 'salema', 'cocoroca', 'marimba', 'xareu', 'canhanha'];
   const z = { id: 'chum' + (++chumN), x: P.pos.x, z: P.pos.z, r: 12, zone: 'chum' }; ZONES.push(z);
   const k = pick(opts); spawnGroup(z, k, Math.round(rand(3, 7)));
   toast(`Engodo na água! O cheiro atrai peixe${AMZ && k === 'piranha' ? '... e piranha!' : '.'} Fique parado. (${SV.chum} restante${SV.chum === 1 ? '' : 's'})`, 3.5, 'gold');
@@ -6568,7 +6742,7 @@ function buildMarina() {
   // placa em arco na entrada do píer
   for (const s of [-1, 1]) box(0.3, 4.4, 0.3, X + s * (W + 0.4), Y + 2.2, plazaZ - 0.3, beam);
   box(2 * W + 1.4, 0.35, 0.35, X, Y + 4.3, plazaZ - 0.3, beam);
-  const arch = new THREE.Mesh(new THREE.PlaneGeometry(2 * W + 0.6, 1.3), new THREE.MeshBasicMaterial({ map: signTex(AMZ ? 'VILA DO TAPAJÓS' : NE ? 'MARINA DO PONTAL' : 'MARINA BALNEÁRIO', AMZ ? 'porto · Baixo Tapajós' : NE ? 'Costa dos Corais · Alagoas' : 'Angra dos Reis · Costa Verde'), side: THREE.DoubleSide }));
+  const arch = new THREE.Mesh(new THREE.PlaneGeometry(2 * W + 0.6, 1.3), new THREE.MeshBasicMaterial({ map: signTex(AMZ ? 'VILA DO TAPAJÓS' : NE ? 'MARINA DO PONTAL' : AC ? 'PRAIA DOS ANJOS' : 'MARINA BALNEÁRIO', AMZ ? 'porto · Baixo Tapajós' : NE ? 'Costa dos Corais · Alagoas' : AC ? 'Arraial do Cabo · Região dos Lagos' : 'Angra dos Reis · Costa Verde'), side: THREE.DoubleSide }));
   arch.position.set(X, Y + 3.5, plazaZ - 0.5); arch.rotation.y = Math.PI; scene.add(arch);
   // pontos onde as pessoas param: beira da ponta em T, pontas dos dedos, bancos da praça
   const views = [];
@@ -6897,7 +7071,7 @@ function bakeShallow() {
   const tex = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
   waterMat.uniforms.uShal.value = tex; waterMat.uniforms.uShalB.value.set(x0, z0, 1 / (x1 - x0), 1 / (z1 - z0)); SHAL.ms = performance.now() - t0;
 }
-const SHAL_COL = () => AMZ ? 'vec3(0.17,0.21,0.10)' : NE ? 'vec3(0.10,0.66,0.62)' : 'vec3(0.08,0.42,0.38)';
+const SHAL_COL = () => AMZ ? 'vec3(0.17,0.21,0.10)' : NE ? 'vec3(0.10,0.66,0.62)' : AC ? 'vec3(0.09,0.58,0.64)' : 'vec3(0.08,0.42,0.38)';
 
 // trecho do shader da água vista de cima: raso claro, espuma na beira e nas cristas, brilho do sol
 const WATER_TOP = () => `
@@ -7013,7 +7187,7 @@ function showWelcome(s) {
   const el = document.createElement('div'); el.id = 'welcome'; el.className = 'panel';
   const step = (ic, t, d) => `<div class="it" style="gap:12px;justify-content:flex-start;text-align:left"><span style="font-size:28px">${ic}</span><div><div class="n">${t}</div><div class="d">${d}</div></div></div>`;
   el.innerHTML = `<div class="card" style="max-width:520px">
-    <h2>Bem-vindo ao ${AMZ ? 'Tapajós' : NE ? 'Nordeste' : 'mar de Angra'}!</h2>
+    <h2>Bem-vindo ao ${AMZ ? 'Tapajós' : NE ? 'Nordeste' : AC ? 'Arraial do Cabo' : 'mar de Angra'}!</h2>
     <div class="sub">Você é mergulhador de pesca sub: desce no fôlego, escolhe o peixe e vende o que pescar.</div>
     <div class="list">${step('🚤', 'Pilote até o ponto', `Siga a seta laranja no topo até ${s ? `${s.name}, a ${Math.round(Math.hypot(s.x - BOAT.pos.x, s.z - BOAT.pos.z) / 10) * 10} m daqui` : 'o ponto de pesca'}.`)}
     ${step('🤿', 'Mergulhe e fique parado', 'Peixe tem medo de quem nada atrás dele. Parado no fundo, ele vem ver você.')}
@@ -7147,8 +7321,8 @@ function nearRockTarget(S, from, out) {
   out.set(x, h, z); return true;
 }
 // quantas vezes mais grupos: o Nordeste estava vazio; zonas de costão e laje ganham mais peixe
-const densSpot = () => NE ? 1.6 : AMZ ? 1.15 : 1.25;
-const densZone = () => NE ? 2.3 : AMZ ? 1.3 : 1.7;
+const densSpot = () => NE || AC ? 1.6 : AMZ ? 1.15 : 1.25;
+const densZone = () => NE || AC ? 2.3 : AMZ ? 1.3 : 1.7;
 const nGroups = (g, k) => { const n = g * k; return Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); };
 
 // ================= trilha por destino (só no menu), eco embaixo d'água e ondas =================
@@ -7364,6 +7538,7 @@ const RARE = { today: null, on: null, chk: 0, warned: false };
 const RARE_DEF = {
   cv: [['tubbaleia', ['fora', 'plataforma', 'lajefunda', 'aventureiro'], 0.2], ['manta', ['laje', 'fora', 'pedrameio', 'castelhanos'], 0.25], ['merogig', ['naufragio', 'cargueiro', 'rebocador'], 0.3]],
   ne: [['tubbaleia', ['parcel_ne', 'paredefunda', 'sueste'], 0.25], ['manta', ['parcel_ne', 'cabecos', 'paredefunda'], 0.3], ['merogig', ['naufragio_ne', 'cargueiro_ne'], 0.35]],
+  ac: [['manta', ['farol_fora', 'pedravermelha', 'boqueirao'], 0.3], ['tubbaleia', ['farol_fora', 'pedravermelha'], 0.15], ['merogig', ['naufragio_ac', 'cherne_ac'], 0.3]],
   amz: [['pirarucugig', ['lago', 'pocao', 'negro'], 0.6]],
 };
 const RARE_INFO = {
@@ -7489,10 +7664,11 @@ const LB = { pid: null, lead: null, members: [], dest: 'cv', spot: null, mode: '
 // pontos de cada destino (nomes fixos: os pontos dos outros destinos não estão carregados)
 const LB_SPOTS = {
   cv: [['botinas', 'Ilhas Botinas'], ['laje', 'Laje Branca'], ['jorge', 'Jorge Grego'], ['naufragio', 'Naufrágio'], ['aventureiro', 'Aventureiro'], ['cargueiro', 'Cargueiro'], ['fora', 'Parcel de Fora'], ['pedrameio', 'Pedra do Meio'], ['lajefunda', 'Laje Funda'], ['plataforma', 'Plataforma de Fora']],
+  ac: [['forno', 'Praia do Forno'], ['porcos_ac', 'Ilha dos Porcos'], ['boqueirao', 'Boqueirão'], ['cherne_ac', 'Saco do Cherne'], ['pedravermelha', 'Pedra Vermelha'], ['farol_fora', 'Paredão do Farol'], ['naufragio_ac', 'Naufrágio do Inglês']],
   ne: [['arrecife', 'Arrecife da Barra'], ['cabecos', 'Cabeços'], ['naufragio_ne', 'Naufrágio do Vapor'], ['parcel_ne', 'Parcel das Paredes'], ['farol', 'Farol'], ['paredefunda', 'Paredão Fundo'], ['sueste', 'Parcel do Sueste'], ['cargueiro_ne', 'Naufrágio do Cargueiro']],
   amz: [['praia', 'Praia'], ['igapo', 'Igapó'], ['canal', 'Canal do Tapajós'], ['lago', 'Lago Verde'], ['pedral', 'Pedral'], ['pocao', 'Poção do Tapajós']],
 };
-const LB_DEST = { cv: 'Costa Verde', ne: 'Costa dos Corais', amz: 'Amazonas' };
+const LB_DEST = { cv: 'Costa Verde', ne: 'Costa dos Corais', amz: 'Amazonas', ac: 'Arraial do Cabo' };
 const LB_MODES = [['livre', '🤿 Pesca livre', 'Todos no mesmo ponto, sem placar. Cada um vende o que pegar.'], ['desafio', '⚔️ Desafio 10 min', 'Cada um por si: ganha quem pegar mais na medida. Prêmio 1º R$ 800 · 2º R$ 350 · 3º R$ 150.'], ['dupla', '🤝 Dupla vs bots', 'Só com 2: vocês dois contra 2 duplas. Prêmio 1º R$ 1.800 para cada.'], ['mundial', '🏆 Mundial', 'Vocês são a seleção brasileira (até 3) contra 11 países, num cenário com frota, TV e helicóptero. Inscrição R$ 500 cada. 1º lugar R$ 15.000 para cada.']];
 const LB_CHAT = ['Bora!', 'Tô pronto', '1 minuto', 'Onde vamos?', 'Partiu fundo!', 'GG'];
 const lbIsLead = () => LB.pid && LB.lead === (ON.s && ON.s.uid);
@@ -7745,7 +7921,7 @@ function lbFriendOnline(uid) {
 // frota de equipes de vários países ancorada em volta da arena, boias marcando a área, barco da organização
 // com faixas dos patrocinadores, helicóptero e lancha da TV. Duas baterias, pesagem, pódio e prêmios das empresas.
 const WORLD = { scene: null, day: 0, boats: [], heli: null, tv: null, buoys: null, chk: 0, hornT: 0 };
-const WORLD_ARENA = { cv: 'laje', ne: 'cabecos', amz: 'lago' };
+const WORLD_ARENA = { cv: 'laje', ne: 'cabecos', amz: 'lago', ac: 'pedravermelha' };
 const WORLD_FEE = 500, WORLD_BAT = 420, WORLD_GAP = 25; // inscrição, duração de cada bateria e do intervalo (s)
 // marcas inventadas (nada de empresas reais)
 const SPONSORS = [
@@ -7796,7 +7972,7 @@ function titleTex() {
     const gr = g.createLinearGradient(0, 0, 1024, 0); gr.addColorStop(0, '#0a2a3a'); gr.addColorStop(0.5, '#0e4a5e'); gr.addColorStop(1, '#0a2a3a');
     g.fillStyle = gr; g.fillRect(0, 0, 1024, 160); g.fillStyle = '#ffb020'; g.fillRect(0, 0, 1024, 10); g.fillRect(0, 150, 1024, 10);
     g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '900 64px system-ui, sans-serif'; g.fillText('MUNDIAL DE PESCA SUB', 512, 66);
-    g.fillStyle = '#7ff0d8'; g.font = '700 30px system-ui, sans-serif'; g.fillText('APNEIA · ARBALETE · ' + (AMZ ? 'TAPAJÓS' : NE ? 'COSTA DOS CORAIS' : 'COSTA VERDE'), 512, 122);
+    g.fillStyle = '#7ff0d8'; g.font = '700 30px system-ui, sans-serif'; g.fillText('APNEIA · ARBALETE · ' + (AMZ ? 'TAPAJÓS' : NE ? 'COSTA DOS CORAIS' : AC ? 'ARRAIAL DO CABO' : 'COSTA VERDE'), 512, 122);
   });
 }
 
@@ -7921,7 +8097,7 @@ function startWorld(opts) {
   if (P.mode === 'swim') climbBoat();
   BOAT.pos.set(me.x + Math.cos(me.yaw) * (5 + slot * 6), 0, me.z - Math.sin(me.yaw) * (5 + slot * 6)); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
   // peixe extra na arena: a organização escolheu o melhor pesqueiro
-  const pop = (AMZ ? popAmz() : NE ? popNe() : POP)[S.id] || [];
+  const pop = (AMZ ? popAmz() : NE ? popNe() : AC ? popAc() : POP)[S.id] || [];
   for (const [key, groups, [a, b]] of pop) for (let g = 0; g < groups; g++) spawnGroup(S, key, Math.round(rand(a, b)), 1.15);
   const teams = {}; const mk = name => teams[name] = { kg: 0, n: 0, sp: new Set(), mates: [] };
   // um atleta de cada país nadando, saindo do próprio barco (força × 0,55: forte, mas dá para ganhar) + 2 pelo rádio
@@ -8161,7 +8337,8 @@ const STORY = [
       { d: 'Seja campeão mundial', n: 1, k: 'worldWin' },
     ] },
 ];
-const st = () => (SV.story = SV.story || { ch: 0, cnt: {}, done: {}, seen: -1 });
+// completa o que faltar (save antigo, backup editado ou vindo da nuvem pela metade)
+const st = () => { const s = SV.story = SV.story || {}; if (s.ch == null) s.ch = 0; s.cnt = s.cnt || {}; s.done = s.done || {}; if (s.seen == null) s.seen = -1; return s; };
 const objText = o => typeof o.d === 'function' ? o.d() : o.d;
 const objOk = (o, s) => o.ok ? o.ok() : (s.cnt[o.k] || 0) >= o.n;
 const objProg = (o, s) => o.ok ? (o.p ? o.p() : '') : `${Math.min(o.n, s.cnt[o.k] || 0)}/${o.n}`;
@@ -8591,10 +8768,10 @@ function updateBoatLights(dt, t) {
 // ================= foto da pesca para compartilhar: cartão com o peixe, peso, lugar e seu nome =================
 // cada peixe bom entra no álbum (Diário › Álbum); o botão 📸 gera o cartão e abre o compartilhar do celular
 const SHARE = { url: 'nicolasilvar09-bit.github.io/pesca-sub', btnT: 0, last: null, blob: null, wasPaused: false };
-const REGION_NAME = { cv: 'Costa Verde · RJ', ne: 'Costa dos Corais · AL/PE', amz: 'Baixo Tapajós · PA' };
-const shareWorthy = (f, rec) => rec || isTrophy(f) || f.sp.rare || f.kg >= 2.5;
+const REGION_NAME = { cv: 'Costa Verde · RJ', ne: 'Costa dos Corais · AL/PE', amz: 'Baixo Tapajós · PA', ac: 'Arraial do Cabo · RJ' };
+const shareWorthy = (f, rec) => f.legend || rec || isTrophy(f) || f.sp.rare || f.kg >= 2.5;
 function albumAdd(f, rec) {
-  const e = { key: f.key, cm: Math.round(f.len * 100), kg: Math.round(f.kg * 100) / 100, spot: (f.spot && f.spot.name) || '', region: REGION, day: SV.day || 1, date: Date.now(), trophy: isTrophy(f), rec: !!rec, rare: !!f.sp.rare };
+  const e = { key: f.key, cm: Math.round(f.len * 100), kg: Math.round(f.kg * 100) / 100, spot: (f.spot && f.spot.name) || '', region: REGION, day: SV.day || 1, date: Date.now(), trophy: isTrophy(f), rec: !!rec, rare: !!f.sp.rare, leg: f.legend ? legDef().name : '' };
   SV.album = [e, ...(SV.album || [])].slice(0, 40);
   if (!shareWorthy(f, rec)) return;
   SHARE.last = e; SHARE.btnT = 12; show('shareBtn', true); $('shareBtn').innerHTML = `📸 COMPARTILHAR<br><small>${SPECIES[f.key].name} · ${fmtKg(f.kg)} kg</small>`;
@@ -8638,7 +8815,7 @@ function shareCard(e) {
   g.fillStyle = 'rgba(200,240,250,.75)'; g.font = F('600', 28); g.fillText('PESCA SUB', 68, 126);
   g.textAlign = 'right'; g.fillText(REGION_NAME[e.region] || '', W - 64, 72); g.font = F('500', 26); g.fillText(new Date(e.date).toLocaleDateString('pt-BR'), W - 64, 110); g.textAlign = 'left';
   // selos
-  const tags = [e.rec && '🏅 RECORDE PESSOAL', e.trophy && '🏆 TROFÉU', e.rare && '★ PEIXE RARO'].filter(Boolean);
+  const tags = [e.leg && '🐉 LENDÁRIO · ' + e.leg.toUpperCase(), e.rec && '🏅 RECORDE PESSOAL', e.trophy && '🏆 TROFÉU', e.rare && '★ PEIXE RARO'].filter(Boolean);
   let tx = 64; g.font = F('800', 30);
   for (const t of tags) { const w = g.measureText(t).width + 44; g.fillStyle = '#ffb020'; rr(g, tx, 196, w, 56, 28); g.fill(); g.fillStyle = '#2a1a00'; g.fillText(t, tx + 22, 208); tx += w + 16; }
   // o peixe
@@ -8698,7 +8875,7 @@ function setupShare() {
 // as do dia trocam a cada dia de jogo; as da semana seguem a semana real (renovam na segunda, junto com o ranking)
 
 // ---------- novos tipos de missão do dia ----------
-MISSION_POOL[0] = r => { const k = r.pick((NE ? ['guaiuba', 'ariaco', 'cavala', 'saramunete', 'garoupagato', 'pargo', 'cioba', 'xareu', 'sargo', 'badejo'] : AMZ ? ['tucunare', 'pacu', 'tambaqui', 'aruana', 'matrinxa', 'surubim', 'traira', 'jaraqui', 'douradorio', 'cachorra', 'pescada', 'apapa', 'aracu', 'bicudario'] : ['sargo', 'marimba', 'salema', 'garoupa', 'robalo', 'xareu', 'pampo', 'badejo', 'caranha', 'cocoroca', 'cioba', 'olhete', 'cangulo']).filter(k => SPECIES[k] && !defesoOf(k))), n = SPECIES[k].school ? 3 : 1; return { t: `Pegue ${n} ${SPECIES[k].name} dentro da medida`, ev: 'catch', key: k, goal: n, rew: 200 + n * 90 }; };
+MISSION_POOL[0] = r => { const k = r.pick((NE ? ['guaiuba', 'ariaco', 'cavala', 'saramunete', 'garoupagato', 'pargo', 'cioba', 'xareu', 'sargo', 'badejo'] : AMZ ? ['tucunare', 'pacu', 'tambaqui', 'aruana', 'matrinxa', 'surubim', 'traira', 'jaraqui', 'douradorio', 'cachorra', 'pescada', 'apapa', 'aracu', 'bicudario'] : ['sargo', 'marimba', 'salema', 'garoupa', 'robalo', 'xareu', 'pampo', 'badejo', 'caranha', 'cocoroca', 'cioba', 'olhete', 'cangulo']).filter(k => SPECIES[k] && spInRegion(k) && !defesoOf(k))), n = SPECIES[k].school ? 3 : 1; return { t: `Pegue ${n} ${SPECIES[k].name} dentro da medida`, ev: 'catch', key: k, goal: n, rew: 200 + n * 90 }; };
 MISSION_POOL.push(
   r => { const s = r.pick(SPOTS.filter(s => s.r && !noTakeAt(s))); return { t: `Pegue 2 peixes na ${s.name}`, ev: 'catch', spot: s.id, goal: 2, rew: 420 }; },
   () => SV.cam ? { t: 'Fotografe 2 espécies diferentes', ev: 'photo', goal: 2, rew: 380, seen: [] } : { t: 'Pegue um peixe de 4 kg ou mais', ev: 'catchkg', kg: 4, goal: 1, rew: 380 },
@@ -8895,7 +9072,7 @@ function ecoHTML() {
   h += `<div class="n" style="margin:12px 0 6px">📏 Regras que dão multa</div><div class="list">
     <div class="it"><div class="d"><b>Medida mínima</b> de cada espécie (lista em Diário › Recordes): peixe pequeno ainda não se reproduziu. Multa ${fmtR(200)}.</div></div>
     <div class="it"><div class="d"><b>Espécies protegidas</b>, só foto: ${prot.join(', ') || '—'}. Multa ${fmtR(1000)}.</div></div>
-    ${NE ? `<div class="it"><div class="d"><b>Área de preservação</b> das piscinas naturais: só foto. Multa ${fmtR(500)}.</div></div>` : ''}
+    ${NE || AC ? `<div class="it"><div class="d"><b>Área de preservação</b> ${AC ? 'da Gruta Azul' : 'das piscinas naturais'}: só foto. Multa ${fmtR(500)}.</div></div>` : ''}
     <div class="it"><div class="d"><b>Licença de pesca</b> em dia (LOJA › Extras): ${licOk() ? '<b style="color:var(--acc)">válida</b>' : '<b style="color:var(--bad)">vencida</b>'}. Sem ela, multa de ${fmtR(400)} e a fieira é apreendida.</div></div></div>`;
   const C = cota();
   h += `<div class="n" style="margin:12px 0 6px">⚖️ Cota diária (opcional)</div><div class="it"><div style="flex:1"><div class="n">Regras reais de cota: ${COTA_KG} kg + 1 peixe por dia ${SV.realRules ? '· <b style="color:var(--acc)">LIGADA</b>' : ''}</div>
@@ -8905,6 +9082,529 @@ function ecoHTML() {
   return h;
 }
 function bindEco() { const b = $('ecoCota'); if (b) b.onclick = () => { SV.realRules = !SV.realRules; AU.click(); toast(SV.realRules ? `Cota real ligada: ${COTA_KG} kg + 1 peixe por dia, pescado +25%.` : 'Cota real desligada.', 3); save(); renderShop(); }; }
+
+// ================= instalar como app: botão no menu (Android/PC instala direto; iPhone mostra o passo a passo) =================
+// o jogo já é um app instalável (manifest + sw.js): tela cheia, ícone na tela inicial e abre sem internet
+const INST = { ev: null };
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function instBtn() {
+  if (isStandalone()) return null;
+  let b = $('instBtn'); if (b) return b;
+  const o = $('optBtn'); if (!o) return null;
+  b = document.createElement('button'); b.className = 'btn alt'; b.id = 'instBtn'; b.textContent = '📲 INSTALAR'; b.style.cssText = 'margin:8px 0 0 8px';
+  b.onclick = installApp; o.after(b); return b;
+}
+async function installApp() {
+  AU.init(); AU.click();
+  if (INST.ev) {
+    INST.ev.prompt(); const r = await INST.ev.userChoice.catch(() => null); INST.ev = null;
+    if (r && r.outcome === 'accepted') { const b = $('instBtn'); if (b) b.remove(); }
+    return;
+  }
+  const box = $('onInv'); if (!box) return;
+  box.innerHTML = isIOS()
+    ? `<div class="n">📲 Instalar no iPhone</div><div class="d" style="line-height:1.5;margin-top:4px">1. No Safari, toque em <b>Compartilhar</b> (o quadrado com a seta para cima).<br>2. Toque em <b>Adicionar à Tela de Início</b>.<br>3. Abra o Deep Spear pelo ícone: tela cheia e abre mais rápido.<br><b style="color:var(--acc2)">Importante:</b> no iPhone o app guarda o progresso separado do Safari. Antes de instalar, aqui no Safari vá em Opções › <b>COPIAR CÓDIGO</b>; depois, no app, Opções › <b>COLAR CÓDIGO</b>.</div><div style="text-align:right;margin-top:8px"><button class="btn gold" id="instOk">ENTENDI</button></div>`
+    : `<div class="n">📲 Instalar o jogo</div><div class="d" style="line-height:1.5;margin-top:4px">No menu do navegador (⋮), toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>. O jogo abre em tela cheia, mais rápido e até sem internet. Seu progresso continua o mesmo.</div><div style="text-align:right;margin-top:8px"><button class="btn gold" id="instOk">ENTENDI</button></div>`;
+  box.classList.remove('hide'); $('instOk').onclick = () => box.classList.add('hide');
+}
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); INST.ev = e; instBtn(); });
+addEventListener('appinstalled', () => { const b = $('instBtn'); if (b) b.remove(); toast('Jogo instalado! Abra pelo ícone na tela inicial.', 4, 'gold'); });
+// celular sem o aviso do navegador (iPhone, ou Android que ainda não ofereceu): mostra o botão com as instruções
+if (matchMedia('(pointer:coarse)').matches) instBtn();
+
+// ================= mira por giroscópio: incline o celular para ajustar a mira enquanto nada =================
+// usa a velocidade de giro do aparelho (devicemotion.rotationRate, graus/s) e converte para guinada e arfagem
+// conforme a tela está em pé ou deitada. O dedo continua funcionando junto.
+const GY = { dy: 0, dp: 0, live: false, last: 0 };
+function gyroAngle() { const o = screen.orientation; return o && typeof o.angle === 'number' ? o.angle : (window.orientation || 0); }
+function onGyro(e) {
+  const r = e.rotationRate; if (!r || r.beta == null) return;
+  GY.live = true; const now = performance.now(), dt = GY.last ? Math.min(0.1, (now - GY.last) / 1000) : 0; GY.last = now;
+  if (!OPT.gyro || !dt) return;
+  const k = dt * Math.PI / 180, a = ((gyroAngle() % 360) + 360) % 360;
+  let yaw, pit;
+  if (a === 90) { yaw = r.beta; pit = -r.gamma; }        // deitado, topo do celular para a esquerda
+  else if (a === 270) { yaw = -r.beta; pit = r.gamma; }  // deitado, topo para a direita
+  else { yaw = r.gamma; pit = r.beta; }                  // em pé
+  GY.dy += yaw * k; GY.dp += pit * k;
+}
+async function gyroEnable(on) {
+  if (on && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    try { if (await DeviceMotionEvent.requestPermission() !== 'granted') { toast('Sem permissão para o giroscópio. Libere nos ajustes do Safari.', 4, 'bad'); OPT.gyro = false; saveOpt(); return false; } } catch (e) { OPT.gyro = false; saveOpt(); return false; }
+  }
+  OPT.gyro = on; saveOpt(); GY.dy = GY.dp = 0;
+  if (on) setTimeout(() => { if (!GY.live) toast('Este aparelho não mandou dados do giroscópio.', 4, 'bad'); }, 1500);
+  return true;
+}
+// chamado no nado, junto com o arrastar do dedo
+function gyroApply() {
+  if (!OPT.gyro) { GY.dy = GY.dp = 0; return; }
+  const s = OPT.gyroK || 1;
+  P.yaw += GY.dy * s; P.pitch = clamp(P.pitch + GY.dp * s * (OPT.inv ? -1 : 1), -1.5, 1.4);
+  GY.dy = GY.dp = 0;
+}
+function setupGyro() {
+  addEventListener('devicemotion', onGyro);
+  // no iPhone a permissão vale só até fechar a página: pede de novo no primeiro toque se a opção estiver ligada
+  const ask = () => { removeEventListener('pointerdown', ask, true); if (OPT.gyro && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') DeviceMotionEvent.requestPermission().catch(() => { }); };
+  addEventListener('pointerdown', ask, true);
+}
+
+// ================= peixes lendários: um por destino, com nome, pistas e uma caçada de paciência =================
+// 1) boato no rádio  2) três pistas em pontos diferentes (mergulhe perto para achar)  3) o lendário aparece no
+// ponto dele só no amanhecer ou no fim da tarde, uma vez por dia. Desconfiado: só chega perto de quem fica parado.
+// Errou o tiro, nadou em cima ou ele escapou do arpão: some e só volta no dia seguinte.
+const LEGENDS = {
+  cv: { key: 'badejo', name: 'O Velho da Laje', mul: 1.45, home: ['lajefunda', 'laje', 'pedrameio'], prize: 6000,
+    rumor: 'Seu Lino no rádio: "Tem um badejo-quadrado do tamanho de uma porta rondando a baía. Os antigos chamam de O Velho da Laje. Ninguém nunca tirou ele de lá."',
+    clues: ['Uma escama do tamanho de uma moeda grande, presa na pedra.', 'Um pescador da marina mostra no celular a foto de uma sombra enorme saindo da toca.', 'Uma toca com a entrada lisa de tanto um peixe grande entrar e sair.'],
+    lore: 'Badejo-quadrado de mais de 1,6 m que vive há décadas na mesma laje. Dizem que já quebrou três arpões.' },
+  ne: { key: 'cavala', name: 'A Flecha do Pontal', mul: 1.4, home: ['parcel_ne', 'paredefunda', 'sueste'], prize: 6000,
+    rumor: 'Os jangadeiros comentam: "Uma cavala comprida como uma canoa passa no parcel quando o sol nasce. Chamam ela de A Flecha do Pontal."',
+    clues: ['Um cardume de sardinha estourando na superfície, como se algo enorme caçasse por baixo.', 'Uma linha de pesca cortada com um corte limpo, de dente afiado.', 'Um velho jangadeiro conta que viu A Flecha pular inteira para fora da água.'],
+    lore: 'Cavala de quase 2 m que caça sozinha no parcel ao amanhecer. Passa rápido e não dá segunda chance.' },
+  ac: { key: 'olhodeboi', name: 'O Almirante do Boqueirão', mul: 1.35, home: ['boqueirao', 'farol_fora', 'pedravermelha'], prize: 7000,
+    rumor: 'Os pescadores da Praia dos Anjos contam: "Tem um olho-de-boi do tamanho de um homem que passa no Boqueirão quando a água fria sobe. Chamam de O Almirante."',
+    clues: ['Um cardume inteiro de enchova se espalhando de repente, como se fugisse de algo grande.', 'Um arpão antigo, entortado, preso na pedra: alguém já tentou.', 'Um mergulhador da vila jura ter visto a faixa amarela dele passando a um palmo da máscara.'],
+    lore: 'Olho-de-boi de quase 2 m que vive na correnteza entre o Pontal e a Ilha do Farol. Curioso, mas some no azul ao menor movimento.' },
+  amz: { key: 'tucunare', name: 'O Imperador do Igapó', mul: 1.4, home: ['igapo', 'lago', 'pocao'], prize: 6000,
+    rumor: 'Na vila contam: "No igapó mora um tucunaré-açu de um metro, com a pinta do rabo brilhando como um olho. É O Imperador."',
+    clues: ['Peixinhos pulando fora da água em pânico, perto da galhada.', 'Uma marca de ataque enorme num isca artificial perdida no tronco.', 'Um ribeirinho jura que viu a pinta do rabo dele brilhando debaixo da água escura.'],
+    lore: 'Tucunaré-açu de 1 m, o maior que alguém já viu no Tapajós. Briga pelo território e conhece cada galho do igapó.' },
+};
+const LEG_HOURS = [[5, 8.5], [16.5, 19.5]];
+const LEG = { f: null, phase: null, t: 0, shotSeen: false, chk: 0, cluesAt: null };
+const legDef = () => LEGENDS[REGION];
+function legState() { SV.leg = SV.leg || {}; return SV.leg[REGION] = SV.leg[REGION] || { stage: 0, clues: [], day: 0, caught: null, tries: 0 }; }
+// os 3 pontos das pistas e o ponto do lendário (fixos por destino)
+function legSpots() {
+  const D = legDef(); if (!D) return null;
+  if (LEG.cluesAt && LEG.cluesAt.region === REGION) return LEG.cluesAt;
+  const home = D.home.map(spotById).find(Boolean) || SPOTS.find(s => s.r);
+  const m = mulberry([...REGION].reduce((s, c) => s * 31 + c.charCodeAt(0), 3));
+  const pool = SPOTS.filter(s => s.r && s !== home && !noTakeAt(s)).sort((a, b) => a.id < b.id ? -1 : 1);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(m() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return LEG.cluesAt = { region: REGION, home, clues: pool.slice(0, 3) };
+}
+const legHour = () => { const h = SV.tod || 0; return LEG_HOURS.some(([a, b]) => h >= a && h < b); };
+
+function updateLegend(dt) {
+  const D = legDef(); if (!D || !started || COMP.on) return;
+  const L = legState(), S = legSpots();
+  if ((LEG.chk -= dt) <= 0) {
+    LEG.chk = 1;
+    // boato: depois do 2º dia no destino (ou nível 3)
+    if (L.stage === 0 && ((SV.day || 1) >= 2 || level() >= 3) && P.mode === 'boat') { L.stage = 1; save(); toast('📻 ' + D.rumor, 9, 'gold'); setTimeout(() => toast(`🐉 Caçada ao lendário: ache as 3 pistas (Diário › História).`, 6, 'gold'), 9500); AU.coin(); }
+    // pistas: mergulhe perto do ponto
+    if (L.stage === 1 && P.mode === 'swim' && P.under) {
+      S.clues.forEach((s, i) => {
+        if (L.clues.includes(i) || Math.hypot(P.pos.x - s.x, P.pos.z - s.z) > s.r + 10) return;
+        L.clues.push(i); addXP(120); AU.coin(); buzz([30, 40, 30]);
+        toast(`🔎 Pista ${L.clues.length}/3: ${D.clues[i]}`, 7, 'gold');
+        if (L.clues.length >= 3) { L.stage = 2; setTimeout(() => toast(`🐉 ${D.name} mora no ${S.home.name}. Ele só sai ao amanhecer (5h–8h30) ou no fim da tarde (16h30–19h30). Fique parado e espere ele chegar.`, 9, 'gold'), 7200); }
+        save();
+      });
+    }
+    // o lendário aparece: uma vez por dia, na hora certa, com você perto do ponto
+    if (L.stage === 2 && !LEG.f && L.day !== (SV.day || 1) && legHour() && Math.hypot(P.pos.x - S.home.x, P.pos.z - S.home.z) < 220) legSpawn(D, L, S.home);
+  }
+  if (LEG.f) legTick(dt, D, L);
+}
+function legSpawn(D, L, S) {
+  const sp = SPECIES[D.key]; if (!sp || !POOLS[D.key]) return;
+  L.day = SV.day || 1; L.tries++; save();
+  spawnGroup(S, D.key, 1, 1); const f = FISHES[FISHES.length - 1]; if (!f || f.key !== D.key) return;
+  f.len = sp.len[1] * D.mul; f.kg = sp.k * f.len ** 3; f.legend = true; f.giant = true;
+  if (f.home) { f.home.used--; f.home = null; } f.state = 'wander'; f.radius = shapeOf(D.key, sp.shape).h * 0.45 * f.len;
+  LEG.f = f; LEG.phase = 'out'; LEG.t = 420; LEG.shotSeen = false; LEG.warned = false;
+  toast(`🐉 A água ficou quieta no ${S.name}... ${D.name} saiu para caçar. Fique parado no fundo e espere.`, 7, 'gold'); buzz([80, 60, 80]);
+}
+function legGone(msg) { const f = LEG.f; if (f && f.alive) f.remove(); LEG.f = null; LEG.phase = null; if (msg) toast(msg, 6, 'bad'); }
+function legTick(dt, D, L) {
+  const f = LEG.f;
+  if (!f.alive) { LEG.f = null; return; } // pescado (legendCatch já cuidou) ou removido
+  if (f.state === 'hooked') return;
+  if ((LEG.t -= dt) <= 0 || !legHour() && LEG.phase === 'out' && LEG.t < 300) { legGone(`${D.name} voltou para a toca. Ele sai de novo amanhã, na mesma hora.`); return; }
+  const d = f.pos.distanceTo(P.pos), swim = P.mode === 'swim' && P.under;
+  if (LEG.phase === 'out') {
+    // tiro errado: o barulho espanta
+    if (GUN.state === 'flying' && !LEG.shotSeen) LEG.shotSeen = true;
+    if (LEG.shotSeen && GUN.state !== 'flying' && f.state !== 'hooked') { LEG.phase = 'flee'; f.startFlee(); toast(`${D.name} sentiu o arpão passar e sumiu no azul! Amanhã tem outra chance.`, 6, 'bad'); }
+    // nadou em cima dele: foge
+    else if (swim && d < 7 && P.vel.length() > 0.6) { LEG.phase = 'flee'; f.startFlee(); toast(`Você chegou rápido demais: ${D.name} fugiu. Ele só se aproxima de quem espera parado.`, 6, 'bad'); }
+    else if (f.state === 'flee' || f.state === 'tohole') { f.state = 'wander'; f.t = 4; }
+    // quem espera parado por perto: ele vem ver de perto, devagar
+    else if (swim && P.still > 2.2 && d < 26 && f.state !== 'curious') { f.state = 'curious'; f.t = rand(8, 12); if (!LEG.warned) { LEG.warned = true; toast(`🐉 ${D.name} está vindo... não se mexa.`, 4, 'gold'); buzz(40); } }
+  } else if (LEG.phase === 'flee') {
+    if (f.state !== 'flee') f.startFlee();
+    if ((LEG.fleeT = (LEG.fleeT || 0) + dt) > 5) { LEG.fleeT = 0; legGone(); }
+  }
+}
+// chamado no catchFish
+function legendCatch(f) {
+  const D = legDef(), L = legState(); if (!D) return;
+  L.stage = 3; L.caught = { kg: Math.round(f.kg * 10) / 10, cm: Math.round(f.len * 100), day: SV.day || 1, date: Date.now() };
+  SV.money += D.prize; addXP(1500); SV.mounted = SV.mounted || [];
+  if (!SV.mounted.some(m => m.legend)) SV.mounted.unshift({ key: f.key, kg: f.kg, len: f.len, legend: true });
+  LEG.f = null; LEG.phase = null; save();
+  toast(`🐉 LENDÁRIO! Você pegou ${D.name}: ${fmtKg(f.kg)} kg, ${Math.round(f.len * 100)} cm! Prêmio de ${fmtR(D.prize)}.`, 9, 'gold'); AU.coin(); buzz([100, 60, 100, 60, 200]);
+  setTimeout(() => toast('O troféu dele vai para a parede do rancho, e o cartão especial já está no álbum.', 6, 'gold'), 4000);
+}
+function legHTML() {
+  const D = legDef(); if (!D) return '';
+  const L = legState(), S = legSpots(), sp = SPECIES[D.key];
+  let h = `<div class="n" style="margin:14px 0 6px">🐉 Lendário deste destino</div><div class="it" style="flex-direction:column;align-items:stretch;gap:6px">`;
+  if (L.stage === 0) return h + '<div class="d">Ainda não se ouviu nenhum boato por aqui... Continue pescando: o rádio dos pescadores avisa.</div></div>';
+  h += `<div class="n">${D.name} · ${sp.name} ${L.stage === 3 ? '· <b style="color:var(--acc2)">PESCADO!</b>' : ''}</div><div class="d">${D.lore}</div>`;
+  if (L.stage === 1) h += `<div class="d">Pistas encontradas: <b>${L.clues.length}/3</b>. Mergulhe perto destes pontos para procurar sinais dele:</div>` +
+    S.clues.map((s, i) => `<div class="row2" style="margin-top:2px"><span class="d">${L.clues.includes(i) ? '✅ ' + D.clues[i] : '🔎 ' + s.name + ' (' + s.depth + ')'}</span>${L.clues.includes(i) ? '' : `<button class="btn alt" data-legdest="${s.id}">IR</button>`}</div>`).join('');
+  if (L.stage === 2) h += `<div class="d">Ele mora no <b>${S.home.name}</b> (${S.home.depth}). Sai só ao amanhecer (5h–8h30) ou no fim da tarde (16h30–19h30), uma vez por dia. Desça, fique <b>parado</b> e espere ele chegar perto. Errou ou nadou em cima? Só amanhã. Tentativas: ${L.tries}.</div><div class="row2"><span></span><button class="btn gold" data-legdest="${S.home.id}">IR PARA O ${S.home.name.toUpperCase()}</button></div>`;
+  if (L.stage === 3) h += `<div class="d">Pescado no dia ${L.caught.day}: <b>${fmtKg(L.caught.kg)} kg</b>, ${L.caught.cm} cm, em ${L.tries} tentativa(s). O troféu está no rancho.</div>`;
+  return h + '</div>';
+}
+function bindLeg(B) { B.querySelectorAll('[data-legdest]').forEach(b => b.onclick = () => { SV.dest = b.dataset.legdest; save(); closePanels(); toast('Destino marcado: siga a seta laranja.', 3); AU.click(); }); }
+
+// ================= clubes de pesca: monte um clube com amigos e dispute o ranking semanal de clubes =================
+// tabelas "clubs" e "club_members" (supabase/clubs.sql). O total do clube na semana é a soma do
+// "Campeão da semana" (kg pescados) de cada membro; vem pronto da visão "club_week".
+const CLUB = { me: undefined, info: null, members: null, top: null, busy: false, err: '', key: '', form: false, emblem: '🐟', color: '#2fd0c0' };
+const CLUB_EMB = ['🐟', '🐠', '🦈', '🐙', '🦑', '🐢', '🐬', '🐋', '🦞', '⚓', '🔱', '🌊', '🤿', '🏝️', '☀️', '🌙'];
+const CLUB_COL = ['#2fd0c0', '#ffb020', '#ff5a4e', '#4a8cff', '#7cf0a8', '#c070ff', '#f0f0f0', '#ff8ac0'];
+const clubOff = e => /relation .* does not exist|schema cache|HTTP 404/i.test(e.message);
+function newClubId() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 6; i++) s += A[Math.floor(Math.random() * A.length)]; return s; }
+async function clubLoad(force) {
+  if (!ON.s || CLUB.busy) return;
+  const key = weekKey(); if (!force && CLUB.key === key && CLUB.me !== undefined) return;
+  CLUB.busy = true; CLUB.key = key;
+  try {
+    const m = await sbFetch(`/rest/v1/club_members?uid=eq.${ON.s.uid}&select=club`);
+    CLUB.me = m && m[0] ? m[0].club : null; CLUB.info = null; CLUB.members = null;
+    if (CLUB.me) {
+      const [c, mem] = await Promise.all([sbFetch(`/rest/v1/clubs?id=eq.${CLUB.me}&select=*`), sbFetch(`/rest/v1/club_members?club=eq.${CLUB.me}&select=uid,name`)]);
+      CLUB.info = c && c[0] || null;
+      const ids = (mem || []).map(x => x.uid), wk = ids.length ? await sbFetch(`/rest/v1/records?select=uid,value&kind=eq.week&week=eq.${key}&uid=in.(${ids.join(',')})`) : [];
+      const kg = {}; (wk || []).forEach(r => kg[r.uid] = Math.max(kg[r.uid] || 0, r.value));
+      CLUB.members = (mem || []).map(x => ({ ...x, kg: kg[x.uid] || 0 })).sort((a, b) => b.kg - a.kg);
+      // o nome no clube acompanha o nome do jogador
+      const mine = CLUB.members.find(x => x.uid === ON.s.uid); if (mine && mine.name !== myName()) sbFetch(`/rest/v1/club_members?uid=eq.${ON.s.uid}`, { method: 'PATCH', body: JSON.stringify({ name: myName() }) }).catch(() => { });
+    }
+    const top = await sbFetch(`/rest/v1/club_week?week=eq.${key}&select=club,total,n&order=total.desc&limit=20`) || [];
+    const cl = top.length ? await sbFetch(`/rest/v1/clubs?id=in.(${top.map(t => t.club).join(',')})&select=id,name,emblem,color`) : [];
+    CLUB.top = top.map(t => ({ ...t, ...(cl.find(c => c.id === t.club) || { name: t.club, emblem: '🐟', color: '#2fd0c0' }) }));
+    CLUB.err = '';
+  } catch (e) { CLUB.err = clubOff(e) ? 'off' : e.message; if (CLUB.me === undefined) CLUB.me = null; } // não fica recarregando em erro
+  CLUB.busy = false; if (shopTab === 'clube' && !$('marinaPanel').classList.contains('hide')) renderShop();
+}
+async function clubJoin(id) {
+  id = (id || '').trim().toUpperCase();
+  if (!/^[A-Z0-9]{6}$/.test(id)) { toast('O código do clube tem 6 letras/números.', 3, 'bad'); return; }
+  try {
+    const c = await sbFetch(`/rest/v1/clubs?id=eq.${id}&select=id,name`); if (!c || !c[0]) { toast('Clube não encontrado. Confira o código.', 3, 'bad'); return; }
+    await sbFetch('/rest/v1/club_members', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ uid: ON.s.uid, club: id, name: myName() }) });
+    toast(`Você entrou no clube ${c[0].name}! Seus quilos da semana já contam para ele.`, 4, 'gold'); AU.coin();
+  } catch (e) { toast(/cheio/.test(e.message) ? 'Esse clube já tem 20 membros.' : 'Não deu para entrar: ' + e.message, 4, 'bad'); }
+  clubLoad(true);
+}
+async function clubCreate(name) {
+  name = (name || '').trim().slice(0, 24);
+  if (name.length < 2) { toast('Dê um nome ao clube (2 letras ou mais).', 3, 'bad'); return; }
+  try {
+    let id = null;
+    for (let k = 0; k < 4 && !id; k++) { const t = newClubId(); try { await sbFetch('/rest/v1/clubs', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ id: t, name, emblem: CLUB.emblem, color: CLUB.color, owner: ON.s.uid }) }); id = t; } catch (e) { if (k === 3 || !/duplicate|unique/i.test(e.message)) throw e; } }
+    await sbFetch('/rest/v1/club_members', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ uid: ON.s.uid, club: id, name: myName() }) });
+    CLUB.form = false; toast(`Clube ${name} criado! Código ${id}: mande para os amigos entrarem.`, 6, 'gold'); AU.coin();
+  } catch (e) { toast('Não deu para criar: ' + e.message, 4, 'bad'); }
+  clubLoad(true);
+}
+async function clubLeave() {
+  if (!confirm('Sair do clube? Seus quilos desta semana deixam de contar para ele.')) return;
+  try { await sbFetch(`/rest/v1/club_members?uid=eq.${ON.s.uid}`, { method: 'DELETE' }); toast('Você saiu do clube.', 3); } catch (e) { toast('Não deu: ' + e.message, 3, 'bad'); }
+  clubLoad(true);
+}
+// convite de um amigo online
+function clubInvite(d) {
+  if (!d.club || CLUB.me === d.club) return;
+  const b = $('onInv'); if (!b) return;
+  b.innerHTML = `<div class="n">${rkEsc(d.emb || '🐟')} ${rkEsc(d.name)} chamou você para o clube ${rkEsc(d.cname || '')}</div><div class="d">${CLUB.me ? 'Você sairá do seu clube atual. ' : ''}Os seus quilos da semana passam a somar para o clube.</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px"><button class="btn alt" id="invNo">AGORA NÃO</button><button class="btn gold" id="invOk">ENTRAR</button></div>`;
+  b.classList.remove('hide'); AU.coin();
+  $('invNo').onclick = () => b.classList.add('hide');
+  $('invOk').onclick = () => { b.classList.add('hide'); clubJoin(d.club); };
+  setTimeout(() => b.classList.add('hide'), 40000);
+}
+function clubHTML() {
+  if (!ON.s || !ON.me) return '<div class="it"><div class="d">Conectando ao servidor... Os clubes aparecem assim que entrar online.</div></div>';
+  if (CLUB.me === undefined || CLUB.key !== weekKey()) { setTimeout(clubLoad, 0); return '<div class="it"><div class="d">Carregando clubes...</div></div>'; }
+  if (CLUB.err === 'off') return '<div class="it"><div class="d">Os clubes ainda não foram ativados no servidor (falta rodar o arquivo <b>supabase/clubs.sql</b> no Supabase). Assim que for, esta aba funciona sozinha.</div></div>';
+  let h = '';
+  if (CLUB.err) h += `<div class="it"><div class="d">Não deu para carregar: ${rkEsc(CLUB.err)}</div><button class="btn" id="clRetry">TENTAR DE NOVO</button></div>`;
+  const C = CLUB.info;
+  if (C) {
+    const tot = (CLUB.members || []).reduce((s, m) => s + m.kg, 0), pos = (CLUB.top || []).findIndex(t => t.club === C.id);
+    h += `<div class="it" style="flex-direction:column;align-items:stretch;gap:6px;border-color:${C.color}"><div class="row2" style="margin:0"><div class="n" style="font-size:18px"><span style="font-size:26px">${rkEsc(C.emblem)}</span> ${rkEsc(C.name)}</div><b style="color:${C.color}">${fmtKg(tot)} kg na semana${pos >= 0 ? ` · ${pos + 1}º lugar` : ''}</b></div>
+      <div class="d">Código do clube: <b style="letter-spacing:2px;font-size:15px;color:var(--ink)">${C.id}</b> · ${(CLUB.members || []).length}/20 membros. Mande o código para os amigos (Social › Clube › ENTRAR COM CÓDIGO).</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn gold" id="clCopy">COPIAR CÓDIGO</button>${ON.friends.filter(f => ON.online[f.id]).length ? '<button class="btn alt" id="clInv">CHAMAR AMIGOS ONLINE</button>' : ''}<button class="btn alt" id="clLeave">SAIR DO CLUBE</button></div></div>
+      <div class="n" style="margin:12px 0 6px">Membros · quilos desta semana</div><div class="list">` +
+      (CLUB.members || []).map((m, i) => `<div class="it" ${m.uid === ON.s.uid ? 'style="border-color:var(--acc)"' : ''}><span class="av" style="background:${i < 3 ? '#8a6a1a' : '#24414f'}">${i + 1}º</span><div style="flex:1"><div class="n">${rkEsc(m.name)}${m.uid === ON.s.uid ? ' <span class="d">(você)</span>' : C.owner === m.uid ? ' <span class="d">(fundador)</span>' : ''}</div></div><b>${fmtKg(m.kg)} kg</b></div>`).join('') + '</div>';
+  } else if (CLUB.form) {
+    h += `<div class="it" style="flex-direction:column;align-items:stretch;gap:8px"><div class="n">Criar clube</div>
+      <input id="clName" maxlength="24" placeholder="Nome do clube" style="padding:10px;border-radius:8px;border:1px solid var(--line);background:#031018;color:#cfe;font-size:15px">
+      <div class="d">Emblema</div><div style="display:flex;gap:4px;flex-wrap:wrap">${CLUB_EMB.map(e => `<button class="btn ${CLUB.emblem === e ? 'gold' : 'alt'}" data-clemb="${e}" style="min-width:44px;font-size:20px;padding:4px">${e}</button>`).join('')}</div>
+      <div class="d">Cor</div><div style="display:flex;gap:6px;flex-wrap:wrap">${CLUB_COL.map(c => `<button data-clcol="${c}" style="width:34px;height:34px;border-radius:50%;background:${c};border:3px solid ${CLUB.color === c ? '#fff' : 'transparent'}"></button>`).join('')}</div>
+      <div class="row2"><button class="btn alt" id="clCancel">VOLTAR</button><button class="btn gold" id="clMake">CRIAR CLUBE</button></div></div>`;
+  } else {
+    h += `<div class="it" style="flex-direction:column;align-items:stretch;gap:8px"><div class="n">🏴 Clubes de pesca</div><div class="d">Monte um clube com até 20 amigos. Os quilos que cada um pesca na semana somam para o clube, que disputa o ranking semanal de clubes. Zera toda segunda-feira, junto com o ranking.</div>
+      <div class="row2"><button class="btn gold" id="clNew">CRIAR CLUBE</button><span style="display:flex;gap:6px"><input id="clCode" maxlength="6" placeholder="CÓDIGO" style="width:96px;padding:8px;border-radius:8px;border:1px solid var(--line);background:#031018;color:#cfe;text-transform:uppercase;letter-spacing:2px"><button class="btn alt" id="clJoin">ENTRAR COM CÓDIGO</button></span></div></div>`;
+  }
+  const T = CLUB.top || [];
+  h += `<div class="n" style="margin:14px 0 6px">🏆 Ranking de clubes da semana</div><div class="list">` + (T.length ? T.map((t, i) => `<div class="it" ${C && t.club === C.id ? `style="border-color:${t.color}"` : ''}><span class="av" style="background:${t.color}33;font-size:18px">${rkEsc(t.emblem)}</span><div style="flex:1"><div class="n">${i + 1}º ${rkEsc(t.name)}</div><div class="d">${t.n} membro(s) pescando esta semana</div></div><b>${fmtKg(t.total)} kg</b></div>`).join('')
+    : '<div class="it"><div class="d">Nenhum clube pescou ainda esta semana.</div></div>') + '</div>';
+  return h;
+}
+function bindClub() {
+  const q = id => $(id);
+  if (q('clRetry')) q('clRetry').onclick = () => clubLoad(true);
+  if (q('clNew')) q('clNew').onclick = () => { CLUB.form = true; AU.click(); renderShop(); };
+  if (q('clCancel')) q('clCancel').onclick = () => { CLUB.form = false; renderShop(); };
+  if (q('clMake')) q('clMake').onclick = () => clubCreate(q('clName').value);
+  if (q('clJoin')) q('clJoin').onclick = () => clubJoin(q('clCode').value);
+  if (q('clLeave')) q('clLeave').onclick = clubLeave;
+  if (q('clCopy')) q('clCopy').onclick = async () => { const t = `Entra no meu clube "${CLUB.info.name}" no Deep Spear! Código: ${CLUB.info.id} · https://${SHARE.url}/`; try { await navigator.clipboard.writeText(t); toast('Código copiado! Mande para os amigos.', 3, 'gold'); } catch (e) { prompt('Copie o código:', CLUB.info.id); } };
+  if (q('clInv')) q('clInv').onclick = () => { const on = ON.friends.filter(f => ON.online[f.id]); on.forEach(f => bcast('club_inv', { to: f.id, club: CLUB.info.id, cname: CLUB.info.name, emb: CLUB.info.emblem })); toast(`Convite enviado para ${on.length} amigo(s) online.`, 3); AU.click(); };
+  document.querySelectorAll('[data-clemb]').forEach(b => b.onclick = () => { CLUB.emblem = b.dataset.clemb; const n = q('clName').value; renderShop(); q('clName').value = n; });
+  document.querySelectorAll('[data-clcol]').forEach(b => b.onclick = () => { CLUB.color = b.dataset.clcol; const n = q('clName').value; renderShop(); q('clName').value = n; });
+}
+
+// ================= idioma: português (original) ou inglês =================
+// o jogo é escrito em português; em inglês, cada texto que aparece na tela (menus, botões, avisos, painéis) é
+// traduzido na hora por trechos: um dicionário de frases e pedaços de frase (EN_DICT, em 57_en.js).
+// Nomes de lugares ficam em português (são nomes próprios). Troca em Opções › Idioma (ou no menu).
+// sem escolha salva: quem já tem save continua em português; jogador novo segue o idioma do aparelho
+const LANG = (() => { try { const o = JSON.parse(localStorage.getItem('deepspear_opt') || '{}'); if (o.lang) return o.lang; if (localStorage.getItem('pescasub_costaverde_v1')) return 'pt'; } catch (e) { } return /^pt/i.test(navigator.language || 'pt') ? 'pt' : 'en'; })();
+const EN = LANG === 'en';
+const I18N = { re: null, map: null, obs: null, done: new WeakMap() };
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function i18nBuild() {
+  if (I18N.re || !EN) return;
+  const keys = Object.keys(EN_DICT).filter(k => k.length > 1).sort((a, b) => b.length - a.length);
+  I18N.map = EN_DICT;
+  // o trecho só troca se não estiver grudado em outra letra (não traduz pedaço de palavra)
+  I18N.re = new RegExp('(^|[^\\p{L}])(' + keys.map(escRe).join('|') + ')(?![\\p{L}])', 'gu');
+}
+function tr(s) {
+  if (!EN || !s || typeof s !== 'string') return s;
+  i18nBuild();
+  if (!/[A-Za-zÀ-ú]/.test(s)) return s;
+  const exact = I18N.map[s.trim()]; if (exact) return s.replace(s.trim(), exact);
+  return s.replace(I18N.re, (m, pre, k) => pre + I18N.map[k]);
+}
+const SKIP_TAG = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, INPUT: 1, CANVAS: 1 };
+function trNode(n) {
+  // um texto que nós mesmos já traduzimos não é traduzido de novo (evita laço com o observador)
+  if (n.nodeType === 3) { const p = n.parentNode; if (!p || SKIP_TAG[p.nodeName]) return; const v = n.nodeValue; if (I18N.done.get(n) === v) return; const t = tr(v); I18N.done.set(n, t); if (t !== v) n.nodeValue = t; return; }
+  if (n.nodeType !== 1 || SKIP_TAG[n.nodeName] && n.nodeName !== 'INPUT') return;
+  if (n.placeholder) { const t = tr(n.placeholder); if (t !== n.placeholder) n.placeholder = t; }
+  if (SKIP_TAG[n.nodeName]) return;
+  const w = document.createTreeWalker(n, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  for (let c = w.nextNode(); c; c = w.nextNode()) if (c.nodeType === 3) trNode(c); else if (c.placeholder) trNode(c);
+}
+function setupI18n() {
+  document.documentElement.lang = EN ? 'en' : 'pt-BR';
+  // botão de idioma no menu
+  const o = $('optBtn');
+  if (o && !$('langBtn')) { const b = document.createElement('button'); b.className = 'btn alt'; b.id = 'langBtn'; b.style.cssText = 'margin:8px 0 0 8px'; b.textContent = EN ? '🇧🇷 PORTUGUÊS' : '🇺🇸 ENGLISH'; b.onclick = () => setLang(EN ? 'pt' : 'en'); o.after(b); }
+  if (!EN) return;
+  i18nBuild(); trNode(document.body); document.title = 'Deep Spear · Spearfishing';
+  I18N.obs = new MutationObserver(ms => { for (const m of ms) { if (m.type === 'characterData') trNode(m.target); else m.addedNodes.forEach(trNode); } });
+  I18N.obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+}
+function setLang(l) { OPT.lang = l; saveOpt(); SAVE_LOCK = false; try { save(); } catch (e) { } location.reload(); }
+
+// ================= dicionário português → inglês (trechos e frases que aparecem na tela) =================
+// chave = texto exato (ou pedaço de frase) em português; valor = inglês. Os pedaços são trocados dentro das frases
+// montadas com números e nomes, por isso muitos terminam ou começam no meio da frase.
+const EN_DICT = {
+  // ---------- menu, HUD e botões ----------
+  'JOGAR': 'PLAY', 'OPÇÕES': 'OPTIONS', '👥 GRUPO': '👥 SQUAD', '📲 INSTALAR': '📲 INSTALL', 'Versão 1.0': 'Version 1.0',
+  'PESCA SUB · COSTA VERDE': 'SPEARFISHING · COSTA VERDE', 'PESCA SUB · COSTA DOS CORAIS': 'SPEARFISHING · CORAL COAST', 'PESCA SUB · AMAZONAS': 'SPEARFISHING · AMAZON', 'PESCA SUB · ARRAIAL DO CABO': 'SPEARFISHING · ARRAIAL DO CABO',
+  'Apneia, arbalete e lajes da baía de Angra dos Reis': 'Freediving, speargun and reefs of Angra dos Reis bay',
+  'Apneia, arbalete e recifes de coral do Nordeste': 'Freediving, speargun and the coral reefs of northeast Brazil',
+  'Apneia, arbalete e igapó no Baixo Tapajós': 'Freediving, speargun and flooded forest on the Tapajós river',
+  'Apneia na água fria e cristalina do cabo': 'Freediving in the cold, crystal-clear water of the cape',
+  '🚤 Pilote até o ponto · 🤿 mergulhe e fique parado · 🎯 atire no peixe na medida': '🚤 Drive to the spot · 🤿 dive and stay still · 🎯 shoot fish of legal size',
+  'PC: WASD move · arraste o mouse para olhar · Espaço atira · R arma · F puxa · Shift sobe · Q mergulha · E interage · M mapa': 'PC: WASD move · drag the mouse to look · Space shoots · R loads · F reels · Shift up · Q dives · E interact · M map',
+  'Gire o celular para jogar na horizontal.': 'Turn your phone sideways to play.',
+  'Dinheiro': 'Money', 'Fieira': 'Stringer', 'Caixa': 'Cooler', 'Combust.': 'Fuel', 'Dia': 'Day', 'Opções': 'Options', 'Máx.': 'Max', 'Tempo': 'Time', 'Fôlego': 'Breath', 'Preparo': 'Prep', 'Bônus': 'Bonus', 'Sup.': 'Surf.',
+  'ANCORAR': 'ANCHOR', 'LEVANTAR': 'RAISE', 'ÂNCORA': 'ANCHOR', 'PULAR NA ÁGUA': 'JUMP IN', 'MARINA': 'MARINA', 'LOJA': 'SHOP', 'MAPA': 'MAP', 'VISTA': 'VIEW',
+  'ATIRAR': 'SHOOT', 'ARMAR': 'LOAD', 'PUXAR LINHA': 'REEL IN', 'PUXAR': 'REEL', 'LINHA': 'IN', 'SUBIR': 'UP', 'MERGULHAR': 'DIVE', 'MER\u00adGULHAR': 'DIVE', 'COMPENSAR': 'EQUALIZE', 'COM\u00adPENSAR': 'EQUALIZE',
+  'CHAMAR': 'CALL', 'CHA\u00adMAR': 'CALL', 'FOTO': 'PHOTO', 'SUBIR NO BARCO': 'BOARD THE BOAT', 'REBOQUE (R$ 150)': 'TOW (R$ 150)', 'FAROL': 'LIGHT', 'SAIR DA': 'LEAVE', 'CARONA': 'RIDE',
+  'Peixe brigando!': 'Fish fighting!', 'Barco ·': 'Boat ·', 'arpão fora, puxe a linha': 'spear out, reel it in', 'Arbalete 75 cm': '75 cm speargun',
+  'VOLTAR AO BARCO': 'BACK TO THE BOAT', 'Carta náutica · Baía de Angra': 'Nautical chart · Angra bay', 'Carta náutica · Costa dos Corais': 'Nautical chart · Coral Coast', 'Carta do rio · Baixo Tapajós': 'River chart · Lower Tapajós', 'Carta náutica · Arraial do Cabo': 'Nautical chart · Arraial do Cabo',
+  'Toque num ponto para traçar a rota. A seta laranja no topo da tela aponta o destino.': 'Tap a spot to plot the route. The orange arrow at the top of the screen points to it.',
+  'ROTA': 'ROUTE', 'IR': 'GO', 'Rota traçada:': 'Route set:',
+  'Gráficos, controles e som. Fica salvo neste aparelho.': 'Graphics, controls and sound. Saved on this device.',
+  'SUBA! O fôlego está acabando.': 'GO UP! You are running out of breath.', 'Mar fervendo': 'Boiling sea',
+  'Rebocado até a marina. R$ 150 e 12 L de cortesia.': 'Towed to the marina. R$ 150, plus 12 L of fuel on the house.',
+  'Lancha: vista do piloto (1ª pessoa)': 'Boat: driver view (1st person)', 'Lancha: vista de fora (3ª pessoa)': 'Boat: outside view (3rd person)', 'Vista em 3ª pessoa': '3rd person view', 'Vista em 1ª pessoa (mira de precisão)': '1st person view (precise aim)',
+  'Dica: na horizontal o jogo fica melhor.': 'Tip: the game plays better sideways.',
+  'Joystick: acelera e vira a lancha. Siga a seta laranja até o ponto.': 'Joystick: throttle and steer the boat. Follow the orange arrow to the spot.',
+  'Toque MAPA para escolher outro destino.': 'Tap MAP to pick another spot.', 'Missões do dia:': 'Daily missions:', 'abertas (LOJA › Missões).': 'open (SHOP › Missions).',
+  '⛔ DEFESO ·': '⛔ CLOSED SEASON ·', '★ RARO ·': '★ RARE ·', '★ TROFÉU ·': '★ TROPHY ·', '· longe': '· too far',
+  // ---------- opções ----------
+  'Qualidade gráfica': 'Graphics quality', 'Baixa': 'Low', 'Média': 'Medium', 'Alta': 'High', 'Mostrar FPS (desempenho)': 'Show FPS (performance)', 'Dificuldade dos bots': 'Bot difficulty', 'Fácil': 'Easy', 'Normal': 'Normal', 'Difícil': 'Hard',
+  'Sensibilidade da câmera': 'Camera sensitivity', 'Inverter eixo vertical': 'Invert vertical axis', 'Mira por giroscópio': 'Gyro aiming', "Incline o celular para ajustar a mira embaixo d'água": 'Tilt the phone to fine-tune your aim underwater', 'Força do giroscópio': 'Gyro strength',
+  'Volume': 'Volume', 'Música': 'Music', 'Vibração': 'Vibration', 'Compensar ouvidos': 'Ear equalizing', 'MANUAL': 'MANUAL', 'AUTOMÁTICO': 'AUTOMATIC', 'Vista ao nadar': 'Swimming view', '3ª PESSOA': '3RD PERSON', '1ª PESSOA': '1ST PERSON',
+  'SIM': 'YES', 'NÃO': 'NO', 'LIGADA': 'ON', 'DESLIGADA': 'OFF', 'LIGAR': 'TURN ON', 'DESLIGAR': 'TURN OFF', 'Idioma / Language': 'Language / Idioma',
+  'Backup em arquivo': 'Backup to file', 'Nunca feito': 'Never done', 'Último:': 'Last:', 'Backup por código': 'Backup by code', 'SALVAR ARQUIVO': 'SAVE FILE', 'ABRIR ARQUIVO': 'OPEN FILE', 'COPIAR CÓDIGO': 'COPY CODE', 'COLAR CÓDIGO': 'PASTE CODE', 'CARREGAR ESTE PROGRESSO': 'LOAD THIS PROGRESS', 'Progresso': 'Progress', 'APAGAR SAVE': 'DELETE SAVE',
+  "Mira por giroscópio ligada: incline o celular embaixo d'água para mirar.": 'Gyro aiming on: tilt the phone underwater to aim.',
+  'Código copiado! Guarde nas Notas ou mande para você mesmo no WhatsApp. Para recuperar, toque em COLAR CÓDIGO.': 'Code copied! Keep it in your notes or message it to yourself. To restore, tap PASTE CODE.',
+  'Selecione e copie o código abaixo (segure em cima → Selecionar tudo → Copiar) e guarde nas Notas.': 'Select and copy the code below (long press → Select all → Copy) and keep it in your notes.',
+  'Cole aqui o código do backup e toque em CARREGAR.': 'Paste the backup code here and tap LOAD.', 'Arquivo lido. Toque em CARREGAR para restaurar.': 'File read. Tap LOAD to restore.',
+  'Código inválido. Confira se copiou ele inteiro, começando com DS1:': 'Invalid code. Make sure you copied all of it, starting with DS1:',
+  'Qualidade baixa reduz a resolução e o alcance do detalhe do fundo e dos peixes. Use se o celular esquentar ou travar.': 'Low quality reduces resolution and how far seabed detail and fish are drawn. Use it if the phone gets hot or stutters.',
+  'Sem permissão para o giroscópio. Libere nos ajustes do Safari.': 'No permission for the gyroscope. Allow it in Safari settings.', 'Este aparelho não mandou dados do giroscópio.': 'This device sent no gyroscope data.',
+  'Holofote desligado.': 'Spotlight off.', 'Holofote ligado.': 'Spotlight on.',
+  // ---------- instalar ----------
+  '📲 Instalar no iPhone': '📲 Install on iPhone', '1. No Safari, toque em': '1. In Safari, tap', 'Compartilhar': 'Share', '(o quadrado com a seta para cima).': '(the square with the up arrow).', '2. Toque em': '2. Tap', 'Adicionar à Tela de Início': 'Add to Home Screen',
+  '3. Abra o Deep Spear pelo ícone: tela cheia e abre mais rápido.': '3. Open Deep Spear from the icon: full screen and faster to start.', 'Importante:': 'Important:',
+  'no iPhone o app guarda o progresso separado do Safari. Antes de instalar, aqui no Safari vá em Opções ›': 'on iPhone the app keeps its progress separate from Safari. Before installing, here in Safari go to Options ›', '; depois, no app, Opções ›': '; then, in the app, Options ›',
+  '📲 Instalar o jogo': '📲 Install the game', 'No menu do navegador (⋮), toque em': 'In the browser menu (⋮), tap', 'Instalar app': 'Install app', 'Adicionar à tela inicial': 'Add to Home screen',
+  '. O jogo abre em tela cheia, mais rápido e até sem internet. Seu progresso continua o mesmo.': '. The game opens full screen, faster and even offline. Your progress stays the same.', 'ENTENDI': 'GOT IT', 'Jogo instalado! Abra pelo ícone na tela inicial.': 'Game installed! Open it from the home screen icon.',
+  // ---------- primeiros passos e dicas ----------
+  'Siga a seta laranja no topo até': 'Follow the orange arrow at the top to', 'Mira verde = ao alcance. Na cabeça o peixe apaga na hora. Respeite a medida mínima.': 'Green crosshair = in range. A head shot stones the fish instantly. Respect the minimum size.',
+  'Alcance': 'Range', 'elástico(s)': 'band(s)', 'pneumático': 'pneumatic', '· segura peixe de até ~': '· holds fish up to ~', 'Pular': 'Skip', 'PULAR': 'SKIP',
+  'Bem-vindo ao': 'Welcome to', 'Bem-vindo a': 'Welcome to', 'mar de Angra': 'Angra bay', 'Você é mergulhador de pesca sub: desce no fôlego, escolhe o peixe e vende o que pescar.': 'You are a spearfisher: you dive on one breath, choose your fish and sell your catch.',
+  'Pilote até o ponto': 'Drive to the spot', 'o ponto de pesca': 'the fishing spot', 'm daqui': 'm away', 'Mergulhe e fique parado': 'Dive and stay still', 'Peixe tem medo de quem nada atrás dele. Parado no fundo, ele vem ver você.': 'Fish fear whoever chases them. Stay still on the bottom and they come to see you.', 'Mire e atire': 'Aim and shoot', 'BORA PESCAR': "LET'S FISH",
+  'Olha um': 'Look, a', 'vindo ver você! Fique parado e espere ele chegar perto.': 'coming to check you out! Stay still and wait for it to come closer.',
+  'é espécie protegida: atirar dá multa pesada. Só foto!': 'is a protected species: shooting it means a heavy fine. Photos only!', 'está abaixo da medida mínima (': 'is under the minimum size (', 'cm). Atirar dá multa: espere um maior.': 'cm). Shooting it means a fine: wait for a bigger one.', 'é peixe ornamental: ninguém compra. Deixe no mar.': 'is an ornamental fish: nobody buys it. Leave it in the sea.',
+  ': atirar dá multa. Veja Diário › Pesca consciente.': ': shooting it means a fine. See Journal › Responsible fishing.', 'está em': 'is in',
+  'Fieira pesada gasta mais fôlego e chama predador. Suba e guarde no barco.': 'A heavy stringer burns breath and draws predators. Go up and store it on the boat.',
+  'Quanto mais fundo, mais rápido o fôlego acaba. Volte com folga: apagão perde a fieira.': 'The deeper you go, the faster your breath runs out. Come back with margin: a blackout loses the stringer.',
+  'Combustível baixo! Abasteça na marina (LOJA › Combustível) antes de ir longe.': 'Low fuel! Refuel at the marina (SHOP › Fuel) before going far.',
+  'Está escurecendo. A lanterna (LOJA › Equipamentos) acende sozinha no fundo e à noite.': 'It is getting dark. The dive torch (SHOP › Gear) turns on by itself when deep and at night.',
+  'Com esse dinheiro já dá para um arbalete maior: mais alcance e força para peixe grande (LOJA › Equipamentos).': 'With this money you can buy a bigger speargun: more range and power for big fish (SHOP › Gear).',
+  'Dica: o Boletim do mar mostra visibilidade e correnteza do dia. Missões e campeonatos pagam bem (LOJA).': "Tip: the Sea report shows today's visibility and current. Missions and tournaments pay well (SHOP).",
+  'Siga a seta laranja no topo até o ponto de pesca. Joystick: acelera e vira a lancha.': 'Follow the orange arrow at the top to the fishing spot. Joystick: throttle and steer the boat.',
+  'Chegou! Toque ANCORAR para parar a lancha.': 'You made it! Tap ANCHOR to stop the boat.', 'Toque PULAR NA ÁGUA.': 'Tap JUMP IN.',
+  'Respire parado uns segundos (o Preparo enche) e toque MERGULHAR. Na descida, toque COMPENSAR quando o ouvido apertar.': 'Breathe calmly for a few seconds (Prep fills up) and tap DIVE. On the way down, tap EQUALIZE when your ears hurt.',
+  'Toque ARMAR para esticar o elástico do arbalete.': 'Tap LOAD to stretch the speargun bands.', 'Mire num peixe: a mira fica verde quando ele está ao alcance. Toque ATIRAR.': 'Aim at a fish: the crosshair turns green when it is in range. Tap SHOOT.',
+  'Acertou? Segure PUXAR LINHA para trazer o peixe (ou o arpão de volta).': 'Hit it? Hold REEL IN to bring the fish (or the spear) back.', 'Suba (botão SUBIR) e volte ao barco: SUBIR NO BARCO. O peixe vai para a caixa térmica.': 'Go up (UP button) and back to the boat: BOARD THE BOAT. The fish goes into the cooler.',
+  'Agora venda: na marina ganha o preço cheio. Toque LOJA (ou MARINA) › Vender pescado.': 'Now sell it: the marina pays full price. Tap SHOP (or MARINA) › Sell catch.',
+  'Tutorial completo! +R$ 300. Agora é com você: missões na LOJA, condições no Boletim do mar.': 'Tutorial complete! +R$ 300. Over to you: missions in the SHOP, conditions in the Sea report.',
+  'Na água! Olhe para baixo e toque MERGULHAR.': 'In the water! Look down and tap DIVE.', 'Dica: faça um backup do progresso em Opções › Backup (arquivo ou código).': 'Tip: back up your progress in Options › Backup (file or code).',
+  'Ouvido doendo! Toque COMPENSAR (G) para equalizar.': 'Ear pain! Tap EQUALIZE (G) to clear your ears.',
+  // ---------- pesca e tiro ----------
+  'Recolha o arpão primeiro (PUXAR LINHA)': 'Reel the spear in first (REEL IN)', 'Arbalete desarmado. Toque em ARMAR.': 'Speargun not loaded. Tap LOAD.', 'Novo recorde da espécie!': 'New species record!', 'Arpão bateu na pedra!': 'The spear hit a rock!',
+  'Puxou na arrancada.': 'It pulled hard.', 'Tiro na cabeça! Peixe apagado.': 'Head shot! Fish stoned.', 'Tiro no espinhaço! Peixe apagado na hora.': 'Spine shot! Fish stoned instantly.', 'Acertou! Puxe a linha.': 'Hit! Reel it in.', 'Tiro no rabo, cuidado que pode rasgar!': 'Tail shot, careful, it may tear free!',
+  'Rasgou!': 'Torn free!', 'kg escapou.': 'kg got away.', 'Errou! O': 'Missed! The', 'arrancou! Solte a linha': 'is pulling! Give it line', 'cansou. PUXE a linha!': 'is tired. REEL it in!', 'm de linha': 'm of line',
+  '! Peixe raro na fieira.': '! A rare fish on the stringer.', 'Troféu!': 'Trophy!', 'acima do tamanho comum.': 'bigger than usual.', 'é peixe ornamental, ninguém compra. Prefira deixar no mar.': 'is an ornamental fish, nobody buys it. Better leave it in the sea.',
+  'Área de preservação (piscinas naturais): aqui é só foto!': 'Protected area (natural pools): photos only here!', 'apreendido e multa de R$ 500.': 'seized and a R$ 500 fine.', ', espécie protegida por lei! Multa ambiental: R$ 1.000.': ', a species protected by law! Environmental fine: R$ 1,000.',
+  'cm está abaixo da medida mínima (': 'cm is under the minimum size (', 'cm). Peixe apreendido e multa de R$ 200.': 'cm). Fish seized and a R$ 200 fine.',
+  'Peixe grande! Com uma carretilha no arbalete (Loja › Extras) dá para dar linha sem ser arrastado.': 'Big fish! With a reel on the speargun (Shop › Extras) you can give line without being dragged.',
+  'sentiu o sangue e está vindo! Tire o peixe da água rápido.': 'smelled the blood and is coming! Get the fish out of the water fast.', 'sentiu o sangue e veio ver. Chance de tiro!': 'smelled the blood and came to look. Take your shot!', 'arrancou o': 'ripped the', 'do arpão!': 'off the spear!', 'O tubarão pegou o': 'The shark took the',
+  'Cuidado! Encostou no raso/píer.': 'Careful! You touched the shallows/pier.', 'Limite do mapa. Volte para a baía.': 'Edge of the map. Head back.', 'Âncora recolhida.': 'Anchor up.', 'Reduza a velocidade para ancorar.': 'Slow down to anchor.', 'Fundo demais para ancorar: a corda tem 100 m.': 'Too deep to anchor: the rope is 100 m.', 'Ancore o barco antes de pular.': 'Anchor the boat before jumping in.',
+  'Ancorado em': 'Anchored in', 'm de fundo.': 'm of water.', 'kg, guardados na caixa térmica.': 'kg, stored in the cooler.',
+  'Pouco fôlego! Respire mais na superfície antes de descer.': 'Low breath! Breathe more at the surface before diving.', 'Deitado na pedra: fique parado que os peixes vêm ver.': 'Lying on the rock: stay still and the fish will come.',
+  'APAGÃO! Sua dupla viu, desceu e te trouxe para a superfície. A fieira foi para a caixa térmica.': 'BLACKOUT! Your buddy saw it, dove down and brought you up. The stringer went to the cooler.',
+  'APAGÃO sozinho! Um barco que passava te resgatou: perdeu a fieira': 'BLACKOUT alone! A passing boat rescued you: you lost the stringer', ', pagou R$ 300 de atendimento e perdeu 3 horas.': ', paid R$ 300 for the rescue and lost 3 hours.',
+  'Na vida real um apagão sem dupla costuma ser fatal: nunca mergulhe sozinho e respeite o intervalo de superfície.': 'In real life a blackout without a buddy is often fatal: never dive alone and respect your surface interval.',
+  'Na vida real, confira as regras locais: em muitos lugares a pesca sub noturna é proibida.': 'In real life, check local rules: night spearfishing is banned in many places.',
+  'Os últimos metros da subida são os mais perigosos: é onde acontece o apagão. Suba antes!': 'The last meters of the ascent are the most dangerous: that is where blackouts happen. Go up sooner!',
+  'Contrações do diafragma: o corpo está pedindo ar. Hora de pensar em subir.': 'Diaphragm contractions: your body wants air. Time to think about going up.',
+  'Agachon: escondido atrás da pedra, os peixes chegam bem mais perto.': 'Agachon: hidden behind the rock, fish come much closer.', 'Raspou a pedra: tem peixe vindo ver o barulho.': 'You scraped the rock: fish are coming to check the noise.',
+  'A moreia deu o bote! Nunca enfie a mão na toca sem olhar.': 'The moray struck! Never put your hand in a hole without looking.', 'Moreia na toca. Olhe de longe: ela só morde se você chegar perto demais.': 'Moray in the hole. Look from a distance: it only bites if you get too close.',
+  // ---------- loja: áreas e abas ----------
+  'Loja Deep Spear': 'Deep Spear Shop', 'Saldo:': 'Balance:', 'Combustível:': 'Fuel:', 'Marina': 'Marina', 'Equipamento': 'Gear', 'Competições': 'Competitions', 'Social': 'Social', 'Diário': 'Journal',
+  'Vender pescado': 'Sell catch', 'Combustível': 'Fuel', 'Lanchas': 'Boats', 'Viagem': 'Travel', 'Arbaletes e roupas': 'Spearguns & suits', 'Apneia': 'Freediving', 'Extras': 'Extras',
+  'Campeonato e Mundial': 'Tournament & World Cup', 'Desafio da semana': 'Weekly challenge', 'Ranking online': 'Online ranking', 'Online e grupo': 'Online & squad', 'Amigos': 'Friends', 'Clube': 'Club',
+  'Próximos': 'Up next', 'História': 'Story', 'Missões': 'Missions', 'Álbum': 'Album', 'Pesca consciente': 'Responsible fishing', 'Conquistas': 'Achievements', 'Recordes': 'Records', 'Guia de espécies': 'Species guide', 'Boletim': 'Sea report',
+  'Preço cheio da peixaria da marina.': "Full price at the marina's fish market.", 'Longe da marina, o atravessador paga 75% do preço. Na marina você recebe o valor cheio.': 'Away from the marina, the middleman pays 75% of the price. At the marina you get full value.',
+  'O que está na fieira só pode ser vendido depois que você subir no barco.': 'Fish on the stringer can only be sold after you board the boat.', 'A caixa térmica está vazia. Vá pescar!': 'The cooler is empty. Go fishing!', 'VENDER TUDO': 'SELL ALL', 'Total:': 'Total:', 'Vendido por': 'Sold for',
+  '🟢 fresco': '🟢 fresh', '🟡 bom': '🟡 good', '🟠 passando': '🟠 aging', '🔴 quase estragado': '🔴 almost spoiled', 'COM GELO HOJE': 'ICED TODAY', 'GELO': 'ICE', '🧊 Gelo para a caixa térmica': '🧊 Ice for the cooler',
+  'Sem gelo o peixe começa a perder valor depois de 4 horas. Com gelo ele aguenta o dia todo. Vale para o que você pegar hoje.': 'Without ice, fish start losing value after 4 hours. With ice they last all day. Applies to what you catch today.',
+  'Gasolina ·': 'Fuel ·', 'R$ 6,50 por litro.': 'R$ 6.50 per liter.', 'ENCHER': 'FILL UP', 'Só dá para abastecer no posto': 'You can only refuel at the station', 'Motor em dia.': 'Engine is fine.', 'Só na marina.': 'Marina only.', '🔧 Revisão do motor ·': '🔧 Engine service ·', 'h de uso': 'h of use', 'Revisão a cada': 'Service every',
+  'EM USO': 'IN USE', 'USAR': 'USE', 'TEM': 'OWNED', 'INSTALADO': 'INSTALLED', 'COMPRAR': 'BUY', 'LIBERAR': 'UNLOCK', 'VIAJAR': 'TRAVEL', 'VOCÊ ESTÁ AQUI': 'YOU ARE HERE', 'RENOVAR': 'RENEW',
+  'Máscaras': 'Masks', 'Acessórios': 'Accessories', 'Nadadeiras': 'Fins', 'Roupas': 'Suits', 'Arbaletes': 'Spearguns', 'Cintos': 'Belts',
+  'Lanterna de mergulho': 'Dive torch', 'Acende sozinha abaixo de 7 m, na água turva e à noite. Ilumina toca e naufrágio.': 'Turns on by itself below 7 m, in murky water and at night. Lights up holes and wrecks.',
+  'Câmera submarina': 'Underwater camera', "Botão FOTO embaixo d'água. Revistas pagam pelas fotos: peixe raro, mero e tartaruga valem mais.": 'PHOTO button underwater. Magazines pay for photos: rare fish, goliath grouper and turtles are worth more.',
+  'Computador de apneia': 'Freediving computer', 'Dupla de mergulho · hoje': 'Dive buddy · today', 'Velocidade máx.': 'Top speed', 'nós · tanque': 'knots · tank', 'nós': 'knots',
+  'Motor preparado': 'Tuned engine', '+15% de velocidade máxima.': '+15% top speed.', 'Tanque extra': 'Extra tank', '+50% de combustível: vai mais longe sem voltar.': '+50% fuel: go further without coming back.', '🔧 Melhorias da': '🔧 Upgrades for the',
+  '⚓ Diária da marina:': '⚓ Marina daily fee:', 'por dia': 'per day', 'pela vaga da lancha atual': 'for the current boat berth', 'grátis para a lancha 21 pés': 'free for the 21 ft boat',
+  // ---------- competições ----------
+  'Nível dos adversários': 'Opponent level', 'Vale para campeonatos, Mundial e duplas.': 'Applies to tournaments, the World Cup and pairs.', 'Fácil: pescam devagar.': 'Easy: they fish slowly.', 'Normal: competitivos, pegam uns 10 peixes em 10 min.': 'Normal: competitive, about 10 fish in 10 min.', 'Difícil: rápidos e certeiros.': 'Hard: fast and accurate.',
+  'Campeonato de pesca sub · 10 minutos': 'Spearfishing tournament · 10 minutes', 'TORNEIO DO FIM DE SEMANA: PRÊMIOS EM DOBRO': 'WEEKEND TOURNAMENT: DOUBLE PRIZES', 'Você contra 3 pescadores. Ganha quem pegar mais peixes dentro da medida; empate decide pelo peso.': 'You against 3 spearfishers. Most legal-size fish wins; ties go to weight.',
+  'Inscrição R$ 100. Prêmios: 1º R$ 900 · 2º R$ 350 · 3º R$ 150.': 'Entry R$ 100. Prizes: 1st R$ 900 · 2nd R$ 350 · 3rd R$ 150.', 'COMPETIR': 'COMPETE', 'Inscrição custa': 'Entry costs', 'Valendo! 10 minutos na': 'Go! 10 minutes at', '. Peixe abaixo da medida não conta.': '. Undersized fish do not count.',
+  'Resultado do campeonato': 'Tournament result', 'Você é o campeão da': 'You are the champion of', 'Você': 'You', 'ficou em': 'finished', 'º lugar.': 'th.', 'Prêmio de': 'Prize of', 'já está no seu saldo.': 'is already in your balance.', 'Os peixes que você pegou continuam na fieira e na caixa para vender.': 'The fish you caught are still on the stringer and in the cooler to sell.',
+  'pontos no torneio!': 'tournament points!', 'peixe(s)': 'fish', 'ponto(s)': 'point(s)', '▼ placar': '▼ scores', '▲ fechar': '▲ close', '🎯 Desafio ·': '🎯 Challenge ·', '1ª bateria': 'Round 1', '2ª bateria': 'Round 2', 'Intervalo': 'Break',
+  '🎯 Desafio da semana ·': '🎯 Weekly challenge ·', 'O mesmo desafio para todos os jogadores: começa às': 'The same challenge for every player: starts at', ', 8 minutos, sem adversários na água. Vale o': ', 8 minutes, no opponents in the water. What counts is the', 'peso total': 'total weight',
+  'de peixe dentro da medida. Jogue quantas vezes quiser: só o seu melhor resultado entra no ranking. Muda toda segunda-feira (': 'of legal-size fish. Play as many times as you like: only your best result goes on the ranking. Changes every Monday (',
+  'Prêmio:': 'Prize:', 'na primeira tentativa da semana com peixe, e': 'on your first attempt of the week with fish, and', 'cada vez que bater o seu recorde.': 'each time you beat your record.', 'Seu melhor:': 'Your best:', 'tentativa(s)': 'attempt(s)', 'JOGAR DESAFIO': 'PLAY CHALLENGE', 'VER RANKING': 'SEE RANKING',
+  'Ninguém jogou ainda esta semana. Seja o primeiro!': 'Nobody has played yet this week. Be the first!', 'Carregando ranking...': 'Loading ranking...', 'Novo melhor resultado:': 'New best result:', 'Você fez': 'You scored', 'kg. Seu melhor da semana continua': "kg. Your week's best is still",
+  'Seu melhor resultado já foi para o ranking do desafio (Competições › Desafio da semana).': 'Your best result is already on the challenge ranking (Competitions › Weekly challenge).', 'Os peixes continuam na fieira para vender.': 'The fish stay on the stringer to sell.', 'peixe(s) na medida ·': 'legal fish ·',
+  '🏆 Campeão da semana': '🏆 Champion of the week', '🐟 Maior peixe': '🐟 Biggest fish', '🌊 Mais fundo': '🌊 Deepest', 'Todos': 'Everyone', 'Esta semana': 'This week', 'De todos os tempos': 'All time', '(você)': '(you)', '(amigo)': '(friend)', 'Ninguém ainda. Seja o primeiro!': 'Nobody yet. Be the first!', 'Você está em': 'You are',
+  'Soma dos quilos pescados de segunda a domingo (todos os destinos). Zera toda segunda-feira.': 'Total kilos caught Monday to Sunday (all destinations). Resets every Monday.', 'O peixe mais pesado de cada jogador nessa espécie.': "Each player's heaviest fish of this species.", 'A maior profundidade de cada jogador num mergulho.': "Each player's deepest dive.",
+  'Conectando ao servidor do jogo... O ranking aparece assim que entrar online.': 'Connecting to the game server... The ranking shows up once you are online.', 'Conectando ao servidor... o ranking aparece assim que entrar online.': 'Connecting to the server... the ranking shows up once you are online.', 'Carregando...': 'Loading...', 'TENTAR DE NOVO': 'TRY AGAIN', 'Não deu para carregar:': 'Could not load:',
+  // ---------- missões ----------
+  'Três missões novas por dia de jogo. A recompensa entra direto no saldo.': 'Three new missions per game day. The reward goes straight to your balance.', '· recompensa': '· reward', 'FEITA': 'DONE', 'Missão cumprida:': 'Mission complete:', 'Missão:': 'Mission:',
+  'Pegue': 'Catch', 'dentro da medida': 'of legal size', 'Pegue um peixe de': 'Catch a fish of', 'kg ou mais': 'kg or more', 'Mergulhe até': 'Dive to', 'm de profundidade': 'm deep', 'Acerte 2 tiros na cabeça': 'Land 2 head shots', 'Pegue um peixe fazendo espera (parado, sem nadar)': 'Catch a fish by ambush (still, not swimming)',
+  'Venda': 'Sell', 'em pescado': 'of fish', 'peixes dentro da medida no dia': 'legal-size fish in one day', 'Fotografe 2 espécies diferentes': 'Photograph 2 different species', 'Pegue um peixe de 4 kg ou mais': 'Catch a fish of 4 kg or more', 'Pegue 3 espécies diferentes no dia': 'Catch 3 different species in one day', 'Pegue 2 peixes na': 'Catch 2 fish at',
+  '⭐ Missões da semana': '⭐ Weekly missions', 'renova amanhã': 'renews tomorrow', 'renova em': 'renews in', 'dias': 'days', '(segunda-feira)': '(Monday)', 'peixes dentro da medida': 'legal-size fish', 'Pesque': 'Catch', 'kg na semana': 'kg this week', 'espécies diferentes': 'different species', 'Feche as 3 missões do dia em': 'Finish all 3 daily missions on', 'Participe de': 'Enter', 'campeonatos': 'tournaments', 'Fotografe': 'Photograph',
+  'Jogue o Desafio da semana (Competições)': 'Play the Weekly challenge (Competitions)', 'Pegue um peixe-troféu (acima do tamanho comum)': 'Catch a trophy fish (bigger than usual)', '⭐ Missão da semana cumprida:': '⭐ Weekly mission complete:', '🔥 As 3 missões do dia feitas! Bônus': '🔥 All 3 daily missions done! Bonus', 'dias seguidos': 'days in a row',
+  '🔥 Feche as 3 missões do dia para ganhar bônus:': '🔥 Finish all 3 daily missions for a bonus:', 'no primeiro dia, e mais': 'on the first day, plus', 'por dia seguido (até': 'per day in a row (up to', 'Sequência atual:': 'Current streak:', 'dia(s).': 'day(s).',
+  // ---------- carreira ----------
+  'Iniciante': 'Beginner', 'Aprendiz de costão': 'Rocky-shore apprentice', 'Pescador de toca': 'Hole hunter', 'Caçador de laje': 'Reef hunter', 'Apneísta': 'Freediver', 'Arpoador experiente': 'Seasoned spearo', 'Mestre da espera': 'Master of the ambush', 'Caçador de azul': 'Bluewater hunter', 'Lenda do parcel': 'Legend of the reef', 'Lenda da Costa Verde': 'Legend of Costa Verde',
+  'NÍVEL': 'LEVEL', 'prêmio': 'prize', '🏆 Conquista:': '🏆 Achievement:', 'Nível': 'Level', 'XP para o nível': 'XP to level', '). XP vem de peixe vendido, missões, fotos e conquistas.': '). XP comes from fish sold, missions, photos and achievements.',
+  'Primeiro peixe': 'First fish', 'Pegue o primeiro peixe dentro da medida.': 'Catch your first legal-size fish.', 'Peixe de respeito': 'Respectable fish', 'Pegue um peixe de 5 kg ou mais.': 'Catch a fish of 5 kg or more.', 'Monstro do costão': 'Monster of the rocks', 'Pegue um peixe de 15 kg ou mais.': 'Catch a fish of 15 kg or more.', 'Pegue 8 espécies diferentes.': 'Catch 8 different species.',
+  'Peixe raro': 'Rare fish', 'Pegue um dentão ou um cherne.': 'Catch a dog snapper or a snowy grouper.', 'Abaixo dos 15': 'Below 15', 'Mergulhe a 15 m.': 'Dive to 15 m.', 'Fundo de verdade': 'Really deep', 'Mergulhe a 25 m.': 'Dive to 25 m.', 'Pulmão de aço': 'Iron lungs', "Fique 90 s embaixo d'água num mergulho.": 'Stay underwater 90 s in one dive.',
+  'Fotógrafo': 'Photographer', 'Fotografe 5 espécies.': 'Photograph 5 species.', 'Gigante protegido': 'Protected giant', 'Fotografe um mero (sem atirar!).': 'Photograph a goliath grouper (no shooting!).', 'Guia completo': 'Complete guide', 'Registre todas as espécies do guia.': 'Log every species in the guide.', 'Campeão': 'Champion', 'Vença um campeonato.': 'Win a tournament.',
+  'Frota': 'Fleet', 'Tenha as três lanchas.': 'Own all three boats.', 'Mar aberto': 'Open sea', 'Mergulhe no Parcel de Fora.': 'Dive at Parcel de Fora.', 'Conhece a baía': 'Knows the bay', 'Mergulhe em todos os pontos de pesca.': 'Dive at every fishing spot.', 'Noturno': 'Night owl', 'Pegue um peixe depois das 19h.': 'Catch a fish after 7 pm.',
+  'Caçador de lendas': 'Legend hunter', 'Pesque um peixe lendário (Diário › História).': 'Catch a legendary fish (Journal › Story).', 'Lenda das lendas': 'Legend of legends', 'Pesque o lendário de 3 destinos.': 'Catch the legendary fish of 3 destinations.',
+  // ---------- álbum e compartilhar ----------
+  '📸 COMPARTILHAR': '📸 SHARE', 'COMPARTILHAR': 'SHARE', 'BAIXAR': 'DOWNLOAD', 'FECHAR': 'CLOSE', 'Mande para os amigos no WhatsApp, Instagram ou onde quiser.': 'Send it to your friends on WhatsApp, Instagram or anywhere.', 'Imagem baixada: é só mandar para os amigos.': 'Image downloaded: just send it to your friends.',
+  'Seu álbum ainda está vazio. Cada peixe que você pescar aparece aqui, e os melhores ganham um cartão para compartilhar.': 'Your album is still empty. Every fish you catch shows up here, and the best ones get a card to share.', 'Seus últimos peixes. Toque em 📸 para gerar o cartão e mandar para os amigos.': 'Your latest fish. Tap 📸 to make the card and send it to your friends.', 'dia': 'day',
+  // ---------- pesca consciente ----------
+  '🌱 Selo Pescador Consciente ·': '🌱 Responsible Fisher Badge ·', 'Sem selo': 'No badge', 'Bronze': 'Bronze', 'Prata': 'Silver', 'Ouro': 'Gold', 'dia(s) seguidos pescando sem nenhuma multa': 'day(s) in a row fishing without any fine', '· seu pescado vale': '· your catch is worth', 'na venda': 'more when sold',
+  'Faltam': 'Only', 'dia(s) para o selo': 'day(s) to the badge', 'Qualquer multa zera a sequência. Melhor sequência:': 'Any fine resets the streak. Best streak:', '📅 Defeso neste destino': '📅 Closed seasons here', 'EM VIGOR AGORA': 'IN FORCE NOW', '· fora de época': '· out of season', 'Atirar dá multa de': 'Shooting means a fine of',
+  'Defeso da garoupa': 'Grouper closed season', 'Defeso da cioba': 'Mutton snapper closed season', 'Piracema': 'Spawning closure', '📏 Regras que dão multa': '📏 Rules that bring fines', 'Medida mínima': 'Minimum size', 'Espécies protegidas': 'Protected species', ', só foto:': ', photos only:', 'Área de preservação': 'Protected area', 'Licença de pesca': 'Fishing license', 'em dia': 'up to date', 'válida': 'valid', 'vencida': 'expired',
+  '⚖️ Cota diária (opcional)': '⚖️ Daily bag limit (optional)', 'Regras reais de cota:': 'Real bag-limit rules:', 'por dia': 'per day', 'LIGADA': 'ON',
+  'As datas de defeso do jogo são inspiradas nas regras reais, mas mudam de estado para estado. Na vida real, confira sempre as regras locais antes de pescar.': "The game's closed seasons are inspired by real rules, but they vary from state to state. In real life, always check local rules before fishing.",
+  // ---------- lendários ----------
+  '🐉 Lendário deste destino': '🐉 Legendary fish of this destination', 'PESCADO!': 'CAUGHT!', 'Pistas encontradas:': 'Clues found:', '. Mergulhe perto destes pontos para procurar sinais dele:': '. Dive near these spots to look for signs of it:', 'Ainda não se ouviu nenhum boato por aqui... Continue pescando: o rádio dos pescadores avisa.': 'No rumors around here yet... Keep fishing: the fishermen\'s radio will tell you.',
+  'Ele mora no': 'It lives at', 'Sai só ao amanhecer (5h–8h30) ou no fim da tarde (16h30–19h30), uma vez por dia. Desça, fique': 'It only comes out at dawn (5:00–8:30) or late afternoon (16:30–19:30), once a day. Go down, stay', 'parado': 'still', 'e espere ele chegar perto. Errou ou nadou em cima? Só amanhã. Tentativas:': 'and wait for it to come close. Missed or swam at it? Only tomorrow. Attempts:',
+  'IR PARA O': 'GO TO', 'Pescado no dia': 'Caught on day', 'O troféu está no rancho.': 'The trophy is in the cabin.', 'Destino marcado: siga a seta laranja.': 'Destination set: follow the orange arrow.',
+  // ---------- clubes ----------
+  '🏴 Clubes de pesca': '🏴 Fishing clubs', 'CRIAR CLUBE': 'CREATE CLUB', 'ENTRAR COM CÓDIGO': 'JOIN WITH CODE', 'CÓDIGO': 'CODE', 'Criar clube': 'Create club', 'Nome do clube': 'Club name', 'Emblema': 'Emblem', 'Cor': 'Color', 'VOLTAR': 'BACK', 'SAIR DO CLUBE': 'LEAVE CLUB', 'CHAMAR AMIGOS ONLINE': 'INVITE FRIENDS ONLINE',
+  'Código do clube:': 'Club code:', 'membros.': 'members.', 'Membros · quilos desta semana': "Members · this week's kilos", '(fundador)': '(founder)', '🏆 Ranking de clubes da semana': '🏆 Club ranking of the week', 'membro(s) pescando esta semana': 'member(s) fishing this week', 'Nenhum clube pescou ainda esta semana.': 'No club has fished yet this week.', 'kg na semana': 'kg this week', 'lugar': 'place',
+  'Monte um clube com até 20 amigos. Os quilos que cada um pesca na semana somam para o clube, que disputa o ranking semanal de clubes. Zera toda segunda-feira, junto com o ranking.': "Build a club with up to 20 friends. Everyone's kilos for the week add up for the club, which competes on the weekly club ranking. Resets every Monday, along with the ranking.",
+  'Conectando ao servidor... Os clubes aparecem assim que entrar online.': 'Connecting to the server... Clubs show up once you are online.', 'Carregando clubes...': 'Loading clubs...',
+  // ---------- online, grupo e lobby ----------
+  'entrou no jogo': 'joined the game', 'saiu do jogo.': 'left the game.', 'adicionou você como amigo!': 'added you as a friend!', '🟢 jogando no mesmo destino': '🟢 playing at the same destination', '⚪ offline': '⚪ offline', 'AGORA NÃO': 'NOT NOW', 'ENTRAR': 'JOIN', 'PODE VIR': 'COME ON', 'quer carona na sua lancha!': 'wants a ride on your boat!',
+  // ---------- tempo e boletim ----------
+  'poucas nuvens': 'few clouds', 'céu limpo': 'clear sky', 'chuva forte': 'heavy rain', 'pancada de chuva': 'rain shower', 'sem chuva': 'no rain', 'Visibilidade': 'Visibility', 'Mar': 'Sea', 'Regras': 'Rules', 'Esperar': 'Timing', 'eventos do dia': "today's events", 'Nenhum evento especial hoje.': 'No special events today.', 'Lua cheia': 'Full moon', 'Água azul': 'Blue water', 'Maré': 'Tide', 'Frente fria': 'Cold front', 'Torneio do fim de semana': 'Weekend tournament', 'Campeonatos pagam o dobro hoje.': 'Tournaments pay double today.',
+  'Segunda': 'Monday', 'Terça': 'Tuesday', 'Quarta': 'Wednesday', 'Quinta': 'Thursday', 'Sexta': 'Friday', 'Sábado': 'Saturday', 'Domingo': 'Sunday', 'DORMIR ATÉ 6h': 'SLEEP UNTIL 6 AM', 'Boletim do mar:': 'Sea report:',
+  'Anoiteceu. A lanterna acende sozinha embaixo d\'água.': 'Night has fallen. The torch turns on by itself underwater.', 'Anoiteceu. Sem lanterna, o fundo fica escuro: compre uma na loja.': 'Night has fallen. Without a torch the bottom is dark: buy one at the shop.', 'Amanhecendo. Garoupas saindo da toca.': 'Dawn. Groupers are leaving their holes.',
+  'Trovoada! Raio cai no ponto mais alto: no mar aberto, o mais seguro é voltar para a marina.': 'Thunderstorm! Lightning strikes the highest point: in open sea, the safest thing is to head back to the marina.', 'Noite de plâncton brilhante: a água acende quando alguma coisa se mexe!': 'Glowing plankton tonight: the water lights up when something moves!',
+  // ---------- destinos e lugares ----------
+  'Costa Verde (RJ)': 'Costa Verde (RJ)', 'Amazonas · Baixo Tapajós (PA)': 'Amazon · Lower Tapajós (PA)', 'Costa dos Corais (AL/PE)': 'Coral Coast (AL/PE)', 'Arraial do Cabo (RJ)': 'Arraial do Cabo (RJ)',
+  'Viajar leva': 'Travel takes', 'Dinheiro, equipamentos, carreira, amigos e a lancha (de balsa) vão com você. O peixe da fieira vai para a caixa térmica. Cada destino novo é liberado uma vez; depois é só ir e voltar.': 'Money, gear, career, friends and your boat (by ferry) go with you. Stringer fish go into the cooler. Each new destination is unlocked once; after that, come and go freely.',
+  'Baía da Ilha Grande: costões, lajes, naufrágios e mar aberto.': 'Ilha Grande bay: rocky shores, reefs, wrecks and open sea.', 'Água fria e cristalina da ressurgência: paredões da Ilha do Farol, Boqueirão, Pedra Vermelha e naufrágio. Olho-de-boi, enchova, garoupa e badejo.': 'Cold, crystal-clear upwelling water: the walls of Ilha do Farol, Boqueirão, Pedra Vermelha and a wreck. Amberjack, bluefish, grouper and black grouper.',
+  // ---------- peixes (nomes) ----------
+  'Albacora': 'Blackfin tuna', 'Apapá': 'Amazon herring', 'Aracu': 'Headstander', 'Ariacó': 'Lane snapper', 'Aruanã': 'Arowana', 'Badejo-quadrado': 'Black grouper', 'Bicuda-de-rio': 'Pike characin', 'Bicuda': 'Barracuda', 'Budião-azul': 'Greenbeak parrotfish', 'Budião': 'Parrotfish', 'Tubarão cabeça-chata': 'Bull shark', 'Cachorra': 'Payara',
+  'Cangulo': 'Grey triggerfish', 'Canhanha': 'Sea bream', 'Caranha': 'Cubera snapper', 'Cavala': 'King mackerel', 'Cherne': 'Snowy grouper', 'Cioba': 'Mutton snapper', 'Peixe-cirurgião': 'Blue tang', 'Cocoroca': 'Tomtate grunt', 'Dentão': 'Dog snapper', 'Dourado-de-rio': 'Golden dorado', 'Dourado': 'Mahi-mahi', 'Enchova': 'Bluefish', 'Frade': 'French angelfish',
+  'Garoupa-gato': 'Rock hind', 'Garoupa-verdadeira': 'Dusky grouper', 'Guaiúba': 'Yellowtail snapper', 'Jaraqui': 'Jaraqui', 'Raia-manta': 'Manta ray', 'Marimbá': 'Silver porgy', 'Matrinxã': 'Matrinxã', 'Mero gigante': 'Giant goliath grouper', 'Mero': 'Goliath grouper', 'Olhete': 'Yellowtail amberjack', 'Olho-de-boi': 'Greater amberjack', 'Pacu': 'Pacu',
+  'Pampo-galhudo': 'Palometa', 'Pargo': 'Red snapper', 'Peixe-galo': 'Lookdown', 'Pescada-branca': 'Silver croaker', 'Piranha-vermelha': 'Red piranha', 'Pirarucu gigante': 'Giant arapaima', 'Pirarucu': 'Arapaima', 'Robalo-flecha': 'Common snook', 'Salema': 'Porkfish', 'Saramunete': 'Spotted goatfish', 'Sargo-de-dente': 'Sheepshead',
+  'Sororoca': 'Serra mackerel', 'Surubim': 'Tiger catfish', 'Tainha': 'Mullet', 'Tambaqui': 'Tambaqui', 'Traíra': 'Trahira', 'Tubarão-lixa': 'Nurse shark', 'Tubarão-baleia': 'Whale shark', 'Tucunaré-açu': 'Peacock bass', 'Xaréu': 'Crevalle jack', 'Atum-rabino': 'Yellowfin tuna', 'Tartaruga-verde': 'Green sea turtle', 'Moreia': 'Moray eel', 'Garoupa': 'Grouper',
+  // ---------- equipamento ----------
+  'Arbalete 90 cm': '90 cm speargun', 'Pneumático 100': 'Pneumatic 100', 'Arbalete 110 cm madeira': '110 cm wooden speargun', 'Roller 130 cm': 'Roller 130 cm', 'Roller 150 Big Game': 'Roller 150 Big Game', 'Netuno Pro 120 carbono': 'Netuno Pro 120 carbon', 'Netuno Mundial 160 roller': 'Netuno World 160 roller',
+  'Arma de entrada, boa pra toca e água turva.': 'Entry-level gun, good for holes and murky water.', 'Dois elásticos de 16 mm. Versátil.': 'Two 16 mm bands. Versatile.', 'Ar comprimido. Potente, mas lento para recarregar.': 'Compressed air. Powerful, but slow to reload.', 'Madeira, tiro silencioso e estável. Para costão.': 'Wood, quiet and stable shot. For rocky shores.',
+  'Sistema roller, alcance de azul. Para olho-de-boi.': 'Roller system, bluewater range. For amberjack.', 'Arma de caça grande no azul. Tiro longo e muita força.': 'A big-game bluewater gun. Long shot and lots of power.',
+  'Nadadeira plástica': 'Plastic fins', 'Nadadeira de fibra': 'Fiberglass fins', 'Nadadeira de carbono': 'Carbon fins', 'Máscara padrão': 'Standard mask', 'Vem com o kit.': 'Comes with the kit.', 'Máscara baixo volume': 'Low-volume mask', 'Máscara espelhada': 'Mirrored mask',
+  'Roupa 3 mm lisa': 'Plain 3 mm suit', 'Roupa 5 mm camuflada': '5 mm camo suit', 'Roupa 7 mm camuflada pro': '7 mm pro camo suit', 'Lancha 21 pés': '21 ft boat', 'Lancha 26 pés': '26 ft boat', 'Lancha 32 pés': '32 ft boat', 'Lancha 38 pés Sport': '38 ft Sport boat',
+  'Apneia estática': 'Static apnea', 'Pernada eficiente': 'Efficient finning', 'Equalização (Frenzel)': 'Equalization (Frenzel)', 'Recuperação na superfície': 'Surface recovery', 'Computador: fôlego em 40%. Hora de subir.': 'Computer: breath at 40%. Time to go up.',
+  // ---------- palavras soltas comuns ----------
+  'peixes': 'fish', 'peixe': 'fish', 'pontos': 'points', 'minutos': 'minutes', 'hoje': 'today', 'amanhã': 'tomorrow', 'agora': 'now', 'tentativas': 'attempts',
+};
+setupI18n();
 
 init();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { });

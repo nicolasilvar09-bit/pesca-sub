@@ -21,7 +21,7 @@ const server = http.createServer((q, r) => { const f = path.join(ROOT, decodeURI
 (async () => {
   await new Promise(res => server.listen(0, res)); const url = `http://localhost:${server.address().port}/index.html`;
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
-  for (const region of ['cv', 'ne', 'amz']) {
+  for (const region of ['cv', 'ne', 'amz', 'ac']) {
     const p = await b.newPage({ viewport: { width: 812, height: 375 } }); const errs = [];
     p.on('pageerror', e => errs.push(e.message));
     await p.route(/supabase\.co/, r => r.abort()); // sem internet no teste: o jogo tem que seguir sem o online

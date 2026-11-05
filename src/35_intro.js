@@ -18,7 +18,7 @@ function showWelcome(s) {
   const el = document.createElement('div'); el.id = 'welcome'; el.className = 'panel';
   const step = (ic, t, d) => `<div class="it" style="gap:12px;justify-content:flex-start;text-align:left"><span style="font-size:28px">${ic}</span><div><div class="n">${t}</div><div class="d">${d}</div></div></div>`;
   el.innerHTML = `<div class="card" style="max-width:520px">
-    <h2>Bem-vindo ao ${AMZ ? 'Tapajós' : NE ? 'Nordeste' : 'mar de Angra'}!</h2>
+    <h2>Bem-vindo ao ${AMZ ? 'Tapajós' : NE ? 'Nordeste' : AC ? 'Arraial do Cabo' : 'mar de Angra'}!</h2>
     <div class="sub">Você é mergulhador de pesca sub: desce no fôlego, escolhe o peixe e vende o que pescar.</div>
     <div class="list">${step('🚤', 'Pilote até o ponto', `Siga a seta laranja no topo até ${s ? `${s.name}, a ${Math.round(Math.hypot(s.x - BOAT.pos.x, s.z - BOAT.pos.z) / 10) * 10} m daqui` : 'o ponto de pesca'}.`)}
     ${step('🤿', 'Mergulhe e fique parado', 'Peixe tem medo de quem nada atrás dele. Parado no fundo, ele vem ver você.')}

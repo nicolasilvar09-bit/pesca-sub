@@ -272,8 +272,9 @@ const DESTS = [
   { id: 'cv', name: 'Costa Verde (RJ)', desc: 'Baía da Ilha Grande: costões, lajes, naufrágios e mar aberto.' },
   { id: 'amz', name: 'Amazonas · Baixo Tapajós (PA)', desc: 'Rio de água clara, igapó, lago de várzea e água preta. Tucunaré, dourado, cachorra, pirarucu.' },
   { id: 'ne', name: 'Costa dos Corais (AL/PE)', desc: 'Água azul e quente: piscinas naturais, arrecifes, cabeços de coral, naufrágio e parcel. Guaiúba, cavala, pargo e tubarões.', price: 4000, flag: 'neUnlocked' },
+  { id: 'ac', name: 'Arraial do Cabo (RJ)', desc: 'Água fria e cristalina da ressurgência: paredões da Ilha do Farol, Boqueirão, Pedra Vermelha e naufrágio. Olho-de-boi, enchova, garoupa e badejo.', price: 3500, flag: 'acUnlocked' },
 ];
-const marinaName = () => AMZ ? 'Porto da Vila do Tapajós' : NE ? 'Marina do Pontal' : 'Marina Balneário';
+const marinaName = () => AMZ ? 'Porto da Vila do Tapajós' : NE ? 'Marina do Pontal' : AC ? 'Marina da Praia dos Anjos' : 'Marina Balneário';
 // preço e marca de liberação de cada destino (a Costa Verde já vem liberada)
 const destPrice = d => d.id === 'amz' ? TRIP_PRICE : d.price || 0;
 const destOwned = d => d.id === 'cv' || (d.id === 'amz' ? SV.amzUnlocked : SV[d.flag]);
@@ -289,9 +290,9 @@ function travelTo(id) {
   const d = DESTS.find(x => x.id === id); if (!d) return;
   if (!destOwned(d)) { const pr = destPrice(d); if (SV.money < pr) return; SV.money -= pr; if (id === 'amz') SV.amzUnlocked = true; else SV[d.flag] = true; }
   if (P.stringer.length) { SV.cooler.push(...P.stringer); P.stringer = []; }
-  SV.region = id; SV.dest = { amz: 'praia', ne: 'arrecife' }[id] || 'botinas'; SV.tod = 7; SV.day = (SV.day || 1) + TRIP_DAYS; SV.fuel = Math.max(SV.fuel, 40);
+  SV.region = id; SV.dest = { amz: 'praia', ne: 'arrecife', ac: 'forno' }[id] || 'botinas'; SV.tod = 7; SV.day = (SV.day || 1) + TRIP_DAYS; SV.fuel = Math.max(SV.fuel, 40);
   save(); SAVE_LOCK = true;
-  $('black').style.opacity = 1; toast({ amz: 'Embarcando para Santarém e Alter do Chão...', ne: 'Voando para Maceió e seguindo para a Costa dos Corais...' }[id] || 'Voltando para Angra dos Reis...', 3);
+  $('black').style.opacity = 1; toast({ amz: 'Embarcando para Santarém e Alter do Chão...', ne: 'Voando para Maceió e seguindo para a Costa dos Corais...', ac: 'Pegando a estrada para a Região dos Lagos, rumo a Arraial do Cabo...' }[id] || 'Voltando para Angra dos Reis...', 3);
   setTimeout(() => location.reload(), 900);
 }
 function bindTravel(on) { on('[data-trip]', b => travelTo(b.dataset.trip)); }
