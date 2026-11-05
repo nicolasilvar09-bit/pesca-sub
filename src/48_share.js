@@ -1,7 +1,7 @@
 // ================= foto da pesca para compartilhar: cartão com o peixe, peso, lugar e seu nome =================
 // cada peixe bom entra no álbum (Diário › Álbum); o botão 📸 gera o cartão e abre o compartilhar do celular
 const SHARE = { url: 'nicolasilvar09-bit.github.io/pesca-sub', btnT: 0, last: null, blob: null, wasPaused: false };
-const REGION_NAME = { cv: 'Costa Verde · RJ', ne: 'Costa dos Corais · AL/PE', amz: 'Baixo Tapajós · PA' };
+const REGION_NAME = { cv: 'Costa Verde · RJ', ne: 'Costa dos Corais · AL/PE', amz: 'Baixo Tapajós · PA', ac: 'Arraial do Cabo · RJ' };
 const shareWorthy = (f, rec) => f.legend || rec || isTrophy(f) || f.sp.rare || f.kg >= 2.5;
 function albumAdd(f, rec) {
   const e = { key: f.key, cm: Math.round(f.len * 100), kg: Math.round(f.kg * 100) / 100, spot: (f.spot && f.spot.name) || '', region: REGION, day: SV.day || 1, date: Date.now(), trophy: isTrophy(f), rec: !!rec, rare: !!f.sp.rare, leg: f.legend ? legDef().name : '' };

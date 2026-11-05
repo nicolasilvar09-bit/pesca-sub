@@ -631,7 +631,7 @@ function placeRig(r, pos, yaw, pitch, under, mv, kick) {
 
 // ---------- campeonato ----------
 const COMP = { on: false, t: 0, spot: null, bots: [], me: { n: 0, kg: 0 } };
-const BOT_DEF = AMZ ? [['Raimundo', 0x1b1e22], ['Jacira', 0x23304a], ['Seu Bené', 0x3b2b1e]] : NE ? [['Zé Jangadeiro', 0x1b1e22], ['Marinalva', 0x23304a], ['Cícero do Pontal', 0x3b2b1e]] : [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
+const BOT_DEF = AMZ ? [['Raimundo', 0x1b1e22], ['Jacira', 0x23304a], ['Seu Bené', 0x3b2b1e]] : NE ? [['Zé Jangadeiro', 0x1b1e22], ['Marinalva', 0x23304a], ['Cícero do Pontal', 0x3b2b1e]] : AC ? [['Tião do Forno', 0x1b1e22], ['Dandara', 0x23304a], ['Seu Valdir', 0x3b2b1e]] : [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
 const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && !defesoOf(f.key) && !f.legend && f.state !== 'hooked' && f.state !== 'dead';
 function startComp(id, duo, live) {
   const s = spotById(id); if (!s || COMP.on) return;

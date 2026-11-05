@@ -60,7 +60,7 @@ function throwChum() {
   // os peixes em volta vêm ver
   for (const f of FISHES) if (f.alive && (f.state === 'wander' || f.state === 'alert') && f.pos.distanceTo(P.pos) < 30 && !f.sp.protected) { f.state = 'curious'; f.t = rand(10, 18); }
   // e chega um grupo novo atrás do cheiro
-  const opts = AMZ ? ['pacu', 'tambaqui', 'piranha', 'matrinxa', 'aracu'] : NE ? ['guaiuba', 'ariaco', 'saramunete', 'sargo', 'xareu'] : ['sargo', 'salema', 'cocoroca', 'marimba', 'xareu', 'canhanha'];
+  const opts = AMZ ? ['pacu', 'tambaqui', 'piranha', 'matrinxa', 'aracu'] : NE ? ['guaiuba', 'ariaco', 'saramunete', 'sargo', 'xareu'] : AC ? ['sargo', 'salema', 'marimba', 'cocoroca', 'xareu'] : ['sargo', 'salema', 'cocoroca', 'marimba', 'xareu', 'canhanha'];
   const z = { id: 'chum' + (++chumN), x: P.pos.x, z: P.pos.z, r: 12, zone: 'chum' }; ZONES.push(z);
   const k = pick(opts); spawnGroup(z, k, Math.round(rand(3, 7)));
   toast(`Engodo na água! O cheiro atrai peixe${AMZ && k === 'piranha' ? '... e piranha!' : '.'} Fique parado. (${SV.chum} restante${SV.chum === 1 ? '' : 's'})`, 3.5, 'gold');

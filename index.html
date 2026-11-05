@@ -353,6 +353,7 @@ const TAU = Math.PI * 2;
 const REGION = (() => { try { return JSON.parse(localStorage.getItem('pescasub_costaverde_v1') || '{}').region || 'cv'; } catch (e) { return 'cv'; } })();
 const AMZ = REGION === 'amz';
 const NE = REGION === 'ne'; // Costa dos Corais (AL/PE)
+const AC = REGION === 'ac'; // Arraial do Cabo (RJ)
 const V3 = THREE.Vector3;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -465,15 +466,16 @@ const ISLANDS = [
 ];
 const LAJE = { x: -330, z: -180 };
 const FOZ = { x: -615, z: 560 };
-const PIER = AMZ ? pierAmz() : NE ? pierNe() : { x: 0, z0: 790, z1: 700 };
+const PIER = AMZ ? pierAmz() : NE ? pierNe() : AC ? pierAc() : { x: 0, z0: 790, z1: 700 };
 // área jogável: 3,2 km de lado; a baía original fica no canto sudoeste
-const WB = AMZ || NE ? { x0: -900, x1: 1500, z0: -1300, z1: 1100 } : { x0: -780, x1: 2420, z0: -2420, z1: 780 };
+const WB = AMZ || NE || AC ? { x0: -900, x1: 1500, z0: -1300, z1: 1100 } : { x0: -780, x1: 2420, z0: -2420, z1: 780 };
 const IG = { e: 1480, o: -1640 }; // Ilha Grande: ponta leste (x) e costa de fora (z)
 const FORA = { x: 1960, z: -2060 }, CARG = { x: 2080, z: -720 }, LAGOA = { x: 1050, z: -655 };
 
 function H(x, z) {
   if (AMZ) return Hamz(x, z);
   if (NE) return Hne(x, z);
+  if (AC) return Hac(x, z);
   let h = -16 + 3.5 * fbm(x * 0.004 + 7, z * 0.004 - 3, 3) + 0.9 * fbm(x * 0.03, z * 0.03, 2);
   // fora da baía o fundo cai: lado de fora da Ilha Grande e canal leste
   h -= 20 * smooth(IG.o + 60, IG.o - 420, z) + 7 * smooth(900, 2200, x) * (1 - smooth(500, 760, z));
@@ -517,7 +519,7 @@ function H(x, z) {
   if (h < 0 && df < 220) h = lerp(h, Math.max(h, -5.5 + df * 0.018), 1 - smooth(40, 210, df));
   return platDeep(x, z, Hextra(x, z, h));
 }
-const murkAt = (x, z) => AMZ ? murkAmz(x, z) : NE ? 0 : Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z - FOZ.z)), smooth(-600, -650, x) * (1 - smooth(40, 80, Math.abs(z - FOZ.z))));
+const murkAt = (x, z) => AMZ ? murkAmz(x, z) : NE || AC ? 0 : Math.max(1 - smooth(110, 240, Math.hypot(x - FOZ.x, z - FOZ.z)), smooth(-600, -650, x) * (1 - smooth(40, 80, Math.abs(z - FOZ.z))));
 
 // ================= renderer / cena =================
 let renderer, scene, camera, hemi, sun;
@@ -565,7 +567,7 @@ float causF(vec2 uv){ vec2 p=mod(uv*6.28318,6.28318)-250.0; vec2 i=p; float c=1.
 `;
 const UW_FRAG_BODY = `
  if(vWP.y<0.05){ float dp=max(-vWP.y,0.0);
-${AMZ ? uwMurkAmz() : NE ? uwNe() : `  float murk=1.0-smoothstep(110.0,240.0,distance(vWP.xz,vec2(${FOZ.x}.0,${FOZ.z}.0)));
+${AMZ ? uwMurkAmz() : NE ? uwNe() : AC ? uwAc() : `  float murk=1.0-smoothstep(110.0,240.0,distance(vWP.xz,vec2(${FOZ.x}.0,${FOZ.z}.0)));
   murk=max(murk,smoothstep(-600.0,-650.0,vWP.x)*(1.0-smoothstep(40.0,80.0,abs(vWP.z-(${FOZ.z}.0)))));
   vec3 ab=vec3(exp(-dp*0.13),exp(-dp*0.035),exp(-dp*0.028));
   gl_FragColor.rgb*=mix(ab,ab*vec3(0.55,0.6,0.32),murk);`}
@@ -630,7 +632,7 @@ function terrColor(x, y, z, ny, c) {
     c.lerp(_tc.setRGB(0.32, 0.30, 0.26), smooth(0.9, 0.65, ny));
     const m = murkAt(x, z); c.lerp(_tc.setRGB(0.36, 0.31, 0.22), m * 0.85);
     if (AMZ) { c.lerp(_tc.setRGB(0.42, 0.34, 0.24), smooth(-1.5, -6, y) * 0.55); return c; }
-    if (NE) c.lerp(_tc.setRGB(0.9, 0.87, 0.76), 0.55); // areia branca de coral // rio: fundo de areia e lodo marrom
+    if (NE) c.lerp(_tc.setRGB(0.9, 0.87, 0.76), 0.55); if (AC) c.lerp(_tc.setRGB(0.95, 0.94, 0.9), 0.6); // areia branca de coral // rio: fundo de areia e lodo marrom
     if (fbm(x * 0.02 + 40, z * 0.02, 2) > 0.25 && y > -14) c.lerp(_tc.setRGB(0.30, 0.38, 0.22), 0.35); // manchas de alga
     if (y > -10 && y < -1.5 && meadowAt(x, z) > 0.42) c.lerp(_tc.setRGB(0.2, 0.3, 0.14), smooth(0.42, 0.5, meadowAt(x, z)) * 0.8); // prado de capim-marinho
     if (y < -3 && gravelAt(x, z) > 0.34) c.lerp(_tc.setRGB(0.42, 0.4, 0.36), smooth(0.34, 0.44, gravelAt(x, z)) * 0.6); // cascalho
@@ -718,7 +720,7 @@ function buildWater() {
           float fr=0.02+0.98*pow(1.0-max(dot(N,V),0.0),5.0);
           vec3 R=reflect(-V,N); R.y=abs(R.y);
           vec3 refl=skyCol(R)+vec3(1.0,0.9,0.72)*pow(max(dot(R,uSun),0.0),600.0)*7.0*smoothstep(-0.05,0.05,uSun.y);
-          vec3 deep=${AMZ ? 'vec3(0.07,0.11,0.07)' : NE ? 'vec3(0.02,0.25,0.33)' : 'vec3(0.03,0.19,0.24)'}*(0.1+0.9*uDay);
+          vec3 deep=${AMZ ? 'vec3(0.07,0.11,0.07)' : NE ? 'vec3(0.02,0.25,0.33)' : AC ? 'vec3(0.02,0.21,0.33)' : 'vec3(0.03,0.19,0.24)'}*(0.1+0.9*uDay);
 ` + WATER_TOP() + `
         } else {
           float cw=dot(-V,N);
@@ -910,7 +912,7 @@ function rayTex() {
 function dotTex() { return canvasTex(32, 32, (g) => { const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }, false); }
 
 // ======= pontos de pesca =======
-const SPOTS = AMZ ? spotsAmz() : NE ? spotsNe() : [
+const SPOTS = AMZ ? spotsAmz() : NE ? spotsNe() : AC ? spotsAc() : [
   { id: 'marina', name: 'Marina Balneário', x: 0, z: 690, type: 'marina', desc: 'Venda do pescado, loja e combustível.' },
   { id: 'botinas', name: 'Ilhas Botinas', x: 300, z: 196, r: 40, depth: '2–10 m', desc: 'Parcel raso e água clara. Muito sargo, garoupas pequenas e robalo de passagem.' },
   { id: 'laje', name: 'Laje Branca', x: LAJE.x, z: LAJE.z, r: 42, depth: '5–23 m', desc: 'Laje isolada no meio da baía, cheia de tocas. Garoupa, badejo, cardume de xaréu. Dizem que tem mero.' },
@@ -969,7 +971,7 @@ function addHole(R, a, spot) {
 function buildRocksAndDecor() {
   const r = mulberry(42);
   buildDeepSpots();
-  if (AMZ) buildRiverRocks(r); else if (NE) buildReefNe(r); else {
+  if (AMZ) buildRiverRocks(r); else if (NE) buildReefNe(r); else if (AC) buildRocksAc(r); else {
   // Laje Branca
   for (let i = 0; i < 90; i++) {
     const a = r() * TAU, d = Math.pow(r(), 0.75) * 44, x = LAJE.x + Math.cos(a) * d, z = LAJE.z + Math.sin(a) * d;
@@ -1038,7 +1040,7 @@ function buildRocksAndDecor() {
   groups.forEach((list, gi) => {
     chunked(geos[gi], mat, list.map(R => { const it = [R.x, R.y, R.z]; it.R = R; return it; }), (it, k, im) => { const R = it.R; e.set(rand(-0.15, 0.15), rand(0, TAU), rand(-0.15, 0.15)); q.setFromEuler(e); R.q = q.clone(); R.gi = gi; s.set(R.r, R.r * R.sy, R.r); pp.set(R.x, R.y, R.z); m4.compose(pp, q, s); im.setMatrixAt(k, m4); }, 300);
   });
-  if (AMZ) buildRiverWorld(); else if (NE) buildWorldNe(); else {
+  if (AMZ) buildRiverWorld(); else if (NE) buildWorldNe(); else if (AC) buildWorldAc(); else {
   buildWreck({ x: NAUF.x, z: NAUF.z, ry: 0.6, L: 34, spot: 'naufragio' });
   buildWreck({ x: CARG.x, z: CARG.z, ry: -0.45, L: 48, spot: 'cargueiro' });
   buildPlatform();
@@ -1087,7 +1089,7 @@ function buildRocksAndDecor() {
 
 // ================= terra: árvores, casas, píer, bóias =================
 function buildLand() {
-  if (AMZ) buildForestAmz(); else if (NE) buildCoastNe(); else {
+  if (AMZ) buildForestAmz(); else if (NE) buildCoastNe(); else if (AC) buildCoastAc(); else {
   const trees = [], houses = [];
   for (let i = 0; i < 26000 && trees.length < 5200; i++) {
     const x = rand(-1500, 3000), z = rand(-2600, 1300), h = H(x, z);
@@ -1616,13 +1618,13 @@ const POP_FORA_COSTA = [['olhete', 1, [2, 4], 0.5], ['sororoca', 1, [3, 5], 0.5]
 function spawnAll() {
   // só as espécies do destino atual
   for (const k of Object.keys(SPECIES)) if (spInRegion(k)) makePool(k, SPECIES[k].shape, fishTex(k), k === 'mero' || k === 'pirarucu' || SPECIES[k].shape === 'shark' ? 8 : k === 'atumrabino' ? 60 : 260);
-  const POPR = AMZ ? popAmz() : NE ? popNe() : POP;
+  const POPR = AMZ ? popAmz() : NE ? popNe() : AC ? popAc() : POP;
   for (const s of SPOTS) {
     const pop = POPR[s.id] || DEEP_POP[s.id]; if (!pop) continue;
     for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0, ng = nGroups(groups, densSpot()); g < ng; g++) if (Math.random() < chance) spawnGroup(s, key, Math.round(rand(a, b)), big);
   }
   for (const z of ZONES) {
-    const pop = AMZ ? POP_ZONE_AMZ : NE ? POP_ZONE_NE : z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
+    const pop = AMZ ? POP_ZONE_AMZ : NE ? POP_ZONE_NE : AC ? popZoneAc() : z.zone === 'laje' ? POP_LAJE : z.id.startsWith('zf') ? [...POP_ZONE, ...POP_FORA_COSTA] : POP_ZONE;
     for (const [key, groups, [a, b], chance = 1, big = 1] of pop) for (let g = 0, ng = nGroups(groups, densZone()); g < ng; g++) if (Math.random() < chance) spawnGroup(z, key, Math.round(rand(a, b)), big);
   }
 }
@@ -2086,7 +2088,7 @@ function drawMap() {
   const tmp = document.createElement('canvas'); tmp.width = tmp.height = N; tmp.getContext('2d').putImageData(img, 0, 0);
   g.imageSmoothingEnabled = true; g.drawImage(tmp, 0, 0, cv.width, cv.height);
   g.strokeStyle = 'rgba(255,255,255,.08)'; for (let i = 1; i < 8; i++) { g.beginPath(); g.moveTo(i * 45, 0); g.lineTo(i * 45, 360); g.moveTo(0, i * 45); g.lineTo(360, i * 45); g.stroke(); }
-  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = 'bold 11px system-ui'; g.fillText('N ↑', 8, 16); if (NE) { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ARRECIFES', 40, 200); g.fillText('COSTA DOS CORAIS', 115, 352); } else if (AMZ) { g.fillText('RIO TAPAJÓS →', 140, 150); g.fillText('FLORESTA', 40, 30); g.fillText('ALTER DO CHÃO', 120, 352); } else { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ILHA GRANDE', 70, 160); g.fillText('ANGRA DOS REIS', 215, 352); }
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = 'bold 11px system-ui'; g.fillText('N ↑', 8, 16); if (NE) { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ARRECIFES', 40, 200); g.fillText('COSTA DOS CORAIS', 115, 352); } else if (AC) { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ILHA DO FAROL', 250, 120); g.fillText('ARRAIAL DO CABO', 115, 352); } else if (AMZ) { g.fillText('RIO TAPAJÓS →', 140, 150); g.fillText('FLORESTA', 40, 30); g.fillText('ALTER DO CHÃO', 120, 352); } else { g.fillText('OCEANO ATLÂNTICO', 120, 24); g.fillText('ILHA GRANDE', 70, 160); g.fillText('ANGRA DOS REIS', 215, 352); }
   const box = $('mapBox');
   SPOTS.forEach(s => {
     const m = document.createElement('div'); m.className = 'mk' + (s.type === 'marina' ? ' m' : '') + (mapU(s.x) > 70 ? ' l' : ''); m.dataset.id = s.id;
@@ -2202,7 +2204,7 @@ function step(dt) {
   updateDiver(dt, T); rideTick(dt, T);
   updateGun(dt);
   updateFishes(dt, performance.now() / 1000);
-  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt); updateIntro(dt); updateRare2(dt); updateWorldScene(dt, T); updateStory(dt); updateConsole(dt); updateBoatLights(dt, T); updateShareBtn(dt); ecoDayRoll(); updateLegend(dt); updateEcon2();
+  updateComp(dt, T); updateLight(); updateRare(dt); checkAch(dt); updateTut(); updateHide(dt); updateMoreias(dt, T); updateBuddy(dt, T); updateFriends(dt, T); updateApnea(dt); updateApneaReal(dt); engineTick(dt); updateDolphins(dt, T); updateRays(dt, T); updateBoil(dt); updateEvents(dt); updateSand(dt); updateBirds(dt, T); updateScales(dt, T); updateArches(); updateEars(dt); updateAmazon(dt, T); updateNe(dt, T); updateAc(dt, T); updatePlatform(dt, T); updateOnline(dt, T); updateExtras(dt, T); updateHunt(dt); updateIntro(dt); updateRare2(dt); updateWorldScene(dt, T); updateStory(dt); updateConsole(dt); updateBoatLights(dt, T); updateShareBtn(dt); ecoDayRoll(); updateLegend(dt); updateEcon2();
   applyShake(dt);
 }
 function updateEnv(dt) {
@@ -2210,9 +2212,9 @@ function updateEnv(dt) {
   camUnder = c.y < sY - 0.02; camMurk = murkAt(c.x, c.z); updateTerrain(c); updateClock(started && !paused ? dt : 0);
   if (camUnder) {
     const k = clamp(-c.y / 28, 0, 1);
-    if (AMZ) _col.setRGB(lerp(0.15, 0.03, k), lerp(0.30, 0.08, k), lerp(0.19, 0.05, k)); else if (NE) _col.setRGB(lerp(0.07, 0.01, k), lerp(0.5, 0.15, k), lerp(0.56, 0.24, k)); else _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k));
+    if (AMZ) _col.setRGB(lerp(0.15, 0.03, k), lerp(0.30, 0.08, k), lerp(0.19, 0.05, k)); else if (NE) _col.setRGB(lerp(0.07, 0.01, k), lerp(0.5, 0.15, k), lerp(0.56, 0.24, k)); else if (AC) _col.setRGB(lerp(0.05, 0.01, k), lerp(0.44, 0.12, k), lerp(0.56, 0.24, k)); else _col.setRGB(lerp(0.10, 0.02, k), lerp(0.42, 0.12, k), lerp(0.48, 0.19, k));
     _col.lerp(MURKC, camMurk).multiplyScalar(0.06 + 0.94 * DAY.amb);
-    scene.fog.color.copy(_col); scene.fog.density = lerp(AMZ ? 0.075 : NE ? 0.03 : 0.042, AMZ ? 0.16 : 0.15, camMurk) / COND.vis;
+    scene.fog.color.copy(_col); scene.fog.density = lerp(AMZ ? 0.075 : NE ? 0.03 : AC ? 0.027 : 0.042, AMZ ? 0.16 : 0.15, camMurk) / COND.vis;
     scene.background = scene.fog.color; sky.visible = false; sun.intensity = lerp(1.3, 0.7, k) * (1 - camMurk * 0.4) * DAY.sun + 0.12 * DAY.moon; hemi.intensity = 0.65 * DAY.amb;
   } else { scene.fog.color.copy(HAZE); scene.fog.density = 0.0006 * (1 + COND.cloud * 0.8); scene.background = null; sky.visible = true; sun.intensity = 1.7 * DAY.sun + 0.13 * DAY.moon; hemi.intensity = 0.75 * DAY.amb; }
   waterMat.uniforms.uUnder.value = camUnder ? 1 : 0; waterMat.uniforms.uFogC.value.copy(scene.fog.color); waterMat.uniforms.uFogD.value = scene.fog.density;
@@ -2260,7 +2262,7 @@ async function init() {
   initRenderer(); sky = buildSky(); await yieldUI(); buildTerrain(); await yieldUI(); buildWater(); buildRocksAndDecor(); await yieldUI(); buildLand(); mergeMarina(); bakeShallow(); buildFX(); await yieldUI();
   DIVER = buildDiver(true); buildBoat(); buildDiveBuoy(); buildGun(gunById(SV.gun) || GUNS[0]); spawnAll(); await yieldUI(); buildLife(); initExtra(); await yieldUI();
   BOAT.pos.set(PIER.x + 14, 0, PIER.z1 - 6);
-  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); setupRide(); setupHudCompact(); setupBoatLights(); setupShare(); setupGyro(); $('menu').classList.add('live');
+  setupInput(); setupOpt(); buildMoreias(); setupSafeSave(); setupSealife(); setupSand(); setupScales(); if (!AMZ) buildBottoms(); setupAmazon(); setupNe(); setupAc(); setupOnline(); setupExtras(); setupHunt(); setupWeather(); setupLobby(); setupStory(); setupRide(); setupHudCompact(); setupBoatLights(); setupShare(); setupGyro(); $('menu').classList.add('live');
   $('playBtn').onclick = startGame;
   ON.ready = true;
   // ganchos para os testes automáticos (tests/smoke.js)
@@ -2320,7 +2322,7 @@ function buildLife() {
       SWARMS.push(sw);
     }
   }
-  for (const id of AMZ ? ['praia', 'lago', 'lago', 'igapo', 'canal'] : NE ? ['piscinas', 'piscinas', 'arrecife', 'cabecos', 'farol'] : ['jorge', 'laje', 'gipoia', 'lagoa', 'lagoa', 'castelhanos', 'cataguases']) { const s = spotById(id); const m = buildTurtle(); TURTLES.push({ m, spot: s, pos: new V3(s.x, H(s.x, s.z) + 3, s.z), vel: new V3(), tgt: new V3(), t: 0, yaw: 0, flap: 0, breathe: rand(30, 80) }); }
+  for (const id of AMZ ? ['praia', 'lago', 'lago', 'igapo', 'canal'] : NE ? ['piscinas', 'piscinas', 'arrecife', 'cabecos', 'farol'] : AC ? ['gruta', 'gruta', 'forno', 'porcos_ac', 'boqueirao'] : ['jorge', 'laje', 'gipoia', 'lagoa', 'lagoa', 'castelhanos', 'cataguases']) { const s = spotById(id); const m = buildTurtle(); TURTLES.push({ m, spot: s, pos: new V3(s.x, H(s.x, s.z) + 3, s.z), vel: new V3(), tgt: new V3(), t: 0, yaw: 0, flap: 0, breathe: rand(30, 80) }); }
   STR.line = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(40 * 3), 3)), new THREE.LineBasicMaterial({ color: 0xd8d0a0 }));
   STR.line.frustumCulled = false; scene.add(STR.line);
   if (!AMZ) { buildDecor2(); buildRockDetail(); }
@@ -3137,7 +3139,7 @@ function placeRig(r, pos, yaw, pitch, under, mv, kick) {
 
 // ---------- campeonato ----------
 const COMP = { on: false, t: 0, spot: null, bots: [], me: { n: 0, kg: 0 } };
-const BOT_DEF = AMZ ? [['Raimundo', 0x1b1e22], ['Jacira', 0x23304a], ['Seu Bené', 0x3b2b1e]] : NE ? [['Zé Jangadeiro', 0x1b1e22], ['Marinalva', 0x23304a], ['Cícero do Pontal', 0x3b2b1e]] : [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
+const BOT_DEF = AMZ ? [['Raimundo', 0x1b1e22], ['Jacira', 0x23304a], ['Seu Bené', 0x3b2b1e]] : NE ? [['Zé Jangadeiro', 0x1b1e22], ['Marinalva', 0x23304a], ['Cícero do Pontal', 0x3b2b1e]] : AC ? [['Tião do Forno', 0x1b1e22], ['Dandara', 0x23304a], ['Seu Valdir', 0x3b2b1e]] : [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
 const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && !defesoOf(f.key) && !f.legend && f.state !== 'hooked' && f.state !== 'dead';
 function startComp(id, duo, live) {
   const s = spotById(id); if (!s || COMP.on) return;
@@ -3389,7 +3391,7 @@ function rollCond() {
   SWELL.k = COND.swell; CU.uSwell.value = COND.swell; CU.uCloud.value = COND.cloud;
   rollFront(); rollWeather(); WX.day = SV.day;
 }
-const visM = () => Math.round(0.83 / ((AMZ ? 0.075 : NE ? 0.03 : 0.042) / COND.vis));
+const visM = () => Math.round(0.83 / ((AMZ ? 0.075 : NE ? 0.03 : AC ? 0.027 : 0.042) / COND.vis));
 const condTxt = () => `Visibilidade ~${visM()} m · ${AMZ ? `rio na ${season()}` : `ondas ${(0.55 * COND.swell).toFixed(1).replace('.', ',')} m`} · correnteza ${COND.cur < 0.85 ? 'fraca' : COND.cur < 1.2 ? 'moderada' : 'forte'} · ${COND.cloud > 0.5 ? 'nublado' : COND.cloud > 0.2 ? 'poucas nuvens' : 'céu limpo'} · ${wxTxt()}`;
 
 function updateClock(dt) {
@@ -3436,7 +3438,7 @@ function fishAct(key) { const k = smooth(-0.1, 0.35, DAY.el); return NOCT[key] ?
 // aba "Boletim do mar" na loja/marina
 function bulletinHTML() {
   return eventsHTML() + `<div class="it" style="margin-bottom:8px"><div><div class="n">Dia ${SV.day || 1} · ${hhmm(SV.tod || 7)}</div><div class="d">${condTxt()}</div></div></div>
-    <div class="list">${AMZ ? bulletinAmz() : NE ? bulletinNe() : `
+    <div class="list">${AMZ ? bulletinAmz() : NE ? bulletinNe() : AC ? bulletinAc() : `
     <div class="it"><div><div class="n">Visibilidade</div><div class="d">${COND.vis > 1.25 ? 'Água azul: dia de procurar peixe longe, no Parcel de Fora ou em Castelhanos.' : COND.vis < 0.8 ? 'Água turva: fique nos pontos rasos e abrigados, e leve lanterna.' : 'Água normal na baía.'}</div></div></div>
     <div class="it"><div><div class="n">Mar</div><div class="d">${COND.swell > 1.25 ? 'Ondulação grande: o lado de fora da Ilha Grande fica perigoso. Prefira a baía.' : 'Mar tranquilo para atravessar.'}</div></div></div>`}
     <div class="it"><div><div class="n">Esperar</div><div class="d">O peixe muda com a hora: ${AMZ ? 'de manhã o tucunaré caça na beira, à noite a traíra e o surubim saem.' : 'de manhã a garoupa sai da toca, no fim da tarde o robalo caça.'}</div></div>
@@ -4609,7 +4611,7 @@ function startBoil() {
     if (x < WB.x0 + 50 || x > WB.x1 - 50 || z < WB.z0 + 50 || z > WB.z1 - 50 || H(x, z) > -8) continue;
     const spot = { id: 'boil' + (++BOIL.n), x, z, r: 25, zone: 'boil' }; ZONES.push(spot);
     const sc = newSchool(spot); sc.c.set(x, -1.2, z); sc.boil = true; SCHOOLS.push(sc);
-    const preds = AMZ ? ['tucunare', 'tucunare', 'douradorio', 'douradorio', 'cachorra'] : NE ? ['xareu', 'cavala', 'cavala', 'bicuda', 'dourado'] : ['xareu', 'xareu', 'olhete', 'sororoca', 'enchova', 'bicuda'];
+    const preds = AMZ ? ['tucunare', 'tucunare', 'douradorio', 'douradorio', 'cachorra'] : NE ? ['xareu', 'cavala', 'cavala', 'bicuda', 'dourado'] : AC ? ['xareu', 'enchova', 'olhete', 'sororoca', 'bicuda'] : ['xareu', 'xareu', 'olhete', 'sororoca', 'enchova', 'bicuda'];
     for (let i = 0; i < 3; i++) spawnGroup(spot, pick(preds), Math.round(rand(3, 6)));
     Object.assign(BOIL, { on: true, x, z, t: rand(110, 160), sc, spot });
     const dir = ['norte', 'nordeste', 'leste', 'sudeste', 'sul', 'sudoeste', 'oeste', 'noroeste'][Math.round(((Math.atan2(x - P.pos.x, -(z - P.pos.z)) + TAU) % TAU) / (TAU / 8)) % 8];
@@ -4652,7 +4654,7 @@ const EVSPAWN = [
   { id: 'lua2', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'jorge', key: 'dentao', n: [1, 2], msg: 'Lua cheia: dentão caçando no costão da Jorge Grego.' },
   { id: 'frente', when: () => COND.frontOn, spot: 'foz', key: 'robalo', n: [3, 5], msg: 'Água mexida da frente fria: robalo entrou na foz!' },
   { id: 'atum', when: () => COND.vis > 1.15 && SV.tod >= 5.5 && SV.tod < 9, spot: 'plataforma', key: 'atumrabino', n: [4, 7], msg: 'Amanhecer de água azul: cardume de atum-rabino subiu na Plataforma de Fora!' },
-  ...evAmz(), ...evNe(),
+  ...evAmz(), ...evNe(), ...evAc(),
 ];
 let evT = 0;
 function updateEvents(dt) {
@@ -4670,6 +4672,7 @@ function eventsHTML() {
   const ev = [];
   if (AMZ) return eventsAmzHTML();
   if (NE) return eventsNeHTML();
+  if (AC) return eventsAcHTML();
   if (weekend()) ev.push(['Torneio do fim de semana', 'Campeonatos pagam o dobro hoje.']);
   if (fullMoon()) ev.push(['Lua cheia', 'À noite, chernes e dentões saem para caçar na Laje Branca e na Jorge Grego.']);
   if (COND.vis > 1.3) ev.push(['Água azul', 'Albacora e dourado subindo no Parcel de Fora e no Aventureiro.']);
@@ -5137,8 +5140,9 @@ const DESTS = [
   { id: 'cv', name: 'Costa Verde (RJ)', desc: 'Baía da Ilha Grande: costões, lajes, naufrágios e mar aberto.' },
   { id: 'amz', name: 'Amazonas · Baixo Tapajós (PA)', desc: 'Rio de água clara, igapó, lago de várzea e água preta. Tucunaré, dourado, cachorra, pirarucu.' },
   { id: 'ne', name: 'Costa dos Corais (AL/PE)', desc: 'Água azul e quente: piscinas naturais, arrecifes, cabeços de coral, naufrágio e parcel. Guaiúba, cavala, pargo e tubarões.', price: 4000, flag: 'neUnlocked' },
+  { id: 'ac', name: 'Arraial do Cabo (RJ)', desc: 'Água fria e cristalina da ressurgência: paredões da Ilha do Farol, Boqueirão, Pedra Vermelha e naufrágio. Olho-de-boi, enchova, garoupa e badejo.', price: 3500, flag: 'acUnlocked' },
 ];
-const marinaName = () => AMZ ? 'Porto da Vila do Tapajós' : NE ? 'Marina do Pontal' : 'Marina Balneário';
+const marinaName = () => AMZ ? 'Porto da Vila do Tapajós' : NE ? 'Marina do Pontal' : AC ? 'Marina da Praia dos Anjos' : 'Marina Balneário';
 // preço e marca de liberação de cada destino (a Costa Verde já vem liberada)
 const destPrice = d => d.id === 'amz' ? TRIP_PRICE : d.price || 0;
 const destOwned = d => d.id === 'cv' || (d.id === 'amz' ? SV.amzUnlocked : SV[d.flag]);
@@ -5154,9 +5158,9 @@ function travelTo(id) {
   const d = DESTS.find(x => x.id === id); if (!d) return;
   if (!destOwned(d)) { const pr = destPrice(d); if (SV.money < pr) return; SV.money -= pr; if (id === 'amz') SV.amzUnlocked = true; else SV[d.flag] = true; }
   if (P.stringer.length) { SV.cooler.push(...P.stringer); P.stringer = []; }
-  SV.region = id; SV.dest = { amz: 'praia', ne: 'arrecife' }[id] || 'botinas'; SV.tod = 7; SV.day = (SV.day || 1) + TRIP_DAYS; SV.fuel = Math.max(SV.fuel, 40);
+  SV.region = id; SV.dest = { amz: 'praia', ne: 'arrecife', ac: 'forno' }[id] || 'botinas'; SV.tod = 7; SV.day = (SV.day || 1) + TRIP_DAYS; SV.fuel = Math.max(SV.fuel, 40);
   save(); SAVE_LOCK = true;
-  $('black').style.opacity = 1; toast({ amz: 'Embarcando para Santarém e Alter do Chão...', ne: 'Voando para Maceió e seguindo para a Costa dos Corais...' }[id] || 'Voltando para Angra dos Reis...', 3);
+  $('black').style.opacity = 1; toast({ amz: 'Embarcando para Santarém e Alter do Chão...', ne: 'Voando para Maceió e seguindo para a Costa dos Corais...', ac: 'Pegando a estrada para a Região dos Lagos, rumo a Arraial do Cabo...' }[id] || 'Voltando para Angra dos Reis...', 3);
   setTimeout(() => location.reload(), 900);
 }
 function bindTravel(on) { on('[data-trip]', b => travelTo(b.dataset.trip)); }
@@ -5513,7 +5517,7 @@ function buildCoastNe() {
 }
 
 // ---------- área de preservação e tubarão cabeça-chata ----------
-function noTakeAt(p) { if (!NE) return false; const S = spotById('piscinas'); return !!S && Math.hypot(p.x - S.x, p.z - S.z) < 170; }
+function noTakeAt(p) { if (AC) return noTakeAc(p); if (!NE) return false; const S = spotById('piscinas'); return !!S && Math.hypot(p.x - S.x, p.z - S.z) < 170; }
 let ntTip = false, sharkT = 0;
 function updateNe(dt, t) {
   if (!NE) return;
@@ -5639,6 +5643,164 @@ function updatePlatform(dt, t) {
   if (!PLAT.warned && near < 400 && started) { PLAT.warned = true; toast('Plataforma de Fora: pesca oceânica em água azul, ~85 m de fundo. Atum-rabino, anchova e olho-de-boi rodando as pernas.', 6, 'gold'); toast('Na vida real é proibido navegar a menos de 500 m de plataformas de petróleo (zona de segurança). Esta plataforma é fictícia.', 7); }
   // ronco grave dos geradores perto da plataforma
   if (near < 260 && AU.ctx && AU.ctx.state === 'running' && (PLAT.humT = (PLAT.humT || 0) - dt) <= 0) { PLAT.humT = 1.9; AU.tone(48, 46, 2.0, 0.05 * (1 - near / 260), 'sawtooth'); }
+}
+
+// ================= destino Arraial do Cabo (RJ): água fria e muito clara, paredões da Ilha do Farol e o Boqueirão =================
+// a costa corre de oeste para leste ao sul (z positivo); a Ilha do Farol fica ao norte-leste, separada do Pontal pelo Boqueirão.
+// a ressurgência traz água fria e transparente do fundo: visibilidade alta, peixe pelágico encostando no costão.
+function acCoast(x) { return 560 + 50 * Math.sin(x * 0.003) + 20 * Math.sin(x * 0.013 + 1); }
+function acFarol() { return { x: 900, z: -340 }; }  // Ilha do Farol (Ilha de Cabo Frio), alongada leste-oeste
+function acPorcos() { return { x: -420, z: -120 }; }
+function acPedra() { return { x: -80, z: -720 }; } // Pedra Vermelha (laje submersa)
+// distância até o segmento do Pontal do Atalaia (da praia até a ponta, de frente para a ilha)
+function acPontal(x, z) { const ax = 380, az = acCoast(380) - 10, bx = 470, bz = -40, dx = bx - ax, dz = bz - az, t = clamp(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz), 0, 1); return Math.hypot(x - ax - dx * t, z - az - dz * t); }
+function Hac(x, z) {
+  const s = acCoast(x) - z;
+  let h;
+  if (s < 0) h = 1.4 + 8 * smooth(-10, -140, s) * (0.6 + 0.8 * fbm(x * 0.008, z * 0.008, 3)) + 55 * smooth(-160, -520, s) * (0.5 + 0.5 * fbm(x * 0.005 + 3, z * 0.005, 3));
+  else if (s < 70) h = lerp(1.2, -3, smooth(0, 70, s));
+  else if (s < 950) h = lerp(-3, -16, smooth(70, 950, s)) + 1.6 * fbm(x * 0.012 + 4, z * 0.012, 3) + 0.5 * fbm(x * 0.06, z * 0.06, 2);
+  else h = lerp(-16, -42, smooth(950, 1650, s)) + 1.5 * fbm(x * 0.01, z * 0.01, 3);
+  // Ilha do Farol: morro alto, paredão que cai direto para ~26 m
+  const F = acFarol(), df = Math.hypot((x - F.x) / 1.55, z - F.z) * (1 + 0.12 * fbm(x * 0.01, z * 0.01, 2));
+  if (df < 255) h = df < 215 ? 4 + 112 * (1 - (df / 215) ** 2) + 3 * fbm(x * 0.04, z * 0.04, 2) : lerp(2, -26 + 2 * fbm(x * 0.05, z * 0.05, 2), smooth(215, 252, df));
+  else if (df < 400) h = Math.min(h, lerp(-26, h, smooth(255, 400, df)));
+  // Pontal do Atalaia: crista de pedra saindo da praia em direção à ilha (o Boqueirão é o canal entre os dois)
+  const dp = acPontal(x, z); if (dp < 70) h = Math.max(h, lerp(26 * (1 - dp / 40) + 3 * fbm(x * 0.05, z * 0.05, 2), h, smooth(28, 70, dp)));
+  // Ilha dos Porcos
+  const P = acPorcos(), dq = Math.hypot(x - P.x, z - P.z); if (dq < 150) h = Math.max(h, lerp(34 * (1 - dq / 55) + 2 * fbm(x * 0.05, z * 0.05, 2), h, smooth(40, 150, dq)));
+  // Pedra Vermelha: pináculo que sobe até ~9 m
+  const V = acPedra(), dv = Math.hypot(x - V.x, z - V.z); if (dv < 90) h = Math.max(h, lerp(-9 + 1.5 * fbm(x * 0.08, z * 0.08, 2), h, smooth(10, 90, dv)));
+  return h;
+}
+function uwAc() { return `  float murk=0.0;
+  vec3 ab=vec3(exp(-dp*0.1),exp(-dp*0.022),exp(-dp*0.024));
+  gl_FragColor.rgb*=ab;`; }
+function pierAc() { const zs = acCoast(0); for (let z = zs; z > zs - 260; z -= 2) if (Hac(0, z) < -2.6) return { x: 0, z0: Math.max(z + 60, zs + 6), z1: z }; return { x: 0, z0: zs + 6, z1: zs - 90 }; }
+function spotsAc() {
+  const c = x => acCoast(x), F = acFarol();
+  return [
+    { id: 'anjos', name: 'Marina da Praia dos Anjos', x: PIER.x, z: PIER.z1 - 10, type: 'marina', desc: 'Porto dos pescadores de Arraial: venda do pescado, loja, combustível e viagens.' },
+    { id: 'forno', name: 'Praia do Forno', x: -230, z: c(-230) - 140, r: 45, depth: '3–10 m', desc: 'Costão abrigado e água clarinha: sargo, salema, marimbá, budião e frade. Ótimo para começar.' },
+    { id: 'porcos_ac', name: 'Ilha dos Porcos', x: acPorcos().x, z: acPorcos().z + 80, r: 50, depth: '5–18 m', desc: 'Costão da ilha cheio de tocas: garoupa, badejo, sargo e cangulo.' },
+    { id: 'boqueirao', name: 'Boqueirão', x: 520, z: -200, r: 50, depth: '8–22 m', cur: [0.38, 0.08], desc: 'Canal entre o Pontal e a Ilha do Farol: correnteza forte e peixe de passagem. Olho-de-boi, xaréu, enchova e sororoca.' },
+    { id: 'gruta', name: 'Gruta Azul', x: F.x + 390, z: F.z + 60, r: 45, depth: '4–15 m', noTake: true, desc: 'Área de preservação: SÓ FOTO. Gruta de água azul-turquesa no paredão da ilha, com tartarugas e cardumes.' },
+    { id: 'cherne_ac', name: 'Saco do Cherne', x: F.x - 230, z: F.z - 230, r: 50, depth: '15–28 m', desc: 'Pé do paredão, fundo de pedra grande: garoupa, badejo e cherne nas tocas fundas.' },
+    { id: 'pedravermelha', name: 'Pedra Vermelha', x: acPedra().x, z: acPedra().z, r: 50, depth: '9–25 m', desc: 'Pináculo isolado no azul. Olho-de-boi, enchova, bicuda e dourado rondando a pedra.' },
+    { id: 'farol_fora', name: 'Paredão do Farol', x: F.x + 170, z: F.z - 280, r: 60, depth: '18–40 m', cur: [0.42, -0.15], desc: 'Lado de fora da ilha, mar aberto batendo no paredão: albacora, dourado e olho-de-boi grande. Correnteza e água fria.' },
+    { id: 'naufragio_ac', name: 'Naufrágio do Inglês', x: 160, z: -260, r: 45, depth: '12–20 m', desc: 'Casco de ferro de um cargueiro antigo: garoupas, badejos e cardume de cocoroca dentro das chapas.' },
+  ];
+}
+function noTakeAc(p) { const S = spotById('gruta'); return !!S && Math.hypot(p.x - S.x, p.z - S.z) < 110; }
+
+// ---------- peixes: os da Costa Verde que também vivem em Arraial ----------
+for (const k of ['sargo', 'marimba', 'salema', 'budiao', 'frade', 'garoupa', 'badejo', 'cherne', 'cangulo', 'xareu', 'enchova', 'sororoca', 'olhodeboi', 'bicuda', 'dourado', 'albacora', 'olhete', 'pampo', 'cocoroca', 'mero']) if (SPECIES[k]) SPECIES[k].regs = [...new Set([...(SPECIES[k].regs || ['cv']), 'ac'])];
+function popAc() {
+  return {
+    forno: [['sargo', 4, [4, 8]], ['salema', 3, [6, 10]], ['marimba', 3, [5, 9]], ['budiao', 3, [1, 3]], ['frade', 2, [1, 2]], ['garoupa', 2, [1, 1]], ['cocoroca', 2, [6, 10]]],
+    porcos_ac: [['garoupa', 5, [1, 1]], ['badejo', 3, [1, 1]], ['sargo', 3, [4, 8]], ['cangulo', 3, [1, 3]], ['salema', 2, [6, 10]], ['xareu', 2, [3, 6]], ['budiao', 2, [1, 2]]],
+    boqueirao: [['olhodeboi', 4, [1, 3], 1, 1.2], ['xareu', 4, [3, 7]], ['enchova', 4, [3, 7]], ['sororoca', 3, [2, 5]], ['olhete', 3, [2, 5]], ['bicuda', 2, [1, 3]], ['garoupa', 2, [1, 1]]],
+    gruta: [['frade', 3, [1, 2]], ['budiao', 3, [1, 3]], ['salema', 3, [6, 10]], ['sargo', 2, [4, 7]], ['marimba', 2, [5, 9]]],
+    cherne_ac: [['garoupa', 5, [1, 1], 1, 1.25], ['badejo', 4, [1, 1], 1, 1.2], ['cherne', 3, [1, 1], 0.9], ['mero', 1, [1, 1], 0.5], ['cangulo', 2, [1, 3]], ['xareu', 2, [3, 6]]],
+    pedravermelha: [['olhodeboi', 4, [1, 3], 1, 1.25], ['enchova', 3, [3, 7]], ['bicuda', 3, [1, 3]], ['dourado', 3, [2, 5]], ['olhete', 3, [2, 5]], ['xareu', 2, [3, 6]], ['garoupa', 2, [1, 1]]],
+    farol_fora: [['albacora', 3, [3, 6], 0.8], ['dourado', 3, [2, 5]], ['olhodeboi', 4, [1, 3], 1, 1.35], ['enchova', 3, [3, 7]], ['bicuda', 2, [1, 3]], ['sororoca', 2, [2, 5]]],
+    naufragio_ac: [['garoupa', 4, [1, 1], 1, 1.2], ['badejo', 3, [1, 1]], ['cocoroca', 4, [8, 14]], ['cherne', 1, [1, 1], 0.7], ['xareu', 2, [3, 6]], ['cangulo', 2, [1, 3]]],
+  };
+}
+function popZoneAc() { return [['sargo', 1, [4, 7], 0.8], ['salema', 1, [5, 9], 0.7], ['garoupa', 2, [1, 1], 0.8], ['budiao', 1, [1, 2], 0.6], ['xareu', 1, [3, 5], 0.4], ['cangulo', 1, [1, 2], 0.6], ['enchova', 1, [3, 5], 0.35]]; }
+
+// ---------- mundo: costões, paredão, pontal, laje e naufrágio ----------
+function acRing(cx, cz, sx, n, seed, holeChance, spotNear) {
+  const r = mulberry(seed);
+  for (let k = 0; k < n; k++) {
+    const a = r() * TAU, ca = Math.cos(a) * sx, sa = Math.sin(a); let shore = null;
+    for (let d = 10; d < 400; d += 2) if (H(cx + ca * d, cz + sa * d) < -1.2) { shore = d; break; }
+    if (shore == null) continue;
+    const dd = shore + Math.pow(r(), 1.5) * 34, x = cx + ca * dd, z = cz + sa * dd, h = H(x, z); if (h > -1) continue;
+    const rad = lerp(4.6, 1.1, (dd - shore) / 34) * (0.55 + r() * 0.7), R = addRock(x, h + rad * 0.25, z, rad, spotNear(x, z));
+    if (rad > 2.2 && r() < holeChance) addHole(R, a + Math.PI + rand(-0.6, 0.6), R.spot);
+  }
+}
+function buildRocksAc(r) {
+  fitSpot('forno', 3, 10); fitSpot('porcos_ac', 5, 18); fitSpot('boqueirao', 8, 22); fitSpot('gruta', 4, 15); fitSpot('cherne_ac', 15, 28); fitSpot('pedravermelha', 9, 25); fitSpot('farol_fora', 18, 40); fitSpot('naufragio_ac', 12, 20);
+  const spotNear = (x, z) => { let b = null, bd = 150; for (const s of SPOTS) if (s.r) { const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; b = s.id; } } return b; };
+  const F = acFarol(), P = acPorcos(), V = acPedra();
+  acRing(F.x, F.z, 1.55, 1900, 301, 0.55, spotNear);   // paredão da Ilha do Farol, todo em volta
+  acRing(P.x, P.z, 1, 320, 302, 0.5, spotNear);         // Ilha dos Porcos
+  // Pontal do Atalaia: pedras dos dois lados da crista
+  for (let i = 0; i < 260; i++) { const t = r(), x = lerp(380, 470, t) + (r() - 0.5) * 90, z = lerp(acCoast(380) - 10, -40, t) + (r() - 0.5) * 90, h = H(x, z); if (h > -1.2 || h < -20) continue; const rad = 1.2 + r() * 3.4, R = addRock(x, h + rad * 0.25, z, rad, spotNear(x, z)); if (rad > 2.6 && r() < 0.4) addHole(R, r() * TAU, R.spot); }
+  // Pedra Vermelha: monte de pedras com tocas
+  for (let i = 0; i < 110; i++) { const a = r() * TAU, d = Math.pow(r(), 0.75) * 55, x = V.x + Math.cos(a) * d, z = V.z + Math.sin(a) * d, rad = lerp(5, 1.2, d / 55) * (0.6 + r() * 0.7), R = addRock(x, H(x, z) + rad * 0.25, z, rad, 'pedravermelha'); if (rad > 2.4 && r() < 0.5) addHole(R, r() * TAU, 'pedravermelha'); }
+  // costão da praia (Forno e arredores)
+  for (let x = WB.x0 + 40; x < 380; x += 4.5) { if (r() < 0.55) continue; const z0 = acCoast(x); let z = z0; for (let i = 0; i < 60 && H(x, z) > -1.2; i++) z -= 3; z -= r() * 14; const h = H(x, z); if (h > -1 || h < -9) continue; const rad = 0.9 + r() * 2.2; addRock(x, h + rad * 0.25, z, rad, spotNear(x, z)); }
+  // zonas de pesca no costão da ilha e da praia
+  for (let k = 0; k < 12; k++) { const a = k / 12 * TAU, x = F.x + Math.cos(a) * 1.55 * 285, z = F.z + Math.sin(a) * 285, h = H(x, z); if (h < -6 && SPOTS.every(s => Math.hypot(s.x - x, s.z - z) > 110)) ZONES.push({ id: 'zfa' + k, x, z, r: 40, zone: 'costao' }); }
+  for (let x = WB.x0 + 120; x < 360; x += 190) { const z = acCoast(x) - 110, h = H(x, z); if (h < -3 && SPOTS.every(s => Math.hypot(s.x - x, s.z - z) > 110)) ZONES.push({ id: 'zpr' + Math.round(x), x, z, r: 40, zone: 'costao' }); }
+}
+function buildWorldAc() { const W = spotById('naufragio_ac'); buildWreck({ x: W.x, z: W.z, ry: -0.7, L: 38, spot: 'naufragio_ac' }); }
+// terra: dunas brancas, restinga, casas da vila e o farol no alto da ilha
+const ACFX = { lamp: null, beam: null };
+function buildCoastAc() {
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new V3(), pp = new V3(), bush = [], houses = [];
+  for (let i = 0; i < 40000 && bush.length < 2600; i++) {
+    const x = rand(WB.x0 - 200, WB.x1 + 200), z = rand(-480, 1300), h = H(x, z);
+    if (h < 1.6 || (Math.abs(x - PIER.x) < 22 && z < PIER.z0 + 12)) continue;
+    if (h > 3 || Math.random() < 0.5) bush.push([x, h, z]);
+  }
+  for (let i = 0; i < 8000 && houses.length < 70; i++) { const x = rand(-480, 380), z = acCoast(x) + rand(35, 260), h = H(x, z); if (h > 1.5 && h < 30 && Math.abs(x - PIER.x) > 22) houses.push([x, h, z]); }
+  // restinga: arbustos baixos e arredondados (vento forte do cabo)
+  const bG = new THREE.IcosahedronGeometry(1.6, 0); bG.scale(1.4, 0.7, 1.4); bG.translate(0, 0.5, 0);
+  const bIM = new THREE.InstancedMesh(bG, new THREE.MeshLambertMaterial({ color: 0xffffff }), bush.length);
+  bush.forEach((t, i) => { const k = rand(0.6, 1.8); s.set(k, k * rand(0.7, 1.2), k); pp.set(t[0], t[1] - 0.3, t[2]); q.setFromAxisAngle(new V3(0, 1, 0), rand(0, TAU)); m4.compose(pp, q, s); bIM.setMatrixAt(i, m4); bIM.setColorAt(i, new THREE.Color().setHSL(rand(0.22, 0.3), 0.35, rand(0.2, 0.32))); });
+  scene.add(bIM); LAND.push(bIM);
+  const hG = new THREE.BoxGeometry(6, 3.6, 7); hG.translate(0, 1.8, 0); const rG = new THREE.ConeGeometry(5, 2.2, 4); rG.rotateY(Math.PI / 4); rG.translate(0, 4.7, 0);
+  const HC = [0xffffff, 0xf4f0e4, 0x9fd4e8, 0xf6d48a, 0xe8b0a8, 0xb8e0c0];
+  const hIM = new THREE.InstancedMesh(hG, new THREE.MeshLambertMaterial({ color: 0xffffff }), houses.length), rIM = new THREE.InstancedMesh(rG, new THREE.MeshLambertMaterial({ color: 0xb4532a }), houses.length);
+  houses.forEach((t, i) => { const k = rand(0.8, 1.3); q.setFromAxisAngle(new V3(0, 1, 0), rand(-0.3, 0.3)); s.set(k, k, k); pp.set(t[0], t[1] - 0.3, t[2]); m4.compose(pp, q, s); hIM.setMatrixAt(i, m4); rIM.setMatrixAt(i, m4); hIM.setColorAt(i, new THREE.Color(HC[i % HC.length])); });
+  scene.add(hIM, rIM); LAND.push(hIM, rIM);
+  // o farol no alto da ilha: torre branca e lanterna que acende à noite
+  const F = acFarol(), fy = H(F.x, F.z), g = new THREE.Group(); g.position.set(F.x, fy - 1, F.z);
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3.2, 18, 12), new THREE.MeshLambertMaterial({ color: 0xf6f6f2 })); tower.position.y = 9; g.add(tower);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(2.45, 2.6, 2.4, 12), new THREE.MeshLambertMaterial({ color: 0xc8302a })); band.position.y = 13; g.add(band);
+  ACFX.lamp = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 2.4, 10), new THREE.MeshStandardMaterial({ color: 0xfff4c8, emissive: 0xffe9a0, emissiveIntensity: 0.2 })); ACFX.lamp.position.y = 19.4; g.add(ACFX.lamp);
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(2.2, 2, 10), new THREE.MeshLambertMaterial({ color: 0xc8302a })); cap.position.y = 21.6; g.add(cap);
+  ACFX.beam = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex(), color: 0xfff0b0, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false })); ACFX.beam.position.y = 19.4; ACFX.beam.scale.setScalar(0.1); g.add(ACFX.beam);
+  scene.add(g);
+}
+function updateAc(dt, t) {
+  if (!AC || !ACFX.lamp) return;
+  // o farol pisca à noite (um lampejo a cada 10 s, visível de longe)
+  const night = clamp((0.5 - DAY.amb) * 3, 0, 1), flash = Math.max(0, Math.sin(t * TAU / 10) * 4 - 3);
+  ACFX.lamp.material.emissiveIntensity = 0.2 + night * (0.6 + flash * 1.5);
+  const d = camera.position.distanceTo(ACFX.beam.getWorldPosition(_t1));
+  ACFX.beam.visible = night > 0.05; ACFX.beam.scale.setScalar(night * (6 + flash * 18) * clamp(d / 400, 0.5, 4));
+}
+
+// ---------- textos, eventos e chegada ----------
+function evAc() {
+  return [
+    { reg: 'ac', id: 'ressur_ac', when: () => COND.vis > 1.25, spot: 'farol_fora', key: 'olhodeboi', n: [3, 6], msg: 'Ressurgência: a água fria e azul subiu no Paredão do Farol e o olho-de-boi encostou!' },
+    { reg: 'ac', id: 'manha_ac', when: () => SV.tod >= 6 && SV.tod < 10, spot: 'boqueirao', key: 'enchova', n: [4, 8], msg: 'Maré virando de manhã: cardume de enchova passando no Boqueirão.' },
+    { reg: 'ac', id: 'lua_ac', when: () => fullMoon() && (SV.tod >= 19 || SV.tod < 5), spot: 'cherne_ac', key: 'badejo', n: [1, 2], msg: 'Lua cheia: badejos grandes saíram das tocas no Saco do Cherne.' },
+  ];
+}
+function eventsAcHTML() {
+  const ev = [];
+  if (weekend()) ev.push(['Torneio do fim de semana', 'Campeonatos pagam o dobro hoje.']);
+  ev.push(['Maré', 'De manhã a maré vira e a enchova passa no Boqueirão.']);
+  if (fullMoon()) ev.push(['Lua cheia', 'À noite, badejos grandes no Saco do Cherne.']);
+  if (COND.vis > 1.25) ev.push(['Ressurgência', 'Água fria e azul: olho-de-boi e dourado no Paredão do Farol e na Pedra Vermelha.']);
+  return `<div class="it" style="margin-bottom:8px"><div><div class="n">${weekday()} · eventos do dia</div><div class="d">${ev.map(([n, d]) => `<b>${n}:</b> ${d}`).join('<br>')}</div></div></div>`;
+}
+function bulletinAc() {
+  return `<div class="it"><div><div class="n">Visibilidade</div><div class="d">${COND.vis > 1.25 ? 'Ressurgência: água fria e cristalina, mais de 20 m de visibilidade. Dia de ir no Paredão do Farol.' : COND.vis < 0.8 ? 'Vento sul mexeu a água: fique na Praia do Forno e na Ilha dos Porcos.' : 'Água azul e fria, boa em todo lugar.'}</div></div></div>
+    <div class="it"><div><div class="n">Mar</div><div class="d">${COND.swell > 1.25 ? 'Mar grande batendo no paredão de fora: cuidado no Boqueirão e no Paredão do Farol.' : 'Mar tranquilo por dentro da ilha.'}</div></div></div>
+    <div class="it"><div><div class="n">Regras</div><div class="d">A Gruta Azul é área de preservação: só foto. Mero é protegido. Na vida real, Arraial é Reserva Extrativista Marinha e a pesca sub tem regras próprias: informe-se antes.</div></div></div>`;
+}
+function setupAc() {
+  if (!AC) return;
+  $('menuReg').textContent = 'PESCA SUB · ARRAIAL DO CABO'; $('menuTag').textContent = 'Apneia na água fria e cristalina do cabo'; $('mapTitle').textContent = 'Carta náutica · Arraial do Cabo';
+  if (!SV.acVisited) { SV.acVisited = true; save(); setTimeout(() => { toast('Bem-vindo a Arraial do Cabo! A ressurgência traz água fria e muito clara: dá para ver o peixe de longe, e ele também vê você.', 7, 'gold'); toast('Na vida real, Arraial é Reserva Extrativista Marinha: a pesca subaquática tem regras próprias. Informe-se antes.', 7); }, 1500); }
 }
 
 // ================= online (Supabase): login anônimo, save na nuvem, amigos por código, amigo ao vivo e desafio =================
@@ -5779,7 +5941,7 @@ function wsMsg(m) {
   if (m.event === 'phx_reply' && m.ref === '1') { if (m.payload && m.payload.status === 'ok') { ON.joined = true; ON.tJoin = performance.now() - ON.t0; wsTrack(); if (ON.ready) lbResync(); } return; }
   if (m.event === 'presence_state') { ON.online = {}; presenceMeta(m.payload, (k, v) => { if (k !== ON.s.uid) ON.online[k] = v; }); return; }
   if (m.event === 'presence_diff') {
-    presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; lbFriendOnline(k); if (LB.open) lbRender(); if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
+    presenceMeta(m.payload.joins || {}, (k, v) => { if (k === ON.s.uid) return; const was = ON.online[k]; ON.online[k] = v; lbFriendOnline(k); if (LB.open) lbRender(); if (!was && isFriend(k)) toast(`${v.name} entrou no jogo${v.region === REGION ? '' : ' (' + (({ amz: 'no Amazonas', ne: 'na Costa dos Corais', ac: 'em Arraial do Cabo' }[v.region] || 'na Costa Verde')) + ')'}.`, 3); });
     presenceMeta(m.payload.leaves || {}, k => { if (ON.online[k] && isFriend(k)) toast(`${ON.online[k].name} saiu do jogo.`, 2.5); delete ON.online[k]; dropRemote(k); }); if (LB.open) lbRender();
     if (shopTab === 'online' && !$('marinaPanel').classList.contains('hide')) renderShop();
     return;
@@ -5919,7 +6081,7 @@ function onlineHTML() {
     <div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><button class="btn alt" id="onLogin">ENTRAR (OUTRO APARELHO)</button><button class="btn gold" id="onProtect">PROTEGER ESTA CONTA</button></div></div>`;
   h += `<div class="n" style="margin:6px 0">Amigos online (${ON.friends.length})</div><div class="list">` + (ON.friends.length ? ON.friends.map(f => {
     const o = ON.online[f.id], here = o && o.region === REGION;
-    const where = o ? (here ? '🟢 jogando no mesmo destino' : `🟡 jogando ${({ amz: 'no Amazonas', ne: 'na Costa dos Corais' }[o.region] || 'na Costa Verde')}`) : '⚪ offline';
+    const where = o ? (here ? '🟢 jogando no mesmo destino' : `🟡 jogando ${({ amz: 'no Amazonas', ne: 'na Costa dos Corais', ac: 'em Arraial do Cabo' }[o.region] || 'na Costa Verde')}`) : '⚪ offline';
     return `<div class="it"><span class="av" style="background:#7a2a2a">${f.name[0]}</span><div style="flex:1"><div class="n">${f.name} <span class="d">· Nv ${f.level || 1}</span></div><div class="d">${where}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${here ? `<button class="btn" data-ongo="${f.id}">IR ATÉ</button><button class="btn alt" data-onride="${f.id}" ${RIDE.on ? 'disabled' : ''}>🚤 CARONA</button><button class="btn gold" data-onchal="${f.id}" ${COMP.on ? 'disabled' : ''}>DESAFIAR</button><button class="btn gold" data-onduo="${f.id}" ${COMP.on ? 'disabled' : ''}>DUPLA</button>` : ''}<button class="btn alt" data-ondel="${f.id}">✕</button></div></div>`;
   }).join('') : '<div class="it"><div class="d">Nenhum amigo ainda. Adicione pelo código.</div></div>') + '</div>';
@@ -6337,7 +6499,7 @@ function throwChum() {
   // os peixes em volta vêm ver
   for (const f of FISHES) if (f.alive && (f.state === 'wander' || f.state === 'alert') && f.pos.distanceTo(P.pos) < 30 && !f.sp.protected) { f.state = 'curious'; f.t = rand(10, 18); }
   // e chega um grupo novo atrás do cheiro
-  const opts = AMZ ? ['pacu', 'tambaqui', 'piranha', 'matrinxa', 'aracu'] : NE ? ['guaiuba', 'ariaco', 'saramunete', 'sargo', 'xareu'] : ['sargo', 'salema', 'cocoroca', 'marimba', 'xareu', 'canhanha'];
+  const opts = AMZ ? ['pacu', 'tambaqui', 'piranha', 'matrinxa', 'aracu'] : NE ? ['guaiuba', 'ariaco', 'saramunete', 'sargo', 'xareu'] : AC ? ['sargo', 'salema', 'marimba', 'cocoroca', 'xareu'] : ['sargo', 'salema', 'cocoroca', 'marimba', 'xareu', 'canhanha'];
   const z = { id: 'chum' + (++chumN), x: P.pos.x, z: P.pos.z, r: 12, zone: 'chum' }; ZONES.push(z);
   const k = pick(opts); spawnGroup(z, k, Math.round(rand(3, 7)));
   toast(`Engodo na água! O cheiro atrai peixe${AMZ && k === 'piranha' ? '... e piranha!' : '.'} Fique parado. (${SV.chum} restante${SV.chum === 1 ? '' : 's'})`, 3.5, 'gold');
@@ -6578,7 +6740,7 @@ function buildMarina() {
   // placa em arco na entrada do píer
   for (const s of [-1, 1]) box(0.3, 4.4, 0.3, X + s * (W + 0.4), Y + 2.2, plazaZ - 0.3, beam);
   box(2 * W + 1.4, 0.35, 0.35, X, Y + 4.3, plazaZ - 0.3, beam);
-  const arch = new THREE.Mesh(new THREE.PlaneGeometry(2 * W + 0.6, 1.3), new THREE.MeshBasicMaterial({ map: signTex(AMZ ? 'VILA DO TAPAJÓS' : NE ? 'MARINA DO PONTAL' : 'MARINA BALNEÁRIO', AMZ ? 'porto · Baixo Tapajós' : NE ? 'Costa dos Corais · Alagoas' : 'Angra dos Reis · Costa Verde'), side: THREE.DoubleSide }));
+  const arch = new THREE.Mesh(new THREE.PlaneGeometry(2 * W + 0.6, 1.3), new THREE.MeshBasicMaterial({ map: signTex(AMZ ? 'VILA DO TAPAJÓS' : NE ? 'MARINA DO PONTAL' : AC ? 'PRAIA DOS ANJOS' : 'MARINA BALNEÁRIO', AMZ ? 'porto · Baixo Tapajós' : NE ? 'Costa dos Corais · Alagoas' : AC ? 'Arraial do Cabo · Região dos Lagos' : 'Angra dos Reis · Costa Verde'), side: THREE.DoubleSide }));
   arch.position.set(X, Y + 3.5, plazaZ - 0.5); arch.rotation.y = Math.PI; scene.add(arch);
   // pontos onde as pessoas param: beira da ponta em T, pontas dos dedos, bancos da praça
   const views = [];
@@ -6907,7 +7069,7 @@ function bakeShallow() {
   const tex = new THREE.DataTexture(d, N, N, THREE.RGBAFormat); tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
   waterMat.uniforms.uShal.value = tex; waterMat.uniforms.uShalB.value.set(x0, z0, 1 / (x1 - x0), 1 / (z1 - z0)); SHAL.ms = performance.now() - t0;
 }
-const SHAL_COL = () => AMZ ? 'vec3(0.17,0.21,0.10)' : NE ? 'vec3(0.10,0.66,0.62)' : 'vec3(0.08,0.42,0.38)';
+const SHAL_COL = () => AMZ ? 'vec3(0.17,0.21,0.10)' : NE ? 'vec3(0.10,0.66,0.62)' : AC ? 'vec3(0.09,0.58,0.64)' : 'vec3(0.08,0.42,0.38)';
 
 // trecho do shader da água vista de cima: raso claro, espuma na beira e nas cristas, brilho do sol
 const WATER_TOP = () => `
@@ -7023,7 +7185,7 @@ function showWelcome(s) {
   const el = document.createElement('div'); el.id = 'welcome'; el.className = 'panel';
   const step = (ic, t, d) => `<div class="it" style="gap:12px;justify-content:flex-start;text-align:left"><span style="font-size:28px">${ic}</span><div><div class="n">${t}</div><div class="d">${d}</div></div></div>`;
   el.innerHTML = `<div class="card" style="max-width:520px">
-    <h2>Bem-vindo ao ${AMZ ? 'Tapajós' : NE ? 'Nordeste' : 'mar de Angra'}!</h2>
+    <h2>Bem-vindo ao ${AMZ ? 'Tapajós' : NE ? 'Nordeste' : AC ? 'Arraial do Cabo' : 'mar de Angra'}!</h2>
     <div class="sub">Você é mergulhador de pesca sub: desce no fôlego, escolhe o peixe e vende o que pescar.</div>
     <div class="list">${step('🚤', 'Pilote até o ponto', `Siga a seta laranja no topo até ${s ? `${s.name}, a ${Math.round(Math.hypot(s.x - BOAT.pos.x, s.z - BOAT.pos.z) / 10) * 10} m daqui` : 'o ponto de pesca'}.`)}
     ${step('🤿', 'Mergulhe e fique parado', 'Peixe tem medo de quem nada atrás dele. Parado no fundo, ele vem ver você.')}
@@ -7157,8 +7319,8 @@ function nearRockTarget(S, from, out) {
   out.set(x, h, z); return true;
 }
 // quantas vezes mais grupos: o Nordeste estava vazio; zonas de costão e laje ganham mais peixe
-const densSpot = () => NE ? 1.6 : AMZ ? 1.15 : 1.25;
-const densZone = () => NE ? 2.3 : AMZ ? 1.3 : 1.7;
+const densSpot = () => NE || AC ? 1.6 : AMZ ? 1.15 : 1.25;
+const densZone = () => NE || AC ? 2.3 : AMZ ? 1.3 : 1.7;
 const nGroups = (g, k) => { const n = g * k; return Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); };
 
 // ================= trilha por destino (só no menu), eco embaixo d'água e ondas =================
@@ -7374,6 +7536,7 @@ const RARE = { today: null, on: null, chk: 0, warned: false };
 const RARE_DEF = {
   cv: [['tubbaleia', ['fora', 'plataforma', 'lajefunda', 'aventureiro'], 0.2], ['manta', ['laje', 'fora', 'pedrameio', 'castelhanos'], 0.25], ['merogig', ['naufragio', 'cargueiro', 'rebocador'], 0.3]],
   ne: [['tubbaleia', ['parcel_ne', 'paredefunda', 'sueste'], 0.25], ['manta', ['parcel_ne', 'cabecos', 'paredefunda'], 0.3], ['merogig', ['naufragio_ne', 'cargueiro_ne'], 0.35]],
+  ac: [['manta', ['farol_fora', 'pedravermelha', 'boqueirao'], 0.3], ['tubbaleia', ['farol_fora', 'pedravermelha'], 0.15], ['merogig', ['naufragio_ac', 'cherne_ac'], 0.3]],
   amz: [['pirarucugig', ['lago', 'pocao', 'negro'], 0.6]],
 };
 const RARE_INFO = {
@@ -7499,10 +7662,11 @@ const LB = { pid: null, lead: null, members: [], dest: 'cv', spot: null, mode: '
 // pontos de cada destino (nomes fixos: os pontos dos outros destinos não estão carregados)
 const LB_SPOTS = {
   cv: [['botinas', 'Ilhas Botinas'], ['laje', 'Laje Branca'], ['jorge', 'Jorge Grego'], ['naufragio', 'Naufrágio'], ['aventureiro', 'Aventureiro'], ['cargueiro', 'Cargueiro'], ['fora', 'Parcel de Fora'], ['pedrameio', 'Pedra do Meio'], ['lajefunda', 'Laje Funda'], ['plataforma', 'Plataforma de Fora']],
+  ac: [['forno', 'Praia do Forno'], ['porcos_ac', 'Ilha dos Porcos'], ['boqueirao', 'Boqueirão'], ['cherne_ac', 'Saco do Cherne'], ['pedravermelha', 'Pedra Vermelha'], ['farol_fora', 'Paredão do Farol'], ['naufragio_ac', 'Naufrágio do Inglês']],
   ne: [['arrecife', 'Arrecife da Barra'], ['cabecos', 'Cabeços'], ['naufragio_ne', 'Naufrágio do Vapor'], ['parcel_ne', 'Parcel das Paredes'], ['farol', 'Farol'], ['paredefunda', 'Paredão Fundo'], ['sueste', 'Parcel do Sueste'], ['cargueiro_ne', 'Naufrágio do Cargueiro']],
   amz: [['praia', 'Praia'], ['igapo', 'Igapó'], ['canal', 'Canal do Tapajós'], ['lago', 'Lago Verde'], ['pedral', 'Pedral'], ['pocao', 'Poção do Tapajós']],
 };
-const LB_DEST = { cv: 'Costa Verde', ne: 'Costa dos Corais', amz: 'Amazonas' };
+const LB_DEST = { cv: 'Costa Verde', ne: 'Costa dos Corais', amz: 'Amazonas', ac: 'Arraial do Cabo' };
 const LB_MODES = [['livre', '🤿 Pesca livre', 'Todos no mesmo ponto, sem placar. Cada um vende o que pegar.'], ['desafio', '⚔️ Desafio 10 min', 'Cada um por si: ganha quem pegar mais na medida. Prêmio 1º R$ 800 · 2º R$ 350 · 3º R$ 150.'], ['dupla', '🤝 Dupla vs bots', 'Só com 2: vocês dois contra 2 duplas. Prêmio 1º R$ 1.800 para cada.'], ['mundial', '🏆 Mundial', 'Vocês são a seleção brasileira (até 3) contra 11 países, num cenário com frota, TV e helicóptero. Inscrição R$ 500 cada. 1º lugar R$ 15.000 para cada.']];
 const LB_CHAT = ['Bora!', 'Tô pronto', '1 minuto', 'Onde vamos?', 'Partiu fundo!', 'GG'];
 const lbIsLead = () => LB.pid && LB.lead === (ON.s && ON.s.uid);
@@ -7755,7 +7919,7 @@ function lbFriendOnline(uid) {
 // frota de equipes de vários países ancorada em volta da arena, boias marcando a área, barco da organização
 // com faixas dos patrocinadores, helicóptero e lancha da TV. Duas baterias, pesagem, pódio e prêmios das empresas.
 const WORLD = { scene: null, day: 0, boats: [], heli: null, tv: null, buoys: null, chk: 0, hornT: 0 };
-const WORLD_ARENA = { cv: 'laje', ne: 'cabecos', amz: 'lago' };
+const WORLD_ARENA = { cv: 'laje', ne: 'cabecos', amz: 'lago', ac: 'pedravermelha' };
 const WORLD_FEE = 500, WORLD_BAT = 420, WORLD_GAP = 25; // inscrição, duração de cada bateria e do intervalo (s)
 // marcas inventadas (nada de empresas reais)
 const SPONSORS = [
@@ -7806,7 +7970,7 @@ function titleTex() {
     const gr = g.createLinearGradient(0, 0, 1024, 0); gr.addColorStop(0, '#0a2a3a'); gr.addColorStop(0.5, '#0e4a5e'); gr.addColorStop(1, '#0a2a3a');
     g.fillStyle = gr; g.fillRect(0, 0, 1024, 160); g.fillStyle = '#ffb020'; g.fillRect(0, 0, 1024, 10); g.fillRect(0, 150, 1024, 10);
     g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '900 64px system-ui, sans-serif'; g.fillText('MUNDIAL DE PESCA SUB', 512, 66);
-    g.fillStyle = '#7ff0d8'; g.font = '700 30px system-ui, sans-serif'; g.fillText('APNEIA · ARBALETE · ' + (AMZ ? 'TAPAJÓS' : NE ? 'COSTA DOS CORAIS' : 'COSTA VERDE'), 512, 122);
+    g.fillStyle = '#7ff0d8'; g.font = '700 30px system-ui, sans-serif'; g.fillText('APNEIA · ARBALETE · ' + (AMZ ? 'TAPAJÓS' : NE ? 'COSTA DOS CORAIS' : AC ? 'ARRAIAL DO CABO' : 'COSTA VERDE'), 512, 122);
   });
 }
 
@@ -7931,7 +8095,7 @@ function startWorld(opts) {
   if (P.mode === 'swim') climbBoat();
   BOAT.pos.set(me.x + Math.cos(me.yaw) * (5 + slot * 6), 0, me.z - Math.sin(me.yaw) * (5 + slot * 6)); BOAT.speed = 0; if (BOAT.vel) BOAT.vel.set(0, 0, 0); BOAT.anchored = false; toggleAnchor();
   // peixe extra na arena: a organização escolheu o melhor pesqueiro
-  const pop = (AMZ ? popAmz() : NE ? popNe() : POP)[S.id] || [];
+  const pop = (AMZ ? popAmz() : NE ? popNe() : AC ? popAc() : POP)[S.id] || [];
   for (const [key, groups, [a, b]] of pop) for (let g = 0; g < groups; g++) spawnGroup(S, key, Math.round(rand(a, b)), 1.15);
   const teams = {}; const mk = name => teams[name] = { kg: 0, n: 0, sp: new Set(), mates: [] };
   // um atleta de cada país nadando, saindo do próprio barco (força × 0,55: forte, mas dá para ganhar) + 2 pelo rádio
@@ -8602,7 +8766,7 @@ function updateBoatLights(dt, t) {
 // ================= foto da pesca para compartilhar: cartão com o peixe, peso, lugar e seu nome =================
 // cada peixe bom entra no álbum (Diário › Álbum); o botão 📸 gera o cartão e abre o compartilhar do celular
 const SHARE = { url: 'nicolasilvar09-bit.github.io/pesca-sub', btnT: 0, last: null, blob: null, wasPaused: false };
-const REGION_NAME = { cv: 'Costa Verde · RJ', ne: 'Costa dos Corais · AL/PE', amz: 'Baixo Tapajós · PA' };
+const REGION_NAME = { cv: 'Costa Verde · RJ', ne: 'Costa dos Corais · AL/PE', amz: 'Baixo Tapajós · PA', ac: 'Arraial do Cabo · RJ' };
 const shareWorthy = (f, rec) => f.legend || rec || isTrophy(f) || f.sp.rare || f.kg >= 2.5;
 function albumAdd(f, rec) {
   const e = { key: f.key, cm: Math.round(f.len * 100), kg: Math.round(f.kg * 100) / 100, spot: (f.spot && f.spot.name) || '', region: REGION, day: SV.day || 1, date: Date.now(), trophy: isTrophy(f), rec: !!rec, rare: !!f.sp.rare, leg: f.legend ? legDef().name : '' };
@@ -8709,7 +8873,7 @@ function setupShare() {
 // as do dia trocam a cada dia de jogo; as da semana seguem a semana real (renovam na segunda, junto com o ranking)
 
 // ---------- novos tipos de missão do dia ----------
-MISSION_POOL[0] = r => { const k = r.pick((NE ? ['guaiuba', 'ariaco', 'cavala', 'saramunete', 'garoupagato', 'pargo', 'cioba', 'xareu', 'sargo', 'badejo'] : AMZ ? ['tucunare', 'pacu', 'tambaqui', 'aruana', 'matrinxa', 'surubim', 'traira', 'jaraqui', 'douradorio', 'cachorra', 'pescada', 'apapa', 'aracu', 'bicudario'] : ['sargo', 'marimba', 'salema', 'garoupa', 'robalo', 'xareu', 'pampo', 'badejo', 'caranha', 'cocoroca', 'cioba', 'olhete', 'cangulo']).filter(k => SPECIES[k] && !defesoOf(k))), n = SPECIES[k].school ? 3 : 1; return { t: `Pegue ${n} ${SPECIES[k].name} dentro da medida`, ev: 'catch', key: k, goal: n, rew: 200 + n * 90 }; };
+MISSION_POOL[0] = r => { const k = r.pick((NE ? ['guaiuba', 'ariaco', 'cavala', 'saramunete', 'garoupagato', 'pargo', 'cioba', 'xareu', 'sargo', 'badejo'] : AMZ ? ['tucunare', 'pacu', 'tambaqui', 'aruana', 'matrinxa', 'surubim', 'traira', 'jaraqui', 'douradorio', 'cachorra', 'pescada', 'apapa', 'aracu', 'bicudario'] : ['sargo', 'marimba', 'salema', 'garoupa', 'robalo', 'xareu', 'pampo', 'badejo', 'caranha', 'cocoroca', 'cioba', 'olhete', 'cangulo']).filter(k => SPECIES[k] && spInRegion(k) && !defesoOf(k))), n = SPECIES[k].school ? 3 : 1; return { t: `Pegue ${n} ${SPECIES[k].name} dentro da medida`, ev: 'catch', key: k, goal: n, rew: 200 + n * 90 }; };
 MISSION_POOL.push(
   r => { const s = r.pick(SPOTS.filter(s => s.r && !noTakeAt(s))); return { t: `Pegue 2 peixes na ${s.name}`, ev: 'catch', spot: s.id, goal: 2, rew: 420 }; },
   () => SV.cam ? { t: 'Fotografe 2 espécies diferentes', ev: 'photo', goal: 2, rew: 380, seen: [] } : { t: 'Pegue um peixe de 4 kg ou mais', ev: 'catchkg', kg: 4, goal: 1, rew: 380 },
@@ -8906,7 +9070,7 @@ function ecoHTML() {
   h += `<div class="n" style="margin:12px 0 6px">📏 Regras que dão multa</div><div class="list">
     <div class="it"><div class="d"><b>Medida mínima</b> de cada espécie (lista em Diário › Recordes): peixe pequeno ainda não se reproduziu. Multa ${fmtR(200)}.</div></div>
     <div class="it"><div class="d"><b>Espécies protegidas</b>, só foto: ${prot.join(', ') || '—'}. Multa ${fmtR(1000)}.</div></div>
-    ${NE ? `<div class="it"><div class="d"><b>Área de preservação</b> das piscinas naturais: só foto. Multa ${fmtR(500)}.</div></div>` : ''}
+    ${NE || AC ? `<div class="it"><div class="d"><b>Área de preservação</b> ${AC ? 'da Gruta Azul' : 'das piscinas naturais'}: só foto. Multa ${fmtR(500)}.</div></div>` : ''}
     <div class="it"><div class="d"><b>Licença de pesca</b> em dia (LOJA › Extras): ${licOk() ? '<b style="color:var(--acc)">válida</b>' : '<b style="color:var(--bad)">vencida</b>'}. Sem ela, multa de ${fmtR(400)} e a fieira é apreendida.</div></div></div>`;
   const C = cota();
   h += `<div class="n" style="margin:12px 0 6px">⚖️ Cota diária (opcional)</div><div class="it"><div style="flex:1"><div class="n">Regras reais de cota: ${COTA_KG} kg + 1 peixe por dia ${SV.realRules ? '· <b style="color:var(--acc)">LIGADA</b>' : ''}</div>
@@ -8998,6 +9162,10 @@ const LEGENDS = {
     rumor: 'Os jangadeiros comentam: "Uma cavala comprida como uma canoa passa no parcel quando o sol nasce. Chamam ela de A Flecha do Pontal."',
     clues: ['Um cardume de sardinha estourando na superfície, como se algo enorme caçasse por baixo.', 'Uma linha de pesca cortada com um corte limpo, de dente afiado.', 'Um velho jangadeiro conta que viu A Flecha pular inteira para fora da água.'],
     lore: 'Cavala de quase 2 m que caça sozinha no parcel ao amanhecer. Passa rápido e não dá segunda chance.' },
+  ac: { key: 'olhodeboi', name: 'O Almirante do Boqueirão', mul: 1.35, home: ['boqueirao', 'farol_fora', 'pedravermelha'], prize: 7000,
+    rumor: 'Os pescadores da Praia dos Anjos contam: "Tem um olho-de-boi do tamanho de um homem que passa no Boqueirão quando a água fria sobe. Chamam de O Almirante."',
+    clues: ['Um cardume inteiro de enchova se espalhando de repente, como se fugisse de algo grande.', 'Um arpão antigo, entortado, preso na pedra: alguém já tentou.', 'Um mergulhador da vila jura ter visto a faixa amarela dele passando a um palmo da máscara.'],
+    lore: 'Olho-de-boi de quase 2 m que vive na correnteza entre o Pontal e a Ilha do Farol. Curioso, mas some no azul ao menor movimento.' },
   amz: { key: 'tucunare', name: 'O Imperador do Igapó', mul: 1.4, home: ['igapo', 'lago', 'pocao'], prize: 6000,
     rumor: 'Na vila contam: "No igapó mora um tucunaré-açu de um metro, com a pinta do rabo brilhando como um olho. É O Imperador."',
     clues: ['Peixinhos pulando fora da água em pânico, perto da galhada.', 'Uma marca de ataque enorme num isca artificial perdida no tronco.', 'Um ribeirinho jura que viu a pinta do rabo dele brilhando debaixo da água escura.'],

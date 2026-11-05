@@ -5,6 +5,7 @@ const RARE = { today: null, on: null, chk: 0, warned: false };
 const RARE_DEF = {
   cv: [['tubbaleia', ['fora', 'plataforma', 'lajefunda', 'aventureiro'], 0.2], ['manta', ['laje', 'fora', 'pedrameio', 'castelhanos'], 0.25], ['merogig', ['naufragio', 'cargueiro', 'rebocador'], 0.3]],
   ne: [['tubbaleia', ['parcel_ne', 'paredefunda', 'sueste'], 0.25], ['manta', ['parcel_ne', 'cabecos', 'paredefunda'], 0.3], ['merogig', ['naufragio_ne', 'cargueiro_ne'], 0.35]],
+  ac: [['manta', ['farol_fora', 'pedravermelha', 'boqueirao'], 0.3], ['tubbaleia', ['farol_fora', 'pedravermelha'], 0.15], ['merogig', ['naufragio_ac', 'cherne_ac'], 0.3]],
   amz: [['pirarucugig', ['lago', 'pocao', 'negro'], 0.6]],
 };
 const RARE_INFO = {

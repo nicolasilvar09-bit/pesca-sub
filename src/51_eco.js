@@ -56,7 +56,7 @@ function ecoHTML() {
   h += `<div class="n" style="margin:12px 0 6px">📏 Regras que dão multa</div><div class="list">
     <div class="it"><div class="d"><b>Medida mínima</b> de cada espécie (lista em Diário › Recordes): peixe pequeno ainda não se reproduziu. Multa ${fmtR(200)}.</div></div>
     <div class="it"><div class="d"><b>Espécies protegidas</b>, só foto: ${prot.join(', ') || '—'}. Multa ${fmtR(1000)}.</div></div>
-    ${NE ? `<div class="it"><div class="d"><b>Área de preservação</b> das piscinas naturais: só foto. Multa ${fmtR(500)}.</div></div>` : ''}
+    ${NE || AC ? `<div class="it"><div class="d"><b>Área de preservação</b> ${AC ? 'da Gruta Azul' : 'das piscinas naturais'}: só foto. Multa ${fmtR(500)}.</div></div>` : ''}
     <div class="it"><div class="d"><b>Licença de pesca</b> em dia (LOJA › Extras): ${licOk() ? '<b style="color:var(--acc)">válida</b>' : '<b style="color:var(--bad)">vencida</b>'}. Sem ela, multa de ${fmtR(400)} e a fieira é apreendida.</div></div></div>`;
   const C = cota();
   h += `<div class="n" style="margin:12px 0 6px">⚖️ Cota diária (opcional)</div><div class="it"><div style="flex:1"><div class="n">Regras reais de cota: ${COTA_KG} kg + 1 peixe por dia ${SV.realRules ? '· <b style="color:var(--acc)">LIGADA</b>' : ''}</div>

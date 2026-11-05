@@ -177,7 +177,7 @@ function buildCoastNe() {
 }
 
 // ---------- área de preservação e tubarão cabeça-chata ----------
-function noTakeAt(p) { if (!NE) return false; const S = spotById('piscinas'); return !!S && Math.hypot(p.x - S.x, p.z - S.z) < 170; }
+function noTakeAt(p) { if (AC) return noTakeAc(p); if (!NE) return false; const S = spotById('piscinas'); return !!S && Math.hypot(p.x - S.x, p.z - S.z) < 170; }
 let ntTip = false, sharkT = 0;
 function updateNe(dt, t) {
   if (!NE) return;

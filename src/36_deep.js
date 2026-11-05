@@ -72,6 +72,6 @@ function nearRockTarget(S, from, out) {
   out.set(x, h, z); return true;
 }
 // quantas vezes mais grupos: o Nordeste estava vazio; zonas de costão e laje ganham mais peixe
-const densSpot = () => NE ? 1.6 : AMZ ? 1.15 : 1.25;
-const densZone = () => NE ? 2.3 : AMZ ? 1.3 : 1.7;
+const densSpot = () => NE || AC ? 1.6 : AMZ ? 1.15 : 1.25;
+const densZone = () => NE || AC ? 2.3 : AMZ ? 1.3 : 1.7;
 const nGroups = (g, k) => { const n = g * k; return Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); };
