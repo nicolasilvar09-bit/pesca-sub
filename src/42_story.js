@@ -50,7 +50,8 @@ const STORY = [
       { d: 'Seja campeão mundial', n: 1, k: 'worldWin' },
     ] },
 ];
-const st = () => (SV.story = SV.story || { ch: 0, cnt: {}, done: {}, seen: -1 });
+// completa o que faltar (save antigo, backup editado ou vindo da nuvem pela metade)
+const st = () => { const s = SV.story = SV.story || {}; if (s.ch == null) s.ch = 0; s.cnt = s.cnt || {}; s.done = s.done || {}; if (s.seen == null) s.seen = -1; return s; };
 const objText = o => typeof o.d === 'function' ? o.d() : o.d;
 const objOk = (o, s) => o.ok ? o.ok() : (s.cnt[o.k] || 0) >= o.n;
 const objProg = (o, s) => o.ok ? (o.p ? o.p() : '') : `${Math.min(o.n, s.cnt[o.k] || 0)}/${o.n}`;

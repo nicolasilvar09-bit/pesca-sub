@@ -217,10 +217,11 @@ function startGame() {
   if (innerHeight > innerWidth) toast('Dica: na horizontal o jogo fica melhor.', 4);
   try { const d = document.documentElement; if (d.requestFullscreen && matchMedia('(pointer:coarse)').matches) d.requestFullscreen().then(() => { try { screen.orientation.lock('landscape').catch(() => { }); } catch (e) { } }).catch(() => { }); } catch (e) { }
   BOAT.camYaw = 0; camera.position.set(BOAT.pos.x, 6, BOAT.pos.z + 12);
+  // avisos da largada um de cada vez, em vez de quatro empilhados
   toast('Joystick: acelera e vira a lancha. Siga a seta laranja até o ponto.', 5);
-  toast('Toque MAPA para escolher outro destino.', 5);
-  backupReminder(); seedXP(); setupTut(); careerHUD(); introStart();
-  const D = ensureDaily(); if (D.list.some(m => !m.done)) toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5);
+  setTimeout(() => toast('Toque MAPA para escolher outro destino.', 5), 5500);
+  setTimeout(backupReminder, 22000); seedXP(); setupTut(); careerHUD(); introStart();
+  const D = ensureDaily(); if (D.list.some(m => !m.done)) setTimeout(() => toast(`Missões do dia: ${D.list.filter(m => !m.done).length} abertas (LOJA › Missões).`, 5), 11000);
 }
 // o mundo é montado em etapas, soltando a página entre elas: a conexão online anda junto em vez de esperar o 3D todo
 const yieldUI = () => new Promise(r => setTimeout(r, 0));
