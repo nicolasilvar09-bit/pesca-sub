@@ -36,3 +36,6 @@ Feito por código dentro do jogo.
 
 ## Árvores realistas (assets/nature/fm_*.glb)
 - **Free Starter Forest Pack — Oak, Birch & Spruce** por **FoliMesh** (folimesh.itch.io / folimesh.com), "100% gratuita para projetos pessoais e comerciais". No jogo estão só os níveis de detalhe 2 e 3, com texturas reduzidas para 512 px.
+
+## Pedra escaneada (assets/nature/ph_boulder.glb)
+- **Boulder 01** do **Poly Haven** (polyhaven.com), licença **CC0**. Reduzida para ~1.300 triângulos e textura de 512 px.

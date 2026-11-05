@@ -50,9 +50,18 @@ function loadFoliMesh(L, done) {
     FM.sp[n] = sp; if (--left === 0) { FM.ready = true; NATR.cx = 1e9; done && done(); } // força redesenhar as árvores perto
   }, undefined, () => { if (--left === 0) { FM.ready = Object.keys(FM.sp).length > 0; done && done(); } });
 }
+// pedra escaneada do Poly Haven (CC0), versão leve: ~1.300 triângulos e textura de 512 px
+function loadBoulder(L, done) {
+  L.load('assets/nature/ph_boulder.glb', g => { let mesh = null; g.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
+    if (mesh) { const geo = mesh.geometry.clone(); mesh.updateWorldMatrix(true, false); geo.applyMatrix4(mesh.matrixWorld); geo.computeBoundingBox(); const b = geo.boundingBox, c = b.getCenter(new T.Vector3()), h = b.max.y - b.min.y;
+      geo.translate(-c.x, -b.min.y, -c.z); geo.scale(1 / h, 1 / h, 1 / h); geo.computeBoundingSphere();
+      NATR.boulder = { geo, mat: new T.MeshLambertMaterial({ map: mesh.material.map, color: 0xffffff }) }; }
+    done(); }, undefined, () => done());
+}
 function loadNature(L, done) {
   loadFoliMesh(L);
-  const all = [...TREE_ROUND, ...TREE_PINE, ...TREE_PALM, ...BUSHES, ...ROCKS]; let left = all.length;
+  const all = [...TREE_ROUND, ...TREE_PINE, ...TREE_PALM, ...BUSHES, ...ROCKS]; let left = all.length + 1;
+  loadBoulder(L, () => { if (--left === 0) setupNature(done); });
   for (const k of all) L.load(`assets/nature/${k}.glb`, g => { NATR.types[k] = natGeo(g.scene); if (--left === 0) setupNature(done); }, undefined, () => { if (--left === 0) setupNature(done); });
 }
 const _nd = new T.Object3D();
@@ -63,10 +72,10 @@ function setupNature(done) {
   NATR.orig = {}; for (const n of ['trunk', 'crown', 'crown2', 'bush']) NATR.orig[n] = NAT[n].instanceMatrix.array.slice();
   // pedras: troca todas de uma vez (são leves)
   const rk = NAT.rk || [], groups = {};
-  rk.forEach((r, i) => { const k = ROCKS[(i * 7 + 3) % ROCKS.length]; (groups[k] = groups[k] || []).push(r); });
+  rk.forEach((r, i) => { const k = NATR.boulder && (i * 13 + 5) % 10 < 4 ? 'BOULDER' : ROCKS[(i * 7 + 3) % ROCKS.length]; (groups[k] = groups[k] || []).push(r); }); // ~40% viram a pedra escaneada
   for (const k in groups) {
-    if (!NATR.types[k]) continue; const m = new T.InstancedMesh(NATR.types[k], new T.MeshLambertMaterial({ vertexColors: true }), groups[k].length);
-    groups[k].forEach(([x, h, z, s], i) => { _nd.position.set(x, h - 0.25 * s, z); _nd.rotation.set(0, (x * 3.1 + z) % 6.28, 0); _nd.scale.set(2.6 * s, 2.1 * s, 2.4 * s); _nd.updateMatrix(); m.setMatrixAt(i, _nd.matrix); });
+    const bo = k === 'BOULDER'; if (!bo && !NATR.types[k]) continue; const m = new T.InstancedMesh(bo ? NATR.boulder.geo : NATR.types[k], bo ? NATR.boulder.mat : new T.MeshLambertMaterial({ vertexColors: true }), groups[k].length);
+    groups[k].forEach(([x, h, z, s], i) => { _nd.position.set(x, h - (bo ? 0.35 : 0.25) * s, z); _nd.rotation.set(0, (x * 3.1 + z) % 6.28, 0); if (bo) _nd.scale.set(2.2 * s, 2.0 * s, 2.2 * s); else _nd.scale.set(2.6 * s, 2.1 * s, 2.4 * s); _nd.updateMatrix(); m.setMatrixAt(i, _nd.matrix); });
     m.castShadow = m.receiveShadow = true; scene.add(m);
   }
   if (Object.keys(groups).length && NATR.types[ROCKS[0]]) NAT.rock.visible = false;
