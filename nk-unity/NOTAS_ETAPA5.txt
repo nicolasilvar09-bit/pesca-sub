@@ -1,0 +1,12 @@
+NK MOBILE — ETAPA 5
+Cosméticos por slot, skin de arma na 1ª e 3ª pessoa, avatar procedural,
+veículo 3D estático de exposição, interface para adaptador de compra Elite,
+e contrato de integração de resultados com backend.
+
+IMPORTANTE:
+- Unity IAP ainda precisa de implementação concreta em EliteStoreProvider.
+- Backend multiplayer ainda precisa de implementação concreta em NKMatchBackendAdapter.
+- O veículo incluído é estático, não dirigível.
+- Os modelos e texturas finais das artes promocionais ainda não foram importados.
+- Sem Unity Editor nesta sessão: compilação e teste em dispositivo permanecem pendentes.
+- Fallback de XP local é exclusivo do campo de treino offline; não usar para PvP competitivo.

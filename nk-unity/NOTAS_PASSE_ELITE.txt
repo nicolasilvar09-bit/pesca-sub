@@ -1,0 +1,29 @@
+NK MOBILE - PASSE / ELITE - ETAPA 2 (REFINO DA INTERFACE)
+
+O que foi refinado nesta etapa:
+- Interface redesenhada com identidade visual premium grafite, vermelho profundo e dourado.
+- Cabeçalho de temporada com selo imperial, hierarquia tipográfica e moldura.
+- Painel de XP com barra de progresso e estado da temporada.
+- Carrossel horizontal de 10 níveis, com cartões separados para trilha gratuita e Elite.
+- Cada recompensa possui emblema visual, nome, trilha e estado de desbloqueio.
+- XP e estados de resgate ficam salvos localmente no dispositivo.
+- API pública RegisterMatch(xp, victory): XP informado + bônus de 50 XP por vitória.
+- API pública ClaimReward(tierIndex, eliteTrack) para registrar resgate quando a recompensa estiver liberada.
+- API pública SetEliteEntitlement(owned), que deve receber somente confirmação verificada da loja/servidor.
+- Layout usa CanvasScaler para adaptar-se a diferentes resoluções mobile.
+
+REGRAS:
+- 500 XP por nível; temporada com 10 níveis e 5.000 XP totais.
+- Trilha gratuita não exige compra.
+- A trilha Elite permanece bloqueada ao iniciar o app até a loja/servidor revalidar a compra na sessão; o estado premium não é confiado ao PlayerPrefs local.
+- Nenhuma compra é simulada e nenhum item cosmético é falsamente marcado como aplicado ao personagem.
+
+INTEGRAÇÕES PENDENTES:
+- O projeto-base ainda não tem um fluxo real de partidas nem evento de fim de partida. Portanto RegisterMatch deve ser chamado pelo futuro GameMode/MatchManager; a etapa atual não concede XP por tiros no campo de treinamento.
+- O sistema de inventário/equipamento de cosméticos ainda não existe. ClaimReward persiste o estado de resgate, mas não equipa modelos 3D.
+- A compra Elite precisa ser validada pela Google Play/App Store e idealmente pelo backend antes de chamar SetEliteEntitlement(true).
+- As artes promocionais/skins 3D não estão presentes no ZIP-base; os emblemas atuais são elementos vetoriais tipográficos temporários.
+
+VALIDAÇÃO:
+- Arquivos C# revisados estruturalmente e ZIP conferido.
+- Não foi executado Unity Editor nem compilação Android/iOS neste ambiente.

@@ -1,0 +1,17 @@
+NK MOBILE - ETAPA 4
+
+IMPLEMENTADO
+- Rodadas locais de treino com duração de 3 minutos.
+- Contagem de eliminações reais de alvos no campo.
+- 100 XP por rodada concluída; bônus de 50 XP ao obter 5 eliminações.
+- XP entregue uma única vez ao encerrar cada rodada.
+- Inventário cosmético persistente, com quatro itens Coroa Imperial.
+- Resgate de recompensas cosméticas no passe adiciona o item ao inventário.
+- Painel INVENTÁRIO permite consultar e equipar itens resgatados.
+
+IMPORTANTE
+- Não é PvP nem multiplayer; o projeto ainda tem somente campo de treino.
+- Equipamento é registrado logicamente, mas modelos/texturas finais ainda não foram integrados ao rig 3D.
+- Elite não é comprável nesta versão. Exige validação de entitlement real.
+- Testes de compilação Unity não foram executados neste ambiente.
+- Equipar traje, capacete e rifle agora altera a representação procedural do personagem/arma em terceira pessoa. O veículo fica registrado no inventário, mas aguarda o sistema de veículos e o modelo 3D.
