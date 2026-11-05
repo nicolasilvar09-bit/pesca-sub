@@ -19,6 +19,7 @@ function optRow(label, ctrl) { return `<div class="it"><div class="n">${label}</
 function renderOpt() {
   const seg = (k, opts) => opts.map(([v, n]) => `<button class="btn ${OPT[k] === v ? 'gold' : 'alt'}" data-opt="${k}" data-v="${v}">${n}</button>`).join('');
   $('optBody').innerHTML = '<div class="list">' +
+    optRow('Idioma / Language', `<button class="btn ${EN ? 'alt' : 'gold'}" data-lang="pt">PORTUGUÊS</button><button class="btn ${EN ? 'gold' : 'alt'}" data-lang="en">ENGLISH</button>`) +
     optRow('Qualidade gráfica', seg('q', QUALITY.map((q, i) => [i, q.name]))) +
     optRow('Mostrar FPS (desempenho)', seg('fps', [[true, 'SIM'], [false, 'NÃO']])) +
     optRow('Dificuldade dos bots', seg('bots', [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil']])) +
@@ -43,6 +44,7 @@ function renderOpt() {
     saveOpt(); applyOpt(); AU.click(); renderOpt();
   });
   B.querySelectorAll('[data-range]').forEach(r => r.oninput = () => { OPT[r.dataset.range] = +r.value; r.nextElementSibling.textContent = r.dataset.range === 'vol' ? Math.round(OPT.vol * 100) + '%' : OPT[r.dataset.range].toFixed(1) + '×'; saveOpt(); applyOpt(); });
+  B.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { if ((b.dataset.lang === 'en') !== EN) setLang(b.dataset.lang); });
   B.querySelectorAll('[data-gyro]').forEach(b => b.onclick = async () => { const on = b.dataset.gyro === '1'; AU.click(); if (await gyroEnable(on) && on) toast('Mira por giroscópio ligada: incline o celular embaixo d\'água para mirar.', 4); renderOpt(); });
   // backup: o save inteiro vira um código de texto (copiar e colar em outro app, navegador ou aparelho)
   const bk = $('optBk'), code = $('optCode'), txt = $('optBkTxt'), load = $('optLoad');

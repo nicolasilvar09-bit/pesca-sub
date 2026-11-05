@@ -135,7 +135,7 @@ function updateHUD(dt) {
     const f = camFwd(_a); const rel = Math.atan2(dx, -dz) - Math.atan2(f.x, -f.z);
     $('cArr').style.transform = `rotate(${rel * 180 / Math.PI}deg)`;
     $('cTxt').textContent = `${d.name} · ${dist < 1000 ? Math.round(dist) + ' m' : (dist / 1000).toFixed(1).replace('.', ',') + ' km'}`;
-    if (swim) { $('cTxt').textContent = `Barco · ${Math.round(P.boatDist)} m`; const bx = BOAT.pos.x - P.pos.x, bz = BOAT.pos.z - P.pos.z; $('cArr').style.transform = `rotate(${(Math.atan2(bx, -bz) - Math.atan2(f.x, -f.z)) * 180 / Math.PI}deg)`; }
+    if (swim) { $('cTxt').textContent = `Barco · ${Math.round(P.boatDist || 0)} m`; const bx = BOAT.pos.x - P.pos.x, bz = BOAT.pos.z - P.pos.z; $('cArr').style.transform = `rotate(${(Math.atan2(bx, -bz) - Math.atan2(f.x, -f.z)) * 180 / Math.PI}deg)`; }
   }
   // elásticos
   const def = GUN.def; let pips = '';
