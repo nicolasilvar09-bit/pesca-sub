@@ -228,7 +228,7 @@ const EMPTY_GEO = new T.BufferGeometry();
 function loadRealGuns(L, done) {
   const ks = Object.keys(REALGUN); let left = ks.length;
   for (const k of ks) L.load(`assets/guns/${REALGUN[k].f}.glb`, g => {
-    const o = g.scene; o.traverse(n => { if (!n.isMesh) return; const m = n.material; n.material = new T.MeshPhongMaterial({ map: m.map || null, normalMap: m.normalMap || null, color: m.map ? 0xffffff : m.color, shininess: 38, specular: 0x2a2a2a }); if (n.material.map) n.material.map.encoding = T.sRGBEncoding; n.castShadow = true; });
+    const o = g.scene; o.traverse(n => { if (!n.isMesh) return; const m = n.material; n.material = new T.MeshStandardMaterial({ map: m.map || null, normalMap: m.normalMap || null, color: m.map ? 0xffffff : m.color, metalness: 0.5, roughness: 0.48, envMap: typeof ENV_TEX !== 'undefined' ? ENV_TEX : null, envMapIntensity: 1.15 }); /* metal com reflexo do céu */ if (n.material.map) n.material.map.encoding = T.sRGBEncoding; n.castShadow = true; });
     const b = new T.Box3().setFromObject(o); REALGUN[k].obj = o; GUN_MUZ[k] = b.min.z; GUN_TOP[k] = b.max.y - 0.006;
     for (const id in GUNGEO) if (id === k) delete GUNGEO[id];
     if (--left === 0) done();
