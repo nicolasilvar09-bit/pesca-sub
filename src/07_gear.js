@@ -536,7 +536,7 @@ const SHOP_AREAS = [
   { id: 'marina', ic: '⚓', n: 'Marina', tabs: [['sell', 'Vender pescado'], ['fuel', 'Combustível'], ['boats', 'Lanchas'], ['viagem', 'Viagem']] },
   { id: 'equip', ic: '🎯', n: 'Equipamento', tabs: [['equip', 'Arbaletes e roupas'], ['apneia', 'Apneia'], ['extras', 'Extras']] },
   { id: 'comp', ic: '🏆', n: 'Competições', tabs: [['comp', 'Campeonato e Mundial'], ['chal', 'Desafio da semana'], ['rank', 'Ranking online']] },
-  { id: 'social', ic: '👥', n: 'Social', tabs: [['online', 'Online e grupo'], ['amigos', 'Amigos']] },
+  { id: 'social', ic: '👥', n: 'Social', tabs: [['online', 'Online e grupo'], ['amigos', 'Amigos'], ['clube', 'Clube']] },
   { id: 'diario', ic: '📖', n: 'Diário', tabs: [['next', 'Próximos'], ['hist', 'História'], ['miss', 'Missões'], ['album', 'Álbum'], ['eco', 'Pesca consciente'], ['car', 'Conquistas'], ['rec', 'Recordes'], ['guia', 'Guia de espécies'], ['mar', 'Boletim']] },
 ];
 function openShop(atMarina) { shopAtMarina = !!atMarina; paused = true; $('marinaPanel').classList.remove('hide'); renderShop(); }
@@ -584,12 +584,13 @@ function renderShop() {
   if (shopTab === 'online') h = onlineHTML();
   if (shopTab === 'rank') h = rankHTML();
   if (shopTab === 'chal') h = chalHTML();
+  if (shopTab === 'clube') h = clubHTML();
   if (shopTab === 'album') h = albumHTML();
   if (shopTab === 'eco') h = ecoHTML();
   if (shopTab === 'viagem') h = travelHTML(at);
   if (shopTab === 'extras') h = extrasHTML(at);
   if (shopTab === 'next') h = nextHTML();
-  if (shopTab === 'hist') h = storyHTML();
+  if (shopTab === 'hist') h = legHTML() + storyHTML();
   if (shopTab === 'car') h = careerHTML();
   if (shopTab === 'amigos') h = friendsHTML();
   if (shopTab === 'rec') h = '<div class="list">' + Object.keys(SPECIES).filter(k => !SPECIES[k].protected && !SPECIES[k].ornamental).map(k => `<div class="it"><div><div class="n">${SPECIES[k].name}</div><div class="d">Medida mínima ${Math.round(SPECIES[k].min * 100)} cm · ${fmtR(SPECIES[k].price)}/kg</div></div><b>${SV.best[k] ? fmtKg(SV.best[k]) + ' kg' : '—'}</b></div>`).join('') + `<div class="it"><div class="n">Campeonatos vencidos</div><b>${SV.wins || 0}</b></div></div>`;
@@ -612,7 +613,7 @@ function renderShop() {
   on('[data-wait]', b => { waitHours(+b.dataset.wait); AU.click(); });
   on('[data-until]', b => { waitUntil(+b.dataset.until); AU.click(); });
   const ap = $('buyAp'); if (ap) ap.onclick = () => { if (pay(350 * (SV.apnea + 1))) SV.apnea++; save(); renderShop(); };
-  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindBoatUp(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindChal(); bindAlbum(B); bindEco(); bindWorld(); bindStory(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
+  bindEquip(B, on, pay); bindEcon(at, pay); bindExtras(at, pay); bindBoats(on, pay); bindBoatUp(on, pay); bindTravel(on); bindOnline(B, on); bindRank(B); bindChal(); bindAlbum(B); bindEco(); bindWorld(); bindStory(); bindLeg(B); bindClub(); B.querySelectorAll('[data-botdiff]').forEach(b => b.onclick = () => { OPT.bots = +b.dataset.botdiff; saveOpt(); AU.click(); renderShop(); }); bindFriends(B, on); bindDuo(on);
   const bb = $('buyBuddy'); if (bb) bb.onclick = () => { hireBuddy(); renderShop(); };
   const bc = $('buyCam'); if (bc) bc.onclick = () => { if (pay(CAM_PRICE)) { SV.cam = true; toast('Câmera na mão: toque FOTO embaixo d\'água.', 3, 'gold'); } save(); renderShop(); };
   const bl = $('buyLight'); if (bl) bl.onclick = () => { if (pay(LIGHT_PRICE)) SV.light = true; save(); renderShop(); };
@@ -631,7 +632,7 @@ function placeRig(r, pos, yaw, pitch, under, mv, kick) {
 // ---------- campeonato ----------
 const COMP = { on: false, t: 0, spot: null, bots: [], me: { n: 0, kg: 0 } };
 const BOT_DEF = AMZ ? [['Raimundo', 0x1b1e22], ['Jacira', 0x23304a], ['Seu Bené', 0x3b2b1e]] : NE ? [['Zé Jangadeiro', 0x1b1e22], ['Marinalva', 0x23304a], ['Cícero do Pontal', 0x3b2b1e]] : [['Marcão', 0x1b1e22], ['Tainá', 0x23304a], ['Zé da Laje', 0x3b2b1e]];
-const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && !defesoOf(f.key) && f.state !== 'hooked' && f.state !== 'dead';
+const legalFish = f => f.alive && f.vis !== undefined && f.len >= f.sp.min && !f.sp.protected && !f.sp.ornamental && !defesoOf(f.key) && !f.legend && f.state !== 'hooked' && f.state !== 'dead';
 function startComp(id, duo, live) {
   const s = spotById(id); if (!s || COMP.on) return;
   const fee = live ? 0 : duo ? 200 : 100;

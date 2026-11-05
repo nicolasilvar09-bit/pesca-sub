@@ -2,9 +2,9 @@
 // cada peixe bom entra no álbum (Diário › Álbum); o botão 📸 gera o cartão e abre o compartilhar do celular
 const SHARE = { url: 'nicolasilvar09-bit.github.io/pesca-sub', btnT: 0, last: null, blob: null, wasPaused: false };
 const REGION_NAME = { cv: 'Costa Verde · RJ', ne: 'Costa dos Corais · AL/PE', amz: 'Baixo Tapajós · PA' };
-const shareWorthy = (f, rec) => rec || isTrophy(f) || f.sp.rare || f.kg >= 2.5;
+const shareWorthy = (f, rec) => f.legend || rec || isTrophy(f) || f.sp.rare || f.kg >= 2.5;
 function albumAdd(f, rec) {
-  const e = { key: f.key, cm: Math.round(f.len * 100), kg: Math.round(f.kg * 100) / 100, spot: (f.spot && f.spot.name) || '', region: REGION, day: SV.day || 1, date: Date.now(), trophy: isTrophy(f), rec: !!rec, rare: !!f.sp.rare };
+  const e = { key: f.key, cm: Math.round(f.len * 100), kg: Math.round(f.kg * 100) / 100, spot: (f.spot && f.spot.name) || '', region: REGION, day: SV.day || 1, date: Date.now(), trophy: isTrophy(f), rec: !!rec, rare: !!f.sp.rare, leg: f.legend ? legDef().name : '' };
   SV.album = [e, ...(SV.album || [])].slice(0, 40);
   if (!shareWorthy(f, rec)) return;
   SHARE.last = e; SHARE.btnT = 12; show('shareBtn', true); $('shareBtn').innerHTML = `📸 COMPARTILHAR<br><small>${SPECIES[f.key].name} · ${fmtKg(f.kg)} kg</small>`;
@@ -48,7 +48,7 @@ function shareCard(e) {
   g.fillStyle = 'rgba(200,240,250,.75)'; g.font = F('600', 28); g.fillText('PESCA SUB', 68, 126);
   g.textAlign = 'right'; g.fillText(REGION_NAME[e.region] || '', W - 64, 72); g.font = F('500', 26); g.fillText(new Date(e.date).toLocaleDateString('pt-BR'), W - 64, 110); g.textAlign = 'left';
   // selos
-  const tags = [e.rec && '🏅 RECORDE PESSOAL', e.trophy && '🏆 TROFÉU', e.rare && '★ PEIXE RARO'].filter(Boolean);
+  const tags = [e.leg && '🐉 LENDÁRIO · ' + e.leg.toUpperCase(), e.rec && '🏅 RECORDE PESSOAL', e.trophy && '🏆 TROFÉU', e.rare && '★ PEIXE RARO'].filter(Boolean);
   let tx = 64; g.font = F('800', 30);
   for (const t of tags) { const w = g.measureText(t).width + 44; g.fillStyle = '#ffb020'; rr(g, tx, 196, w, 56, 28); g.fill(); g.fillStyle = '#2a1a00'; g.fillText(t, tx + 22, 208); tx += w + 16; }
   // o peixe

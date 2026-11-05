@@ -24,6 +24,8 @@ function renderOpt() {
     optRow('Dificuldade dos bots', seg('bots', [[0, 'Fácil'], [1, 'Normal'], [2, 'Difícil']])) +
     optRow('Sensibilidade da câmera', `<input type="range" min="0.4" max="2.2" step="0.1" value="${OPT.sens}" data-range="sens"><b>${OPT.sens.toFixed(1)}×</b>`) +
     optRow('Inverter eixo vertical', seg('inv', [[false, 'NÃO'], [true, 'SIM']])) +
+    optRow('Mira por giroscópio<div class="d">Incline o celular para ajustar a mira embaixo d\'água</div>', `<button class="btn ${OPT.gyro ? 'gold' : 'alt'}" data-gyro="1">LIGADA</button><button class="btn ${OPT.gyro ? 'alt' : 'gold'}" data-gyro="0">DESLIGADA</button>`) +
+    (OPT.gyro ? optRow('Força do giroscópio', `<input type="range" min="0.4" max="2.5" step="0.1" value="${OPT.gyroK || 1}" data-range="gyroK"><b>${(OPT.gyroK || 1).toFixed(1)}×</b>`) : '') +
     optRow('Volume', `<input type="range" min="0" max="1" step="0.05" value="${OPT.vol}" data-range="vol"><b>${Math.round(OPT.vol * 100)}%</b>`) +
     optRow('Música', seg('mus', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
     optRow('Vibração', seg('vib', [[true, 'LIGADA'], [false, 'DESLIGADA']])) +
@@ -40,7 +42,8 @@ function renderOpt() {
     if (k === 'third' && P.mode !== 'swim') THIRD = OPT.third;
     saveOpt(); applyOpt(); AU.click(); renderOpt();
   });
-  B.querySelectorAll('[data-range]').forEach(r => r.oninput = () => { OPT[r.dataset.range] = +r.value; r.nextElementSibling.textContent = r.dataset.range === 'vol' ? Math.round(OPT.vol * 100) + '%' : OPT.sens.toFixed(1) + '×'; saveOpt(); applyOpt(); });
+  B.querySelectorAll('[data-range]').forEach(r => r.oninput = () => { OPT[r.dataset.range] = +r.value; r.nextElementSibling.textContent = r.dataset.range === 'vol' ? Math.round(OPT.vol * 100) + '%' : OPT[r.dataset.range].toFixed(1) + '×'; saveOpt(); applyOpt(); });
+  B.querySelectorAll('[data-gyro]').forEach(b => b.onclick = async () => { const on = b.dataset.gyro === '1'; AU.click(); if (await gyroEnable(on) && on) toast('Mira por giroscópio ligada: incline o celular embaixo d\'água para mirar.', 4); renderOpt(); });
   // backup: o save inteiro vira um código de texto (copiar e colar em outro app, navegador ou aparelho)
   const bk = $('optBk'), code = $('optCode'), txt = $('optBkTxt'), load = $('optLoad');
   $('optExp').onclick = async () => {

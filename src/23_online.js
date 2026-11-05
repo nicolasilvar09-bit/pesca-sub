@@ -151,6 +151,7 @@ function onBcast(ev, d) {
   if (!isFriend(d.from)) return;
   if (ev === 'pos' && d.region === REGION) remoteState(d);
   if (ev.startsWith('ride_')) { rideMsg(ev, d); return; }
+  if (ev === 'club_inv') { clubInvite(d); return; }
   if (ev === 'chal' || ev === 'duo_inv') { ON.inv = d; d.kind = ev === 'duo_inv' ? 'duo' : 'chal'; showInvite(d); }
   if (ev === 'duo_ok' && ON.wait && ON.wait.to === d.from) { const w = ON.wait; ON.wait = null; startDuoHost(w.spot, d.from, d.name, d.at); }
   if (ev === 'duo_no' && ON.wait && ON.wait.to === d.from) { ON.wait = null; toast(`${d.name} não pode agora.`, 3); }
