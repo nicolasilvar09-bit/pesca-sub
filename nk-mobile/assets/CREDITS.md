@@ -30,3 +30,6 @@ https://quaternius.com/packs/ultimatenature.html (arquivos via https://github.co
 
 ## Todo o resto (mapa, prédios, demais armas, veículos, efeitos, sons)
 Feito por código dentro do jogo.
+
+## Animações (assets/chars/anims_kin.json)
+- **KinemIQ Free Animation Pack** — movimentos da *Universal Animation Library* de **Quaternius** (quaternius.com), limpos e exportados pela KinemIQ (kinemiq.app). Licença **CC0 1.0** (domínio público). Adaptadas ao esqueleto dos personagens do NK Mobile: andar, correr, sprint, agachado parado e andando, no ar, aterrissagem, escalada, queda ao morrer, soco, reação a tiro e parado relaxado.

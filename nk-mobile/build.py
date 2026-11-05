@@ -21,7 +21,7 @@ import hashlib, json
 files = ['./', 'index.html', 'manifest.webmanifest'] + ['brand/' + f for f in sorted(os.listdir(os.path.join(ROOT, 'brand')))]
 for d, _, fs in sorted(os.walk(os.path.join(ROOT, 'assets'))):
     for f in sorted(fs):
-        if f.endswith(('.glb', '.md', '.txt', '.jpg', '.png')): files.append(os.path.relpath(os.path.join(d, f), ROOT).replace(os.sep, '/'))
+        if f.endswith(('.glb', '.md', '.txt', '.jpg', '.png', '.json')): files.append(os.path.relpath(os.path.join(d, f), ROOT).replace(os.sep, '/'))
 h = hashlib.sha1()
 for f in files[1:]: h.update(open(os.path.join(ROOT, f), 'rb').read())
 ver = h.hexdigest()[:10]

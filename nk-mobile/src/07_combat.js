@@ -241,7 +241,7 @@ function addCrate(x, y, z, items, name, kind, id, vy) {
 // soco (sem arma): curto alcance, na frente
 function punch(a) {
   if (a.fireCd > 0 || a.knocked || a.healT > 0) return false;
-  a.fireCd = 0.55; const fx = fwdX(a.yaw), fz = fwdZ(a.yaw);
+  a.fireCd = 0.55; a.punchAt = G.matchT; const fx = fwdX(a.yaw), fz = fwdZ(a.yaw);
   for (const t of G.actors) {
     if (!t.alive || t === a || t.team === a.team || t.mode !== 'ground') continue;
     const dx = t.x - a.x, dz = t.z - a.z, d = Math.hypot(dx, dz);

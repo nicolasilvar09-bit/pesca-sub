@@ -24,7 +24,10 @@ function loadHumans(onDone) {
   const L = new T.GLTFLoader(); const files = ['anims', ...AVATARS.map(a => a.k)]; let left = files.length + 1;
   const done = () => { HUM.pct = 1 - left / (files.length + 1); if (--left === 0) { HUM.ready = !HUM.failed; if (onDone) onDone(); } };
   const fail = e => { HUM.failed = true; console.warn('modelo não carregou', e && e.message); done(); };
-  L.load('assets/chars/anims.glb', g => { for (const c of g.animations) HUM.clips[c.name] = c; done(); }, undefined, fail);
+  // animações KinemIQ/Quaternius (CC0) adaptadas ao esqueleto dos personagens: carregam depois das originais e substituem andar/correr/agachado
+  left++; let baseOk = false, kin = null; const mergeKin = () => { if (baseOk && kin) for (const j of kin.clips) HUM.clips[j.name] = T.AnimationClip.parse(j); };
+  fetch('assets/chars/anims_kin.json').then(r => r.json()).then(j => { kin = j; mergeKin(); done(); }).catch(() => done());
+  L.load('assets/chars/anims.glb', g => { for (const c of g.animations) HUM.clips[c.name] = c; baseOk = true; mergeKin(); done(); }, undefined, fail);
   for (const av of AVATARS) L.load(`assets/chars/${av.k}.glb`, g => { prepSource(g.scene); HUM.src[av.k] = g.scene; done(); }, undefined, fail);
   L.load('assets/plane.glb', g => { setPlaneModel(g.scene); done(); }, undefined, () => done());
   left++; loadNature(L, () => done());
@@ -50,11 +53,12 @@ function buildHuman(a) {
   root.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); mats.push(o.material); o.frustumCulled = false; o.castShadow = true; } });
   const b = {}; for (const n of BONES) b[n] = root.getObjectByName(n);
   const mixer = new T.AnimationMixer(root), px = av.f ? 'f_' : 'm_', act = {};
-  for (const k of ['idle', 'walk', 'run', 'crouch']) { const c = HUM.clips[px + k] || HUM.clips['m_' + k]; if (c) { act[k] = mixer.clipAction(c); act[k].play(); act[k].setEffectiveWeight(k === 'idle' ? 1 : 0); act[k].time = Math.random() * c.duration; } }
+  for (const k of ['idle', 'walk', 'run', 'crouch', 'sprint', 'cwalk', 'air', 'idle2']) { const c = HUM.clips[px + k] || HUM.clips['m_' + k]; if (c) { act[k] = mixer.clipAction(c); act[k].play(); act[k].setEffectiveWeight(k === 'idle' ? 1 : 0); act[k].time = Math.random() * c.duration; } }
+  const one = {}; for (const k of ['land', 'climb', 'punch', 'hit', 'death']) { const c = HUM.clips[px + k] || HUM.clips['m_' + k]; if (c) { const ac = mixer.clipAction(c); ac.setLoop(T.LoopOnce, 1); ac.clampWhenFinished = true; ac.enabled = false; one[k] = ac; } }
   const g = new T.Group(); g.add(root); scene.add(g);
   const gun = new T.Mesh(gunGeo('M416'), MAT.actor); gun.rotation.order = 'YXZ'; gun.visible = false; gun.castShadow = true; g.add(gun);
   const far = new T.Mesh(farGeo(a.look), MAT.actor); far.visible = false; g.add(far);
-  a.model = { human: true, av, g, root, b, mixer, act, w: { idle: 1, walk: 0, run: 0, crouch: 0 }, mats, gun, far, gear: {} };
+  a.model = { human: true, av, g, root, b, mixer, act, one, oneW: 0, w: { idle: 1, walk: 0, run: 0, crouch: 0, sprint: 0, cwalk: 0, air: 0, idle2: 0 }, mats, gun, far, gear: {} };
   g.updateMatrixWorld(true);
   updateHumanGear(a); refreshGun(a);
 }
@@ -126,12 +130,16 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   if (far) { m.gun.visible = false; m.far.rotation.x = prone ? -Math.PI / 2 : 0; m.far.position.y = prone ? 0.2 : 0; return; }
   // mistura das animações pela velocidade
   const sp = a.veh ? 0 : Math.hypot(a.vx, a.vz), cr = a.stance === 'crouch' && !a.veh;
-  const tw = { idle: 0, walk: 0, run: 0, crouch: 0 };
+  const tw = { idle: 0, walk: 0, run: 0, crouch: 0, sprint: 0, cwalk: 0, air: 0, idle2: 0 }, A_ = m.act;
+  const inAir = a.mode === 'ground' && !a.onGround && !a.swim && !a.vault && !a.veh && !prone && (a.y - groundH(a.x, a.z) > 0.35 || a.vy > 1);
   if (a.veh || a.mode !== 'ground') tw.idle = 1;
+  else if (inAir && A_.air) tw.air = 1; // pulo/queda curta: pose no ar
   else if (cr && sp < 0.6) tw.crouch = 1;
-  else if (sp < 0.4) tw.idle = 1;
+  else if (cr && sp >= 0.6 && A_.cwalk) tw.cwalk = 1; // andar agachado de verdade
+  else if (sp < 0.4) { if (a.relax && A_.idle2) tw.idle2 = 1; else tw.idle = 1; }
   else if (sp < 3.6 || cr || prone) tw.walk = 1;
-  else { const k = clamp((sp - 3.6) / 1.6, 0, 1); tw.run = k; tw.walk = 1 - k; }
+  else if (sp < 5.6 || !A_.sprint) { const k = clamp((sp - 3.6) / 1.6, 0, 1); tw.run = k; tw.walk = 1 - k; }
+  else { const k = clamp((sp - 5.6) / 0.7, 0, 1); tw.sprint = k; tw.run = 1 - k; } // corrida de verdade (sprint)
   // corpo gira atrasado em relação à mira (como no PUBG): parado, o tronco torce até ~60° e depois os pés acompanham
   const free = a.mode === 'ground' && !a.veh && !prone && !a.swim;
   if (m.byaw == null || !free) { m.byaw = a.yaw; m.turn = false; }
@@ -151,7 +159,18 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   m.acc2 = (m.acc2 || 0) + (clamp(acc, -25, 25) - (m.acc2 || 0)) * Math.min(1, dt * 5);
   m.runK = (m.runK || 0) + ((sp > 5.6 && a.onGround ? 1 : 0) - (m.runK || 0)) * Math.min(1, dt * 5);
   const k = Math.min(1, dt * 8);
-  for (const n in m.act) { m.w[n] += (tw[n] - m.w[n]) * k; m.act[n].setEffectiveWeight(m.w[n]); }
+  // ações únicas (aterrissar, escalar, soco, reação a tiro): disparam por evento e tomam o corpo por um instante
+  if (m.one) {
+    const fire = (n, ts, wmax, start) => { const ac = m.one[n]; if (!ac) return; for (const q in m.one) if (m.one[q] !== ac) m.one[q].enabled = false; ac.enabled = true; ac.reset(); ac.time = start || 0; ac.timeScale = ts || 1; ac.play(); m.oneA = ac; m.oneMax = wmax == null ? 1 : wmax; };
+    if (a.vault && m.lastVault !== a.vault) { m.lastVault = a.vault; fire('climb', m.one.climb ? m.one.climb.getClip().duration / Math.max(0.25, a.vault.T) : 1, 0.95); }
+    else if (a.landAt != null && a.landAt !== m.lastLand) { m.lastLand = a.landAt; if ((a.landK || 0) > 0.3 && sp < 4.5 && !a.vault) fire('land', 1.5, 0.75 * a.landK, 0.35); }
+    if (a.punchAt != null && a.punchAt !== m.lastPunch) { m.lastPunch = a.punchAt; fire('punch', 1.4, 0.9); }
+    if (a.lastHitT && a.lastHitT !== m.lastHit && a.alive) { m.lastHit = a.lastHitT; if (!m.oneA || !m.oneA.enabled || m.oneA === m.one.hit) fire('hit', 1, 0.45); }
+    let ow = 0; const oa = m.oneA;
+    if (oa && oa.enabled) { const d = oa.getClip().duration, t = oa.time; ow = Math.min(1, t / 0.08 / Math.max(0.3, oa.timeScale)) * Math.min(1, (d - t) / 0.18) * m.oneMax; if (t >= d - 0.01) { oa.enabled = false; ow = 0; } oa.setEffectiveWeight(Math.max(0, ow)); }
+    m.oneW = ow;
+  }
+  for (const n in m.act) { m.w[n] += ((tw[n] || 0) - m.w[n]) * k; m.act[n].setEffectiveWeight(m.w[n] * (1 - (m.oneW || 0))); }
   // direção do movimento em relação para onde olha: de lado gira as pernas, de ré anda ao contrário
   const fx0 = -Math.sin(a.yaw), fz0 = -Math.cos(a.yaw), fwdC = a.vx * fx0 + a.vz * fz0, sideC = a.vx * Math.cos(a.yaw) - a.vz * Math.sin(a.yaw);
   let twistT = 0, back = false;
@@ -161,19 +180,21 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
   }
   m.twist = (m.twist || 0) + (twistT - (m.twist || 0)) * Math.min(1, dt * 7);
   if (m.act.walk) m.act.walk.timeScale = m.turn && sp < 0.4 ? 1.1 : clamp(sp / (cr ? 1.1 : 1.45), 0.5, 2.2) * (back ? -1 : 1);
-  if (m.act.run) m.act.run.timeScale = clamp(sp / 5.2, 0.7, 1.5) * (back ? -1 : 1);
+  if (m.act.run) m.act.run.timeScale = clamp(sp / 4.6, 0.7, 1.5) * (back ? -1 : 1);
+  if (m.act.sprint) m.act.sprint.timeScale = clamp(sp / 6.4, 0.8, 1.4);
+  if (m.act.cwalk) m.act.cwalk.timeScale = clamp(sp / 2.2, 0.6, 1.7) * (back ? -1 : 1);
   // de longe atualiza a animação a cada 2 quadros
   m.acc = (m.acc || 0) + dt; m.fr = (m.fr || 0) + 1;
   if (!mid || m.fr % 2 === 0) { m.mixer.update(m.acc); m.acc = 0; }
   // coice e reação a tiro
   m.kickV = ((m.kickV || 0) + (a.kick || 0) * 0.6) * Math.exp(-dt * 11); a.kick = 0;
   const hitK = clamp(1 - (G.matchT - a.lastHitT) / 0.3, 0, 1);
-  const wa = m.act.walk && m.w.walk > 0.2 ? m.act.walk : m.act.run && m.w.run > 0.2 ? m.act.run : null;
+  const wa = m.act.walk && m.w.walk > 0.2 ? m.act.walk : m.act.run && m.w.run > 0.2 ? m.act.run : m.act.sprint && m.w.sprint > 0.2 ? m.act.sprint : null;
   const ph = wa ? wa.time / wa.getClip().duration * Math.PI * 4 : 0, bob = Math.min(1, sp / 5);
   // corpo deitado / caindo / agachado andando
   // transições suaves: deitar leva ~0,7 s, agachar andando desce aos poucos, aterrissar dobra o joelho
   m.pk = (m.pk == null ? (prone ? 1 : 0) : m.pk) + ((prone ? 1 : 0) - (m.pk || 0)) * Math.min(1, dt * 3.8);
-  m.cy = (m.cy || 0) + ((cr && sp >= 0.6 ? -0.32 : 0) - (m.cy || 0)) * Math.min(1, dt * 9);
+  m.cy = (m.cy || 0) + ((cr && sp >= 0.6 && !m.act.cwalk ? -0.32 : 0) - (m.cy || 0)) * Math.min(1, dt * 9);
   const ld = a.mode === 'ground' ? landDip(a) : 0;
   m.root.position.set(0, 0, 0); m.root.rotation.set(0, Math.PI, 0);
   if (m.pk > 0.01 && a.mode === 'ground') { m.root.rotation.set(-Math.PI / 2 * m.pk, Math.PI, 0); m.root.position.set(0, 0.16 * m.pk - Math.sin(m.pk * Math.PI) * 0.3, 0); }
@@ -193,15 +214,15 @@ function animateHuman(a, dt, camX, camZ, hideSelf) {
       if (Math.abs(bank) > 0.003) rotWorld(B.Bip01_Spine, _F, bank);
       if (Math.abs(pitchB) > 0.003) rotWorld(B.Bip01_Spine, _R, pitchB);
     }
-    if (ld > 0.01) for (const s of ['L', 'R']) { const th = B[`Bip01_${s}_Thigh`], ca = B[`Bip01_${s}_Calf`]; if (th && ca) { rotWorld(th, _R, 0.75 * ld); rotWorld(ca, _R, -1.2 * ld); } }
+    if (ld > 0.01 && !(m.oneA && m.oneA.enabled && m.oneA === m.one.land)) for (const s of ['L', 'R']) { const th = B[`Bip01_${s}_Thigh`], ca = B[`Bip01_${s}_Calf`]; if (th && ca) { rotWorld(th, _R, 0.75 * ld); rotWorld(ca, _R, -1.2 * ld); } }
     if (B.Bip01_Spine1) { rotWorld(B.Bip01_Spine1, _F, Math.sin(ph) * 0.045 * bob); rotWorld(B.Bip01_Spine1, _UP, Math.sin(ph) * 0.05 * bob); }
     if (B.Bip01_Spine2 && sp < 0.4) rotWorld(B.Bip01_Spine2, _R, Math.sin(G.t * 1.7 + a.id) * 0.018); // respiração
     if (B.Bip01_Spine1 && (m.kickV > 0.01 || hitK > 0)) rotWorld(B.Bip01_Spine1, _R, m.kickV * 0.035 - hitK * 0.16);
     if (B.Bip01_Head && hitK > 0) rotWorld(B.Bip01_Head, _F, hitK * 0.25 * (a.id % 2 ? 1 : -1));
-    if (!a.onGround && !a.swim) for (const s of ['L', 'R']) { const th = B[`Bip01_${s}_Thigh`], ca = B[`Bip01_${s}_Calf`]; if (th && ca) { rotWorld(th, _R, 0.7); rotWorld(ca, _R, -1.1); } } // pulo: encolhe as pernas
+    if (!a.onGround && !a.swim && !m.act.air) for (const s of ['L', 'R']) { const th = B[`Bip01_${s}_Thigh`], ca = B[`Bip01_${s}_Calf`]; if (th && ca) { rotWorld(th, _R, 0.7); rotWorld(ca, _R, -1.1); } } // pulo: encolhe as pernas
     if (B.Bip01_Spine1 && armed) rotWorld(B.Bip01_Spine1, _R, clamp(pitch, -1, 1) * 0.45);
     if (B.Bip01_Head) rotWorld(B.Bip01_Head, _R, clamp(pitch, -1, 1) * (armed ? 0.25 : 0.5));
-    if (cr && sp >= 0.6) for (const s of ['L', 'R']) { const th = B[`Bip01_${s}_Thigh`], ca = B[`Bip01_${s}_Calf`], ft = B[`Bip01_${s}_Foot`]; if (th) { rotWorld(th, _R, 0.9); rotWorld(ca, _R, -1.4); } }
+    if (cr && sp >= 0.6 && !m.act.cwalk) for (const s of ['L', 'R']) { const th = B[`Bip01_${s}_Thigh`], ca = B[`Bip01_${s}_Calf`], ft = B[`Bip01_${s}_Foot`]; if (th) { rotWorld(th, _R, 0.9); rotWorld(ca, _R, -1.4); } }
   }
   if (prone && B.Bip01_Head) rotWorld(B.Bip01_Neck || B.Bip01_Head, _R, 0.9);
   // sentado no veículo
@@ -245,14 +266,17 @@ function toCorpse(a) {
   const m = a.model; a.model = null; m.gun.visible = false;
   m.g.position.set(a.x, a.y, a.z); m.g.rotation.set(0, a.yaw, 0); m.root.visible = true; m.far.visible = false;
   m.g.visible = Math.hypot(a.x - camera.position.x, a.z - camera.position.z) < 150;
-  G.corpses.push({ m, t: 0, dir: Math.random() < 0.5 ? 1 : -1, prone: a.stance === 'prone' || a.knocked });
+  const prone = a.stance === 'prone' || a.knocked, dc = m.one && m.one.death;
+  if (dc && !prone && !a.veh) { for (const n in m.act) m.act[n].setEffectiveWeight(0); for (const n in m.one) m.one[n].enabled = false; dc.enabled = true; dc.reset(); dc.setEffectiveWeight(1); dc.timeScale = 1.15; dc.play(); m.root.rotation.set(0, Math.PI, 0); m.root.position.set(0, 0, 0); }
+  G.corpses.push({ m, t: 0, dir: Math.random() < 0.5 ? 1 : -1, prone, anim: !!(dc && !prone && !a.veh) });
 }
 function stepCorpses(dt) {
   for (let i = G.corpses.length - 1; i >= 0; i--) {
     const c = G.corpses[i]; c.t += dt; const m = c.m;
     m.g.visible = Math.hypot(m.g.position.x - camera.position.x, m.g.position.z - camera.position.z) < 150;
     const k = smooth(clamp(c.t / 0.7, 0, 1));
-    if (!c.prone) { m.root.rotation.set(c.dir * k * Math.PI / 2 * 0.98, Math.PI, 0); m.root.position.y = k * 0.12; }
+    if (c.anim) { if (c.t < 3 && m.g.visible) m.mixer.update(dt); }
+    else if (!c.prone) { m.root.rotation.set(c.dir * k * Math.PI / 2 * 0.98, Math.PI, 0); m.root.position.y = k * 0.12; }
     if (c.t > 8) { scene.remove(m.g); if (m.mixer) m.mixer.stopAllAction(); G.corpses.splice(i, 1); }
   }
 }

@@ -203,3 +203,6 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Cidades ~45% maiores com quase o dobro de prédios; ~2,6x mais casas isoladas; ~3x mais estruturas no campo (sítios, ruínas, torres, acampamentos, trincheiras, muros, contêineres, postos); ~2,7x mais árvores; nuvens no céu todo
 - 80 veículos e 15–20 lanchas; avião mais rápido; zona com as duas primeiras fases mais longas (partida de ~12–13 min)
 - Desempenho: estradas, rios e áreas planas consultados por região (o mapa monta ~2x mais rápido que sem isso); vidros das janelas somem junto com os prédios distantes
+
+## Animações novas (atualização)
+- 12 animações do pacote **KinemIQ / Quaternius (CC0)** adaptadas aos personagens: andar, correr, **sprint**, agachado parado e **andando agachado**, **no ar** (pulo/queda curta), **aterrissagem**, **escalada** (ao saltar janela/muro), **queda ao morrer**, **soco**, **reação a tiro** e parado relaxado (lobby)
