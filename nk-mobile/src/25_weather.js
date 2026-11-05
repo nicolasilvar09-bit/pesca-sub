@@ -33,7 +33,7 @@ function pickWeather(seed) {
   const tab = MAPID === 'bal' ? [['dia', 34], ['tarde', 20], ['nublado', 15], ['chuva', 23], ['noite', 8]] : [['dia', 44], ['tarde', 20], ['nublado', 16], ['chuva', 12], ['noite', 8]];
   let s = 0; for (const [k, p] of tab) { s += p / 100; if (r < s) return k; } return 'dia';
 }
-const _smW = startMatch; startMatch = function (opt) { const out = _smW.apply(this, arguments); setWeather(pickWeather(opt && opt.seed)); try { renderer.compile(scene, camera); } catch (e) { } /* prepara os shaders antes do avião (sem travar na primeira vez que algo aparece) */ if (WX.k !== 'dia') setTimeout(() => toast('Clima: ' + WEATHER[WX.k].n, 2.5), 2500); return out; };
+const _smW = startMatch; startMatch = function (opt) { const out = _smW.apply(this, arguments); setWeather(pickWeather(opt && opt.seed)); try { const vv = VM.visible; VM.visible = true; renderer.compile(scene, camera); VM.visible = vv; } catch (e) { } /* prepara os shaders antes do avião (sem travar na primeira vez que algo aparece) */ if (WX.k !== 'dia') setTimeout(() => toast('Clima: ' + WEATHER[WX.k].n, 2.5), 2500); return out; };
 const _tlW = toLobby; toLobby = function () { const out = _tlW.apply(this, arguments); setWeather('dia'); return out; };
 
 // ---------- noite: lua, estrelas, janelas acesas e brilho dos postes ----------

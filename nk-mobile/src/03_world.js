@@ -700,6 +700,7 @@ function wreck(x, z) { // carro abandonado (enferrujado)
     for (let t = 30; t < L - 30; t += 42) { // postes de luz/energia com fio
       const sd = 6.5, x = r[0] + ux * t - uz * sd, z = r[1] + uz * t + ux * sd, h = groundH(x, z);
       if (townAt(x, z, -10) || riverDist(x, z) < 10 || h < 1) { lastPole = null; continue; }
+      addCollider(x - 0.15, h, z - 0.15, x + 0.15, h + 9, z + 0.15, 'pole');
       DECO.push({ g: GEO.cyl6, x, y: h + 4.5, z, sx: 0.26, sy: 9, sz: 0.26, c: '#6e5a44' }, { g: GEO.box, x, y: h + 8.6, z, sx: 1.8, sy: 0.12, sz: 0.12, ry, c: '#5e4a36' });
       if (lastPole) { const [px, py, pz] = lastPole, mx = (px + x) / 2, mz = (pz + z) / 2, my = (py + h) / 2 + 8.2, len = Math.hypot(x - px, z - pz), pit = Math.atan2(h - py, len); DECO.push({ g: GEO.box, x: mx, y: my, z: mz, sx: 0.04, sy: 0.04, sz: len, ry, rx: -pit, c: '#222' }); }
       lastPole = [x, h, z];
@@ -789,7 +790,7 @@ const TREES = [], NAT = {};
   const bush = new T.InstancedMesh(new T.IcosahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), bu.length);
   bu.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.4 * s, z); dummy.scale.set(1.3 * s, 0.9 * s, 1.3 * s); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); bush.setMatrixAt(i, dummy.matrix); c.setHSL(0.22 + WR() * 0.08, 0.42, 0.27 + WR() * 0.08, 'srgb'); bush.setColorAt(i, c); });
   const rock = new T.InstancedMesh(new T.DodecahedronGeometry(1, 0), new T.MeshLambertMaterial({ color: 0xffffff }), rk.length);
-  rk.forEach(([x, h, z, s], i) => { dummy.position.set(x, h + 0.3 * s, z); dummy.scale.set(1.3 * s, s, 1.1 * s); dummy.rotation.set(WR(), WR() * 3, 0); dummy.updateMatrix(); rock.setMatrixAt(i, dummy.matrix); c.setHSL(0.08, 0.05, 0.46 + WR() * 0.12, 'srgb'); rock.setColorAt(i, c); addCollider(x - s, h - 0.5, z - 0.9 * s, x + s, h + 1.1 * s, z + 0.9 * s, 'rock'); });
+  rk.forEach(([x, h, z, s], i) => { addCollider(x - 0.95 * s, h - 0.5, z - 0.8 * s, x + 0.95 * s, h + 0.95 * s, z + 0.8 * s, 'rock'); dummy.position.set(x, h + 0.3 * s, z); dummy.scale.set(1.3 * s, s, 1.1 * s); dummy.rotation.set(WR(), WR() * 3, 0); dummy.updateMatrix(); rock.setMatrixAt(i, dummy.matrix); c.setHSL(0.08, 0.05, 0.46 + WR() * 0.12, 'srgb'); rock.setColorAt(i, c); addCollider(x - s, h - 0.5, z - 0.9 * s, x + s, h + 1.1 * s, z + 0.9 * s, 'rock'); });
   for (const m of [trunk, crown, crown2, bush, rock]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; scene.add(m); NATURE_MESH.push(m); }
   Object.assign(NAT, { trunk, crown, crown2, bush, rock, bu, rk });
   // nuvens

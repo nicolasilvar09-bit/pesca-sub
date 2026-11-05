@@ -190,7 +190,8 @@ function compass(yaw) {
 }
 function renderHealList() {
   const p = G.player, ks = ['BAND', 'FAK', 'MED', 'ENERGY', 'PAIN', 'ADREN'].filter(k => p.bag[k]);
-  $('healL').innerHTML = ks.length ? ks.map(k => `<div class="hi ${canHeal(p, k) ? '' : 'off'}" data-h="${k}">${HEAL[k].n} <b>${p.bag[k]}</b></div>`).join('') : '<div class="hi off">Nenhum item de cura</div>';
+  const html = ks.length ? ks.map(k => `<div class="hi ${canHeal(p, k) ? '' : 'off'}" data-h="${k}">${HEAL[k].n} <b>${p.bag[k]}</b></div>`).join('') : '<div class="hi off">Nenhum item de cura</div>';
+  if ($('healL')._h !== html) { $('healL').innerHTML = html; $('healL')._h = html; } // só troca quando muda (antes trocava 8x/s e o toque podia se perder)
   $('healL').onclick = e => { const el = e.target.closest('[data-h]'); if (el) { pHeal(el.dataset.h); $('healL').classList.add('hidden'); } };
 }
 // ---------- avisos de acerto e dano ----------

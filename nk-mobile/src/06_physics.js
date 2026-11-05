@@ -18,6 +18,15 @@ function stepPhys(a, dt) {
       if (m === l) nx = b.x0 - RAD; else if (m === r) nx = b.x1 + RAD; else if (m === f) nz = b.z0 - RAD; else nz = b.z1 + RAD;
     }
   }
+  // veículos parados ou andando devagar: não dá para atravessar (caixa girada do veículo)
+  if (typeof VEH !== 'undefined' && !a.veh) for (const v of VEH) {
+    const dx = nx - v.x, dz = nz - v.z; if (dx * dx + dz * dz > 30 || ny > v.y + v.d.h + 0.3 || ny + h < v.y) continue;
+    const c = Math.cos(v.yaw), s = Math.sin(v.yaw), lx = dx * c - dz * s, lz = dx * s + dz * c; // no referencial do veículo
+    const hx = v.d.hw + RAD, hz = v.d.hl + RAD; if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) continue;
+    let px = lx, pz = lz; if (hx - Math.abs(lx) < hz - Math.abs(lz)) px = Math.sign(lx || 1) * hx; else pz = Math.sign(lz || 1) * hz;
+    if (ny >= v.y + v.d.h * 0.75 && a.vy <= 0) continue; // em cima do capô/teto: deixa (pode subir)
+    nx = v.x + px * c + pz * s; nz = v.z - px * s + pz * c;
+  }
   // chão: terreno ou topo de caixa (piso, degrau, telhado)
   let sup = groundH(nx, nz);
   const terr = sup;
@@ -29,18 +38,24 @@ function stepPhys(a, dt) {
     if (nx > b.x0 - 0.2 && nx < b.x1 + 0.2 && nz > b.z0 - 0.2 && nz < b.z1 + 0.2 && b.y0 > base + 0.2 && b.y0 < ny + h) { ny = b.y0 - h; a.vy = 0; }
   }
   const landV = a.vy;
+  if (!a.onGround) a.fallTop = Math.max(a.fallTop == null ? a.y : a.fallTop, a.y); // ponto mais alto desde que saiu do chão
   if (ny <= sup) { ny = sup;
     if (!a.onGround && a.mode === 'ground') {
-      if (landV < -13) hurt(a, (-landV - 13) * 7, null, false, 'queda');
+      fallDamage(a, (a.fallTop == null ? a.y : a.fallTop) - ny);
       if (landV < -4.5) { a.landK = clamp((-landV - 3) / 10, 0.15, 1); a.landAt = G.t; } // amortece a queda: joelho dobra, câmera desce, anda mais devagar
     }
-    a.vy = 0; a.onGround = true; }
+    a.vy = 0; a.onGround = true; a.fallTop = null; }
   else if (a.onGround && ny - sup < 0.55 && a.vy <= 0) { ny = sup; a.vy = 0; }
-  else a.onGround = false;
+  else { if (a.onGround) a.fallTop = a.y; a.onGround = false; }
   // água funda: nada na superfície
   a.swim = false;
   if (sup === terr && terr < -1.3 && ny < -1.3) { ny = -1.3; a.vy = Math.max(0, a.vy); a.onGround = true; a.swim = true; }
   a.x = clamp(nx, -HALF + 4, HALF - 4); a.z = clamp(nz, -HALF + 4, HALF - 4); a.y = ny;
+}
+// dano de queda pela altura (igual sempre, venha de pulo, beirada ou salto de janela): até 4,5 m nada; 10 m ≈ 50; ~17 m mata sem colete
+function fallDamage(a, drop) {
+  if (!(drop > 4.5) || a.swim) return;
+  hurt(a, (drop - 4.5) * 6 + (drop - 4.5) ** 2 * 0.15, null, false, 'queda');
 }
 // velocidade desejada (m/s) conforme postura e situação
 function moveSpeed(a, sprint) {
@@ -140,5 +155,5 @@ function stepVault(a, dt) {
   const up = Math.min(1, k / 0.45);
   a.y = k < 0.6 ? lerp(v.y0, v.peak, smooth(up)) : lerp(v.peak, v.y, smooth((k - 0.6) / 0.4));
   a.vx = (v.x - v.x0) / v.T; a.vz = (v.z - v.z0) / v.T;
-  if (k >= 1) { a.vault = null; a.y = v.y; a.vy = 0; a.onGround = true; a.vx *= 0.4; a.vz *= 0.4; a.stance = v.st === 'prone' ? 'stand' : v.st; }
+  if (k >= 1) { a.vault = null; a.y = v.y; a.vy = 0; a.onGround = true; a.fallTop = null; if (a.mode === 'ground') fallDamage(a, v.peak - v.y); /* saltar a beirada do prédio também machuca */ a.vx *= 0.4; a.vz *= 0.4; a.stance = v.st === 'prone' ? 'stand' : v.st; }
 }
