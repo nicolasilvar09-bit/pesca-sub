@@ -210,3 +210,9 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 ## Árvores realistas (atualização)
 - Bétula, carvalho e abeto do **FoliMesh** (grátis para uso pessoal e comercial) perto do jogador nos gráficos Médio e Alto: até ~42 m versão detalhada (~3,5 mil triângulos), até 95–130 m versão leve (~1 mil); longe continuam as árvores simples. Folhas com textura de verdade e balanço com o vento
 - **Pedra escaneada** do Poly Haven (CC0), reduzida para ~1.300 triângulos: ~40% das pedras espalhadas pela ilha
+
+## Carros realistas (06/11)
+- Sedã, jipe, buggy, moto e lancha refeitos com carroceria curva (perfis arredondados), vidro escuro, colunas, retrovisores, faróis, lanternas, grade, para-choques, maçanetas, placa e caixa de roda.
+- Rodas com pneu, aro metálico com raios e cubo; jipe com estepe, quebra-mato e bagageiro.
+- Material próprio: pintura com brilho, vidro e cromo refletindo o céu, pneu fosco e poeira na parte de baixo. No gráfico Leve continua o material simples.
+- Skins de carro pintam só a lataria (vidro, pneu e farol ficam normais).

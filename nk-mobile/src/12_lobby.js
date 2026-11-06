@@ -28,7 +28,7 @@ function lobbyActors() {
 function lobbyCar() {
   if (LOB.car) { scene.remove(LOB.car); LOB.car.geometry.dispose(); LOB.car = null; }
   const eq = SET.equip && SET.equip.veh || {}, order = ['seda', 'jipe', 'buggy', 'moto'], k = order.find(v => eq[v] && COS[eq[v]]) || 'jipe', s = eq[k] && COS[eq[k]];
-  const m = new T.Mesh(vehGeo(k, s ? s.col : '#4b5a3a'), s && s.th ? skinMat(s.th, true, 0.07) : MAT.world); m.castShadow = m.receiveShadow = true; m.rotation.order = 'YXZ';
+  const m = new T.Mesh(vehGeo(k, s ? s.col : '#4b5a3a'), s && s.th ? skinMat(s.th, true, 0.07) : vehMat()); m.castShadow = m.receiveShadow = true; m.rotation.order = 'YXZ';
   const fx = Math.cos(LOB.yaw), fz = Math.sin(LOB.yaw), rx = -fz, rz = fx, cx = LOB.x - rx * 4.1 + fx * 3.6, cz = LOB.z - rz * 4.1 + fz * 3.6;
   m.position.set(cx, LOB.y + 0.12, cz); m.rotation.y = Math.atan2(-rx, -rz) + 0.35; scene.add(m); LOB.car = m; // de lado para a câmera, levemente virado
   if (!LOB.stage) { // palco: piso de concreto sem grama, com borda

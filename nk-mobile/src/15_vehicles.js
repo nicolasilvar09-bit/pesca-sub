@@ -8,37 +8,168 @@ const VDEF = {
   moto: { n: 'Moto', hp: 550, max: 33, acc: 12, turn: 1.9, hl: 1.0, hw: 0.35, h: 1.2, seats: [[0, 0.0, 0.85], [0, 0.5, 0.95]], cols: ['#8a2a22', '#2a2c30', '#4a5a6a', '#6a5a3a'] },
 };
 const VEH = [];
-function vehGeo(k, col) {
-  const d = VDEF[k], L = d.hl, W = d.hw, wh = (x, z, r, w) => ({ g: GEO.cyl, x, y: r, z, rz: Math.PI / 2, sx: r * 2, sy: w, sz: r * 2, c: '#1b1b1b' });
-  const glass = '#7fd3ff', p = [];
-  if (k === 'lancha') { // casco fundo, proa afinando, para-brisa, motor de popa
-    p.push(bx(-W * 0.8, -0.35, -L + 0.9, W * 1.6, 0.45, L * 2 - 0.9, '#f4f4f0'), bx(-W, 0.05, -L + 0.7, W * 2, 0.5, L * 2 - 0.7, col));
-    p.push(bx(-W * 0.55, 0.05, -L, W * 1.1, 0.45, 0.8, col), bx(-W * 0.3, 0.05, -L - 0.35, W * 0.6, 0.4, 0.4, col)); // proa
-    p.push(bx(-W + 0.12, 0.5, -L + 1.3, W * 2 - 0.24, 0.06, L * 2 - 1.5, '#b89466')); // piso de madeira
-    p.push(bx(-W + 0.1, 0.55, -0.6, W * 2 - 0.2, 0.45, 0.06, '#9fd7ff'), bx(-0.5, 0.55, -0.35, 0.45, 0.4, 0.4, '#333')); // para-brisa e painel
-    p.push(bx(-0.25, 0.1, L - 0.05, 0.5, 0.75, 0.4, '#222'), bx(-0.08, -0.5, L + 0.15, 0.16, 0.6, 0.12, '#444')); // motor
-  } else if (k === 'moto') {
-    p.push(bx(-0.12, 0.45, -0.75, 0.24, 0.35, 1.3, col), bx(-0.15, 0.78, -0.1, 0.3, 0.12, 0.75, '#222'), bx(-0.05, 0.6, -0.95, 0.1, 0.55, 0.1, '#9e9e9e'));
-    p.push(bx(-0.35, 1.1, -0.95, 0.7, 0.05, 0.06, '#424242'), bx(-0.1, 0.6, -1.02, 0.2, 0.15, 0.05, '#fff59d'));
-    p.push(wh(0, -0.78, 0.33, 0.16), wh(0, 0.72, 0.33, 0.2));
-  } else if (k === 'buggy') {
-    p.push(bx(-W, 0.35, -L, W * 2, 0.35, L * 2, col), bx(-W + 0.1, 0.7, -0.2, W * 2 - 0.2, 0.3, 0.9, '#333'));
-    for (const sx of [-1, 1]) { p.push(bx(sx * (W - 0.08) - 0.04, 0.7, -0.5, 0.08, 0.9, 0.08, '#555'), bx(sx * (W - 0.08) - 0.04, 0.7, 0.8, 0.08, 0.9, 0.08, '#555')); }
-    p.push(bx(-W, 1.6, -0.5, W * 2, 0.06, 1.38, '#555'));
-    p.push(wh(-W - 0.1, -L + 0.45, 0.45, 0.35), wh(W + 0.1, -L + 0.45, 0.45, 0.35), wh(-W - 0.1, L - 0.4, 0.5, 0.4), wh(W + 0.1, L - 0.4, 0.5, 0.4));
-  } else {
-    const jeep = k === 'jipe', bh = jeep ? 0.75 : 0.6, b0 = jeep ? 0.45 : 0.32;
-    p.push(bx(-W, b0, -L, W * 2, bh, L * 2, col));
-    const c0 = jeep ? -0.7 : -0.6, c1 = jeep ? 1.6 : 1.1;
-    p.push(bx(-W + 0.08, b0 + bh, c0, W * 2 - 0.16, jeep ? 0.7 : 0.55, c1 - c0, glass));
-    p.push(bx(-W + 0.05, b0 + bh + (jeep ? 0.7 : 0.55), c0 + 0.05, W * 2 - 0.1, 0.08, c1 - c0 - 0.1, col));
-    p.push(bx(-W + 0.15, b0 + 0.25, -L - 0.03, 0.3, 0.15, 0.05, '#fff59d'), bx(W - 0.45, b0 + 0.25, -L - 0.03, 0.3, 0.15, 0.05, '#fff59d'));
-    p.push(bx(-W + 0.1, b0 + 0.3, L - 0.02, 0.25, 0.12, 0.05, '#ff1744'), bx(W - 0.35, b0 + 0.3, L - 0.02, 0.25, 0.12, 0.05, '#ff1744'));
-    if (jeep) p.push({ g: GEO.cyl, y: b0 + 0.55, z: L + 0.15, rx: Math.PI / 2, sx: 0.7, sy: 0.25, sz: 0.7, c: '#212121' });
-    const r = jeep ? 0.45 : 0.36;
-    p.push(wh(-W, -L + 0.6, r, 0.3), wh(W, -L + 0.6, r, 0.3), wh(-W, L - 0.6, r, 0.3), wh(W, L - 0.6, r, 0.3));
+/* ---------- carroceria realista: perfis "lofted" (seções arredondadas ao longo do carro), rodas com aro, vidro, cromo e farol ---------- */
+/* canal de material por vértice: [rugosidade, metal, brilho próprio, é pintura] */
+const VMT = { paint: [0.4, 0.12, 0, 1], glass: [0.08, 0.3, 0, 0], tire: [0.92, 0, 0, 0], rim: [0.28, 0.9, 0, 0], chrome: [0.14, 1, 0, 0], plas: [0.72, 0.05, 0, 0], light: [0.12, 0.2, 0.6, 0], tail: [0.2, 0.1, 0.5, 0], under: [0.95, 0, 0, 0], seat: [0.85, 0, 0, 0] };
+const VGEO = { tire: new T.CylinderGeometry(0.5, 0.5, 1, 18), rim: new T.CylinderGeometry(0.5, 0.5, 1, 14), torus: new T.TorusGeometry(0.5, 0.09, 6, 16, Math.PI) };
+/* seções: {z, w (meia-largura embaixo), wt (meia-largura em cima), y0, y1, n (quão quadrado)} */
+function loftGeo(S, seg) {
+  seg = seg || 22; const pos = [], idx = [];
+  for (const s of S) {
+    const n = s.n || 4, wt = s.wt == null ? s.w : s.wt, my = (s.y0 + s.y1) / 2, hh = (s.y1 - s.y0) / 2;
+    for (let i = 0; i < seg; i++) {
+      const a = i / seg * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
+      const yy = Math.sign(sn) * Math.pow(Math.abs(sn), 2 / n), w = s.w + (wt - s.w) * (yy * 0.5 + 0.5);
+      pos.push(Math.sign(c) * Math.pow(Math.abs(c), 2 / n) * w, my + yy * hh, s.z);
+    }
   }
-  return mergeParts(p);
+  for (let k = 0; k < S.length - 1; k++) for (let i = 0; i < seg; i++) {
+    const a = k * seg + i, b = k * seg + (i + 1) % seg, c = a + seg, d = b + seg;
+    idx.push(a, b, c, b, d, c);
+  }
+  for (const [k, flip] of [[0, false], [S.length - 1, true]]) { /* tampas nas pontas */
+    const base = pos.length / 3, s = S[k]; pos.push(0, (s.y0 + s.y1) / 2, s.z);
+    for (let i = 0; i < seg; i++) { const a = k * seg + i, b = k * seg + (i + 1) % seg; if (flip) idx.push(base, b, a); else idx.push(base, a, b); }
+  }
+  const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+const _qa = new T.Quaternion(), _ea = new T.Euler(), _up = new T.Vector3(0, 1, 0), _dv = new T.Vector3();
+/* peça esticada entre dois pontos (tubos, colunas) */
+function vseg(a, b, r, c, m, g) {
+  _dv.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]); const L = _dv.length(); _dv.normalize(); _qa.setFromUnitVectors(_up, _dv); _ea.setFromQuaternion(_qa);
+  return { g: g || GEO.cyl, x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, z: (a[2] + b[2]) / 2, rx: _ea.x, ry: _ea.y, rz: _ea.z, sx: r, sy: L, sz: g === GEO.box ? r * 2.6 : r, c, m };
+}
+/* roda completa: pneu, aro metálico com raios, cubo; s = lado (+1/-1) */
+function vwheel(p, x, z, r, w, s, rimC, spokes) {
+  const y = r, o = s * w / 2;
+  p.push({ g: VGEO.tire, x, y, z, rz: Math.PI / 2, sx: r * 2, sy: w, sz: r * 2, c: '#0b0b0b', m: 'tire' });
+  p.push({ g: VGEO.rim, x: x + o * 0.7, y, z, rz: Math.PI / 2, sx: r * 1.3, sy: w * 0.42, sz: r * 1.3, c: rimC || '#9a9ea3', m: 'rim' });
+  p.push({ g: VGEO.rim, x: x + o * 0.95, y, z, rz: Math.PI / 2, sx: r * 0.42, sy: w * 0.14, sz: r * 0.42, c: '#2a2a2a', m: 'plas' });
+  for (let i = 0; i < (spokes || 5); i++) { const a = i / (spokes || 5) * Math.PI * 2; p.push({ g: GEO.box, x: x + o * 0.92, y: y + Math.cos(a) * r * 0.36, z: z + Math.sin(a) * r * 0.36, rx: -a, sx: w * 0.1, sy: r * 0.5, sz: r * 0.16, c: rimC || '#9a9ea3', m: 'rim' }); }
+}
+/* para-lama: arco escuro atrás da roda (a caixa de roda) */
+function varch(p, x, z, r, R, c) { p.push({ g: VGEO.torus, x, y: r, z, ry: Math.PI / 2, sx: R * 2, sy: R * 2, sz: 1.4, c: c || '#1c1c1c', m: 'plas' }); }
+function vehMerge(parts) {
+  const g = mergeParts(parts), vm = [];
+  for (const p of parts) { const n = p.g.index ? p.g.index.count : p.g.attributes.position.count, q = VMT[p.m || 'paint']; for (let i = 0; i < n; i++) vm.push(q[0], q[1], q[2], q[3]); }
+  g.setAttribute('vm', new T.Float32BufferAttribute(vm, 4)); return g;
+}
+function carBody(p, k, col, L, W) {
+  const jeep = k === 'jipe';
+  const glass = '#0d1418', dark = '#202224';
+  if (jeep) {
+    /* jipe: caixa alta e quadrada, capô reto, para-brisa quase em pé */
+    p.push({ g: loftGeo([
+      { z: -L, w: W * 0.93, y0: 0.62, y1: 1.02, n: 7 }, { z: -L + 0.08, w: W * 0.98, y0: 0.55, y1: 1.12, n: 8 }, { z: -0.7, w: W, y0: 0.52, y1: 1.2, n: 9 },
+      { z: L - 0.08, w: W, y0: 0.52, y1: 1.22, n: 9 }, { z: L, w: W * 0.95, y0: 0.58, y1: 1.15, n: 8 }]), c: col });
+    p.push({ g: loftGeo([
+      { z: -0.72, w: W * 0.95, wt: W * 0.9, y0: 1.18, y1: 1.2, n: 8 }, { z: -0.52, w: W * 0.95, wt: W * 0.9, y0: 1.18, y1: 1.86, n: 9 },
+      { z: L - 0.1, w: W * 0.95, wt: W * 0.9, y0: 1.18, y1: 1.86, n: 9 }, { z: L - 0.04, w: W * 0.93, wt: W * 0.88, y0: 1.18, y1: 1.82, n: 8 }]), c: glass, m: 'glass' });
+    p.push({ g: loftGeo([{ z: -0.56, w: W * 0.93, y0: 1.83, y1: 1.92, n: 6 }, { z: L - 0.06, w: W * 0.93, y0: 1.83, y1: 1.92, n: 6 }], 16), c: col });
+    for (const s of [-1, 1]) { /* colunas */
+      p.push(vseg([s * W * 0.96, 1.2, -0.7], [s * W * 0.92, 1.86, -0.52], 0.05, col, 'paint', GEO.box), vseg([s * W * 0.96, 1.2, 0.45], [s * W * 0.92, 1.86, 0.45], 0.05, col, 'paint', GEO.box), vseg([s * W * 0.96, 1.2, L - 0.2], [s * W * 0.92, 1.86, L - 0.2], 0.05, col, 'paint', GEO.box));
+      p.push(bx(s * W - 0.04, 0.6, -L + 0.2, 0.08, 0.07, L * 2 - 0.4, '#2a2a2a', { m: 'plas' })); /* friso lateral */
+      p.push(bx(s * (W + 0.02) - 0.03, 0.62, -0.55, 0.06, 0.02, 0.18, '#333', { m: 'plas' }), bx(s * (W + 0.02) - 0.03, 0.62, 0.55, 0.06, 0.02, 0.18, '#333', { m: 'plas' })); /* maçanetas */
+      p.push(bx(s * (W + 0.003) - 0.005, 0.58, -0.72, 0.01, 0.6, 0.012, '#111', { m: 'plas' }), bx(s * (W + 0.003) - 0.005, 0.58, 0.42, 0.01, 0.6, 0.012, '#111', { m: 'plas' }));
+      p.push(bx(s * (W + 0.05) - 0.06, 1.28, -0.62, 0.12, 0.16, 0.06, dark, { m: 'plas' }), vseg([s * W, 1.25, -0.6], [s * (W + 0.07), 1.3, -0.6], 0.03, dark, 'plas')); /* retrovisor */
+      p.push({ g: GEO.box, x: s * W * 0.62, y: 0.98, z: -L - 0.02, sx: 0.26, sy: 0.18, sz: 0.06, c: '#fff4d2', m: 'light' }); /* faróis redondos */
+      p.push({ g: GEO.box, x: s * W * 0.78, y: 0.9, z: L + 0.02, sx: 0.12, sy: 0.24, sz: 0.04, c: '#d0141e', m: 'tail' });
+    }
+    p.push(bx(-W * 0.45, 0.72, -L - 0.04, W * 0.9, 0.3, 0.05, '#151515', { m: 'plas' })); /* grade */
+    for (let i = -3; i <= 3; i++) p.push(bx(i * W * 0.12 - 0.02, 0.74, -L - 0.07, 0.04, 0.26, 0.03, '#3a3a3a', { m: 'plas' }));
+    p.push(bx(-W * 0.98, 0.5, -L - 0.2, W * 1.96, 0.16, 0.18, '#1d1d1d', { m: 'plas' }), bx(-W * 0.98, 0.5, L + 0.0, W * 1.96, 0.16, 0.16, '#1d1d1d', { m: 'plas' })); /* para-choques de aço */
+    for (const s of [-1, 1]) p.push(vseg([s * W * 0.55, 0.62, -L - 0.2], [s * W * 0.45, 1.05, -L - 0.25], 0.06, '#2b2b2b', 'plas')); /* quebra-mato */
+    p.push(vseg([-W * 0.5, 1.05, -L - 0.25], [W * 0.5, 1.05, -L - 0.25], 0.06, '#2b2b2b', 'plas'));
+    p.push({ g: VGEO.tire, y: 1.05, z: L + 0.17, rx: Math.PI / 2, sx: 0.78, sy: 0.24, sz: 0.78, c: '#151515', m: 'tire' }, { g: VGEO.rim, y: 1.05, z: L + 0.27, rx: Math.PI / 2, sx: 0.46, sy: 0.08, sz: 0.46, c: '#6a6d70', m: 'rim' }); /* estepe */
+    for (const s of [-1, 1]) p.push(vseg([s * W * 0.7, 1.95, -0.4], [s * W * 0.7, 1.95, L - 0.2], 0.04, '#222', 'plas')); /* bagageiro */
+    p.push(bx(-0.36, 0.54, L + 0.0, 0.32, 0.16, 0.03, '#e8e8e0', { m: 'plas' }));
+    p.push(bx(-W * 0.85, 0.45, -L + 0.3, W * 1.7, 0.1, L * 2 - 0.6, '#151515', { m: 'under' }));
+  } else {
+    /* sedã: capô inclinado, para-brisa deitado, porta-malas curto */
+    p.push({ g: loftGeo([
+      { z: -L, w: W * 0.8, y0: 0.34, y1: 0.66, n: 3 }, { z: -L + 0.12, w: W * 0.93, y0: 0.28, y1: 0.76, n: 3.6 }, { z: -L + 0.55, w: W * 0.99, y0: 0.26, y1: 0.82, n: 4.2 },
+      { z: -0.95, w: W, y0: 0.25, y1: 0.9, n: 4.5 }, { z: 0.2, w: W, y0: 0.25, y1: 0.93, n: 4.5 }, { z: L - 0.6, w: W * 0.99, y0: 0.27, y1: 0.97, n: 4.4 },
+      { z: L - 0.12, w: W * 0.94, y0: 0.31, y1: 0.93, n: 3.8 }, { z: L, w: W * 0.82, y0: 0.38, y1: 0.8, n: 3 }], 26), c: col });
+    p.push({ g: loftGeo([
+      { z: -0.98, w: W * 0.9, wt: W * 0.88, y0: 0.86, y1: 0.9, n: 4 }, { z: -0.28, w: W * 0.88, wt: W * 0.72, y0: 0.86, y1: 1.4, n: 4.5 },
+      { z: 0.62, w: W * 0.88, wt: W * 0.72, y0: 0.86, y1: 1.41, n: 4.5 }, { z: L - 0.58, w: W * 0.9, wt: W * 0.84, y0: 0.88, y1: 0.97, n: 4 }], 24), c: glass, m: 'glass' });
+    p.push({ g: loftGeo([{ z: -0.24, w: W * 0.73, y0: 1.37, y1: 1.43, n: 5 }, { z: 0.6, w: W * 0.73, y0: 1.37, y1: 1.44, n: 5 }], 18), c: col });
+    for (const s of [-1, 1]) {
+      p.push(vseg([s * W * 0.89, 0.92, -0.9], [s * W * 0.74, 1.36, -0.3], 0.035, col, 'paint', GEO.box), vseg([s * W * 0.89, 0.92, 0.18], [s * W * 0.75, 1.36, 0.16], 0.035, col, 'paint', GEO.box));
+      p.push(bx(s * (W * 0.9) - 0.01, 0.88, -0.9, 0.02, 0.03, 2.4, '#c8cacc', { m: 'chrome' })); /* friso cromado da janela */
+      p.push(bx(s * (W + 0.003) - 0.005, 0.3, -0.92, 0.01, 0.6, 0.012, '#0e0e0e', { m: 'plas' }), bx(s * (W + 0.003) - 0.005, 0.3, 0.2, 0.01, 0.62, 0.012, '#0e0e0e', { m: 'plas' }), bx(s * (W + 0.003) - 0.005, 0.32, L - 0.62, 0.01, 0.6, 0.012, '#0e0e0e', { m: 'plas' }));
+      p.push(bx(s * (W + 0.012) - 0.02, 0.74, -0.35, 0.04, 0.03, 0.16, '#b9bcbf', { m: 'chrome' }), bx(s * (W + 0.012) - 0.02, 0.74, 0.75, 0.04, 0.03, 0.16, '#b9bcbf', { m: 'chrome' }));
+      p.push(bx(s * W - 0.03, 0.3, -L + 0.75, 0.06, 0.05, L * 2 - 1.5, '#1a1a1a', { m: 'plas' })); /* saia lateral */
+      p.push(bx(s * (W + 0.04) - 0.07, 0.92, -0.9, 0.14, 0.11, 0.07, col), vseg([s * W * 0.95, 0.9, -0.88], [s * (W + 0.02), 0.94, -0.88], 0.03, dark, 'plas')); /* retrovisor */
+      p.push({ g: GEO.box, x: s * W * 0.56, y: 0.63, z: -L + 0.13, ry: s * 0.22, sx: 0.36, sy: 0.1, sz: 0.12, c: '#f3efe2', m: 'light' }); /* faróis */
+      p.push({ g: GEO.box, x: s * W * 0.6, y: 0.8, z: L - 0.1, ry: -s * 0.2, sx: 0.36, sy: 0.1, sz: 0.1, c: '#c0101a', m: 'tail' }); /* lanternas */
+    }
+    p.push(bx(-W * 0.42, 0.44, -L - 0.01, W * 0.84, 0.16, 0.06, '#121212', { m: 'plas' }), bx(-W * 0.4, 0.62, -L + 0.06, W * 0.8, 0.04, 0.05, '#b9bcbf', { m: 'chrome' })); /* grade */
+    p.push(bx(-W * 0.85, 0.3, -L - 0.02, W * 1.7, 0.08, 0.08, '#181818', { m: 'plas' }), bx(-W * 0.85, 0.36, L - 0.04, W * 1.7, 0.08, 0.08, '#181818', { m: 'plas' })); /* lábios dos para-choques */
+    p.push(bx(-0.26, 0.5, L - 0.03, 0.52, 0.13, 0.03, '#e8e8e0', { m: 'plas' }), bx(-0.22, 0.24, -L - 0.03, 0.44, 0.11, 0.03, '#e8e8e0', { m: 'plas' })); /* placas */
+    p.push({ g: GEO.cyl, x: W * 0.55, y: 0.27, z: L - 0.02, rx: Math.PI / 2, sx: 0.08, sy: 0.18, sz: 0.08, c: '#a0a4a8', m: 'chrome' }); /* escapamento */
+    p.push(bx(-W * 0.85, 0.2, -L + 0.4, W * 1.7, 0.08, L * 2 - 0.8, '#121212', { m: 'under' }));
+  }
+}
+function vehGeo(k, col) {
+  const d = VDEF[k], L = d.hl, W = d.hw, p = [];
+  if (k === 'lancha') { /* casco fundo, proa afinando, para-brisa, motor de popa */
+    p.push({ g: loftGeo([{ z: -L - 0.3, w: 0.08, y0: 0.15, y1: 0.55, n: 2 }, { z: -L + 0.6, w: W * 0.75, y0: -0.3, y1: 0.58, n: 2.6 }, { z: -L + 1.6, w: W, y0: -0.4, y1: 0.55, n: 3.2 }, { z: L, w: W * 0.96, y0: -0.38, y1: 0.52, n: 3.4 }], 22), c: col });
+    p.push(bx(-W * 0.8, 0.3, -L + 0.8, W * 1.6, 0.12, L * 2 - 1.0, '#b89466', { m: 'seat' })); /* piso de madeira */
+    p.push(bx(-W + 0.1, 0.53, L - 0.2, W * 2 - 0.2, 0.08, 0.12, '#e6e6e0', { m: 'plas' }), bx(-W * 0.95, 0.5, -L + 0.4, 0.1, 0.1, L * 2 - 0.6, '#e6e6e0', { m: 'plas' }), bx(W * 0.95 - 0.1, 0.5, -L + 0.4, 0.1, 0.1, L * 2 - 0.6, '#e6e6e0', { m: 'plas' }));
+    p.push({ g: GEO.box, y: 0.82, z: -0.5, rx: -0.45, sx: W * 1.7, sy: 0.5, sz: 0.04, c: '#0d1418', m: 'glass' }, bx(-0.5, 0.42, -0.38, 0.45, 0.45, 0.4, '#2a2a2a', { m: 'plas' }));
+    p.push(bx(-0.5, 0.42, 0.1, 0.4, 0.38, 0.45, '#d9d4c8', { m: 'seat' }), bx(0.1, 0.42, 0.1, 0.4, 0.38, 0.45, '#d9d4c8', { m: 'seat' }), bx(-0.5, 0.42, 1.0, 1.0, 0.33, 0.45, '#d9d4c8', { m: 'seat' }));
+    p.push(bx(-0.25, 0.25, L - 0.05, 0.5, 0.8, 0.45, '#1b1b1b', { m: 'plas' }), bx(-0.08, -0.5, L + 0.15, 0.16, 0.75, 0.12, '#444', { m: 'rim' }));
+    p.push(bx(-W * 0.98, 0.25, -L + 0.5, W * 1.96, 0.06, L * 2 - 0.6, '#c94040', { m: 'plas' })); /* faixa */
+  } else if (k === 'moto') {
+    p.push(vseg([0, 0.33, -0.78], [0, 1.02, -0.62], 0.07, '#bfc3c6', 'chrome'), vseg([0, 0.62, -0.62], [0, 0.55, 0.72], 0.08, '#2a2a2a', 'plas')); /* garfo e quadro */
+    p.push({ g: GEO.sph, x: 0, y: 0.85, z: -0.3, sx: 0.32, sy: 0.24, sz: 0.55, c: col }); /* tanque */
+    p.push({ g: loftGeo([{ z: -0.05, w: 0.14, y0: 0.8, y1: 0.86, n: 3 }, { z: 0.35, w: 0.15, y0: 0.8, y1: 0.9, n: 3 }, { z: 0.72, w: 0.11, y0: 0.82, y1: 0.95, n: 3 }], 12), c: '#1a1a1a', m: 'seat' });
+    p.push(bx(-0.15, 0.4, -0.3, 0.3, 0.32, 0.5, '#3a3c3f', { m: 'rim' }), vseg([0.16, 0.42, -0.1], [0.18, 0.5, 0.85], 0.07, '#c0c4c8', 'chrome')); /* motor e escapamento */
+    p.push(vseg([-0.36, 1.08, -0.68], [0.36, 1.08, -0.68], 0.035, '#2a2a2a', 'plas'), { g: GEO.cyl, x: 0, y: 0.92, z: -0.82, rx: Math.PI / 2, sx: 0.18, sy: 0.06, sz: 0.18, c: '#fff3cf', m: 'light' });
+    p.push({ g: GEO.box, x: 0, y: 0.84, z: 0.78, sx: 0.12, sy: 0.05, sz: 0.04, c: '#c0101a', m: 'tail' }, { g: GEO.box, x: 0, y: 0.7, z: 0.62, rx: -0.4, sx: 0.22, sy: 0.04, sz: 0.4, c: col });
+    vwheel(p, 0, -0.78, 0.33, 0.13, 1, '#8d9196', 6); vwheel(p, 0, 0.72, 0.33, 0.17, 1, '#8d9196', 6);
+  } else if (k === 'buggy') {
+    p.push({ g: loftGeo([{ z: -L, w: W * 0.55, y0: 0.42, y1: 0.6, n: 3 }, { z: -L + 0.4, w: W * 0.82, y0: 0.36, y1: 0.72, n: 3.5 }, { z: L - 0.25, w: W * 0.88, y0: 0.36, y1: 0.75, n: 4 }, { z: L, w: W * 0.7, y0: 0.42, y1: 0.68, n: 3 }], 18), c: col });
+    p.push(bx(-W * 0.62, 0.7, -0.15, 0.5, 0.18, 0.55, '#1b1b1b', { m: 'seat' }), bx(W * 0.12, 0.7, -0.15, 0.5, 0.18, 0.55, '#1b1b1b', { m: 'seat' }), bx(-W * 0.62, 0.85, 0.32, 0.5, 0.5, 0.1, '#1b1b1b', { m: 'seat' }), bx(W * 0.12, 0.85, 0.32, 0.5, 0.5, 0.1, '#1b1b1b', { m: 'seat' }));
+    const tc = '#2c2e30';
+    for (const s of [-1, 1]) {
+      p.push(vseg([s * W * 0.85, 0.72, -0.75], [s * W * 0.7, 1.6, -0.35], 0.07, tc, 'rim'), vseg([s * W * 0.88, 0.72, 0.75], [s * W * 0.72, 1.62, 0.6], 0.07, tc, 'rim'));
+      p.push(vseg([s * W * 0.7, 1.6, -0.35], [s * W * 0.72, 1.62, 0.6], 0.07, tc, 'rim'), vseg([s * W * 0.85, 0.72, -0.75], [s * W * 0.5, 0.6, -L + 0.05], 0.06, tc, 'rim'));
+    }
+    p.push(vseg([-W * 0.7, 1.6, -0.35], [W * 0.7, 1.6, -0.35], 0.07, tc, 'rim'), vseg([-W * 0.72, 1.62, 0.6], [W * 0.72, 1.62, 0.6], 0.07, tc, 'rim'), vseg([-W * 0.7, 1.6, 0.12], [W * 0.7, 1.6, 0.12], 0.05, tc, 'rim'));
+    p.push(bx(-0.3, 0.55, L - 0.1, 0.6, 0.4, 0.35, '#3a3a3a', { m: 'rim' }), { g: GEO.box, x: 0, y: 0.95, z: -0.55, rx: 0.5, sx: 0.36, sy: 0.04, sz: 0.04, c: '#111', m: 'plas' });
+    for (const s of [-1, 1]) p.push({ g: GEO.cyl, x: s * 0.35, y: 0.62, z: -L - 0.02, rx: Math.PI / 2, sx: 0.16, sy: 0.06, sz: 0.16, c: '#fff3cf', m: 'light' });
+    for (const [s, z, r, w] of [[-1, -L + 0.45, 0.45, 0.35], [1, -L + 0.45, 0.45, 0.35], [-1, L - 0.4, 0.5, 0.42], [1, L - 0.4, 0.5, 0.42]]) vwheel(p, s * (W + 0.1), z, r, w, s, '#3d4044', 5);
+  } else {
+    carBody(p, k, col, L, W);
+    const jeep = k === 'jipe', r = jeep ? 0.45 : 0.35, tw = jeep ? 0.32 : 0.24, wx = jeep ? W - 0.08 : W - 0.1, fz = -L + (jeep ? 0.65 : 0.72), rz = L - (jeep ? 0.62 : 0.7);
+    for (const s of [-1, 1]) for (const z of [fz, rz]) {
+      varch(p, s * (W - 0.02), z, r, r + (jeep ? 0.1 : 0.06), jeep ? '#232323' : '#111');
+      vwheel(p, s * wx, z, r, tw, s, jeep ? '#4a4d50' : '#a9adb1', jeep ? 6 : 5);
+    }
+  }
+  return vehMerge(p);
+}
+/* material dos veículos: pintura metálica, vidro e cromo refletindo o céu, pneu fosco, poeira embaixo */
+let _vehMat = null;
+function vehMat() {
+  if (SET.quality === 0 || typeof ENV_TEX === 'undefined' || !ENV_TEX) return MAT.world;
+  if (_vehMat) return _vehMat;
+  const m = new T.MeshStandardMaterial({ vertexColors: true, envMap: ENV_TEX, envMapIntensity: 0.8, roughness: 0.5, metalness: 0 });
+  m.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 vm; varying vec4 vVm; varying vec3 vOP;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvVm = vm; vOP = position;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec4 vVm; varying vec3 vOP;\n' + GLSL_NOISE)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      { float dust = (1.0 - smoothstep(0.15, 0.75, vOP.y)) * (0.55 + 0.45 * vn(vOP.xz * 6.0 + vOP.y * 3.0));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.36, 0.31, 0.25), dust * (1.0 - vVm.y * 0.4) * 0.38 * (1.0 - step(0.5, vVm.z)) * (1.0 - step(0.8, vVm.x))); }`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vVm.x + (1.0 - smoothstep(0.15, 0.75, vOP.y)) * 0.3 * (1.0 - vVm.x);')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vVm.y;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vVm.z;');
+  };
+  m.customProgramCacheKey = () => 'veh-pbr';
+  return _vehMat = m;
 }
 const WRECK = new T.MeshLambertMaterial({ vertexColors: true, color: 0x333333 });
 function spawnVehicles() {
@@ -72,7 +203,7 @@ function spawnVehicles() {
 function addVehicle(k, x, z, yaw) {
   const d = VDEF[k], col = pick(d.cols);
   const v = { k, d, x, z, y: groundH(x, z), yaw, sp: 0, vy: 0, pitch: 0, roll: 0, hp: d.hp, seats: d.seats.map(() => null), thr: 0, str: 0, dead: false, air: false, wait: 0, stuckT: 0, revT: 0, lastHit: null, water: false };
-  v.mesh = new T.Mesh(vehGeo(k, col), MAT.world); v.mesh.rotation.order = 'YXZ'; v.mesh.castShadow = v.mesh.receiveShadow = true; scene.add(v.mesh);
+  v.mesh = new T.Mesh(vehGeo(k, col), vehMat()); v.mesh.rotation.order = 'YXZ'; v.mesh.castShadow = v.mesh.receiveShadow = true; scene.add(v.mesh);
   VEH.push(v); syncVehMesh(v); return v;
 }
 function syncVehMesh(v) { v.mesh.position.set(v.x, v.y + (v.bob || 0), v.z); v.mesh.rotation.set(v.pitch + (v.pOff || 0), v.yaw, v.roll + (v.rOff || 0)); }

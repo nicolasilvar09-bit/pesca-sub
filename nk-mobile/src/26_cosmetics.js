@@ -103,12 +103,13 @@ function skinMat(th, vc, scale) {
   const U = { uA: { value: new T.Color(t.c[0]) }, uB: { value: new T.Color(t.c[1]) }, uC: { value: new T.Color(t.c[2]) }, uPat: { value: PATN[t.pat] } };
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, U);
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vOp;').replace('#include <begin_vertex>', `#include <begin_vertex>\nvOp = position * ${(12 * (scale || 1)).toFixed(1)};`);
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vOp;\n' + GLSL_NOISE + SKIN_GLSL)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n  { float l = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = skinPat(vOp) * (0.55 + l * 1.1); }')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uB * skinGlow(vOp) * 0.55;');
+    const veh = scale === 0.07; /* veículo: a pintura especial só vai na lataria (não no vidro, pneu ou farol) */
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vOp; varying float vPt;' + (veh ? ' attribute vec4 vm;' : '')).replace('#include <begin_vertex>', `#include <begin_vertex>\nvOp = position * ${(12 * (scale || 1)).toFixed(1)}; vPt = ${veh ? 'vm.w' : '1.0'};`);
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vOp; varying float vPt;\n' + GLSL_NOISE + SKIN_GLSL)
+      .replace('#include <color_fragment>', '#include <color_fragment>\n  { float l = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = mix(diffuseColor.rgb, skinPat(vOp) * (0.55 + l * 1.1), vPt); }')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += uB * skinGlow(vOp) * 0.55 * vPt;');
   };
-  m.customProgramCacheKey = () => 'skin' + (vc ? 'v' : 'n');
+  m.customProgramCacheKey = () => 'skin' + (vc ? 'v' : 'n') + (scale === 0.07 ? 'veh' : '');
   return _skinMats[key] = m;
 }
 // roupa: tinge o tecido da textura do personagem (mantém tons de pele)
@@ -335,7 +336,7 @@ function thumbObject(o) {
   } else if (o.cat === 'chute') {
     g.add(new T.Mesh(chuteGeoById(o.id), new T.MeshLambertMaterial({ vertexColors: true }))); g.userData.view = 'chute';
   } else if (o.cat === 'veh') {
-    const m = new T.Mesh(vehGeo(o.vk, o.col), o.th ? skinMat(o.th, true, 0.07) : new T.MeshLambertMaterial({ vertexColors: true })); g.add(m); g.userData.view = 'car';
+    const m = new T.Mesh(vehGeo(o.vk, o.col), o.th ? skinMat(o.th, true, 0.07) : vehMat()); g.add(m); g.userData.view = 'car';
   } else if (o.cat === 'out') {
     if (!HUM.ready) return null;
     const av = AVATARS.find(v => v.k === (CHARS[SET.char] || CHARS[0]).av) || AVATARS[0], root = T.SkeletonUtils.clone(HUM.src[av.k]);
