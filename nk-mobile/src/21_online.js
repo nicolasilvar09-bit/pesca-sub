@@ -257,7 +257,7 @@ function packA(a) {
   return [actIx(a), +a.x.toFixed(2), +a.y.toFixed(2), +a.z.toFixed(2), +a.yaw.toFixed(3), +a.pitch.toFixed(3),
     (a.alive ? 1 : 0) | (a.knocked ? 2 : 0) | (ST.indexOf(a.stance) << 2) | (MD.indexOf(a.mode) << 4) | (a.ads ? 64 : 0) | (a.trigger ? 128 : 0),
     w ? w.k : 0, a.veh ? VEH.indexOf(a.veh) : -1, a.seat, Math.round(a.knocked ? a.khp : a.hp), +a.lean.toFixed(2),
-    (a.helm ? a.helm.lv : 0) | ((a.vest ? a.vest.lv : 0) << 2) | (a.bagLv << 4), a.kills, w && w.att.sight ? w.att.sight : 0];
+    (a.helm ? a.helm.lv : 0) | ((a.vest ? a.vest.lv : 0) << 2) | (a.bagLv << 4) | (a.pan ? 64 : 0), a.kills, w && w.att.sight ? w.att.sight : 0];
 }
 function unpackA(s) {
   const a = G.actors[s[0]]; if (!a || !a.remote) return;
@@ -271,8 +271,8 @@ function unpackA(s) {
   const wk = s[7];
   if (wk && WEAP[wk]) { const cur = curW(a); if (!cur || cur.k !== wk) { a.wp[0] = mkWeapon(wk); a.cur = 0; } if (a.wp[a.cur] && (a.wp[a.cur].att.sight || 0) !== s[14]) a.wp[a.cur].att.sight = s[14] || null; } else a.cur = -1;
   // proteção visível
-  const g = s[12], hl = g & 3, vl = (g >> 2) & 3, bl = (g >> 4) & 3;
-  if ((a.helm ? a.helm.lv : 0) !== hl || (a.vest ? a.vest.lv : 0) !== vl || a.bagLv !== bl) { a.helm = hl ? { lv: hl, dur: 100 } : null; a.vest = vl ? { lv: vl, dur: 100 } : null; a.bagLv = bl; rebuildBody(a); }
+  const g = s[12], hl = g & 3, vl = (g >> 2) & 3, bl = (g >> 4) & 3, pn = !!(g & 64);
+  if ((a.helm ? a.helm.lv : 0) !== hl || (a.vest ? a.vest.lv : 0) !== vl || a.bagLv !== bl || !!a.pan !== pn) { a.helm = hl ? { lv: hl, dur: 100 } : null; a.vest = vl ? { lv: vl, dur: 100 } : null; a.bagLv = bl; a.pan = pn; rebuildBody(a); }
   // veículo
   const vi = s[8], v = vi >= 0 ? VEH[vi] : null;
   if (v !== a.veh) { if (a.veh) { a.veh.seats[a.seat] = null; a.veh = null; } if (v && !v.seats[s[9]]) { a.veh = v; a.seat = s[9]; v.seats[a.seat] = a; } }

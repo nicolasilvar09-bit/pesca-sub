@@ -50,3 +50,5 @@ function sfx(k) {
   else if (k === 'win') [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.4, 0.2, 'triangle'), i * 150));
   else if (k === 'lose') [392, 330, 262].forEach((f, i) => setTimeout(() => tone(f, 0.45, 0.18, 'triangle'), i * 180));
 }
+// pancada/bala na frigideira: 'plim' metálico
+function panClang(x, z) { if (!AC) return; const d = Math.hypot(x - camera.position.x, z - camera.position.z); if (d > 60) return; const v = 0.5 / (1 + d / 10); tone(1240, 0.35, v * 0.5, 'triangle', 1180); tone(1870, 0.25, v * 0.3, 'sine', 1800); noise(0.05, v * 0.4, 4000, 2, 'bandpass'); }

@@ -27,7 +27,7 @@ function sndPlay(name, x, z, vol, opt) {
     if (!AC || G.phase !== 'match' || !SND.ready) return base(a, d, quiet);
     const now = performance.now(); if (now - shotT < 12 && a !== G.player) return; shotT = now;
     const dist = Math.hypot(a.x - camera.position.x, a.z - camera.position.z), self = a === G.player && !G.view.fpp ? 0.9 : a === G.player ? 1 : 0.95;
-    const cls = d.cls === 'ar' ? (/AK|Beryl|Groza/i.test(d.n) ? 'ak' : 'ar') : d.cls, name = cls + (Math.random() < 0.5 ? 1 : 2);
+    const cls = d.cls === 'ar' ? (/AK|Beryl|Groza|DP-28/i.test(d.n) ? 'ak' : 'ar') : d.cls, name = cls + (Math.random() < 0.5 ? 1 : 2);
     const v = (quiet ? 0.28 : 1) * self / (1 + dist / 45);
     if (!sndPlay(name, a.x, a.z, v * 0.9, { rate: 0.96 + Math.random() * 0.08, lp: quiet ? 1400 : null })) base(a, d, quiet);
     if (dist > 160 && !quiet) noise(0.5, v * 0.25, 300, 0.6); /* eco grave de longe */

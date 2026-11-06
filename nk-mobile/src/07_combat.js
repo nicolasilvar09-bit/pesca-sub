@@ -152,6 +152,9 @@ function stepBullets(dt) {
     }
     if (ha.a && ha.t < ts) {
       const hx = b.x + dx * ha.t, hy = b.y + dy * ha.t, hz = b.z + dz * ha.t;
+      if (ha.a.pan && !ha.head && ha.a.stance !== 'prone' && ha.a.mode === 'ground' && hy > ha.a.y + 0.85 && hy < ha.a.y + 1.5 && (dx * fwdX(ha.a.yaw) + dz * fwdZ(ha.a.yaw)) / (Math.hypot(dx, dz) || 1) > 0.55) {
+        puff(hx, hy, hz, '#ffe08a', 0.12, 0.2); panClang(hx, hz); if (b.o === G.player) hudHit(false, false, 0); BUL.splice(i, 1); continue; /* a frigideira nas costas segura a bala */
+      }
       bloodFx(hx, hy, hz, dx, dy, dz, ha.a);
       const dist = Math.hypot(hx - b.o.x, hz - b.o.z);
       const fall = b.fall ? clamp(1 - Math.hypot(hx - b.sx, hz - b.sz) / 45, 0.12, 1) : 1;
@@ -223,7 +226,7 @@ function deathBox(a) {
   const items = [];
   for (const w of a.wp) if (w) { if (w.mag) a.bag['a:' + wdef(w).ammo] = (a.bag['a:' + wdef(w).ammo] || 0) + w.mag; w.mag = 0; items.push({ k: 'w:' + w.k, n: 1, w }); }
   for (const k in a.bag) items.push({ k, n: a.bag[k] });
-  if (a.helm) items.push({ k: 'H' + a.helm.lv, n: 1 }); if (a.vest) items.push({ k: 'V' + a.vest.lv, n: 1 }); if (a.bagLv) items.push({ k: 'B' + a.bagLv, n: 1 });
+  if (a.helm) items.push({ k: 'H' + a.helm.lv, n: 1 }); if (a.vest) items.push({ k: 'V' + a.vest.lv, n: 1 }); if (a.bagLv) items.push({ k: 'B' + a.bagLv, n: 1 }); if (a.pan) { items.push({ k: 'PAN', n: 1 }); a.pan = false; }
   a.wp = [null, null, null]; a.bag = {}; a.cur = -1;
   if (!items.length) return;
   addCrate(a.x, a.y, a.z, items, 'Caixa de ' + a.name, 'death');
@@ -245,7 +248,7 @@ function punch(a) {
   for (const t of G.actors) {
     if (!t.alive || t === a || t.team === a.team || t.mode !== 'ground') continue;
     const dx = t.x - a.x, dz = t.z - a.z, d = Math.hypot(dx, dz);
-    if (d < 1.7 && (dx * fx + dz * fz) / (d || 1) > 0.5 && Math.abs(t.y - a.y) < 1.2) { hurt(t, 9, a, false, 'soco'); puff(t.x, t.y + 1.3, t.z, '#ffffff', 0.2, 0.2); return true; }
+    if (d < 1.7 && (dx * fx + dz * fz) / (d || 1) > 0.5 && Math.abs(t.y - a.y) < 1.2) { hurt(t, a.pan ? 80 : 9, a, false, a.pan ? 'frigideira' : 'soco'); puff(t.x, t.y + 1.3, t.z, '#ffffff', 0.2, 0.2); if (a.pan) panClang(t.x, t.z); return true; }
   }
   return true;
 }

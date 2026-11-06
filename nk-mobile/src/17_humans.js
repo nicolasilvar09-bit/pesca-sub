@@ -84,6 +84,7 @@ function updateHumanGear(a) {
   };
   put('helm', a.helm && !hasHelm, 'Bip01_Head', () => mergeParts([{ g: GEO.hsph, sx: 0.27, sy: 0.24, sz: 0.3, c: LV_C[a.helm.lv] }, bx(-0.14, -0.01, -0.16, 0.28, 0.03, 0.06, shade(LV_C[a.helm.lv], 0.7))]), [0, 0.07, 0.01]);
   put('vest', a.vest && !hasVest, 'Bip01_Spine2', () => mergeParts([bx(-0.2, -0.24, -0.15, 0.4, 0.42, 0.29, LV_C[a.vest.lv]), bx(-0.15, -0.18, -0.165, 0.12, 0.12, 0.03, shade(LV_C[a.vest.lv], 0.75)), bx(0.03, -0.18, -0.165, 0.12, 0.12, 0.03, shade(LV_C[a.vest.lv], 0.75))]), [0, -0.05, 0]);
+  put('pan', !!a.pan, 'Bip01_Spine2', () => { const z = a.bagLv ? 0.33 + a.bagLv * 0.03 : 0.16; return mergeParts([{ g: GEO.cyl, x: 0, y: -0.16, z, rx: Math.PI / 2, sx: 0.32, sy: 0.04, sz: 0.32, c: '#2a2b2e' }, bx(-0.02, -0.02, z - 0.02, 0.04, 0.3, 0.035, '#3a2a1e')]); }, [0, 0, 0]);
   put('bag', a.bagLv > 0, 'Bip01_Spine2', () => { const bc = ['', '#8d6e63', '#556b2f', '#37474f'][a.bagLv], h = 0.42 + a.bagLv * 0.06; return mergeParts([bx(-0.16, -h + 0.1, 0.12, 0.32, h, 0.17 + a.bagLv * 0.03, bc), bx(-0.13, -h + 0.16, 0.29 + a.bagLv * 0.03, 0.26, 0.16, 0.05, shade(bc, 0.8))]); }, [0, 0, 0]);
 }
 

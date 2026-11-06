@@ -228,3 +228,9 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Tiros gravados de verdade, um por classe de arma (AK separado do M416), com 2 variações e leve mudança de tom a cada tiro. Abafa com a distância, eco grave de muito longe e vem do lado certo (esquerda/direita). Silenciador abafa.
 - Passos de todos que andam perto: terra/grama ou pedra (rua e dentro das casas); agachado bem mais baixo, deitado não faz barulho; correndo mais forte.
 - Se os arquivos ainda não carregaram, o jogo usa os sons sintetizados antigos.
+
+## Armas novas (06/11)
+- Beryl M762 (fuzil 7.62, coice forte), Vector (SMG 9mm muito rápida), DP-28 (metralhadora 7.62, 47 balas), SLR (DMR 7.62), M249 (metralhadora 5.56, 100 balas, rara no saque e no drop) e Mk14 EBR (DMR automática, só no drop).
+- Metralhadoras só aceitam mira (sem silenciador, empunhadura ou pente).
+- AUG também aparece rara nas áreas de saque alto, além do drop.
+- Frigideira: fica nas costas, segura balas no tronco vindas por trás e a pancada dá 80 de dano (soco = 9). Cai no chão quando o jogador morre e aparece para os outros no online.

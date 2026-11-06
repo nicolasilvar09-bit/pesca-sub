@@ -74,6 +74,7 @@ function giveItem(a, k, n, w, swap) {
     a[inf.type] = { lv: inf.lv, dur: (inf.type === 'helm' ? HELM_DUR : VEST_DUR)[inf.lv] };
     if (a.model) rebuildBody(a); return 1;
   }
+  if (inf.type === 'pan') { if (a.pan) return 0; a.pan = true; if (a.model) rebuildBody(a); return 1; }
   if (inf.type === 'bag') {
     if (a.bagLv >= inf.lv && !swap) return 0;
     if (a.bagLv) dropNear(a, 'B' + a.bagLv, 1);
@@ -103,6 +104,7 @@ function wantAuto(a, it) {
   if (inf.type === 'att') return a.wp.some(w => w && !w.att[inf.d.slot] && attFits(w, it.k)) && !a.bag[it.k];
   if (inf.type === 'helm' || inf.type === 'vest') return !a[inf.type] || a[inf.type].lv < inf.lv;
   if (inf.type === 'bag') return a.bagLv < inf.lv;
+  if (inf.type === 'pan') return !a.pan;
   if (inf.type === 'weapon') return !a.wp[0] || !a.wp[1] || (inf.d.cls === 'pistol' && !a.wp[2]);
   return false;
 }
