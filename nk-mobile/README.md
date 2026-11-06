@@ -247,3 +247,9 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - A tela final agora fica na resolução real do celular (até 2x); só a cena 3D é desenhada menor e é ampliada pelo próprio jogo com nitidez adaptativa (estilo AMD CAS), em vez do navegador esticar uma imagem pequena.
 - Médio desenha a cena um pouco maior (1,3x); a resolução automática não cai mais tanto (mínimo 70%) e só baixa abaixo de 36 FPS.
 - Configurações > Resolução: "Automática (mais FPS)" ou "Sempre nítida" (nunca reduz).
+
+## Tiro mais realista (06/11)
+- 14 gravações diferentes (AK, AR, SMG, PPSh, pistola 9mm, .45, revólver, 3 escopetas, DMR e 3 snipers), cada arma do jogo com a sua; AWM mais grave.
+- De longe (mais de 55 m) usa a gravação feita a média distância, abafada; o som chega atrasado pela distância (velocidade do som).
+- Eco do lugar: campo aberto com ecos dos morros/prédios; dentro de casa reverberação curta. Compressor evita estouro com muitos tiros.
+- Silenciador: gravação bem abafada + "pfft". Cápsulas caindo no chão depois dos seus tiros.

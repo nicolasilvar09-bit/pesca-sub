@@ -51,7 +51,7 @@ Feito por código dentro do jogo.
 - **Tree Stump 01**, **Dead Tree Trunk**, **Barrel 01** e **Wooden Crate 02** do **Poly Haven** (polyhaven.com), licença **CC0**. Reduzidos para 700–1.600 triângulos e textura de 512 px.
 
 ## Sons (assets/snd)
-- Tiros: **The Free Firearm Sound Library** (OpenGameArt), licença **CC0**: AK-47, AR-15, Carl Gustav M45, Walther PPQ, Benelli Nova, SKS e Mosin Nagant. Cortados em tiros únicos, mono, MP3.
+- Tiros: **The Free Firearm Sound Library** (OpenGameArt), licença **CC0**: AK-47, AR-15, Carl Gustav M45, PPSh, Walther PPQ, Colt 1911, S&W 642, Benelli Nova, Winchester Model 12, Mossberg 190, SKS, Mosin Nagant, Tikka T3 e Springfield 1917 (perto e média distância). Cortados em tiros únicos, mono, MP3.
 - Passos: **Fantozzi's Footsteps (Grass/Sand & Stone)** por Fantozzi (OpenGameArt), licença **CC0**.
 
 ## Mais armas de verdade (06/11) — Sketchfab, todas CC BY 4.0
