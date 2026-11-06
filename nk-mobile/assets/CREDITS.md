@@ -53,3 +53,20 @@ Feito por código dentro do jogo.
 ## Sons (assets/snd)
 - Tiros: **The Free Firearm Sound Library** (OpenGameArt), licença **CC0**: AK-47, AR-15, Carl Gustav M45, Walther PPQ, Benelli Nova, SKS e Mosin Nagant. Cortados em tiros únicos, mono, MP3.
 - Passos: **Fantozzi's Footsteps (Grass/Sand & Stone)** por Fantozzi (OpenGameArt), licença **CC0**.
+
+## Mais armas de verdade (06/11) — Sketchfab, todas CC BY 4.0
+Obtidas via repositórios públicos do GitHub (mgarrett1515/dropzone, rzavala1989/blaqjaq, Droivox/godot-engine-fps, XxRoyxX0308/CS, SoapyGitter/VRArenaV5, MrManiacc/nexus-core, ayilinkou/NuaEngine); autor e licença conferidos nos metadados de cada arquivo.
+- M416: "M4A1" por TORI106 — https://sketchfab.com/3d-models/m4a1-33107f38b23c45cc8103768c0e961cdf
+- UMP45: "Low-Poly UMP 45" por TastyTony — https://sketchfab.com/3d-models/low-poly-ump-45-4e8e3535e9d74c06b82066129ec18769
+- Kar98k: "KAR 98 (Low Poly)" por Berk Gedik — https://sketchfab.com/3d-models/kar-98-low-poly-0e3c0c7f6c6b4f98bc278b3b310d234b
+- S686: "IZH-27" por PeLmEsHkO — https://sketchfab.com/3d-models/izh-27-7d9b3e3ea2ad4cab841a7b26ea0d3562
+- S1897: "Low-Poly SPAS-12" por TastyTony — https://sketchfab.com/3d-models/low-poly-spas-12-c95154ea2348443e9195250a6ad122cb
+- M1911: "Colt M1911" por b0ho — https://sketchfab.com/3d-models/colt-m1911-6b20f04b583a4c4a9d009c0412f01678
+- G18C: "Glock-17 Animated (Free)" por BarcodeGames — https://sketchfab.com/3d-models/glock-17-animated-free-ab6ce788574147ce92b73d49915c123f
+- Vector: "Kriss Vector Animated( Free)" por BarcodeGames — https://sketchfab.com/3d-models/kriss-vector-animated-free-54530c888cfd4ae7aab3c3852b229c7e
+- MP5K: "Low-Poly HK MP5K" por TastyTony — https://sketchfab.com/3d-models/low-poly-hk-mp5k-091b4f73c00b4605b754f5c0b3fcdd26
+- UZI: "Low-Poly Mini Uzi" por TastyTony — https://sketchfab.com/3d-models/low-poly-mini-uzi-4b585cdf292d4f0798ce40f0d5ff2507
+- SKS: "Old Sks | Weapon Model" por CATholic — https://sketchfab.com/3d-models/old-sks-weapon-model-83c052440925489aa1df5960b1ecc6b2
+- SLR: "FN FAL" por The Unknown... — https://sketchfab.com/3d-models/fn-fal-7f548d1f79f7418fad852f3d7293ec2c
+- AWM: "Awm" por sxnneh — https://sketchfab.com/3d-models/awm-8db7797f63e64a50bf0479e6128d61f8
+Alterações: orientação e escala normalizadas, malha simplificada, braços/balas removidos, texturas reduzidas para 512 px (JPEG), material trocado.

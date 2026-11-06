@@ -31,7 +31,7 @@ function loadHumans(onDone) {
   for (const av of AVATARS) L.load(`assets/chars/${av.k}.glb`, g => { prepSource(g.scene); HUM.src[av.k] = g.scene; done(); }, undefined, fail);
   L.load('assets/plane.glb', g => { setPlaneModel(g.scene); done(); }, undefined, () => done());
   left++; loadNature(L, () => done());
-  left++; loadRealGuns(L, () => { for (const a of G.actors) if (a.model) refreshGun(a); vmKey = ''; for (const it of G.items) if (it.mesh) { scene.remove(it.mesh); it.mesh = null; } done(); });
+  left++; loadRealGuns(L, () => { realGunsRefresh(); done(); });
 }
 // materiais mais leves (Lambert) e cores no mesmo espaço do resto do jogo
 function prepSource(s) {
@@ -301,3 +301,5 @@ function setPlaneModel(src) {
     P.m.geometry = new T.BufferGeometry(); P.m.add(w2);
   }
 }
+// troca as armas já na tela pelo modelo de verdade assim que ele termina de carregar
+function realGunsRefresh() { for (const a of G.actors) if (a.model) refreshGun(a); vmKey = ''; for (const it of G.items) if (it.mesh) { scene.remove(it.mesh); it.mesh = null; } }

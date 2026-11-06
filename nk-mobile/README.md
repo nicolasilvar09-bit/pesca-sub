@@ -234,3 +234,7 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Metralhadoras só aceitam mira (sem silenciador, empunhadura ou pente).
 - AUG também aparece rara nas áreas de saque alto, além do drop.
 - Frigideira: fica nas costas, segura balas no tronco vindas por trás e a pancada dá 80 de dano (soco = 9). Cai no chão quando o jogador morre e aparece para os outros no online.
+
+## Armas de verdade (06/11)
+- 13 armas trocaram o desenho por código por modelos 3D de verdade (Sketchfab, CC BY 4.0): M416, UMP45, Kar98k, S686, S1897, M1911, G18C, Vector, MP5K, UZI, SKS, SLR e AWM (com luneta própria). Somando as 5 de antes, são 18 armas com modelo real.
+- As 5 primeiras carregam na abertura; as novas carregam em segundo plano logo depois e trocam sozinhas na tela.

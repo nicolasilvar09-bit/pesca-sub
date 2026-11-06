@@ -251,16 +251,21 @@ function gunGeo(k) {
   return GUNGEO[k] = mergeParts((GUNS[k] || GUNS[alias[k]] || GUNS.M416)().filter(p => p.c.length === 7));
 }
 // modelos de verdade (Sketchfab, CC BY 4.0): ficam como filho do objeto da arma
-const REALGUN = { AKM: { f: 'akm', fore: -0.3 }, M16A2: { f: 'm16a2', fore: -0.36 }, MOSIN: { f: 'mosin', fore: -0.42 }, M17: { f: 'p226', fore: 0.02 }, M625: { f: 'm625', fore: 0.02 } };
+const REALGUN = { AKM: { f: 'akm', fore: -0.3 }, M16A2: { f: 'm16a2', fore: -0.36 }, MOSIN: { f: 'mosin', fore: -0.42 }, M17: { f: 'p226', fore: 0.02 }, M625: { f: 'm625', fore: 0.02 },
+  M416: { f: 'm416', fore: -0.3 }, UMP45: { f: 'ump45', fore: -0.16 }, KAR98K: { f: 'kar98k', fore: -0.4 }, S686: { f: 's686', fore: -0.34 }, S1897: { f: 's1897', fore: -0.36 }, M1911: { f: 'm1911', fore: 0.02 },
+  G18C: { f: 'g18c', fore: 0.02 }, VECTOR: { f: 'vector', fore: -0.13 }, MP5K: { f: 'mp5k', fore: -0.1 }, UZI: { f: 'uzi', fore: -0.1 }, SKS: { f: 'sks', fore: -0.33 }, SLR: { f: 'slr', fore: -0.36 }, AWM: { f: 'awm', fore: -0.38, scoped: true } };
 const EMPTY_GEO = new T.BufferGeometry();
-function loadRealGuns(L, done) {
-  const ks = Object.keys(REALGUN); let left = ks.length;
+function loadRealGuns(L, done, more) {
+  /* as 5 primeiras seguram a abertura do jogo; as outras carregam depois, em segundo plano */
+  const all = Object.keys(REALGUN), first = ['AKM', 'M16A2', 'MOSIN', 'M17', 'M625'], ks = more ? all.filter(k => !first.includes(k)) : first; let left = ks.length;
+  if (!left) { done(); return; }
   for (const k of ks) L.load(`assets/guns/${REALGUN[k].f}.glb`, g => {
     const o = g.scene; o.traverse(n => { if (!n.isMesh) return; const m = n.material; n.material = new T.MeshStandardMaterial({ map: m.map || null, normalMap: m.normalMap || null, color: m.map ? 0xffffff : m.color, metalness: 0.5, roughness: 0.48, envMap: typeof ENV_TEX !== 'undefined' ? ENV_TEX : null, envMapIntensity: 1.15 }); /* metal com reflexo do céu */ if (n.material.map) n.material.map.encoding = T.sRGBEncoding; n.castShadow = true; });
     const b = new T.Box3().setFromObject(o); REALGUN[k].obj = o; GUN_MUZ[k] = b.min.z; GUN_TOP[k] = b.max.y - 0.006;
     for (const id in GUNGEO) if (id === k) delete GUNGEO[id];
     if (--left === 0) done();
   }, undefined, () => { if (--left === 0) done(); });
+  if (!more) setTimeout(() => loadRealGuns(L, () => { if (typeof realGunsRefresh === 'function') realGunsRefresh(); }, true), 1500);
 }
 function setGunVisual(mesh, k) {
   for (let i = mesh.children.length - 1; i >= 0; i--) if (mesh.children[i].userData.real) mesh.remove(mesh.children[i]);
@@ -291,7 +296,7 @@ function dressGun(mesh, w) {
   if (!w) return;
   gunGeo(w.k);
   for (const s of ['sight', 'muzzle', 'grip']) {
-    const ak = w.att[s]; if (!ak) continue;
+    const ak = w.att[s]; if (!ak) continue; if (s === 'sight' && REALGUN[w.k] && REALGUN[w.k].scoped && REALGUN[w.k].obj) continue; /* a AWM de verdade já tem luneta */
     const m = new T.Mesh(attGeo(ak), mesh.material); m.userData.att = 1;
     if (s === 'sight') m.position.set(0, GUN_TOP[w.k], WEAP[w.k].cls === 'pistol' ? -0.02 : -0.06);
     else if (s === 'muzzle') m.position.set(0, WEAP[w.k].cls === 'pistol' ? 0.024 : (w.k === 'AWM' || w.k === 'M24' || w.k === 'KAR98K' ? 0.02 : 0.008), GUN_MUZ[w.k]);
