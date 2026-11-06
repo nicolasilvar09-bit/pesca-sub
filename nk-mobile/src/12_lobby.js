@@ -15,9 +15,9 @@ function lobbyActors() {
   for (let i = 0; i < n; i++) {
     const pm = PARTY.pid && PARTY.members[i] && PARTY.members[i].uid !== (ON.s && ON.s.uid) ? PARTY.members[i] : null, mine = PARTY.pid ? PARTY.members[i] && PARTY.members[i].uid === (ON.s && ON.s.uid) : i === 0;
     const a = makeActor({ look: mine ? Object.assign({}, CHARS[SET.char]) : pm ? Object.assign({}, CHARS[pm.char] || CHARS[0]) : randLook(), mode: 'ground' }); if (mine) a.cosMe = true; // mostra o que você equipou
-    if (mine) a.bagLv = 2;
+    if (mine) a.bagLv = SET.equip && SET.equip.bag ? 2 : 0; /* mochila só se tiver uma equipada (não cobre a roupa) */
     if (i === 0) a.wp[0] = mkWeapon('M416'); else a.wp[0] = mkWeapon(pick(['AKM', 'SCAR-L', 'UMP45', 'KAR98K']));
-    a.cur = 0; a.vest = i === 0 ? { lv: 2, dur: 1 } : null; a.helm = i === 0 ? { lv: 2, dur: 1 } : null;
+    a.cur = 0; a.vest = null; a.helm = mine && SET.equip && SET.equip.helm ? { lv: 2, dur: 1 } : null;
     buildModel(a);
     // você na frente, no centro; os colegas atrás, um de cada lado
     const pos = [[0, 0], [-1.55, 1.6], [1.55, 1.6], [-2.9, 2.6]][i], side = pos[0], back = pos[1];

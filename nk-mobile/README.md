@@ -256,3 +256,7 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 
 ## Lobby novo (06/11)
 - Plataforma militar no mar ao pôr do sol: céu de foto (Poly Haven), mar aberto ao fundo, piso de concreto com faixa de perigo, guarda-corpo, pilares, caixas militares, barris, galões, caixas de munição, 2 postes acesos e poeira dourada no ar. Luz de contorno laranja do sol e névoa cor de pôr do sol só no lobby.
+
+## Traje Coroa Imperial de verdade (06/11)
+- A roupa do passe deixou de ser só uma cor: é desenhada em cima do corpo do personagem (preto tático, neon vermelho aceso na jaqueta, braços, punhos, calça e sola; zíper, ombreiras, alças, joelheiras e fivela dourados; coroas no peito, costas e ombros; luvas) + capuz, boné com coroa, viseira vermelha acesa e máscara.
+- Correção: capacete, colete e mochila presos ao corpo ficavam 100x menores (esqueleto em cm) e não apareciam; agora aparecem, com cores mais realistas. No lobby só aparecem se tiver skin equipada.

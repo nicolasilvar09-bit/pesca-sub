@@ -113,7 +113,90 @@ function skinMat(th, vc, scale) {
   return _skinMats[key] = m;
 }
 // roupa: tinge o tecido da textura do personagem (mantém tons de pele)
+// ---------- Traje Coroa Imperial: desenhado em cima do corpo (posição de repouso, em cm, z para cima, frente = -y) ----------
+// preto tático, neon vermelho aceso, detalhes dourados, coroas no peito/costas/ombros, luvas, cinto com fivela, joelheiras e tênis com sola acesa
+const IMP_GLSL = `
+float crownM(vec2 p){ /* coroa: p.x -0.5..0.5, p.y 0..1 */
+  if (abs(p.x) > 0.5 || p.y < 0.0 || p.y > 1.08) return 0.0;
+  float base = step(p.y, 0.34) * step(0.04, p.y);
+  float sp = max(max(step(p.y, 0.9 - abs(p.x + 0.36) * 2.6), step(p.y, 1.0 - abs(p.x) * 2.6)), step(p.y, 0.9 - abs(p.x - 0.36) * 2.6)) * step(0.3, p.y);
+  float tips = max(max(step(length(p - vec2(-0.36, 0.95)), 0.075), step(length(p - vec2(0.0, 1.03)), 0.075)), step(length(p - vec2(0.36, 0.95)), 0.075));
+  return max(max(base, sp), tips);
+}
+float emb(vec2 q, vec2 c, float sz){ return crownM((q - c) / sz + vec2(0.0, 0.5)); }
+float segD(vec2 p, vec2 a, vec2 b){ vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h); }
+`;
+function imperialPatch(mt) {
+  mt.userData.cos = 'imperial';
+  mt.onBeforeCompile = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vBP; varying vec3 vBN;')
+      .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvBN = objectNormal;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvBP = position;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vBP; varying vec3 vBN; vec3 impGlow = vec3(0.0);\n' + GLSL_NOISE + IMP_GLSL)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+  {
+    vec3 tc = diffuseColor.rgb; float l = dot(tc, vec3(0.3, 0.59, 0.11));
+    float x = vBP.x, y = vBP.y, z = vBP.z, ax = abs(x); bool front = y < -1.0, back = y > 1.0;
+    float fold = 0.6 + l * 0.9 + (vn(vBP.xz * 0.35) - 0.5) * 0.12;
+    vec3 BLK = vec3(0.028, 0.028, 0.032), GOLD = vec3(0.78, 0.55, 0.16), RED = vec3(0.9, 0.01, 0.0);
+    vec3 col = BLK * fold; float neon = 0.0, gold = 0.0;
+    float lw = 0.85;
+    if (ax > 49.0) col = vec3(0.022) * (0.7 + l * 0.8); /* luvas de couro */
+    else if (ax > 21.0 && z > 118.0) { /* mangas: neon em cima do braço, punho aceso, coroa no ombro */
+      neon += step(0.86, vBN.z) * step(ax, 47.0);
+      neon += step(abs(ax - 47.6), 0.9);
+      gold += step(abs(ax - 24.5), 0.7) * step(140.0, z);
+      if (front) gold += emb(vec2(ax, z), vec2(29.0, 143.5), 5.0);
+    } else if (z > 101.0) { /* jaqueta */
+      if (front) {
+        gold += step(ax, 0.6) * step(z, 152.0);
+        neon += step(abs(ax - 5.5), lw) * step(105.0, z) * step(z, 148.0);
+        neon += step(segD(vec2(x, z), vec2(-17.0, 149.0), vec2(13.0, 104.0)), lw);
+        gold += emb(vec2(x, z), vec2(10.5, 133.0), 9.0);
+      }
+      if (back) { gold += emb(vec2(x, z), vec2(0.0, 127.0), 19.0); neon += step(abs(ax - (z - 101.0) * 0.36), lw) * step(z, 146.0); }
+      gold += step(abs(z - 145.5), 1.2) * step(13.0, ax); /* ombreiras */
+    } else if (z > 94.0) { /* cinto com fivela dourada */
+      col = vec3(0.05, 0.045, 0.04) * fold;
+      if (front && ax < 3.8) { gold += 1.0 - emb(vec2(x, z), vec2(0.0, 95.6), 4.0); }
+    } else if (z > 11.0) { /* calça: faixa neon na lateral, alças douradas, joelheiras */
+      neon += step(0.75, abs(vBN.x)) * step(0.0, vBN.x * x) * step(abs(y), 1.4);
+      if (front) gold += step(segD(vec2(ax, z), vec2(7.0, 90.0), vec2(16.0, 70.0)), 0.5);
+      if (front && z > 43.0 && z < 57.0 && abs(ax - 9.5) < 5.5) { col = vec3(0.07) * (0.8 + l * 0.5); gold += step(min(min(z - 43.0, 57.0 - z), 5.5 - abs(ax - 9.5)), 0.7); }
+    } else { /* tênis: preto com faixa dourada e sola acesa */
+      col = vec3(0.03) * (0.8 + l * 0.6); gold += step(abs(z - 6.5), 0.4); neon += step(z, 2.2);
+    }
+    gold = clamp(gold, 0.0, 1.0); neon = clamp(neon, 0.0, 1.0) * (1.0 - gold);
+    col = mix(col, GOLD * (0.75 + l * 0.6), gold); col = mix(col, RED, neon);
+    diffuseColor.rgb = col; impGlow = vec3(1.25, 0.0, 0.0) * neon + GOLD * gold * 0.12;
+  }`).replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += impGlow;');
+  };
+  mt.customProgramCacheKey = () => 'outfitImp'; mt.needsUpdate = true;
+}
+// peças da cabeça do traje: capuz, boné com coroa, viseira vermelha acesa e máscara (presas ao osso da cabeça)
+const IMP_NEON = new T.MeshBasicMaterial({ color: 0xff2a1a }), IMP_GOLD = new T.MeshStandardMaterial({ color: 0xc8901f, metalness: 0.8, roughness: 0.35 });
+function imperialHead(bone, root) {
+  const g = new T.Group(); g.userData.imp = 1;
+  const blk = new T.MeshStandardMaterial({ color: 0x0b0b0d, roughness: 0.8 });
+  const add = (geo, mat, x, y, z, sx, sy, sz, rx) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); if (rx) m.rotation.x = rx; m.castShadow = true; g.add(m); return m; };
+  add(GEO.hsph, blk, 0, 0.035, 0.02, 0.31, 0.33, 0.33); /* capuz */
+  add(GEO.sph, blk, 0, -0.06, 0.06, 0.3, 0.3, 0.27); /* capuz atrás da nuca */
+  add(GEO.box, IMP_NEON, 0, 0.035, -0.142, 0.24, 0.012, 0.012); /* borda vermelha do capuz */
+  for (const s of [-1, 1]) add(GEO.box, IMP_NEON, s * 0.118, -0.04, -0.12, 0.012, 0.15, 0.012);
+  add(GEO.hsph, blk, 0, 0.078, -0.012, 0.255, 0.18, 0.27); /* boné */
+  add(GEO.box, blk, 0, 0.078, -0.17, 0.22, 0.014, 0.12, -0.08); /* aba */
+  add(GEO.box, IMP_GOLD, 0, 0.125, -0.122, 0.05, 0.035, 0.01, -0.5); /* coroa do boné */
+  const arc = new T.CylinderGeometry(1, 1, 1, 18, 1, true, Math.PI * 0.62, Math.PI * 0.76); /* faixa curva na frente do rosto */
+  const frame = new T.MeshStandardMaterial({ color: 0x0b0b0d, roughness: 0.5, side: T.DoubleSide }), glow = new T.MeshBasicMaterial({ color: 0xff2414, side: T.DoubleSide });
+  add(arc, frame, 0, 0.005, 0.0, 0.132, 0.075, 0.142); /* armação da viseira */
+  add(arc, glow, 0, 0.005, 0.0, 0.137, 0.042, 0.148); /* viseira acesa */
+  add(GEO.sph, blk, 0, -0.085, -0.035, 0.2, 0.15, 0.225); /* máscara (queixo e boca) */
+  add(GEO.sph, blk, 0, -0.03, -0.06, 0.17, 0.09, 0.2); /* nariz/bochecha */
+  // presa ao osso na pose de repouso, como o capacete
+  root.updateMatrixWorld(true); const bw = bone.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, 0.07, 0.01)); bone.worldToLocal(bw); g.position.copy(bw);
+  g.quaternion.copy(bone.getWorldQuaternion(new T.Quaternion()).invert()); g.scale.setScalar(1 / bone.getWorldScale(new T.Vector3()).x); bone.add(g); return g;
+}
 function outfitPatch(mt, th, keepSkin) {
+  if (th === 'imperial' && keepSkin) return imperialPatch(mt);
   const t = TH[th];
   mt.userData.cos = th;
   const U = { uA: { value: new T.Color(t.c[0]) }, uB: { value: new T.Color(t.c[1]) }, uC: { value: new T.Color(t.c[2]) }, uPat: { value: PATN[t.pat] }, uKeep: { value: keepSkin ? 1 : 0 } };
@@ -156,6 +239,9 @@ const _ugC = updateHumanGear; updateHumanGear = function (a) {
   _ugC(a); const m = a.model; if (!m || !m.human) return; const e = cosOf(a);
   if (m.gear.helm && e.helm && COS[e.helm]) m.gear.helm.material = skinMat(COS[e.helm].th, true, 2);
   if (m.gear.bag && e.bag && COS[e.bag]) m.gear.bag.material = skinMat(COS[e.bag].th, true, 1.4);
+  const imp = e.out && COS[e.out] && COS[e.out].th === 'imperial';
+  if (imp && !m.gear.imp && m.b.Bip01_Head) m.gear.imp = imperialHead(m.b.Bip01_Head, m.g);
+  else if (!imp && m.gear.imp) { m.gear.imp.parent.remove(m.gear.imp); m.gear.imp = null; }
 };
 // armas: skin na arma do personagem e na arma em 1ª pessoa
 function skinGun(mesh, k, a) {
@@ -341,6 +427,7 @@ function thumbObject(o) {
     if (!HUM.ready) return null;
     const av = AVATARS.find(v => v.k === (CHARS[SET.char] || CHARS[0]).av) || AVATARS[0], root = T.SkeletonUtils.clone(HUM.src[av.k]);
     root.traverse(n => { if (!n.isMesh) return; n.material = n.material.clone(); n.frustumCulled = false; const nm = n.material.name.toLowerCase(); if (/_body/.test(nm)) outfitPatch(n.material, o.th, true); if (/helmet|knife|pistol|shotgun|machinegun/.test(nm)) n.material.visible = false; });
+    if (o.th === 'imperial') { const hb = root.getObjectByName('Bip01_Head'); if (hb) imperialHead(hb, root); }
     const c = HUM.clips[(av.f ? 'f_' : 'm_') + 'idle'] || HUM.clips.m_idle; if (c) { const mx = new T.AnimationMixer(root); mx.clipAction(c).play(); mx.update(0.6); }
     g.add(root); g.userData.view = 'body';
   }

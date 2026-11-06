@@ -62,6 +62,8 @@ function buildHuman(a) {
   g.updateMatrixWorld(true);
   updateHumanGear(a); refreshGun(a);
 }
+// cores de proteção vestida (mais realistas que as do item no chão): nv1 bege, nv2 preto policial, nv3 verde militar
+const WORN_VC = ['', '#8c7b5a', '#2a3038', '#3b4430'], WORN_HC = ['', '#6b6650', '#33383c', '#3a4232'];
 // capacete/colete: os militares já têm (aparecem só quando equipados); os outros recebem peças por cima
 function updateHumanGear(a) {
   const m = a.model; if (!m || !m.human) return;
@@ -79,11 +81,11 @@ function updateHumanGear(a) {
     // posição e rotação calculadas na pose de repouso (de pé), presas ao osso
     m.g.updateMatrixWorld(true); const bw = m.b[bone].getWorldPosition(new T.Vector3());
     const wp = bw.add(new T.Vector3(off[0], off[1], off[2])); m.b[bone].worldToLocal(wp); mesh.position.copy(wp);
-    const q = m.b[bone].getWorldQuaternion(new T.Quaternion()).invert(); mesh.quaternion.copy(q);
+    const q = m.b[bone].getWorldQuaternion(new T.Quaternion()).invert(); mesh.quaternion.copy(q); mesh.scale.setScalar(1 / m.b[bone].getWorldScale(new T.Vector3()).x); /* o esqueleto está em cm: sem isso a peça ficava 100x menor */
     m.b[bone].add(mesh); m.gear[key] = mesh;
   };
-  put('helm', a.helm && !hasHelm, 'Bip01_Head', () => mergeParts([{ g: GEO.hsph, sx: 0.27, sy: 0.24, sz: 0.3, c: LV_C[a.helm.lv] }, bx(-0.14, -0.01, -0.16, 0.28, 0.03, 0.06, shade(LV_C[a.helm.lv], 0.7))]), [0, 0.07, 0.01]);
-  put('vest', a.vest && !hasVest, 'Bip01_Spine2', () => mergeParts([bx(-0.2, -0.24, -0.15, 0.4, 0.42, 0.29, LV_C[a.vest.lv]), bx(-0.15, -0.18, -0.165, 0.12, 0.12, 0.03, shade(LV_C[a.vest.lv], 0.75)), bx(0.03, -0.18, -0.165, 0.12, 0.12, 0.03, shade(LV_C[a.vest.lv], 0.75))]), [0, -0.05, 0]);
+  put('helm', a.helm && !hasHelm, 'Bip01_Head', () => { const hc = WORN_HC[a.helm.lv]; return mergeParts([{ g: GEO.hsph, sx: 0.27, sy: 0.24, sz: 0.3, c: hc }, bx(-0.14, -0.01, -0.16, 0.28, 0.03, 0.06, shade(hc, 0.7))]); }, [0, 0.07, 0.01]);
+  put('vest', a.vest && !hasVest, 'Bip01_Spine2', () => { const vc = WORN_VC[a.vest.lv]; return mergeParts([bx(-0.19, -0.24, -0.15, 0.38, 0.4, 0.28, vc), bx(-0.15, -0.18, -0.162, 0.12, 0.12, 0.03, shade(vc, 0.75)), bx(0.03, -0.18, -0.162, 0.12, 0.12, 0.03, shade(vc, 0.75)), bx(-0.17, 0.14, -0.155, 0.34, 0.03, 0.02, shade(vc, 0.6))]); }, [0, -0.05, 0]);
   put('pan', !!a.pan, 'Bip01_Spine2', () => { const z = a.bagLv ? 0.33 + a.bagLv * 0.03 : 0.16; return mergeParts([{ g: GEO.cyl, x: 0, y: -0.16, z, rx: Math.PI / 2, sx: 0.32, sy: 0.04, sz: 0.32, c: '#2a2b2e' }, bx(-0.02, -0.02, z - 0.02, 0.04, 0.3, 0.035, '#3a2a1e')]); }, [0, 0, 0]);
   put('bag', a.bagLv > 0, 'Bip01_Spine2', () => { const bc = ['', '#8d6e63', '#556b2f', '#37474f'][a.bagLv], h = 0.42 + a.bagLv * 0.06; return mergeParts([bx(-0.16, -h + 0.1, 0.12, 0.32, h, 0.17 + a.bagLv * 0.03, bc), bx(-0.13, -h + 0.16, 0.29 + a.bagLv * 0.03, 0.26, 0.16, 0.05, shade(bc, 0.8))]); }, [0, 0, 0]);
 }
