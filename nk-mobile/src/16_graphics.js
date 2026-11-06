@@ -6,7 +6,7 @@ float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); 
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y); }`;
 // textura procedural pela posição no mundo (não precisa de imagem nem de UV)
-// texturas de detalhe geradas por nós (tools/gentex.py): chão = grama/terra/rocha, paredes = reboco/madeira/metal
+// texturas de detalhe de foto (ambientCG, CC0): chão = grama/terra/rocha, paredes = 6 materiais em 2 imagens
 const DET = { tTer: { value: null }, tWA: { value: null }, tWB: { value: null }, tAsph: { value: null }, uDet: { value: 1 } };
 (function loadDetail() {
   const blank = new T.DataTexture(new Uint8Array([128, 128, 128, 255]), 1, 1); blank.needsUpdate = true; DET.tTer.value = DET.tWA.value = DET.tWB.value = DET.tAsph.value = blank;
@@ -24,12 +24,12 @@ function patchNoise(mat, kind) {
       diffuseColor.rgb *= 0.84 + n1 * 0.16 + n2 * 0.1 + (n3 - 0.5) * 0.16 * (0.35 + gr);
       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.15, 1.06, 0.7), gr * smoothstep(0.55, 0.85, n1) * 0.55);
       { // detalhe de foto: duas escalas misturadas para não se ver repetição
-        vec3 d1 = texture2D(tTer, vWP.xz * 0.17).rgb, d2 = texture2D(tTer, vWP.xz * 0.041 + 0.37).rgb, dd = d1 * 0.6 + d2 * 0.4;
+        vec3 d1 = texture2D(tTer, vWP.xz * 0.3).rgb, d2 = texture2D(tTer, vWP.xz * 0.041 + 0.37).rgb, dd = d1 * 0.6 + d2 * 0.4;
         float mx = max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)), mn = min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b));
         float grey = 1.0 - clamp((mx - mn) * 6.0, 0.0, 1.0), grs = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) * 7.0, 0.0, 1.0);
         float det = mix(mix(dd.g, dd.r, grs), dd.b, grey * 0.85);
         float fd = clamp(1.0 - length(vWP - cameraPosition) / 320.0, 0.3, 1.0); // de longe, menos detalhe (evita chiado)
-        diffuseColor.rgb *= mix(1.0, 0.3 + det * 1.4, uDet * fd);
+        diffuseColor.rgb *= mix(1.0, max(0.2, 1.0 + (det - 0.5) * 2.7), uDet * fd);
       }`;
     const wall = `
       float w1 = vn(vWP.xz * 1.3 + vWP.y * 1.1);
