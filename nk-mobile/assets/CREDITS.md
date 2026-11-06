@@ -42,3 +42,6 @@ Feito por código dentro do jogo.
 
 ## Asfalto das estradas (assets/tex/asphalt.jpg)
 - **Asphalt021** do **ambientCG** (ambientcg.com), licença **CC0**. Cor reduzida para 1024 px.
+
+## Paredes, telhados e pisos (assets/tex/wallsA.jpg e wallsB.jpg)
+- Fotos do **ambientCG** (ambientcg.com), licença **CC0**: Plaster001 (reboco), Bricks066 (tijolo), RoofingTiles006 (telha), Concrete034 (concreto), WoodFloor041 (madeira) e CorrugatedSteel005 (chapa). Convertidas em tons de cinza, uma por canal de cor, em 1024 px.

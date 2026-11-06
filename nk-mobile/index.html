@@ -5597,7 +5597,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '06/11 12:19'; // data da versão (preenchida pelo build.py)
+const BUILD = '06/11 13:18'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -9544,15 +9544,15 @@ float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 *
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y); }`;
 // textura procedural pela posição no mundo (não precisa de imagem nem de UV)
 // texturas de detalhe geradas por nós (tools/gentex.py): chão = grama/terra/rocha, paredes = reboco/madeira/metal
-const DET = { tTer: { value: null }, tWall: { value: null }, tAsph: { value: null }, uDet: { value: 1 } };
+const DET = { tTer: { value: null }, tWA: { value: null }, tWB: { value: null }, tAsph: { value: null }, uDet: { value: 1 } };
 (function loadDetail() {
-  const blank = new T.DataTexture(new Uint8Array([128, 128, 128, 255]), 1, 1); blank.needsUpdate = true; DET.tTer.value = DET.tWall.value = DET.tAsph.value = blank;
+  const blank = new T.DataTexture(new Uint8Array([128, 128, 128, 255]), 1, 1); blank.needsUpdate = true; DET.tTer.value = DET.tWA.value = DET.tWB.value = DET.tAsph.value = blank;
   const L = new T.TextureLoader(), an = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-  for (const [k, f] of [['tTer', 'terrain'], ['tWall', 'walls'], ['tAsph', 'asphalt']]) L.load(`assets/tex/${f}.jpg`, t => { t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = an; DET[k].value = t; });
+  for (const [k, f] of [['tTer', 'terrain'], ['tWA', 'wallsA'], ['tWB', 'wallsB'], ['tAsph', 'asphalt']]) L.load(`assets/tex/${f}.jpg`, t => { t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = an; DET[k].value = t; });
 })();
 function patchNoise(mat, kind) {
   mat.onBeforeCompile = sh => {
-    sh.uniforms.tTer = DET.tTer; sh.uniforms.tWall = DET.tWall; sh.uniforms.uDet = DET.uDet;
+    sh.uniforms.tTer = DET.tTer; sh.uniforms.tWA = DET.tWA; sh.uniforms.tWB = DET.tWB; sh.uniforms.uDet = DET.uDet;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; attribute float mt;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal); vMt = mt;');
     const terr = `
@@ -9569,36 +9569,24 @@ function patchNoise(mat, kind) {
         diffuseColor.rgb *= mix(1.0, 0.3 + det * 1.4, uDet * fd);
       }`;
     const wall = `
-      float w1 = vn(vWP.xz * 1.3 + vWP.y * 1.1), w2 = vn(vec2(vWP.x + vWP.z, vWP.y) * 7.0);
+      float w1 = vn(vWP.xz * 1.3 + vWP.y * 1.1);
       vec3 nn = normalize(vWN);
       vec2 uv = abs(nn.y) > 0.6 ? vWP.xz : vec2(abs(nn.x) > abs(nn.z) ? vWP.z : vWP.x, vWP.y);
-      float mm = floor(vMt + 0.5), fw = max(length(fwidth(uv)), 1e-4);
-      if (mm < 0.5) { diffuseColor.rgb *= 0.95 + w1 * 0.07 + (w2 - 0.5) * 0.05; }
-      else if (mm < 1.5) { // tijolo à vista
-        float row = floor(uv.y / 0.075); vec2 b = vec2(uv.x / 0.22 + mod(row, 2.0) * 0.5, uv.y / 0.075); vec2 f = fract(b);
-        float fade = clamp(1.0 - (fw - 0.006) * 45.0, 0.0, 1.0);
-        float mort = clamp(step(f.x, 0.05) + step(f.y, 0.15), 0.0, 1.0) * fade;
-        diffuseColor.rgb = mix(diffuseColor.rgb * mix(1.0, 0.82 + h21(floor(b)) * 0.3, fade) * (0.93 + w2 * 0.1), mix(diffuseColor.rgb * 1.12, vec3(0.74, 0.72, 0.68), fade * 0.9), mort + (1.0 - fade) * 0.18);
-      } else if (mm < 2.5) { // telhas
-        float r = uv.y / 0.16, f = fract(r), s = fract(uv.x / 0.26 + floor(r) * 0.5);
-        float fd = clamp(1.0 - (fw - 0.01) * 25.0, 0.0, 1.0); f = mix(0.75, f, fd); s = mix(0.5, s, fd);
-        diffuseColor.rgb *= (0.66 + 0.42 * f) * (0.86 + 0.14 * smoothstep(0.0, 0.1, s) * smoothstep(1.0, 0.9, s)) * (0.92 + h21(vec2(floor(r), floor(uv.x / 0.26 + floor(r) * 0.5))) * 0.14);
-      } else if (mm < 3.5) { // placas de concreto
+      float mm = floor(vMt + 0.5), fw = max(length(fwidth(uv)), 1e-4), d;
+      float fd = uDet * clamp(1.0 - length(vWP - cameraPosition) / 230.0, 0.3, 1.0);
+      /* fotos do ambientCG (CC0) em tons de cinza, uma por canal: A = reboco/tijolo/telha, B = concreto/madeira/metal */
+      if (mm < 0.5) { d = 0.5 + (texture2D(tWA, uv * 0.4).r * 0.7 + texture2D(tWA, uv * 0.093 + 0.31).r * 0.3 - 0.5) * 1.7; diffuseColor.rgb *= 0.95 + w1 * 0.08; }
+      else if (mm < 1.5) { d = texture2D(tWA, uv * 0.85).g; }
+      else if (mm < 2.5) { d = texture2D(tWA, uv * vec2(0.55, 0.62)).b; }
+      else if (mm < 3.5) { /* placas de concreto com junta */
         vec2 f = fract(uv / vec2(1.6, 1.05)); float l = clamp(step(f.x, 0.012) + step(f.y, 0.02), 0.0, 1.0) * clamp(1.0 - (fw - 0.02) * 12.0, 0.0, 1.0);
-        diffuseColor.rgb *= (1.0 - l * 0.28) * (0.86 + vn(uv * 0.6) * 0.2) * (0.96 + w2 * 0.06);
-      } else if (mm < 4.5) { // tábuas de madeira
-        float r = (abs(nn.y) > 0.6 ? uv.x : uv.y) / 0.19, f = fract(r), id = floor(r), along = abs(nn.y) > 0.6 ? uv.y : uv.x;
-        diffuseColor.rgb *= (0.8 + 0.22 * vn(vec2(along * 0.9, id * 7.3))) * (1.0 - step(f, 0.06) * 0.4 * clamp(1.0 - (fw - 0.01) * 20.0, 0.0, 1.0)) * (0.9 + 0.16 * h21(vec2(id, 3.0)));
-      } else { // chapa metálica ondulada
-        diffuseColor.rgb *= (0.84 + 0.16 * sin(uv.x * 52.0) * clamp(1.0 - (fw - 0.008) * 40.0, 0.0, 1.0)) * (0.95 + w1 * 0.08);
+        d = (texture2D(tWB, uv * 0.42).r * 0.7 + texture2D(tWB, uv * 0.1 + 0.2).r * 0.3) * (1.0 - l * 0.3);
+      } else if (mm < 4.5) { d = texture2D(tWB, (abs(nn.y) > 0.6 ? uv : uv.yx) * 0.62).g; }
+      else { /* chapa ondulada */
+        d = texture2D(tWB, uv * 0.5).b * (0.86 + 0.14 * sin(uv.x * 52.0) * clamp(1.0 - (fw - 0.008) * 40.0, 0.0, 1.0));
       }
-      { // sujeira, veio e ferrugem de textura (reboco/concreto/telha = R, madeira = G, metal = B)
-        vec3 t1 = texture2D(tWall, uv * 0.42).rgb, t2 = texture2D(tWall, uv * 0.11 + 0.21).rgb;
-        float det = mm > 4.5 ? t1.b * 0.7 + t2.b * 0.3 : mm > 3.5 ? t1.g * 0.75 + t2.g * 0.25 : t1.r * 0.55 + t2.r * 0.45;
-        float k = mm > 3.5 ? 1.0 : mm > 1.5 ? 0.85 : 0.7;
-        diffuseColor.rgb *= mix(1.0, 0.5 + det, uDet * k * clamp(1.0 - length(vWP - cameraPosition) / 200.0, 0.2, 1.0));
-      }`;
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; uniform sampler2D tTer; uniform sampler2D tWall; uniform float uDet;\n' + GLSL_NOISE)
+      diffuseColor.rgb *= mix(1.0, d * 2.0, fd);`;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; uniform sampler2D tTer; uniform sampler2D tWA; uniform sampler2D tWB; uniform float uDet;\n' + GLSL_NOISE)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + (kind === 'terrain' ? terr : wall));
   };
   mat.customProgramCacheKey = () => 'noise-' + kind;

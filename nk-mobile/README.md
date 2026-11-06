@@ -216,3 +216,6 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Rodas com pneu, aro metálico com raios e cubo; jipe com estepe, quebra-mato e bagageiro.
 - Material próprio: pintura com brilho, vidro e cromo refletindo o céu, pneu fosco e poeira na parte de baixo. No gráfico Leve continua o material simples.
 - Skins de carro pintam só a lataria (vidro, pneu e farol ficam normais).
+
+## Paredes de foto (06/11)
+- Reboco, tijolo, telha, concreto, madeira e chapa usam fotos do ambientCG (CC0) em vez de desenho por código. As 6 fotos ficam em 2 imagens (uma por canal de cor), então pesam pouco.
