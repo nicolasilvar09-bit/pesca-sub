@@ -70,3 +70,8 @@ Obtidas via repositórios públicos do GitHub (mgarrett1515/dropzone, rzavala198
 - SLR: "FN FAL" por The Unknown... — https://sketchfab.com/3d-models/fn-fal-7f548d1f79f7418fad852f3d7293ec2c
 - AWM: "Awm" por sxnneh — https://sketchfab.com/3d-models/awm-8db7797f63e64a50bf0479e6128d61f8
 Alterações: orientação e escala normalizadas, malha simplificada, braços/balas removidos, texturas reduzidas para 512 px (JPEG), material trocado.
+
+## Lobby (assets/lobby)
+- Céu: **The Sky is on Fire** (Poly Haven, CC0) — recorte em alta resolução.
+- Objetos: **Wooden Military Crate**, **Old Military Crate**, **Metal Jerrycan Green**, **Ammo Box**, **Barrel 02** e **Street Lamp 01** (Poly Haven, CC0), reduzidos.
+- Piso: **Concrete034** (ambientCG, CC0).

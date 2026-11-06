@@ -1,7 +1,10 @@
 // ================= lobby: personagem, modo (solo/dupla/trio/esquadrão), dificuldade dos bots e equipe =================
 const LOB = { actors: [], x: 0, z: 0, y: 0, yaw: 0, t: 0 };
-(function findSpot() { // praia com o mar ao fundo
-  for (let r = 420 * MK; r < 840 * MK; r += 4) { const a = 2.2, x = Math.cos(a) * r, z = Math.sin(a) * r, h = groundH(x, z); if (h < 5 && h > 0.7 && !bldAt(x, z, 6)) { LOB.x = x; LOB.z = z; LOB.y = h; LOB.yaw = a; break; } }
+(function findSpot() { // plataforma militar no mar: o personagem fica de costas para a ilha, com o mar aberto e o pôr do sol ao fundo
+  const a = 2.2; let r0 = 0;
+  for (let r = 420 * MK; r < HALF * 1.6; r += 6) { const x = Math.cos(a) * r, z = Math.sin(a) * r; if (groundH(x, z) < -6 && [20, 40, 60, 90].every(d => groundH(Math.cos(a) * (r + d), Math.sin(a) * (r + d)) < -4)) { r0 = r + 160; break; } }
+  if (!r0) r0 = HALF * 1.1;
+  LOB.x = Math.cos(a) * r0; LOB.z = Math.sin(a) * r0; LOB.y = 1.6; LOB.yaw = a; LOB.sea = true;
 })();
 const MODES = [['solo', 'Solo', 1], ['duo', 'Dupla', 2], ['trio', 'Trio', 3], ['squad', 'Esquadrão', 4]];
 const DIFFS = [['medio', 'Médio'], ['alto', 'Alto'], ['mix', 'Misto']];
@@ -20,7 +23,7 @@ function lobbyActors() {
     const pos = [[0, 0], [-1.55, 1.6], [1.55, 1.6], [-2.9, 2.6]][i], side = pos[0], back = pos[1];
     const fx = Math.cos(LOB.yaw), fz = Math.sin(LOB.yaw), rx = -fz, rz = fx;
     a.x = LOB.x + rx * side + fx * back; a.z = LOB.z + rz * side + fz * back; a.y = LOB.y + 0.11; // em cima do palco
-    a.yaw = Math.atan2(fx, fz) + (i ? (side < 0 ? 0.18 : -0.18) : 0); a.relax = true;
+    a.yaw = Math.atan2(fx, fz) + (i ? (side < 0 ? 0.18 : -0.18) : 0); a.relax = true; a.onGround = true; /* em cima da plataforma (embaixo é mar) */
     LOB.actors.push(a);
   }
 }

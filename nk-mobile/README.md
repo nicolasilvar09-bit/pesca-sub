@@ -253,3 +253,6 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - De longe (mais de 55 m) usa a gravação feita a média distância, abafada; o som chega atrasado pela distância (velocidade do som).
 - Eco do lugar: campo aberto com ecos dos morros/prédios; dentro de casa reverberação curta. Compressor evita estouro com muitos tiros.
 - Silenciador: gravação bem abafada + "pfft". Cápsulas caindo no chão depois dos seus tiros.
+
+## Lobby novo (06/11)
+- Plataforma militar no mar ao pôr do sol: céu de foto (Poly Haven), mar aberto ao fundo, piso de concreto com faixa de perigo, guarda-corpo, pilares, caixas militares, barris, galões, caixas de munição, 2 postes acesos e poeira dourada no ar. Luz de contorno laranja do sol e névoa cor de pôr do sol só no lobby.

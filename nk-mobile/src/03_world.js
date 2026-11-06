@@ -815,7 +815,7 @@ const TREES = [], NAT = {};
     const cx = wr(-1300 * WS, 1300 * WS), cy = wr(330, 430), cz = wr(-1300 * WS, 1300 * WS), sc = wr(0.7, 1.4);
     for (let k = 0; k < 6; k++) { const r = wr(16, 30) * sc; dummy.position.set(cx + wr(-45, 45) * sc, cy + wr(0, 14) * sc, cz + wr(-25, 25) * sc); dummy.scale.set(r * 1.3, r * 0.75, r); dummy.rotation.set(0, WR() * 3, 0); dummy.updateMatrix(); cl.setMatrixAt(ci++, dummy.matrix); }
   }
-  scene.add(cl);
+  scene.add(cl); NAT.clouds = cl;
 })();
 
 // fecha os blocos de geometria estática
