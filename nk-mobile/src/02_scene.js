@@ -1,7 +1,7 @@
 // ================= cena: renderizador, câmera, luz, céu e utilitários de geometria =================
 const renderer = new T.WebGLRenderer({ canvas: $('cv'), antialias: false, powerPreference: 'high-performance' });
 renderer.outputEncoding = T.sRGBEncoding; renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.92;
-const QUAL = [{ pr: 0.75, fog: 600, shadow: 0, grass: 0, post: 0 }, { pr: 1.15, fog: 850, shadow: 1024, grass: 1, post: 1, rain: 1300 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1, post: 1, rain: 2600 }];
+const QUAL = [{ pr: 0.75, fog: 600, shadow: 0, grass: 0, post: 0 }, { pr: 1.3, fog: 850, shadow: 1024, grass: 1, post: 1, rain: 1300 }, { pr: 2, fog: 1200, shadow: 2048, grass: 1, post: 1, rain: 2600 }];
 var AUTO = { lv: 0, t: 0, low: 0 }; // ajuste automático de desempenho (0 = tudo ligado)
 var DYN = 1; // escala de resolução dinâmica (baixa sozinha se o celular não segurar o FPS)
 const scene = new T.Scene();
@@ -22,7 +22,8 @@ function applyQuality() {
 }
 function applyRes() {
   const q = QUAL[SET.quality] || QUAL[1];
-  renderer.setPixelRatio(Math.max(0.5, Math.min(window.devicePixelRatio || 1, q.pr) * DYN));
+  /* com o passe final ligado a tela fica na resolução real (até 2x) e só a cena é reduzida; sem ele, como antes */
+  renderer.setPixelRatio(typeof PP !== 'undefined' && PP && PP.on ? postOutPR() : Math.max(0.5, Math.min(window.devicePixelRatio || 1, q.pr) * DYN));
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   if (typeof postResize === 'function') postResize();

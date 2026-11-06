@@ -242,3 +242,8 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 ## Sensibilidade estilo PUBG (06/11)
 - Menu > Sensibilidade: duas abas, CÂMERA e AO ATIRAR, com um valor (1–300%) para 3ª pessoa, 1ª pessoa, red dot/holo/mira de ferro, 2x, 3x, 4x, 6x e 8x/10x. Padrão do PUBG: 100/100/50/35/25/20/15/12.
 - Ao atirar usa a segunda lista (para controlar o coice). Quem já tinha ajustado a sensibilidade antiga começa com o mesmo valor. Salva na nuvem junto com a conta.
+
+## Nitidez (06/11)
+- A tela final agora fica na resolução real do celular (até 2x); só a cena 3D é desenhada menor e é ampliada pelo próprio jogo com nitidez adaptativa (estilo AMD CAS), em vez do navegador esticar uma imagem pequena.
+- Médio desenha a cena um pouco maior (1,3x); a resolução automática não cai mais tanto (mínimo 70%) e só baixa abaixo de 36 FPS.
+- Configurações > Resolução: "Automática (mais FPS)" ou "Sempre nítida" (nunca reduz).

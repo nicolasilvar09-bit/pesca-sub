@@ -321,11 +321,12 @@ function openMenu() {
   $('menuP').innerHTML = `<button class="cos-x" id="mX" aria-label="Fechar">✕</button><div class="box"><h3>Configurações</h3>
   <button class="btn alt" id="mSens" style="margin:4px 0">🎯 SENSIBILIDADE (estilo PUBG)</button>
   <label>Campo de visão <input type="range" min="75" max="105" step="1" value="${SET.fov || 90}" id="sFov"></label>
+  <label>Resolução <select id="sRes"><option value="0">Automática (mais FPS)</option><option value="1">Sempre nítida</option></select></label>
   <label>Gráficos <select id="sQ"><option value="0">Leve</option><option value="1">Médio</option><option value="2">Alto</option></select></label>
   <button class="btn alt" id="mLay" style="margin:4px 0">🎛 PERSONALIZAR BOTÕES</button>
   <label>Volume <input type="range" min="0" max="1" step="0.05" value="${SET.vol}" id="sVol"></label>
   <div class="row"><button id="mBack" class="btn">VOLTAR AO JOGO</button><button id="mQuit" class="btn red">SAIR DA PARTIDA</button></div></div>`;
-  $('sQ').value = SET.quality; $('mLay').onclick = openLayout;
+  $('sQ').value = SET.quality; $('sRes').value = SET.resFix ? 1 : 0; $('sRes').onchange = e => { SET.resFix = e.target.value === '1'; if (SET.resFix) DYN = 1; saveSet(); applyRes(); }; $('mLay').onclick = openLayout;
   $('mSens').onclick = () => openSens('C');
   $('sVol').oninput = e => { SET.vol = +e.target.value; saveSet(); }; $('sFov').oninput = e => { SET.fov = +e.target.value; saveSet(); }; $('sQ').onchange = e => { SET.quality = +e.target.value; saveSet(); applyQuality(); };
   $('mBack').onclick = () => closePanels();
