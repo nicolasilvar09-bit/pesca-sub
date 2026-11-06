@@ -7,11 +7,11 @@ float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 *
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y); }`;
 // textura procedural pela posição no mundo (não precisa de imagem nem de UV)
 // texturas de detalhe geradas por nós (tools/gentex.py): chão = grama/terra/rocha, paredes = reboco/madeira/metal
-const DET = { tTer: { value: null }, tWall: { value: null }, uDet: { value: 1 } };
+const DET = { tTer: { value: null }, tWall: { value: null }, tAsph: { value: null }, uDet: { value: 1 } };
 (function loadDetail() {
-  const blank = new T.DataTexture(new Uint8Array([128, 128, 128, 255]), 1, 1); blank.needsUpdate = true; DET.tTer.value = DET.tWall.value = blank;
+  const blank = new T.DataTexture(new Uint8Array([128, 128, 128, 255]), 1, 1); blank.needsUpdate = true; DET.tTer.value = DET.tWall.value = DET.tAsph.value = blank;
   const L = new T.TextureLoader(), an = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-  for (const [k, f] of [['tTer', 'terrain'], ['tWall', 'walls']]) L.load(`assets/tex/${f}.jpg`, t => { t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = an; DET[k].value = t; });
+  for (const [k, f] of [['tTer', 'terrain'], ['tWall', 'walls'], ['tAsph', 'asphalt']]) L.load(`assets/tex/${f}.jpg`, t => { t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = an; DET[k].value = t; });
 })();
 function patchNoise(mat, kind) {
   mat.onBeforeCompile = sh => {
@@ -160,7 +160,25 @@ void main(){
   }
   const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new T.Float32BufferAttribute(colA, 3)); g.computeVertexNormals();
   const m = new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  patchNoise(m, 'wall');
+  /* asfalto de foto (ambientCG Asphalt021, CC0): rachaduras no asfalto e tinta gasta nas faixas */
+  m.onBeforeCompile = sh => {
+    sh.uniforms.tAsph = DET.tAsph; sh.uniforms.uDet = DET.uDet;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; uniform sampler2D tAsph; uniform float uDet;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      {
+        vec3 a1 = texture2D(tAsph, vWP.xz * 0.15).rgb, a2 = texture2D(tAsph, vWP.xz * 0.047 + 0.37).rgb;
+        vec3 col = (a1 * 0.7 + a2 * 0.3) / 0.37;
+        float fd = uDet * clamp(1.0 - length(vWP - cameraPosition) / 260.0, 0.25, 1.0);
+        float line = step(0.5, max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b)));
+        float l = dot(col, vec3(0.333));
+        vec3 asph = mix(vec3(1.0), pow(col, vec3(2.3)) * 1.18, fd);
+        vec3 paint = vec3(mix(1.0, clamp(pow(l, 2.6) * 1.08, 0.2, 1.08), fd));
+        diffuseColor.rgb *= mix(asph, paint, line);
+      }`);
+  };
+  m.customProgramCacheKey = () => 'road-asph';
   const mesh = new T.Mesh(g, m); mesh.receiveShadow = true; scene.add(mesh); GFX.road = mesh;
   // postes
   const L = [];

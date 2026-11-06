@@ -39,3 +39,6 @@ Feito por código dentro do jogo.
 
 ## Pedra escaneada (assets/nature/ph_boulder.glb)
 - **Boulder 01** do **Poly Haven** (polyhaven.com), licença **CC0**. Reduzida para ~1.300 triângulos e textura de 512 px.
+
+## Asfalto das estradas (assets/tex/asphalt.jpg)
+- **Asphalt021** do **ambientCG** (ambientcg.com), licença **CC0**. Cor reduzida para 1024 px.
