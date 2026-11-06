@@ -171,6 +171,7 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
 #menuP .box{background:#1d2450;border-radius:16px;padding:16px 20px;width:min(420px,90vw);display:flex;flex-direction:column;gap:10px}
 #menuP label{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
 #menuP input[type=range]{flex:1;max-width:200px}
+#menuP .sensbox{max-height:92vh;overflow-y:auto;gap:7px}#menuP .sens-ctl{display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end}#menuP .sens-ctl b{min-width:42px;text-align:right;color:#ffd166}.sens-tabs .btn{flex:1}.sens-hint{font-size:11px;opacity:.7}
 #menuP select{background:#0f1430;color:#fff;border-radius:8px;padding:4px 8px;border:1px solid #445}
 .row{display:flex;gap:10px;justify-content:center;margin-top:8px;flex-wrap:wrap}
 #frP,#invP,#chrP,#carP{display:flex;align-items:center;justify-content:center;z-index:35}
@@ -5597,7 +5598,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '06/11 14:15'; // data da versão (preenchida pelo build.py)
+const BUILD = '06/11 14:51'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -5647,6 +5648,14 @@ const G = {
 const SET_KEY = 'ilhazero_v1';
 const SET = Object.assign({ name: 'Jogador', char: 0, sens: 1, adsSens: 0.8, quality: 1, fov: 90, map: 'nk', view: 'tpp', vol: 0.8, mode: 'squad', diff: 'mix', matches: 0, wins: 0, rp: 1000, top10: 0, kills: 0, best: 0, dmg: 0 },
   (() => { try { return JSON.parse(localStorage.getItem(SET_KEY) || '{}'); } catch (e) { return {}; } })());
+// sensibilidade no estilo PUBG Mobile: um valor (%) para cada situação/luneta, e outro conjunto para quando está atirando
+const SENS_DEF = { tpp: 100, fpp: 100, red: 50, x2: 35, x3: 25, x4: 20, x6: 15, x8: 12 };
+(function sensInit() {
+  const base = Math.round((SET.sens || 1) * 100); /* quem já tinha ajustado a sensibilidade antiga começa com o mesmo valor */
+  if (!SET.sensC) SET.sensC = Object.assign({}, SENS_DEF, { tpp: base, fpp: base });
+  if (!SET.sensA) SET.sensA = Object.assign({}, SENS_DEF, { tpp: base, fpp: base });
+  for (const k in SENS_DEF) { if (SET.sensC[k] == null) SET.sensC[k] = SENS_DEF[k]; if (SET.sensA[k] == null) SET.sensA[k] = SENS_DEF[k]; }
+})();
 function saveSet(cloud) { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) { } if (cloud !== false && typeof cloudPush === 'function') cloudPush(); }
 
 let toastTm = 0;
@@ -8303,7 +8312,9 @@ function playerStep(dt) {
   if (!p.alive) { IN.ldx = IN.ldy = 0; return; }
   const w = curW(p), zoom = p.ads && w ? sightZoom(w) : 1;
   // olhar
-  const sens = SET.sens * (p.ads ? SET.adsSens / Math.max(1, zoom * 0.75) : 1);
+  /* qual luneta está em uso decide a sensibilidade; atirando usa a lista "ao atirar" (igual ao PUBG) */
+  const sk = !p.ads ? (v.fpp ? 'fpp' : 'tpp') : zoom < 1.8 ? 'red' : zoom < 2.5 ? 'x2' : zoom < 3.5 ? 'x3' : zoom < 5 ? 'x4' : zoom < 7 ? 'x6' : 'x8';
+  const sens = ((IN.fire && w ? SET.sensA : SET.sensC)[sk] || 100) / 100;
   if (IN.ldx || IN.ldy) G.lookT = G.t;
   v.yaw -= IN.ldx * 0.0045 * sens; v.pitch -= IN.ldy * 0.0045 * sens; IN.ldx = IN.ldy = 0;
   // dirigindo: a câmera volta sozinha para trás do veículo
@@ -8845,19 +8856,34 @@ function renderBag() {
     G.bagHtml = null; renderBag();
   };
 }
+// ---------- sensibilidade (igual ao PUBG Mobile): câmera e ao atirar, cada luneta com seu valor ----------
+const SENS_ROWS = [['tpp', '3ª pessoa sem mira'], ['fpp', '1ª pessoa sem mira'], ['red', 'Red dot / holo / mira de ferro'], ['x2', 'Luneta 2x'], ['x3', 'Luneta 3x'], ['x4', 'Luneta 4x'], ['x6', 'Luneta 6x'], ['x8', 'Luneta 8x e 10x']];
+function openSens(tab) {
+  const L = tab === 'A' ? SET.sensA : SET.sensC;
+  $('menuP').classList.remove('hidden');
+  $('menuP').innerHTML = `<div class="box sensbox"><h3>Sensibilidade</h3>
+  <div class="row sens-tabs"><button class="btn ${tab === 'C' ? '' : 'alt'}" id="snC">CÂMERA</button><button class="btn ${tab === 'A' ? '' : 'alt'}" id="snA">AO ATIRAR</button></div>
+  <div class="sens-hint">${tab === 'C' ? 'Quando você arrasta a tela para olhar e mirar.' : 'Enquanto o dedo está no botão de atirar (para segurar o coice).'}</div>
+  ${SENS_ROWS.map(([k, n]) => `<label>${n} <span class="sens-ctl"><input type="range" min="1" max="300" step="1" value="${L[k]}" data-sk="${k}"><b id="sv_${k}">${L[k]}%</b></span></label>`).join('')}
+  <div class="row"><button class="btn alt" id="snDef">PADRÃO</button><button class="btn alt" id="snCopy">${tab === 'C' ? 'COPIAR P/ AO ATIRAR' : 'COPIAR DA CÂMERA'}</button><button class="btn" id="snBack">VOLTAR</button></div></div>`;
+  $('menuP').querySelectorAll('input[data-sk]').forEach(el => el.oninput = e => { const k = e.target.dataset.sk; L[k] = +e.target.value; $('sv_' + k).textContent = L[k] + '%'; saveSet(); });
+  $('snC').onclick = () => openSens('C'); $('snA').onclick = () => openSens('A');
+  $('snDef').onclick = () => { Object.assign(L, SENS_DEF); saveSet(); openSens(tab); };
+  $('snCopy').onclick = () => { Object.assign(SET.sensA, SET.sensC); saveSet(); openSens(tab); toast('Copiado'); };
+  $('snBack').onclick = () => { if (G.phase === 'lobbyMenu' && $('lSet')) $('lSet').click(); else openMenu(); };
+}
 // ---------- menu, morte e resultado ----------
 function openMenu() {
   $('menuP').classList.remove('hidden');
   $('menuP').innerHTML = `<div class="box"><h3>Configurações</h3>
-  <label>Sensibilidade <input type="range" min="0.3" max="2.5" step="0.05" value="${SET.sens}" id="sSens"></label>
-  <label>Sensibilidade na mira <input type="range" min="0.3" max="2" step="0.05" value="${SET.adsSens}" id="sAds"></label>
+  <button class="btn alt" id="mSens" style="margin:4px 0">🎯 SENSIBILIDADE (estilo PUBG)</button>
   <label>Campo de visão <input type="range" min="75" max="105" step="1" value="${SET.fov || 90}" id="sFov"></label>
   <label>Gráficos <select id="sQ"><option value="0">Leve</option><option value="1">Médio</option><option value="2">Alto</option></select></label>
   <button class="btn alt" id="mLay" style="margin:4px 0">🎛 PERSONALIZAR BOTÕES</button>
   <label>Volume <input type="range" min="0" max="1" step="0.05" value="${SET.vol}" id="sVol"></label>
   <div class="row"><button id="mBack" class="btn">VOLTAR AO JOGO</button><button id="mQuit" class="btn red">SAIR DA PARTIDA</button></div></div>`;
   $('sQ').value = SET.quality; $('mLay').onclick = openLayout;
-  $('sSens').oninput = e => { SET.sens = +e.target.value; saveSet(); }; $('sAds').oninput = e => { SET.adsSens = +e.target.value; saveSet(); };
+  $('mSens').onclick = () => openSens('C');
   $('sVol').oninput = e => { SET.vol = +e.target.value; saveSet(); }; $('sFov').oninput = e => { SET.fov = +e.target.value; saveSet(); }; $('sQ').onchange = e => { SET.quality = +e.target.value; saveSet(); applyQuality(); };
   $('mBack').onclick = () => closePanels();
   $('mQuit').onclick = () => { closePanels(); if (!G.result && G.player.alive) { G.place = G.actors.filter(a => a.alive && a.team !== G.player.team).length + 1; } toLobby(); };
@@ -10524,7 +10550,7 @@ async function addFriendCode(code) {
 async function renameOnline() { if (!ON.me || ON.me.name === myName()) return; ON.me.name = myName(); try { await sbFetch(`/rest/v1/profiles?id=eq.${ON.s.uid}`, { method: 'PATCH', body: JSON.stringify({ name: myName() }) }); } catch (e) { } wsTrack(); }
 
 // ---------- progresso na nuvem (se a tabela iz_saves existir; senão fica só no aparelho) ----------
-const CLOUD_K = ['name', 'char', 'sens', 'adsSens', 'quality', 'fov', 'view', 'vol', 'mode', 'diff', 'matches', 'wins', 'kills', 'best', 'dmg', 'rp', 'top10', 'lay', 'hudA', 'coins', 'inv', 'equip', 'pxp', 'pcl'];
+const CLOUD_K = ['name', 'char', 'sens', 'adsSens', 'sensC', 'sensA', 'quality', 'fov', 'view', 'vol', 'mode', 'diff', 'matches', 'wins', 'kills', 'best', 'dmg', 'rp', 'top10', 'lay', 'hudA', 'coins', 'inv', 'equip', 'pxp', 'pcl'];
 let cloudOk = false, cloudT = 0;
 async function cloudLoad() {
   try {

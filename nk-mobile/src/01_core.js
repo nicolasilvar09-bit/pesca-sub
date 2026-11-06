@@ -50,6 +50,14 @@ const G = {
 const SET_KEY = 'ilhazero_v1';
 const SET = Object.assign({ name: 'Jogador', char: 0, sens: 1, adsSens: 0.8, quality: 1, fov: 90, map: 'nk', view: 'tpp', vol: 0.8, mode: 'squad', diff: 'mix', matches: 0, wins: 0, rp: 1000, top10: 0, kills: 0, best: 0, dmg: 0 },
   (() => { try { return JSON.parse(localStorage.getItem(SET_KEY) || '{}'); } catch (e) { return {}; } })());
+// sensibilidade no estilo PUBG Mobile: um valor (%) para cada situação/luneta, e outro conjunto para quando está atirando
+const SENS_DEF = { tpp: 100, fpp: 100, red: 50, x2: 35, x3: 25, x4: 20, x6: 15, x8: 12 };
+(function sensInit() {
+  const base = Math.round((SET.sens || 1) * 100); /* quem já tinha ajustado a sensibilidade antiga começa com o mesmo valor */
+  if (!SET.sensC) SET.sensC = Object.assign({}, SENS_DEF, { tpp: base, fpp: base });
+  if (!SET.sensA) SET.sensA = Object.assign({}, SENS_DEF, { tpp: base, fpp: base });
+  for (const k in SENS_DEF) { if (SET.sensC[k] == null) SET.sensC[k] = SENS_DEF[k]; if (SET.sensA[k] == null) SET.sensA[k] = SENS_DEF[k]; }
+})();
 function saveSet(cloud) { try { localStorage.setItem(SET_KEY, JSON.stringify(SET)); } catch (e) { } if (cloud !== false && typeof cloudPush === 'function') cloudPush(); }
 
 let toastTm = 0;

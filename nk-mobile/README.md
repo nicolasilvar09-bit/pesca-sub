@@ -238,3 +238,7 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 ## Armas de verdade (06/11)
 - 13 armas trocaram o desenho por código por modelos 3D de verdade (Sketchfab, CC BY 4.0): M416, UMP45, Kar98k, S686, S1897, M1911, G18C, Vector, MP5K, UZI, SKS, SLR e AWM (com luneta própria). Somando as 5 de antes, são 18 armas com modelo real.
 - As 5 primeiras carregam na abertura; as novas carregam em segundo plano logo depois e trocam sozinhas na tela.
+
+## Sensibilidade estilo PUBG (06/11)
+- Menu > Sensibilidade: duas abas, CÂMERA e AO ATIRAR, com um valor (1–300%) para 3ª pessoa, 1ª pessoa, red dot/holo/mira de ferro, 2x, 3x, 4x, 6x e 8x/10x. Padrão do PUBG: 100/100/50/35/25/20/15/12.
+- Ao atirar usa a segunda lista (para controlar o coice). Quem já tinha ajustado a sensibilidade antiga começa com o mesmo valor. Salva na nuvem junto com a conta.

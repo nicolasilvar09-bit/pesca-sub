@@ -61,7 +61,9 @@ function playerStep(dt) {
   if (!p.alive) { IN.ldx = IN.ldy = 0; return; }
   const w = curW(p), zoom = p.ads && w ? sightZoom(w) : 1;
   // olhar
-  const sens = SET.sens * (p.ads ? SET.adsSens / Math.max(1, zoom * 0.75) : 1);
+  /* qual luneta está em uso decide a sensibilidade; atirando usa a lista "ao atirar" (igual ao PUBG) */
+  const sk = !p.ads ? (v.fpp ? 'fpp' : 'tpp') : zoom < 1.8 ? 'red' : zoom < 2.5 ? 'x2' : zoom < 3.5 ? 'x3' : zoom < 5 ? 'x4' : zoom < 7 ? 'x6' : 'x8';
+  const sens = ((IN.fire && w ? SET.sensA : SET.sensC)[sk] || 100) / 100;
   if (IN.ldx || IN.ldy) G.lookT = G.t;
   v.yaw -= IN.ldx * 0.0045 * sens; v.pitch -= IN.ldy * 0.0045 * sens; IN.ldx = IN.ldy = 0;
   // dirigindo: a câmera volta sozinha para trás do veículo

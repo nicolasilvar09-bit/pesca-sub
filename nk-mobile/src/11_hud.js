@@ -296,19 +296,34 @@ function renderBag() {
     G.bagHtml = null; renderBag();
   };
 }
+// ---------- sensibilidade (igual ao PUBG Mobile): câmera e ao atirar, cada luneta com seu valor ----------
+const SENS_ROWS = [['tpp', '3ª pessoa sem mira'], ['fpp', '1ª pessoa sem mira'], ['red', 'Red dot / holo / mira de ferro'], ['x2', 'Luneta 2x'], ['x3', 'Luneta 3x'], ['x4', 'Luneta 4x'], ['x6', 'Luneta 6x'], ['x8', 'Luneta 8x e 10x']];
+function openSens(tab) {
+  const L = tab === 'A' ? SET.sensA : SET.sensC;
+  $('menuP').classList.remove('hidden');
+  $('menuP').innerHTML = `<div class="box sensbox"><h3>Sensibilidade</h3>
+  <div class="row sens-tabs"><button class="btn ${tab === 'C' ? '' : 'alt'}" id="snC">CÂMERA</button><button class="btn ${tab === 'A' ? '' : 'alt'}" id="snA">AO ATIRAR</button></div>
+  <div class="sens-hint">${tab === 'C' ? 'Quando você arrasta a tela para olhar e mirar.' : 'Enquanto o dedo está no botão de atirar (para segurar o coice).'}</div>
+  ${SENS_ROWS.map(([k, n]) => `<label>${n} <span class="sens-ctl"><input type="range" min="1" max="300" step="1" value="${L[k]}" data-sk="${k}"><b id="sv_${k}">${L[k]}%</b></span></label>`).join('')}
+  <div class="row"><button class="btn alt" id="snDef">PADRÃO</button><button class="btn alt" id="snCopy">${tab === 'C' ? 'COPIAR P/ AO ATIRAR' : 'COPIAR DA CÂMERA'}</button><button class="btn" id="snBack">VOLTAR</button></div></div>`;
+  $('menuP').querySelectorAll('input[data-sk]').forEach(el => el.oninput = e => { const k = e.target.dataset.sk; L[k] = +e.target.value; $('sv_' + k).textContent = L[k] + '%'; saveSet(); });
+  $('snC').onclick = () => openSens('C'); $('snA').onclick = () => openSens('A');
+  $('snDef').onclick = () => { Object.assign(L, SENS_DEF); saveSet(); openSens(tab); };
+  $('snCopy').onclick = () => { Object.assign(SET.sensA, SET.sensC); saveSet(); openSens(tab); toast('Copiado'); };
+  $('snBack').onclick = () => { if (G.phase === 'lobbyMenu' && $('lSet')) $('lSet').click(); else openMenu(); };
+}
 // ---------- menu, morte e resultado ----------
 function openMenu() {
   $('menuP').classList.remove('hidden');
   $('menuP').innerHTML = `<div class="box"><h3>Configurações</h3>
-  <label>Sensibilidade <input type="range" min="0.3" max="2.5" step="0.05" value="${SET.sens}" id="sSens"></label>
-  <label>Sensibilidade na mira <input type="range" min="0.3" max="2" step="0.05" value="${SET.adsSens}" id="sAds"></label>
+  <button class="btn alt" id="mSens" style="margin:4px 0">🎯 SENSIBILIDADE (estilo PUBG)</button>
   <label>Campo de visão <input type="range" min="75" max="105" step="1" value="${SET.fov || 90}" id="sFov"></label>
   <label>Gráficos <select id="sQ"><option value="0">Leve</option><option value="1">Médio</option><option value="2">Alto</option></select></label>
   <button class="btn alt" id="mLay" style="margin:4px 0">🎛 PERSONALIZAR BOTÕES</button>
   <label>Volume <input type="range" min="0" max="1" step="0.05" value="${SET.vol}" id="sVol"></label>
   <div class="row"><button id="mBack" class="btn">VOLTAR AO JOGO</button><button id="mQuit" class="btn red">SAIR DA PARTIDA</button></div></div>`;
   $('sQ').value = SET.quality; $('mLay').onclick = openLayout;
-  $('sSens').oninput = e => { SET.sens = +e.target.value; saveSet(); }; $('sAds').oninput = e => { SET.adsSens = +e.target.value; saveSet(); };
+  $('mSens').onclick = () => openSens('C');
   $('sVol').oninput = e => { SET.vol = +e.target.value; saveSet(); }; $('sFov').oninput = e => { SET.fov = +e.target.value; saveSet(); }; $('sQ').onchange = e => { SET.quality = +e.target.value; saveSet(); applyQuality(); };
   $('mBack').onclick = () => closePanels();
   $('mQuit').onclick = () => { closePanels(); if (!G.result && G.player.alive) { G.place = G.actors.filter(a => a.alive && a.team !== G.player.team).length + 1; } toLobby(); };
