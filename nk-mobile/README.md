@@ -219,3 +219,7 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 
 ## Paredes de foto (06/11)
 - Reboco, tijolo, telha, concreto, madeira e chapa usam fotos do ambientCG (CC0) em vez de desenho por código. As 6 fotos ficam em 2 imagens (uma por canal de cor), então pesam pouco.
+
+## Objetos no mapa (06/11)
+- Tocos e troncos caídos no mato; barris e caixas de madeira (às vezes empilhadas) encostados nas casas. Modelos escaneados do Poly Haven (CC0).
+- Cada objeto tem colisão: serve de cobertura e para as balas. Só os próximos da câmera são desenhados (refaz a cada 20 m).

@@ -46,3 +46,6 @@ Feito por código dentro do jogo.
 ## Paredes, telhados e pisos (assets/tex/wallsA.jpg e wallsB.jpg)
 - Fotos do **ambientCG** (ambientcg.com), licença **CC0**: Plaster001 (reboco), Bricks066 (tijolo), RoofingTiles006 (telha), Concrete034 (concreto), WoodFloor041 (madeira) e CorrugatedSteel005 (chapa). Convertidas em tons de cinza, uma por canal de cor, em 1024 px.
 - Chão (assets/tex/terrain.jpg): **Grass004**, **Ground048** e **Rock030** do ambientCG (CC0), em tons de cinza, um por canal.
+
+## Objetos espalhados (assets/nature/ph_stump, ph_log, ph_barrel, ph_crate)
+- **Tree Stump 01**, **Dead Tree Trunk**, **Barrel 01** e **Wooden Crate 02** do **Poly Haven** (polyhaven.com), licença **CC0**. Reduzidos para 700–1.600 triângulos e textura de 512 px.
