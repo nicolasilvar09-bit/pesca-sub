@@ -5598,7 +5598,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '06/11 14:51'; // data da versão (preenchida pelo build.py)
+const BUILD = '06/11 15:04'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -8861,21 +8861,24 @@ const SENS_ROWS = [['tpp', '3ª pessoa sem mira'], ['fpp', '1ª pessoa sem mira'
 function openSens(tab) {
   const L = tab === 'A' ? SET.sensA : SET.sensC;
   $('menuP').classList.remove('hidden');
-  $('menuP').innerHTML = `<div class="box sensbox"><h3>Sensibilidade</h3>
+  $('menuP').innerHTML = `<button class="cos-x" id="snX" aria-label="Fechar">✕</button><div class="box sensbox"><h3>Sensibilidade</h3>
   <div class="row sens-tabs"><button class="btn ${tab === 'C' ? '' : 'alt'}" id="snC">CÂMERA</button><button class="btn ${tab === 'A' ? '' : 'alt'}" id="snA">AO ATIRAR</button></div>
   <div class="sens-hint">${tab === 'C' ? 'Quando você arrasta a tela para olhar e mirar.' : 'Enquanto o dedo está no botão de atirar (para segurar o coice).'}</div>
   ${SENS_ROWS.map(([k, n]) => `<label>${n} <span class="sens-ctl"><input type="range" min="1" max="300" step="1" value="${L[k]}" data-sk="${k}"><b id="sv_${k}">${L[k]}%</b></span></label>`).join('')}
   <div class="row"><button class="btn alt" id="snDef">PADRÃO</button><button class="btn alt" id="snCopy">${tab === 'C' ? 'COPIAR P/ AO ATIRAR' : 'COPIAR DA CÂMERA'}</button><button class="btn" id="snBack">VOLTAR</button></div></div>`;
   $('menuP').querySelectorAll('input[data-sk]').forEach(el => el.oninput = e => { const k = e.target.dataset.sk; L[k] = +e.target.value; $('sv_' + k).textContent = L[k] + '%'; saveSet(); });
+  $('snX').onclick = menuClose;
   $('snC').onclick = () => openSens('C'); $('snA').onclick = () => openSens('A');
   $('snDef').onclick = () => { Object.assign(L, SENS_DEF); saveSet(); openSens(tab); };
   $('snCopy').onclick = () => { Object.assign(SET.sensA, SET.sensC); saveSet(); openSens(tab); toast('Copiado'); };
   $('snBack').onclick = () => { if (G.phase === 'lobbyMenu' && $('lSet')) $('lSet').click(); else openMenu(); };
 }
 // ---------- menu, morte e resultado ----------
+// fechar o menu (o ✕ do canto): na partida volta ao jogo, no lobby volta ao lobby
+function menuClose() { closePanels(); if (G.phase === 'lobbyMenu') G.phase = 'lobby'; }
 function openMenu() {
   $('menuP').classList.remove('hidden');
-  $('menuP').innerHTML = `<div class="box"><h3>Configurações</h3>
+  $('menuP').innerHTML = `<button class="cos-x" id="mX" aria-label="Fechar">✕</button><div class="box"><h3>Configurações</h3>
   <button class="btn alt" id="mSens" style="margin:4px 0">🎯 SENSIBILIDADE (estilo PUBG)</button>
   <label>Campo de visão <input type="range" min="75" max="105" step="1" value="${SET.fov || 90}" id="sFov"></label>
   <label>Gráficos <select id="sQ"><option value="0">Leve</option><option value="1">Médio</option><option value="2">Alto</option></select></label>
@@ -8886,6 +8889,7 @@ function openMenu() {
   $('mSens').onclick = () => openSens('C');
   $('sVol').oninput = e => { SET.vol = +e.target.value; saveSet(); }; $('sFov').oninput = e => { SET.fov = +e.target.value; saveSet(); }; $('sQ').onchange = e => { SET.quality = +e.target.value; saveSet(); applyQuality(); };
   $('mBack').onclick = () => closePanels();
+  $('mX').onclick = menuClose;
   $('mQuit').onclick = () => { closePanels(); if (!G.result && G.player.alive) { G.place = G.actors.filter(a => a.alive && a.team !== G.player.team).length + 1; } toLobby(); };
 }
 function hudDeadButTeam() {
