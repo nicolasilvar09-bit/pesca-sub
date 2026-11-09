@@ -260,3 +260,6 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 ## Traje Coroa Imperial de verdade (06/11)
 - A roupa do passe deixou de ser só uma cor: é desenhada em cima do corpo do personagem (preto tático, neon vermelho aceso na jaqueta, braços, punhos, calça e sola; zíper, ombreiras, alças, joelheiras e fivela dourados; coroas no peito, costas e ombros; luvas) + capuz, boné com coroa, viseira vermelha acesa e máscara.
 - Correção: capacete, colete e mochila presos ao corpo ficavam 100x menores (esqueleto em cm) e não apareciam; agora aparecem, com cores mais realistas. No lobby só aparecem se tiver skin equipada.
+
+## Giroscópio (09/11)
+- Sensibilidade > GIROSCÓPIO: desligado / só mirando / sempre ligado, com um valor por luneta (100% = o celular gira 10° e a câmera também). Opções de inverter horizontal e vertical. No iPhone o jogo pede a permissão de movimento no primeiro toque.

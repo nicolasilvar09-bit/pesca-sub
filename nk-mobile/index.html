@@ -5598,7 +5598,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '06/11 16:41'; // data da versão (preenchida pelo build.py)
+const BUILD = '09/11 11:45'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -8860,18 +8860,22 @@ function renderBag() {
 // ---------- sensibilidade (igual ao PUBG Mobile): câmera e ao atirar, cada luneta com seu valor ----------
 const SENS_ROWS = [['tpp', '3ª pessoa sem mira'], ['fpp', '1ª pessoa sem mira'], ['red', 'Red dot / holo / mira de ferro'], ['x2', 'Luneta 2x'], ['x3', 'Luneta 3x'], ['x4', 'Luneta 4x'], ['x6', 'Luneta 6x'], ['x8', 'Luneta 8x e 10x']];
 function openSens(tab) {
-  const L = tab === 'A' ? SET.sensA : SET.sensC;
+  const L = tab === 'A' ? SET.sensA : tab === 'G' ? SET.sensG : SET.sensC;
   $('menuP').classList.remove('hidden');
   $('menuP').innerHTML = `<button class="cos-x" id="snX" aria-label="Fechar">✕</button><div class="box sensbox"><h3>Sensibilidade</h3>
-  <div class="row sens-tabs"><button class="btn ${tab === 'C' ? '' : 'alt'}" id="snC">CÂMERA</button><button class="btn ${tab === 'A' ? '' : 'alt'}" id="snA">AO ATIRAR</button></div>
-  <div class="sens-hint">${tab === 'C' ? 'Quando você arrasta a tela para olhar e mirar.' : 'Enquanto o dedo está no botão de atirar (para segurar o coice).'}</div>
+  <div class="row sens-tabs"><button class="btn ${tab === 'C' ? '' : 'alt'}" id="snC">CÂMERA</button><button class="btn ${tab === 'A' ? '' : 'alt'}" id="snA">AO ATIRAR</button><button class="btn ${tab === 'G' ? '' : 'alt'}" id="snG">GIROSCÓPIO</button></div>
+  ${tab === 'G' ? `<label>Giroscópio <select id="snGm"><option value="0">Desligado</option><option value="1">Só mirando</option><option value="2">Sempre ligado</option></select></label><label>Inverter horizontal <input type="checkbox" id="snGx" ${SET.gyroInvX ? 'checked' : ''}></label><label>Inverter vertical <input type="checkbox" id="snGy" ${SET.gyroInvY ? 'checked' : ''}></label>` : ''}
+  <div class="sens-hint">${tab === 'C' ? 'Quando você arrasta a tela para olhar e mirar.' : tab === 'A' ? 'Enquanto o dedo está no botão de atirar (para segurar o coice).' : 'Mexer o celular gira a mira. 100% = o celular gira 10° e a câmera também.'}</div>
   ${SENS_ROWS.map(([k, n]) => `<label>${n} <span class="sens-ctl"><input type="range" min="1" max="300" step="1" value="${L[k]}" data-sk="${k}"><b id="sv_${k}">${L[k]}%</b></span></label>`).join('')}
-  <div class="row"><button class="btn alt" id="snDef">PADRÃO</button><button class="btn alt" id="snCopy">${tab === 'C' ? 'COPIAR P/ AO ATIRAR' : 'COPIAR DA CÂMERA'}</button><button class="btn" id="snBack">VOLTAR</button></div></div>`;
+  <div class="row"><button class="btn alt" id="snDef">PADRÃO</button>${tab === 'G' ? '' : `<button class="btn alt" id="snCopy">${tab === 'C' ? 'COPIAR P/ AO ATIRAR' : 'COPIAR DA CÂMERA'}</button>`}<button class="btn" id="snBack">VOLTAR</button></div></div>`;
   $('menuP').querySelectorAll('input[data-sk]').forEach(el => el.oninput = e => { const k = e.target.dataset.sk; L[k] = +e.target.value; $('sv_' + k).textContent = L[k] + '%'; saveSet(); });
   $('snX').onclick = menuClose;
   $('snC').onclick = () => openSens('C'); $('snA').onclick = () => openSens('A');
-  $('snDef').onclick = () => { Object.assign(L, SENS_DEF); saveSet(); openSens(tab); };
-  $('snCopy').onclick = () => { Object.assign(SET.sensA, SET.sensC); saveSet(); openSens(tab); toast('Copiado'); };
+  $('snG').onclick = () => openSens('G');
+  if ($('snGx')) { $('snGx').onchange = e => { SET.gyroInvX = e.target.checked; saveSet(); }; $('snGy').onchange = e => { SET.gyroInvY = e.target.checked; saveSet(); }; }
+  if ($('snGm')) { $('snGm').value = SET.gyro || 0; $('snGm').onchange = e => { SET.gyro = +e.target.value; saveSet(); if (SET.gyro) { GYRO.asked = false; gyroAsk(); } }; }
+  $('snDef').onclick = () => { Object.assign(L, tab === 'G' ? GYRO_DEF : SENS_DEF); saveSet(); openSens(tab); };
+  if ($('snCopy')) $('snCopy').onclick = () => { Object.assign(SET.sensA, SET.sensC); saveSet(); openSens(tab); toast('Copiado'); };
   $('snBack').onclick = () => { if (G.phase === 'lobbyMenu' && $('lSet')) $('lSet').click(); else openMenu(); };
 }
 // ---------- menu, morte e resultado ----------
@@ -10561,7 +10565,7 @@ async function addFriendCode(code) {
 async function renameOnline() { if (!ON.me || ON.me.name === myName()) return; ON.me.name = myName(); try { await sbFetch(`/rest/v1/profiles?id=eq.${ON.s.uid}`, { method: 'PATCH', body: JSON.stringify({ name: myName() }) }); } catch (e) { } wsTrack(); }
 
 // ---------- progresso na nuvem (se a tabela iz_saves existir; senão fica só no aparelho) ----------
-const CLOUD_K = ['name', 'char', 'sens', 'adsSens', 'sensC', 'sensA', 'resFix', 'quality', 'fov', 'view', 'vol', 'mode', 'diff', 'matches', 'wins', 'kills', 'best', 'dmg', 'rp', 'top10', 'lay', 'hudA', 'coins', 'inv', 'equip', 'pxp', 'pcl'];
+const CLOUD_K = ['name', 'char', 'sens', 'adsSens', 'sensC', 'sensA', 'sensG', 'gyro', 'gyroInvX', 'gyroInvY', 'resFix', 'quality', 'fov', 'view', 'vol', 'mode', 'diff', 'matches', 'wins', 'kills', 'best', 'dmg', 'rp', 'top10', 'lay', 'hudA', 'coins', 'inv', 'equip', 'pxp', 'pcl'];
 let cloudOk = false, cloudT = 0;
 async function cloudLoad() {
   try {
@@ -12230,6 +12234,43 @@ scene.add(LSET.g); LSET.g.visible = false;
 (function hookStart() {
   const base = startMatch;
   startMatch = function (...a) { LSET.g.visible = false; if (NAT.clouds) NAT.clouds.visible = true; LSET.was = false; const r = base.apply(this, a); if (typeof applyFogColor === 'function') applyFogColor(); return r; };
+})();
+
+// ================= mira por giroscópio (igual ao PUBG Mobile): mexer o celular gira a câmera, com sensibilidade por luneta =================
+// modos: 0 = desligado, 1 = só mirando (ADS), 2 = sempre. 100% = o celular gira 10° e a câmera gira 10°.
+const GYRO_DEF = { tpp: 100, fpp: 100, red: 90, x2: 70, x3: 55, x4: 45, x6: 35, x8: 25 };
+if (!SET.sensG) SET.sensG = Object.assign({}, GYRO_DEF);
+for (const k in GYRO_DEF) if (SET.sensG[k] == null) SET.sensG[k] = GYRO_DEF[k];
+if (SET.gyro == null) SET.gyro = 0;
+const GYRO = { yaw: 0, pitch: 0, last: 0, ok: false, asked: false };
+function gyroAsk() { // iPhone: precisa pedir permissão dentro de um toque
+  if (GYRO.asked) return; GYRO.asked = true;
+  const D = window.DeviceMotionEvent;
+  if (D && typeof D.requestPermission === 'function') D.requestPermission().then(r => { GYRO.ok = r === 'granted'; if (!GYRO.ok) toast('Giroscópio sem permissão: libere em Ajustes > Safari > Movimento e Orientação', 4); }).catch(() => { GYRO.asked = false; });
+  else GYRO.ok = !!D;
+}
+addEventListener('devicemotion', e => {
+  const r = e.rotationRate, now = performance.now(), dt = GYRO.last ? Math.min(0.1, (now - GYRO.last) / 1000) : 0; GYRO.last = now;
+  if (!r || !SET.gyro || r.beta == null) return; GYRO.ok = true;
+  // deitado (paisagem): girar o corpo = eixo x do aparelho; inclinar para cima/baixo = eixo y. O lado do aparelho muda o sinal.
+  const ang = (screen.orientation && screen.orientation.angle != null ? screen.orientation.angle : (window.orientation || 0)), s = ang === 270 || ang === -90 ? -1 : 1, D2R = Math.PI / 180;
+  GYRO.yaw += s * r.beta * D2R * dt * (SET.gyroInvX ? -1 : 1); GYRO.pitch += -s * r.gamma * D2R * dt * (SET.gyroInvY ? -1 : 1);
+});
+// pede a permissão no primeiro toque (o iPhone só deixa assim)
+addEventListener('touchend', () => { if (SET.gyro && !GYRO.ok) gyroAsk(); }, { passive: true });
+(function hookGyro() {
+  const base = playerStep;
+  playerStep = function (dt) {
+    const p = G.player, v = G.view;
+    if (SET.gyro && p && p.alive && G.phase === 'match' && (SET.gyro === 2 || p.ads) && Math.abs(GYRO.yaw) + Math.abs(GYRO.pitch) < 1.5) {
+      const w = curW(p), zoom = p.ads && w ? sightZoom(w) : 1;
+      const sk = !p.ads ? (v.fpp ? 'fpp' : 'tpp') : zoom < 1.8 ? 'red' : zoom < 2.5 ? 'x2' : zoom < 3.5 ? 'x3' : zoom < 5 ? 'x4' : zoom < 7 ? 'x6' : 'x8';
+      const k = (SET.sensG[sk] || 100) / 100;
+      v.yaw += GYRO.yaw * k; v.pitch += GYRO.pitch * k; if (GYRO.yaw || GYRO.pitch) G.lookT = G.t;
+    }
+    GYRO.yaw = GYRO.pitch = 0;
+    return base(dt);
+  };
 })();
 
 // ================= início =================

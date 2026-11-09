@@ -299,18 +299,22 @@ function renderBag() {
 // ---------- sensibilidade (igual ao PUBG Mobile): câmera e ao atirar, cada luneta com seu valor ----------
 const SENS_ROWS = [['tpp', '3ª pessoa sem mira'], ['fpp', '1ª pessoa sem mira'], ['red', 'Red dot / holo / mira de ferro'], ['x2', 'Luneta 2x'], ['x3', 'Luneta 3x'], ['x4', 'Luneta 4x'], ['x6', 'Luneta 6x'], ['x8', 'Luneta 8x e 10x']];
 function openSens(tab) {
-  const L = tab === 'A' ? SET.sensA : SET.sensC;
+  const L = tab === 'A' ? SET.sensA : tab === 'G' ? SET.sensG : SET.sensC;
   $('menuP').classList.remove('hidden');
   $('menuP').innerHTML = `<button class="cos-x" id="snX" aria-label="Fechar">✕</button><div class="box sensbox"><h3>Sensibilidade</h3>
-  <div class="row sens-tabs"><button class="btn ${tab === 'C' ? '' : 'alt'}" id="snC">CÂMERA</button><button class="btn ${tab === 'A' ? '' : 'alt'}" id="snA">AO ATIRAR</button></div>
-  <div class="sens-hint">${tab === 'C' ? 'Quando você arrasta a tela para olhar e mirar.' : 'Enquanto o dedo está no botão de atirar (para segurar o coice).'}</div>
+  <div class="row sens-tabs"><button class="btn ${tab === 'C' ? '' : 'alt'}" id="snC">CÂMERA</button><button class="btn ${tab === 'A' ? '' : 'alt'}" id="snA">AO ATIRAR</button><button class="btn ${tab === 'G' ? '' : 'alt'}" id="snG">GIROSCÓPIO</button></div>
+  ${tab === 'G' ? `<label>Giroscópio <select id="snGm"><option value="0">Desligado</option><option value="1">Só mirando</option><option value="2">Sempre ligado</option></select></label><label>Inverter horizontal <input type="checkbox" id="snGx" ${SET.gyroInvX ? 'checked' : ''}></label><label>Inverter vertical <input type="checkbox" id="snGy" ${SET.gyroInvY ? 'checked' : ''}></label>` : ''}
+  <div class="sens-hint">${tab === 'C' ? 'Quando você arrasta a tela para olhar e mirar.' : tab === 'A' ? 'Enquanto o dedo está no botão de atirar (para segurar o coice).' : 'Mexer o celular gira a mira. 100% = o celular gira 10° e a câmera também.'}</div>
   ${SENS_ROWS.map(([k, n]) => `<label>${n} <span class="sens-ctl"><input type="range" min="1" max="300" step="1" value="${L[k]}" data-sk="${k}"><b id="sv_${k}">${L[k]}%</b></span></label>`).join('')}
-  <div class="row"><button class="btn alt" id="snDef">PADRÃO</button><button class="btn alt" id="snCopy">${tab === 'C' ? 'COPIAR P/ AO ATIRAR' : 'COPIAR DA CÂMERA'}</button><button class="btn" id="snBack">VOLTAR</button></div></div>`;
+  <div class="row"><button class="btn alt" id="snDef">PADRÃO</button>${tab === 'G' ? '' : `<button class="btn alt" id="snCopy">${tab === 'C' ? 'COPIAR P/ AO ATIRAR' : 'COPIAR DA CÂMERA'}</button>`}<button class="btn" id="snBack">VOLTAR</button></div></div>`;
   $('menuP').querySelectorAll('input[data-sk]').forEach(el => el.oninput = e => { const k = e.target.dataset.sk; L[k] = +e.target.value; $('sv_' + k).textContent = L[k] + '%'; saveSet(); });
   $('snX').onclick = menuClose;
   $('snC').onclick = () => openSens('C'); $('snA').onclick = () => openSens('A');
-  $('snDef').onclick = () => { Object.assign(L, SENS_DEF); saveSet(); openSens(tab); };
-  $('snCopy').onclick = () => { Object.assign(SET.sensA, SET.sensC); saveSet(); openSens(tab); toast('Copiado'); };
+  $('snG').onclick = () => openSens('G');
+  if ($('snGx')) { $('snGx').onchange = e => { SET.gyroInvX = e.target.checked; saveSet(); }; $('snGy').onchange = e => { SET.gyroInvY = e.target.checked; saveSet(); }; }
+  if ($('snGm')) { $('snGm').value = SET.gyro || 0; $('snGm').onchange = e => { SET.gyro = +e.target.value; saveSet(); if (SET.gyro) { GYRO.asked = false; gyroAsk(); } }; }
+  $('snDef').onclick = () => { Object.assign(L, tab === 'G' ? GYRO_DEF : SENS_DEF); saveSet(); openSens(tab); };
+  if ($('snCopy')) $('snCopy').onclick = () => { Object.assign(SET.sensA, SET.sensC); saveSet(); openSens(tab); toast('Copiado'); };
   $('snBack').onclick = () => { if (G.phase === 'lobbyMenu' && $('lSet')) $('lSet').click(); else openMenu(); };
 }
 // ---------- menu, morte e resultado ----------
