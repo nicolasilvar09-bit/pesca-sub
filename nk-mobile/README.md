@@ -268,3 +268,8 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Botão 🎯 Treino no lobby: campo plano e roçado (sem capim), todas as armas no chão à esquerda e todos os acessórios, curas, granadas e a frigideira à direita; munição infinita; você não toma dano.
 - Alvos a 10, 25, 50, 100, 150, 200 e 300 m com placa de distância, mais um alvo andando a 60 m. Placar mostra o dano do último tiro, a distância e se foi na cabeça. Alvo "abatido" some 1,5 s e volta.
 - Sedã, jipe e moto ao lado para testar. Sai pelo menu (☰ > SAIR DA PARTIDA).
+
+## Efeitos dos carros (09/11)
+- Rodas separadas da carroceria: giram conforme a velocidade e as da frente viram na curva (todas as rodas numa peça só, leve).
+- Poeira saindo atrás na terra/grama/areia (quase nada no asfalto); fumaça cinza com o carro danificado, preta com fogo quando está quase explodindo, e fumaça no carro destruído.
+- À noite faróis e lanternas acendem forte e o carro que você dirige ilumina a estrada à frente.

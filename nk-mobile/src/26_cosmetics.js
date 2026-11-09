@@ -268,7 +268,7 @@ function chuteGeoById(id) {
 // veículos: ao assumir o volante, o carro ganha a sua pintura
 const _evC = enterVeh; enterVeh = function (a, v, seat) {
   const ok = _evC(a, v, seat);
-  if (ok && a === G.player && v.seats[0] === a) { const sid = SET.equip.veh[v.k], s = sid && COS[sid]; if (s && v.skin !== sid && !v.dead) { v.mesh.geometry.dispose(); v.mesh.geometry = vehGeo(v.k, s.col); if (s.th) v.mesh.material = skinMat(s.th, true, 0.07); v.skin = sid; } }
+  if (ok && a === G.player && v.seats[0] === a) { const sid = SET.equip.veh[v.k], s = sid && COS[sid]; if (s && v.skin !== sid && !v.dead) { v.mesh.geometry.dispose(); v.mesh.geometry = vehGeo(v.k, s.col, true); if (s.th) v.mesh.material = skinMat(s.th, true, 0.07); v.skin = sid; } }
   return ok;
 };
 

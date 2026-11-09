@@ -40,7 +40,9 @@ function vseg(a, b, r, c, m, g) {
   return { g: g || GEO.cyl, x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2, z: (a[2] + b[2]) / 2, rx: _ea.x, ry: _ea.y, rz: _ea.z, sx: r, sy: L, sz: g === GEO.box ? r * 2.6 : r, c, m };
 }
 /* roda completa: pneu, aro metálico com raios, cubo; s = lado (+1/-1) */
+let VW_COLLECT = null; /* quando montando a carroceria sem rodas: guarda onde cada roda fica (elas viram peças separadas que giram) */
 function vwheel(p, x, z, r, w, s, rimC, spokes) {
+  if (VW_COLLECT) { VW_COLLECT.push({ x, z, r, w, s, rimC }); return; }
   const y = r, o = s * w / 2;
   p.push({ g: VGEO.tire, x, y, z, rz: Math.PI / 2, sx: r * 2, sy: w, sz: r * 2, c: '#0b0b0b', m: 'tire' });
   p.push({ g: VGEO.rim, x: x + o * 0.7, y, z, rz: Math.PI / 2, sx: r * 1.3, sy: w * 0.42, sz: r * 1.3, c: rimC || '#9a9ea3', m: 'rim' });
@@ -111,7 +113,8 @@ function carBody(p, k, col, L, W) {
     p.push(bx(-W * 0.85, 0.2, -L + 0.4, W * 1.7, 0.08, L * 2 - 0.8, '#121212', { m: 'under' }));
   }
 }
-function vehGeo(k, col) {
+function vehGeo(k, col, noWheels) {
+  if (noWheels) { VW_COLLECT = []; try { const g = vehGeo(k, col); g.userData.wheels = VW_COLLECT; return g; } finally { VW_COLLECT = null; } }
   const d = VDEF[k], L = d.hl, W = d.hw, p = [];
   if (k === 'lancha') { /* casco fundo, proa afinando, para-brisa, motor de popa */
     p.push({ g: loftGeo([{ z: -L - 0.3, w: 0.08, y0: 0.15, y1: 0.55, n: 2 }, { z: -L + 0.6, w: W * 0.75, y0: -0.3, y1: 0.58, n: 2.6 }, { z: -L + 1.6, w: W, y0: -0.4, y1: 0.55, n: 3.2 }, { z: L, w: W * 0.96, y0: -0.38, y1: 0.52, n: 3.4 }], 22), c: col });
@@ -152,21 +155,22 @@ function vehGeo(k, col) {
   return vehMerge(p);
 }
 /* material dos veículos: pintura metálica, vidro e cromo refletindo o céu, pneu fosco, poeira embaixo */
-let _vehMat = null;
+let _vehMat = null; const VEH_NIGHT = { value: 0 }; /* 1 à noite: faróis e lanternas acendem forte */
 function vehMat() {
   if (SET.quality === 0 || typeof ENV_TEX === 'undefined' || !ENV_TEX) return MAT.world;
   if (_vehMat) return _vehMat;
   const m = new T.MeshStandardMaterial({ vertexColors: true, envMap: ENV_TEX, envMapIntensity: 0.8, roughness: 0.5, metalness: 0 });
   m.onBeforeCompile = sh => {
+    sh.uniforms.uNight = VEH_NIGHT;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 vm; varying vec4 vVm; varying vec3 vOP;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvVm = vm; vOP = position;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec4 vVm; varying vec3 vOP;\n' + GLSL_NOISE)
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec4 vVm; varying vec3 vOP; uniform float uNight;\n' + GLSL_NOISE)
       .replace('#include <color_fragment>', `#include <color_fragment>
       { float dust = (1.0 - smoothstep(0.15, 0.75, vOP.y)) * (0.55 + 0.45 * vn(vOP.xz * 6.0 + vOP.y * 3.0));
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.36, 0.31, 0.25), dust * (1.0 - vVm.y * 0.4) * 0.38 * (1.0 - step(0.5, vVm.z)) * (1.0 - step(0.8, vVm.x))); }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vVm.x + (1.0 - smoothstep(0.15, 0.75, vOP.y)) * 0.3 * (1.0 - vVm.x);')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = vVm.y;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vVm.z;');
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb * vVm.z * (1.0 + uNight * 5.0);');
   };
   m.customProgramCacheKey = () => 'veh-pbr';
   return _vehMat = m;
@@ -203,7 +207,7 @@ function spawnVehicles() {
 function addVehicle(k, x, z, yaw) {
   const d = VDEF[k], col = pick(d.cols);
   const v = { k, d, x, z, y: groundH(x, z), yaw, sp: 0, vy: 0, pitch: 0, roll: 0, hp: d.hp, seats: d.seats.map(() => null), thr: 0, str: 0, dead: false, air: false, wait: 0, stuckT: 0, revT: 0, lastHit: null, water: false };
-  v.mesh = new T.Mesh(vehGeo(k, col), vehMat()); v.mesh.rotation.order = 'YXZ'; v.mesh.castShadow = v.mesh.receiveShadow = true; scene.add(v.mesh);
+  v.mesh = new T.Mesh(vehGeo(k, col, true), vehMat()); v.wheels = v.mesh.geometry.userData.wheels || []; v.wrot = 0; v.mesh.rotation.order = 'YXZ'; v.mesh.castShadow = v.mesh.receiveShadow = true; scene.add(v.mesh);
   VEH.push(v); syncVehMesh(v); return v;
 }
 function syncVehMesh(v) { v.mesh.position.set(v.x, v.y + (v.bob || 0), v.z); v.mesh.rotation.set(v.pitch + (v.pOff || 0), v.yaw, v.roll + (v.rOff || 0)); }
