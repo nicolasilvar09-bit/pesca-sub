@@ -5599,7 +5599,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '09/11 14:39'; // data da versão (preenchida pelo build.py)
+const BUILD = '09/11 16:52'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -12545,6 +12545,8 @@ const SKFX_PTS = [['Bip01_Spine2', 0.06, 0.02, 0.13, 1], ['Bip01_Spine2', -0.07,
 // nos membros as chamas vão presas direto no osso
 const SKFX_BONES = [['Bip01_R_Forearm', 0.75], ['Bip01_L_Forearm', 0.75], ['Bip01_R_Calf', 0.7], ['Bip01_L_Thigh', 0.7]];
 const SKFX_EYES = [['Bip01_Head', 0.024, 0.095, 0.1], ['Bip01_Head', -0.024, 0.095, 0.1]];
+// brasas grandes nos ombros e chaminhas saindo dos olhos (inspirado na Fire Mummy)
+const SKFX_BIG = [['Bip01_Spine2', 0.17, 0.19, 0.02, 1.1], ['Bip01_Spine2', -0.17, 0.19, 0.02, 1.1], ['Bip01_Spine2', 0.15, 0.17, -0.07, 0.8], ['Bip01_Spine2', -0.15, 0.17, -0.07, 0.8], ['Bip01_Head', 0.025, 0.082, 0.12, 0.3], ['Bip01_Head', -0.025, 0.082, 0.12, 0.3]];
 const _skv = new T.Vector3();
 function skfxPlace(a, sp) { const [bn, r, u, f] = sp.userData.off, b = a.model.b[bn]; if (!b) return; b.getWorldPosition(_skv); const fx = -Math.sin(a.yaw), fz = -Math.cos(a.yaw); sp.position.set(_skv.x + fx * f - fz * r, _skv.y + u, _skv.z + fz * f + fx * r); }
 function skfxBuild(a) {
@@ -12554,6 +12556,7 @@ function skfxBuild(a) {
   const fx = { flames: [], eyes: [], free: [] };
   const mk = (col) => new T.Sprite(new T.SpriteMaterial({ map: col ? SKFX.flameTex : SKFX.emberTex, blending: T.AdditiveBlending, depthWrite: false, transparent: true, color: col || 0xffa040 }));
   for (const [bn, r, u, f, sc] of SKFX_PTS) { const sp = mk(0xff7a24); sp.userData = { s: sc, ph: Math.random() * 10, k: 1, off: [bn, r, u, f] }; sp.center.set(0.5, 0.1); scene.add(sp); fx.flames.push(sp); fx.free.push(sp); }
+  for (const [bn, r, u, f, sc] of SKFX_BIG) { const sp = mk(0xff5410); sp.userData = { s: sc, big: 1, ph: Math.random() * 10, k: 1, off: [bn, r, u, f] }; sp.center.set(0.5, 0.1); scene.add(sp); fx.flames.push(sp); fx.free.push(sp); }
   for (const [bn, sc] of SKFX_BONES) { const b = m.b[bn]; if (!b) continue; const sp = new T.Sprite(new T.SpriteMaterial({ map: SKFX.flameTex, blending: T.AdditiveBlending, depthWrite: false, transparent: true, color: 0xff7a24 })); sp.userData.s = sc; sp.userData.ph = Math.random() * 10; sp.center.set(0.5, 0.1); sp.userData.k = 1 / b.getWorldScale(new T.Vector3()).x; b.add(sp); fx.flames.push(sp); }
   for (const e of SKFX_EYES) { const sp = mk(0); sp.userData = { ph: Math.random() * 10, k: 1, off: e }; scene.add(sp); fx.eyes.push(sp); fx.free.push(sp); }
   // brasas: sobem em volta do corpo e recomeçam embaixo
@@ -12576,7 +12579,7 @@ function skfxStep(dt) {
     for (const mt of m.mats) if (mt.userData.skfx) mt.emissiveIntensity = (mt.userData.skp === 'head' ? 1.8 : 0.7) * (SET.skinFx ? 0.75 + 0.35 * fl : 0.7); /* desligado: olhos ainda acesos, sem piscar */
     skfxOn(m, on); if (!on) return;
     for (const sp of fx.free) skfxPlace(a, sp);
-    for (const s of fx.flames) { const k = s.userData.k, f = 0.7 + 0.3 * Math.sin(t * 17 + s.userData.ph) * Math.sin(t * 9.1 + s.userData.ph * 3); s.scale.set(0.08 * s.userData.s * k * (0.85 + 0.2 * f), 0.17 * s.userData.s * k * f, 1); s.material.opacity = 0.55 + 0.35 * f; }
+    for (const s of fx.flames) { const k = s.userData.k, f = 0.7 + 0.3 * Math.sin(t * 17 + s.userData.ph) * Math.sin(t * 9.1 + s.userData.ph * 3); s.scale.set(0.08 * s.userData.s * k * (0.85 + 0.2 * f), 0.17 * s.userData.s * k * f, 1); s.material.opacity = (s.userData.big ? 0.42 : 0.55) + 0.3 * f; }
     for (const s of fx.eyes) { const k = s.userData.k, f = 0.85 + 0.15 * Math.sin(t * 11 + s.userData.ph); s.scale.set(0.075 * k * f, 0.04 * k * f, 1); }
     const pa = fx.pts.geometry.attributes.position;
     fx.emb.forEach((e, j) => { e.y += e.v * dt; e.a += dt * 0.6; if (e.y > 2.2) { e.y = 0.2; e.a = Math.random() * 6.28; e.r = 0.25 + Math.random() * 0.35; } pa.setXYZ(j, a.x + Math.cos(e.a) * e.r, a.y + e.y, a.z + Math.sin(e.a) * e.r); });
