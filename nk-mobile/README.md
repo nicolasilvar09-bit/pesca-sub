@@ -279,3 +279,8 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 
 ## Mais 6 armas com modelo real (09/11)
 - SCAR-L, M24 (com luneta própria), Groza, Beryl M762, M249 e S12K agora usam modelos 3D de verdade (Sketchfab, CC BY 4.0). Total: 24 armas com modelo real; ainda por código: AUG, Mini 14, DP-28 e Mk14.
+
+## Skin Múmia Flamejante (10/11)
+- Personagem novo em Personagem: ataduras de linho envelhecido enroladas em cada membro, cabeça enfaixada, frestas dos olhos incandescentes, chaminhas entre as ataduras, brasas subindo em volta e vãos brilhando como brasa.
+- Configurações > "Efeitos das skins (fogo)" liga/desliga (desligado no gráfico Leve). Efeitos só nos 4 mais próximos até 60 m.
+- Só jogadores usam (bots não sorteiam). No campo de treino a Múmia fica sem capacete/colete/mochila.

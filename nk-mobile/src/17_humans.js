@@ -12,6 +12,7 @@ const AVATARS = [
   { k: 'f_soldier1', n: 'Soldado Bia', f: true, mil: true, col: ['#d9ab86', '#5d6650', '#5b6249', '#3a2a1a'] },
   { k: 'f_soldier2', n: 'Tenente Carla', f: true, mil: true, col: ['#c49572', '#5d6650', '#5b6249', '#3a2a1a'] },
   { k: 'f_police', n: 'Agente Duda', f: true, col: ['#d9ab86', '#1c1c1c', '#1c1c1c', '#222'] },
+  { k: 'm_soldier1_mumia', n: 'Múmia Flamejante', f: false, mil: true, special: true, col: ['#c9b48a', '#a08560', '#8a7552', '#333'] }, /* skin 01: cópia do Sargento Silva com ataduras e fogo (34_skinfx.js) */
 ];
 // os personagens do lobby passam a ser os avatares
 CHARS.length = 0;
@@ -47,7 +48,7 @@ function prepSource(s) {
 const BONES = ['Bip01_Pelvis', 'Bip01_Spine', 'Bip01_Spine1', 'Bip01_Spine2', 'Bip01_Neck', 'Bip01_Head', 'Bip01_R_UpperArm', 'Bip01_R_Forearm', 'Bip01_R_Hand', 'Bip01_L_UpperArm', 'Bip01_L_Forearm', 'Bip01_L_Hand', 'Bip01_R_Thigh', 'Bip01_R_Calf', 'Bip01_R_Foot', 'Bip01_L_Thigh', 'Bip01_L_Calf', 'Bip01_L_Foot'];
 function buildHuman(a) {
   let av = AVATARS.find(v => v.k === a.look.av);
-  if (!av) { av = pick(AVATARS.filter(v => v.f === !!a.look.f)); a.look = avatarLook(av); }
+  if (!av) { av = pick(AVATARS.filter(v => v.f === !!a.look.f && !v.special)); a.look = avatarLook(av); }
   const root = T.SkeletonUtils.clone(HUM.src[av.k]); root.rotation.y = Math.PI; // o avatar olha para +z; o jogo usa -z
   const mats = [];
   root.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); mats.push(o.material); o.frustumCulled = false; o.castShadow = true; } });

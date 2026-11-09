@@ -85,3 +85,6 @@ Obtidas via repositórios públicos do GitHub (inexorgame/models, 317gw/HYPERLUN
 - M249: ".308 Machine Gun" por Johnathon Goswick — https://sketchfab.com/models/4ca5f52eef6244629770c56752b67583
 - S12K: "FPS Saiga animations" por Cransh — https://sketchfab.com/3d-models/fps-saiga-animations-8c911e4dbe9145dfaf7b269bb351f6b4
 Alterações: orientação e escala normalizadas, malha simplificada, braços removidos (Saiga), texturas reduzidas, cor aplicada onde o original não tinha textura (Groza).
+
+## Skin Múmia Flamejante (assets/chars/m_soldier1_mumia*)
+- Feita a partir do Sargento Silva (Microsoft Rocketbox, licença MIT): cópia sem os óculos, com a mochila das costas achatada e texturas de ataduras de linho pintadas por nós (corpo e cabeça) + máscaras de brilho. Efeitos de fogo por código.

@@ -14,7 +14,7 @@ const PANTS = ['#2d3142', '#22313f', '#3a5a40', '#4f4f4f', '#6d4c41', '#34495e',
 const BOT_NAMES = ['Lobo', 'Tigrão', 'Falcão', 'Neguinho', 'Mineiro', 'Carioca', 'Baiano', 'Gaúcho', 'Fera', 'Zé', 'Kaique', 'Rafa', 'Duda', 'Lari', 'Bruna', 'Gabi', 'Malu', 'Isa', 'Thiago', 'Vini', 'Pedrão', 'Japa', 'Alemão', 'Sniper', 'Ninja', 'Raio', 'Cobra', 'Pantera', 'Onça', 'Jaguar', 'Corvo', 'Tubarão', 'Sombra', 'Fantasma', 'Trovão', 'Gelo', 'Brasa', 'Pimenta', 'Tatu', 'Gavião', 'Mel', 'Lua', 'Nina', 'Clara', 'Sol', 'Rubi', 'Zara', 'Tati', 'Leo', 'Gui', 'Biel', 'Caio', 'Davi', 'Enzo', 'Igor', 'Juca', 'Lipe', 'Nando'];
 function randLook() {
   const f = Math.random() < 0.45;
-  if (typeof AVATARS !== 'undefined') { const av = pick(AVATARS.filter(v => v.f === f)); return avatarLook(av); }
+  if (typeof AVATARS !== 'undefined') { const av = pick(AVATARS.filter(v => v.f === f && !v.special)); return avatarLook(av); /* skins especiais (Múmia) só para jogadores */ }
   return { f, skin: pick(SKINS), hair: pick(HAIRC), hs: f ? pick(['pony', 'long', 'bun']) : pick(['short', 'buzz', 'short']), shirt: pick(SHIRTS), pants: pick(PANTS), shoe: pick(['#1c1c1c', '#ffffff', '#3b2f2f', '#c0392b']) };
 }
 
