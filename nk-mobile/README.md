@@ -273,3 +273,6 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Rodas separadas da carroceria: giram conforme a velocidade e as da frente viram na curva (todas as rodas numa peça só, leve).
 - Poeira saindo atrás na terra/grama/areia (quase nada no asfalto); fumaça cinza com o carro danificado, preta com fogo quando está quase explodindo, e fumaça no carro destruído.
 - À noite faróis e lanternas acendem forte e o carro que você dirige ilumina a estrada à frente.
+
+## Trajes completos novos (09/11)
+- Sistema de traje reutilizável (cor base com padrão, neon, acabamento, emblema e peças de cabeça). Novos nas caixas: Operador Ártico (camuflado digital branco, neon ciano, estrela, balaclava + óculos), Caveira Tática (verde-oliva camuflado, neon verde, caveira, máscara de caveira com olhos acesos), Tempestade Elétrica (azul-marinho, neon azul, raio, capacete com viseira) e Fênix (vinho, neon laranja, chama, capuz + viseira laranja). Bots também usam.

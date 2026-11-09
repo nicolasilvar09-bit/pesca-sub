@@ -5599,7 +5599,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '09/11 12:18'; // data da versão (preenchida pelo build.py)
+const BUILD = '09/11 12:30'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -11556,8 +11556,19 @@ function skinMat(th, vc, scale) {
   return _skinMats[key] = m;
 }
 // roupa: tinge o tecido da textura do personagem (mantém tons de pele)
-// ---------- Traje Coroa Imperial: desenhado em cima do corpo (posição de repouso, em cm, z para cima, frente = -y) ----------
-// preto tático, neon vermelho aceso, detalhes dourados, coroas no peito/costas/ombros, luvas, cinto com fivela, joelheiras e tênis com sola acesa
+// ---------- trajes completos: desenhados em cima do corpo (posição de repouso, em cm, z para cima, frente = -y) + peças na cabeça ----------
+// cada traje: cor base (com padrão), neon aceso, acabamento (dourado/prata/osso), emblema (coroa, caveira, estrela, raio, chama) e o tipo de cabeça
+const C3 = h => { const c = new T.Color(h); return [c.r, c.g, c.b]; };
+const SUITS = {
+  imperial: { base: [0.028, 0.028, 0.032], neon: [0.9, 0.01, 0.0], glow: [1.25, 0.0, 0.0], trim: [0.78, 0.55, 0.16], emb: 0, pat: 0, head: 'hood', hex: { base: 0x0b0b0d, neon: 0xff2414, trim: 0xc8901f } },
+  s_artico: { n: 'Operador Ártico', rar: 'l', base: [0.55, 0.6, 0.64], neon: [0.0, 0.75, 1.0], glow: [0.0, 0.9, 1.3], trim: [0.75, 0.78, 0.82], emb: 2, pat: 1, head: 'balaclava', hex: { base: 0xc9d2d9, neon: 0x19d6ff, trim: 0xc0c6cc } },
+  s_caveira: { n: 'Caveira Tática', rar: 'l', base: [0.045, 0.052, 0.035], neon: [0.25, 1.0, 0.1], glow: [0.3, 1.25, 0.1], trim: [0.8, 0.77, 0.66], emb: 1, pat: 2, head: 'skull', hex: { base: 0x1a1d14, neon: 0x55ff22, trim: 0xd8d2bc } },
+  s_raio: { n: 'Tempestade Elétrica', rar: 'e', base: [0.025, 0.04, 0.1], neon: [0.1, 0.45, 1.0], glow: [0.2, 0.7, 1.7], trim: [0.72, 0.75, 0.8], emb: 3, pat: 0, head: 'helmet', hex: { base: 0x0d1428, neon: 0x2f7dff, trim: 0xb8bec8 } },
+  s_fenix: { n: 'Fênix', rar: 'l', base: [0.09, 0.015, 0.008], neon: [1.0, 0.42, 0.0], glow: [1.5, 0.55, 0.0], trim: [0.8, 0.56, 0.15], emb: 4, pat: 0, head: 'hood', hex: { base: 0x2a0806, neon: 0xff7a10, trim: 0xd29a2a } },
+};
+for (const k in SUITS) if (!TH[k]) { const S = SUITS[k]; TH[k] = { id: k, n: S.n, rar: S.rar, pat: 'solid', c: ['#' + new T.Color(...S.base).getHexString(), '#' + new T.Color(...S.neon).getHexString(), '#' + new T.Color(...S.trim).getHexString()] }; }
+// trajes completos que saem nas caixas (o Coroa Imperial continua só no passe)
+for (const k in SUITS) if (k !== 'imperial') addCos('out:' + k, 'out', 'Traje ' + SUITS[k].n, SUITS[k].rar, { th: k, suit: true });
 const IMP_GLSL = `
 float crownM(vec2 p){ /* coroa: p.x -0.5..0.5, p.y 0..1 */
   if (abs(p.x) > 0.5 || p.y < 0.0 || p.y > 1.08) return 0.0;
@@ -11566,25 +11577,40 @@ float crownM(vec2 p){ /* coroa: p.x -0.5..0.5, p.y 0..1 */
   float tips = max(max(step(length(p - vec2(-0.36, 0.95)), 0.075), step(length(p - vec2(0.0, 1.03)), 0.075)), step(length(p - vec2(0.36, 0.95)), 0.075));
   return max(max(base, sp), tips);
 }
-float emb(vec2 q, vec2 c, float sz){ return crownM((q - c) / sz + vec2(0.0, 0.5)); }
 float segD(vec2 p, vec2 a, vec2 b){ vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h); }
+float skullM(vec2 p){ /* caveira */
+  float head = step(length((p - vec2(0.0, 0.62)) * vec2(1.0, 1.08)), 0.36), jaw = step(abs(p.x), 0.2) * step(0.1, p.y) * step(p.y, 0.4);
+  float eyes = max(step(length(p - vec2(-0.14, 0.6)), 0.095), step(length(p - vec2(0.14, 0.6)), 0.095)), nose = step(abs(p.x), 0.05 - (p.y - 0.4) * 0.3) * step(0.4, p.y) * step(p.y, 0.5);
+  float teeth = step(0.1, p.y) * step(p.y, 0.3) * step(fract(p.x * 12.0 + 0.5), 0.18) * step(abs(p.x), 0.18);
+  return clamp(max(head, jaw) - eyes - nose - teeth, 0.0, 1.0);
+}
+float starM(vec2 p){ vec2 q = p - vec2(0.0, 0.5); float a = atan(q.x, q.y), r = length(q); return step(r, 0.2 + 0.28 * pow(max(cos(a * 5.0), 0.0), 3.0)); }
+float boltM(vec2 p){ float d = min(min(segD(p, vec2(0.16, 1.0), vec2(-0.12, 0.52)), segD(p, vec2(-0.12, 0.52), vec2(0.12, 0.5))), segD(p, vec2(0.12, 0.5), vec2(-0.16, 0.0))); return step(d, 0.08); }
+float flameM(vec2 p){ float f = 0.0; for (int i = 0; i < 3; i++) { float cx = float(i - 1) * 0.24, top = i == 1 ? 1.0 : 0.72, w = (top - p.y) * 0.32; f = max(f, step(abs(p.x - cx), w) * step(0.15, p.y) * step(p.y, top)); f = max(f, step(length(p - vec2(cx, 0.18)), 0.17)); } return f; }
+float emb(vec2 q, vec2 c, float sz){ vec2 p = (q - c) / sz + vec2(0.0, 0.5); if (abs(p.x) > 0.6 || p.y < -0.1 || p.y > 1.1) return 0.0;
+  return uEmb < 0.5 ? crownM(p) : uEmb < 1.5 ? skullM(p) : uEmb < 2.5 ? starM(p) : uEmb < 3.5 ? boltM(p) : flameM(p); }
 `;
-function imperialPatch(mt) {
-  mt.userData.cos = 'imperial';
+function suitPatch(mt, th) {
+  const S = SUITS[th]; mt.userData.cos = th;
+  const U = { uBase: { value: new T.Vector3(...S.base) }, uNeon: { value: new T.Vector3(...S.neon) }, uGlowC: { value: new T.Vector3(...S.glow) }, uTrim: { value: new T.Vector3(...S.trim) }, uEmb: { value: S.emb }, uSPat: { value: S.pat } };
   mt.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, U);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vBP; varying vec3 vBN;')
       .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvBN = objectNormal;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvBP = position;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vBP; varying vec3 vBN; vec3 impGlow = vec3(0.0);\n' + GLSL_NOISE + IMP_GLSL)
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vBP; varying vec3 vBN; vec3 impGlow = vec3(0.0); uniform vec3 uBase; uniform vec3 uNeon; uniform vec3 uGlowC; uniform vec3 uTrim; uniform float uEmb; uniform float uSPat;\n' + GLSL_NOISE + IMP_GLSL)
       .replace('#include <map_fragment>', `#include <map_fragment>
   {
     vec3 tc = diffuseColor.rgb; float l = dot(tc, vec3(0.3, 0.59, 0.11));
     float x = vBP.x, y = vBP.y, z = vBP.z, ax = abs(x); bool front = y < -1.0, back = y > 1.0;
     float fold = 0.6 + l * 0.9 + (vn(vBP.xz * 0.35) - 0.5) * 0.12;
-    vec3 BLK = vec3(0.028, 0.028, 0.032), GOLD = vec3(0.78, 0.55, 0.16), RED = vec3(0.9, 0.01, 0.0);
-    vec3 col = BLK * fold; float neon = 0.0, gold = 0.0;
+    vec3 BASE = uBase;
+    if (uSPat > 0.5 && uSPat < 1.5) { float h = h21(floor(vec2(vBP.x + vBP.y, vBP.z) / 3.2)); BASE *= h < 0.33 ? 0.72 : h < 0.66 ? 1.0 : 1.18; } /* camuflado digital */
+    else if (uSPat > 1.5) { float h = vn(vec2(vBP.x + vBP.y * 0.7, vBP.z) * 0.18); BASE *= 0.8 + step(0.55, h) * 0.55; } /* camuflado em manchas */
+    vec3 GLV = mix(BASE, vec3(0.02), 0.65), GOLD = uTrim, RED = uNeon;
+    vec3 col = BASE * fold; float neon = 0.0, gold = 0.0;
     float lw = 0.85;
-    if (ax > 49.0) col = vec3(0.022) * (0.7 + l * 0.8); /* luvas de couro */
-    else if (ax > 21.0 && z > 118.0) { /* mangas: neon em cima do braço, punho aceso, coroa no ombro */
+    if (ax > 49.0) col = GLV * (0.7 + l * 0.8); /* luvas */
+    else if (ax > 21.0 && z > 118.0) { /* mangas: neon em cima do braço, punho aceso, emblema no ombro */
       neon += step(0.86, vBN.z) * step(ax, 47.0);
       neon += step(abs(ax - 47.6), 0.9);
       gold += step(abs(ax - 24.5), 0.7) * step(140.0, z);
@@ -11598,48 +11624,63 @@ function imperialPatch(mt) {
       }
       if (back) { gold += emb(vec2(x, z), vec2(0.0, 127.0), 19.0); neon += step(abs(ax - (z - 101.0) * 0.36), lw) * step(z, 146.0); }
       gold += step(abs(z - 145.5), 1.2) * step(13.0, ax); /* ombreiras */
-    } else if (z > 94.0) { /* cinto com fivela dourada */
-      col = vec3(0.05, 0.045, 0.04) * fold;
+    } else if (z > 94.0) { /* cinto com fivela */
+      col = mix(BASE, vec3(0.05, 0.045, 0.04), 0.7) * fold;
       if (front && ax < 3.8) { gold += 1.0 - emb(vec2(x, z), vec2(0.0, 95.6), 4.0); }
-    } else if (z > 11.0) { /* calça: faixa neon na lateral, alças douradas, joelheiras */
+    } else if (z > 11.0) { /* calça: faixa neon na lateral, alças, joelheiras */
       neon += step(0.75, abs(vBN.x)) * step(0.0, vBN.x * x) * step(abs(y), 1.4);
       if (front) gold += step(segD(vec2(ax, z), vec2(7.0, 90.0), vec2(16.0, 70.0)), 0.5);
-      if (front && z > 43.0 && z < 57.0 && abs(ax - 9.5) < 5.5) { col = vec3(0.07) * (0.8 + l * 0.5); gold += step(min(min(z - 43.0, 57.0 - z), 5.5 - abs(ax - 9.5)), 0.7); }
-    } else { /* tênis: preto com faixa dourada e sola acesa */
-      col = vec3(0.03) * (0.8 + l * 0.6); gold += step(abs(z - 6.5), 0.4); neon += step(z, 2.2);
+      if (front && z > 43.0 && z < 57.0 && abs(ax - 9.5) < 5.5) { col = GLV * 1.6 * (0.8 + l * 0.5); gold += step(min(min(z - 43.0, 57.0 - z), 5.5 - abs(ax - 9.5)), 0.7); }
+    } else { /* tênis com faixa e sola acesa */
+      col = GLV * 1.2 * (0.8 + l * 0.6); gold += step(abs(z - 6.5), 0.4); neon += step(z, 2.2);
     }
     gold = clamp(gold, 0.0, 1.0); neon = clamp(neon, 0.0, 1.0) * (1.0 - gold);
     col = mix(col, GOLD * (0.75 + l * 0.6), gold); col = mix(col, RED, neon);
-    diffuseColor.rgb = col; impGlow = vec3(1.25, 0.0, 0.0) * neon + GOLD * gold * 0.12;
+    diffuseColor.rgb = col; impGlow = uGlowC * neon + GOLD * gold * 0.12;
   }`).replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += impGlow;');
   };
-  mt.customProgramCacheKey = () => 'outfitImp'; mt.needsUpdate = true;
+  mt.customProgramCacheKey = () => 'outfitSuit'; mt.needsUpdate = true;
 }
-// peças da cabeça do traje: capuz, boné com coroa, viseira vermelha acesa e máscara (presas ao osso da cabeça)
-const IMP_NEON = new T.MeshBasicMaterial({ color: 0xff2a1a }), IMP_GOLD = new T.MeshStandardMaterial({ color: 0xc8901f, metalness: 0.8, roughness: 0.35 });
-function imperialHead(bone, root) {
-  const g = new T.Group(); g.userData.imp = 1;
-  const blk = new T.MeshStandardMaterial({ color: 0x0b0b0d, roughness: 0.8 });
+const imperialPatch = mt => suitPatch(mt, 'imperial');
+// peças da cabeça de cada traje (presas ao osso da cabeça)
+const SUIT_MATS = {};
+function suitMats(th) {
+  if (SUIT_MATS[th]) return SUIT_MATS[th]; const H = SUITS[th].hex;
+  return SUIT_MATS[th] = { base: new T.MeshStandardMaterial({ color: H.base, roughness: 0.8 }), dark: new T.MeshStandardMaterial({ color: 0x0b0b0d, roughness: 0.5, side: T.DoubleSide }), neon: new T.MeshBasicMaterial({ color: H.neon, side: T.DoubleSide }),
+    trim: new T.MeshStandardMaterial({ color: H.trim, metalness: 0.8, roughness: 0.35 }), bone: new T.MeshStandardMaterial({ color: 0xdcd6c2, roughness: 0.7 }) };
+}
+function suitHead(bone, root, th) {
+  const g = new T.Group(); g.userData.imp = 1; g.userData.th = th; const M = suitMats(th), kind = SUITS[th].head;
   const add = (geo, mat, x, y, z, sx, sy, sz, rx) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); if (rx) m.rotation.x = rx; m.castShadow = true; g.add(m); return m; };
-  add(GEO.hsph, blk, 0, 0.035, 0.02, 0.31, 0.33, 0.33); /* capuz */
-  add(GEO.sph, blk, 0, -0.06, 0.06, 0.3, 0.3, 0.27); /* capuz atrás da nuca */
-  add(GEO.box, IMP_NEON, 0, 0.035, -0.142, 0.24, 0.012, 0.012); /* borda vermelha do capuz */
-  for (const s of [-1, 1]) add(GEO.box, IMP_NEON, s * 0.118, -0.04, -0.12, 0.012, 0.15, 0.012);
-  add(GEO.hsph, blk, 0, 0.078, -0.012, 0.255, 0.18, 0.27); /* boné */
-  add(GEO.box, blk, 0, 0.078, -0.17, 0.22, 0.014, 0.12, -0.08); /* aba */
-  add(GEO.box, IMP_GOLD, 0, 0.125, -0.122, 0.05, 0.035, 0.01, -0.5); /* coroa do boné */
   const arc = new T.CylinderGeometry(1, 1, 1, 18, 1, true, Math.PI * 0.62, Math.PI * 0.76); /* faixa curva na frente do rosto */
-  const frame = new T.MeshStandardMaterial({ color: 0x0b0b0d, roughness: 0.5, side: T.DoubleSide }), glow = new T.MeshBasicMaterial({ color: 0xff2414, side: T.DoubleSide });
-  add(arc, frame, 0, 0.005, 0.0, 0.132, 0.075, 0.142); /* armação da viseira */
-  add(arc, glow, 0, 0.005, 0.0, 0.137, 0.042, 0.148); /* viseira acesa */
-  add(GEO.sph, blk, 0, -0.085, -0.035, 0.2, 0.15, 0.225); /* máscara (queixo e boca) */
-  add(GEO.sph, blk, 0, -0.03, -0.06, 0.17, 0.09, 0.2); /* nariz/bochecha */
-  // presa ao osso na pose de repouso, como o capacete
+  if (kind === 'hood' || kind === 'skull') {
+    add(GEO.hsph, M.base, 0, 0.035, 0.02, 0.31, 0.33, 0.33); add(GEO.sph, M.base, 0, -0.06, 0.06, 0.3, 0.3, 0.27); /* capuz */
+    add(GEO.box, M.neon, 0, 0.035, -0.142, 0.24, 0.012, 0.012); for (const s of [-1, 1]) add(GEO.box, M.neon, s * 0.118, -0.04, -0.12, 0.012, 0.15, 0.012);
+  }
+  if (kind === 'hood') {
+    add(GEO.hsph, M.base, 0, 0.078, -0.012, 0.255, 0.18, 0.27); add(GEO.box, M.base, 0, 0.078, -0.17, 0.22, 0.014, 0.12, -0.08); add(GEO.box, M.trim, 0, 0.125, -0.122, 0.05, 0.035, 0.01, -0.5); /* boné com emblema */
+    add(arc, M.dark, 0, 0.005, 0.0, 0.132, 0.075, 0.142); add(arc, M.neon, 0, 0.005, 0.0, 0.137, 0.042, 0.148); /* viseira */
+    add(GEO.sph, M.base, 0, -0.085, -0.035, 0.2, 0.15, 0.225); add(GEO.sph, M.base, 0, -0.03, -0.06, 0.17, 0.09, 0.2); /* máscara */
+  } else if (kind === 'skull') { /* máscara de caveira cor de osso, olhos acesos */
+    add(GEO.sph, M.bone, 0, -0.03, -0.045, 0.21, 0.24, 0.215);
+    for (const s of [-1, 1]) { add(GEO.sph, M.dark, s * 0.045, 0.0, -0.15, 0.045, 0.04, 0.02); add(GEO.sph, M.neon, s * 0.045, 0.0, -0.158, 0.018, 0.016, 0.01); }
+    add(GEO.box, M.dark, 0, -0.04, -0.15, 0.02, 0.025, 0.01); for (let i = -2; i <= 2; i++) add(GEO.box, M.dark, i * 0.016, -0.1, -0.142, 0.004, 0.03, 0.01);
+  } else if (kind === 'balaclava') { /* balaclava justa + óculos táticos acesos */
+    add(GEO.sph, M.base, 0, 0.0, 0.01, 0.295, 0.345, 0.315); add(GEO.hsph, M.base, 0, 0.04, 0.015, 0.3, 0.3, 0.32);
+    add(arc, M.dark, 0, 0.01, 0.0, 0.142, 0.07, 0.15); add(arc, M.neon, 0, 0.01, 0.0, 0.146, 0.04, 0.155);
+    add(GEO.box, M.dark, 0, 0.01, 0.13, 0.27, 0.025, 0.02); /* elástico atrás */
+  } else if (kind === 'helmet') { /* capacete tático com viseira inteira acesa */
+    add(GEO.sph, M.dark, 0, -0.04, 0.045, 0.29, 0.3, 0.27); add(GEO.hsph, M.base, 0, 0.03, 0.005, 0.31, 0.28, 0.33); add(GEO.box, M.trim, 0, 0.12, -0.1, 0.06, 0.03, 0.02, -0.6);
+    for (const s of [-1, 1]) add(GEO.box, M.base, s * 0.145, -0.03, 0.0, 0.03, 0.1, 0.12);
+    add(arc, M.dark, 0, -0.005, 0.0, 0.145, 0.1, 0.155); add(arc, M.neon, 0, 0.0, 0.0, 0.15, 0.06, 0.16);
+    add(GEO.sph, M.dark, 0, -0.095, -0.035, 0.19, 0.12, 0.22);
+  }
   root.updateMatrixWorld(true); const bw = bone.getWorldPosition(new T.Vector3()).add(new T.Vector3(0, 0.07, 0.01)); bone.worldToLocal(bw); g.position.copy(bw);
   g.quaternion.copy(bone.getWorldQuaternion(new T.Quaternion()).invert()); g.scale.setScalar(1 / bone.getWorldScale(new T.Vector3()).x); bone.add(g); return g;
 }
+const imperialHead = (bone, root) => suitHead(bone, root, 'imperial');
 function outfitPatch(mt, th, keepSkin) {
-  if (th === 'imperial' && keepSkin) return imperialPatch(mt);
+  if (SUITS[th] && keepSkin) return suitPatch(mt, th);
   const t = TH[th];
   mt.userData.cos = th;
   const U = { uA: { value: new T.Color(t.c[0]) }, uB: { value: new T.Color(t.c[1]) }, uC: { value: new T.Color(t.c[2]) }, uPat: { value: PATN[t.pat] }, uKeep: { value: keepSkin ? 1 : 0 } };
@@ -11682,9 +11723,9 @@ const _ugC = updateHumanGear; updateHumanGear = function (a) {
   _ugC(a); const m = a.model; if (!m || !m.human) return; const e = cosOf(a);
   if (m.gear.helm && e.helm && COS[e.helm]) m.gear.helm.material = skinMat(COS[e.helm].th, true, 2);
   if (m.gear.bag && e.bag && COS[e.bag]) m.gear.bag.material = skinMat(COS[e.bag].th, true, 1.4);
-  const imp = e.out && COS[e.out] && COS[e.out].th === 'imperial';
-  if (imp && !m.gear.imp && m.b.Bip01_Head) m.gear.imp = imperialHead(m.b.Bip01_Head, m.g);
-  else if (!imp && m.gear.imp) { m.gear.imp.parent.remove(m.gear.imp); m.gear.imp = null; }
+  const sth = e.out && COS[e.out] && SUITS[COS[e.out].th] ? COS[e.out].th : null;
+  if (m.gear.imp && m.gear.imp.userData.th !== sth) { m.gear.imp.parent.remove(m.gear.imp); m.gear.imp = null; }
+  if (sth && !m.gear.imp && m.b.Bip01_Head) m.gear.imp = suitHead(m.b.Bip01_Head, m.g, sth);
 };
 // armas: skin na arma do personagem e na arma em 1ª pessoa
 function skinGun(mesh, k, a) {
@@ -11870,7 +11911,7 @@ function thumbObject(o) {
     if (!HUM.ready) return null;
     const av = AVATARS.find(v => v.k === (CHARS[SET.char] || CHARS[0]).av) || AVATARS[0], root = T.SkeletonUtils.clone(HUM.src[av.k]);
     root.traverse(n => { if (!n.isMesh) return; n.material = n.material.clone(); n.frustumCulled = false; const nm = n.material.name.toLowerCase(); if (/_body/.test(nm)) outfitPatch(n.material, o.th, true); if (/helmet|knife|pistol|shotgun|machinegun/.test(nm)) n.material.visible = false; });
-    if (o.th === 'imperial') { const hb = root.getObjectByName('Bip01_Head'); if (hb) imperialHead(hb, root); }
+    if (SUITS[o.th]) { const hb = root.getObjectByName('Bip01_Head'); if (hb) suitHead(hb, root, o.th); }
     const c = HUM.clips[(av.f ? 'f_' : 'm_') + 'idle'] || HUM.clips.m_idle; if (c) { const mx = new T.AnimationMixer(root); mx.clipAction(c).play(); mx.update(0.6); }
     g.add(root); g.userData.view = 'body';
   }
