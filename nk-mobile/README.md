@@ -263,3 +263,8 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 
 ## Giroscópio (09/11)
 - Sensibilidade > GIROSCÓPIO: desligado / só mirando / sempre ligado, com um valor por luneta (100% = o celular gira 10° e a câmera também). Opções de inverter horizontal e vertical. No iPhone o jogo pede a permissão de movimento no primeiro toque.
+
+## Campo de treino (09/11)
+- Botão 🎯 Treino no lobby: campo plano e roçado (sem capim), todas as armas no chão à esquerda e todos os acessórios, curas, granadas e a frigideira à direita; munição infinita; você não toma dano.
+- Alvos a 10, 25, 50, 100, 150, 200 e 300 m com placa de distância, mais um alvo andando a 60 m. Placar mostra o dano do último tiro, a distância e se foi na cabeça. Alvo "abatido" some 1,5 s e volta.
+- Sedã, jipe e moto ao lado para testar. Sai pelo menu (☰ > SAIR DA PARTIDA).
