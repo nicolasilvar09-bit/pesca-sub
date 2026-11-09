@@ -75,3 +75,13 @@ Alterações: orientação e escala normalizadas, malha simplificada, braços/ba
 - Céu: **The Sky is on Fire** (Poly Haven, CC0) — recorte em alta resolução.
 - Objetos: **Wooden Military Crate**, **Old Military Crate**, **Metal Jerrycan Green**, **Ammo Box**, **Barrel 02** e **Street Lamp 01** (Poly Haven, CC0), reduzidos.
 - Piso: **Concrete034** (ambientCG, CC0).
+
+## Mais armas de verdade (09/11) — Sketchfab, todas CC BY 4.0
+Obtidas via repositórios públicos do GitHub (inexorgame/models, 317gw/HYPERLUNATIC, tobiawolaju/WorldOfNads, VixidDev/Heatstroke, VictorAlvizo/Advanced-Lighting-OpenGL, Fxby16/Opengl-Engine); autor e licença conferidos nos metadados.
+- SCAR-L: "Scar H Assault Rifle Black - free" por Rotuma — https://sketchfab.com/3d-models/scar-h-assault-rifle-black-free-55a0a5c139114747a31eb878ba19acc0
+- M24: "M24 Bounty Hunter Sniper Rifle" por Naudaff3D — https://sketchfab.com/3d-models/m24-bounty-hunter-sniper-rifle-d40e74e2259549f5b025807163f1028c
+- Groza: "Ots 14 groza" por Long Nguyễn — https://sketchfab.com/3d-models/ots-14-groza-92b24eb7a2d945b9adb11e0975256fef
+- Beryl M762: "Low-Poly AKM" por TastyTony — https://sketchfab.com/3d-models/low-poly-akm-849b7cdf8622487485febc40db89e734
+- M249: ".308 Machine Gun" por Johnathon Goswick — https://sketchfab.com/models/4ca5f52eef6244629770c56752b67583
+- S12K: "FPS Saiga animations" por Cransh — https://sketchfab.com/3d-models/fps-saiga-animations-8c911e4dbe9145dfaf7b269bb351f6b4
+Alterações: orientação e escala normalizadas, malha simplificada, braços removidos (Saiga), texturas reduzidas, cor aplicada onde o original não tinha textura (Groza).

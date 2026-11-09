@@ -276,3 +276,6 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 
 ## Trajes completos novos (09/11)
 - Sistema de traje reutilizável (cor base com padrão, neon, acabamento, emblema e peças de cabeça). Novos nas caixas: Operador Ártico (camuflado digital branco, neon ciano, estrela, balaclava + óculos), Caveira Tática (verde-oliva camuflado, neon verde, caveira, máscara de caveira com olhos acesos), Tempestade Elétrica (azul-marinho, neon azul, raio, capacete com viseira) e Fênix (vinho, neon laranja, chama, capuz + viseira laranja). Bots também usam.
+
+## Mais 6 armas com modelo real (09/11)
+- SCAR-L, M24 (com luneta própria), Groza, Beryl M762, M249 e S12K agora usam modelos 3D de verdade (Sketchfab, CC BY 4.0). Total: 24 armas com modelo real; ainda por código: AUG, Mini 14, DP-28 e Mk14.

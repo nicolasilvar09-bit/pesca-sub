@@ -253,7 +253,8 @@ function gunGeo(k) {
 // modelos de verdade (Sketchfab, CC BY 4.0): ficam como filho do objeto da arma
 const REALGUN = { AKM: { f: 'akm', fore: -0.3 }, M16A2: { f: 'm16a2', fore: -0.36 }, MOSIN: { f: 'mosin', fore: -0.42 }, M17: { f: 'p226', fore: 0.02 }, M625: { f: 'm625', fore: 0.02 },
   M416: { f: 'm416', fore: -0.3 }, UMP45: { f: 'ump45', fore: -0.16 }, KAR98K: { f: 'kar98k', fore: -0.4 }, S686: { f: 's686', fore: -0.34 }, S1897: { f: 's1897', fore: -0.36 }, M1911: { f: 'm1911', fore: 0.02 },
-  G18C: { f: 'g18c', fore: 0.02 }, VECTOR: { f: 'vector', fore: -0.13 }, MP5K: { f: 'mp5k', fore: -0.1 }, UZI: { f: 'uzi', fore: -0.1 }, SKS: { f: 'sks', fore: -0.33 }, SLR: { f: 'slr', fore: -0.36 }, AWM: { f: 'awm', fore: -0.38, scoped: true } };
+  G18C: { f: 'g18c', fore: 0.02 }, VECTOR: { f: 'vector', fore: -0.13 }, MP5K: { f: 'mp5k', fore: -0.1 }, UZI: { f: 'uzi', fore: -0.1 }, SKS: { f: 'sks', fore: -0.33 }, SLR: { f: 'slr', fore: -0.36 }, AWM: { f: 'awm', fore: -0.38, scoped: true },
+  'SCAR-L': { f: 'scarl', fore: -0.28 }, M24: { f: 'm24', fore: -0.38, scoped: true }, GROZA: { f: 'groza', fore: -0.16 }, BERYL: { f: 'beryl', fore: -0.3 }, M249: { f: 'm249', fore: -0.36 }, S12K: { f: 's12k', fore: -0.3 } };
 const EMPTY_GEO = new T.BufferGeometry();
 function loadRealGuns(L, done, more) {
   /* as 5 primeiras seguram a abertura do jogo; as outras carregam depois, em segundo plano */
