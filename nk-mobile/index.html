@@ -139,6 +139,7 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
 #scope:after{content:attr(data-z);position:absolute;left:50%;top:50%;width:min(84vh,84vw);height:1.5px;background:linear-gradient(90deg,#111 44%,transparent 44%,transparent 56%,#111 56%);transform:translate(-50%,-50%);font-size:12px;color:#ff3b3b;text-indent:9999px}
 #scope i{position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;background:#ff2d2d;border-radius:50%}
 #scope u{position:absolute;left:50%;top:calc(50% + 20px);transform:translateX(-50%);width:1px;height:calc(min(42vh,42vw) - 30px);background:repeating-linear-gradient(#111 0 1px,transparent 1px 24px)}
+@keyframes dmgup{0%{opacity:0;transform:translateY(4px) scale(.8)}15%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-22px)}}.dmgnum{position:absolute;pointer-events:none;font-weight:900;font-size:15px;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;animation:dmgup .7s ease-out forwards;z-index:5}.dmgnum.hd{color:#ffd23f;font-size:18px}.dmgnum.kl{color:#ff2d55}
 #hitm{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px;opacity:0}
 #hitm.show{opacity:1}
 #hitm:before,#hitm:after{content:'';position:absolute;left:50%;top:0;width:2px;height:100%;background:#fff;transform:rotate(45deg);-webkit-mask:linear-gradient(#000 35%,transparent 35%,transparent 65%,#000 65%);mask:linear-gradient(#000 35%,transparent 35%,transparent 65%,#000 65%)}
@@ -5599,7 +5600,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '09/11 16:52'; // data da versão (preenchida pelo build.py)
+const BUILD = '10/11 09:52'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -7313,6 +7314,18 @@ function eyePos(a, o) {
   o.x = a.x + rx * side; o.z = a.z + rz * side; o.y = a.y + hip + Math.cos(th) * up; return o;
 }
 // formas de acerto: cabeça (esfera) e corpo (cápsula)
+// ---------- dano por parte do corpo (igual PUBG): cabeça, tronco, braços e pernas; colete só protege o tronco ----------
+// multiplicadores de braço/perna por tipo de arma (cabeça continua em CLS[..].head)
+const PART_MULT = { ar: { torso: 1, arm: 0.5, leg: 0.5 }, smg: { torso: 1.05, arm: 0.6, leg: 0.6 }, pistol: { torso: 1, arm: 0.6, leg: 0.6 }, dmr: { torso: 1, arm: 0.55, leg: 0.5 }, sr: { torso: 1.1, arm: 0.6, leg: 0.6 }, sg: { torso: 1, arm: 0.65, leg: 0.6 } };
+let HIT_PART = null;
+const PART_N = { head: 'CABEÇA', torso: 'TRONCO', arm: 'BRAÇO', leg: 'PERNA' };
+function hitPart(a, x, y, z) {
+  if (a.knocked || a.stance === 'prone') { const al = (x - a.x) * fwdX(a.yaw) + (z - a.z) * fwdZ(a.yaw); return al < 0.6 ? 'leg' : 'torso'; }
+  const cr = a.stance === 'crouch', rel = y - a.y, side = Math.abs((x - a.x) * Math.cos(a.yaw) - (z - a.z) * Math.sin(a.yaw));
+  if (rel < (cr ? 0.5 : 0.86)) return 'leg';
+  if (side > 0.19 && rel < (cr ? 1.12 : 1.42)) return 'arm';
+  return 'torso';
+}
 function hitShape(a, S) {
   const fx = fwdX(a.yaw), fz = fwdZ(a.yaw), rx = Math.cos(a.yaw), rz = -Math.sin(a.yaw);
   if (a.knocked || a.stance === 'prone') {
@@ -7404,9 +7417,9 @@ function fireShot(a, ox, oy, oz, dx, dy, dz) {
     for (let i = 0; i < d.pellets; i++) {
       const pa = Math.random() * Math.PI * 2, pr = Math.sqrt(Math.random()) * cone, pc = Math.cos(pa) * pr, ps = Math.sin(pa) * pr;
       let gx = fx + ux * pc + vx * ps, gy = fy + vy * ps, gz = fz + uz * pc + vz * ps; const gl = Math.hypot(gx, gy, gz);
-      BUL.push({ x: ox, y: oy, z: oz, vx: gx / gl * d.v, vy: (gy / gl + zero) * d.v, vz: gz / gl * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, wn: d.n, life: 0, px: ox, py: oy, pz: oz, fall: 1, sx: ox, sz: oz });
+      BUL.push({ x: ox, y: oy, z: oz, vx: gx / gl * d.v, vy: (gy / gl + zero) * d.v, vz: gz / gl * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, cls: d.cls, wn: d.n, life: 0, px: ox, py: oy, pz: oz, fall: 1, sx: ox, sz: oz });
     }
-  } else BUL.push({ x: ox, y: oy, z: oz, vx: fx * d.v, vy: (fy + zero) * d.v, vz: fz * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, wn: d.n, life: 0, px: ox, py: oy, pz: oz });
+  } else BUL.push({ x: ox, y: oy, z: oz, vx: fx * d.v, vy: (fy + zero) * d.v, vz: fz * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, cls: d.cls, wn: d.n, life: 0, px: ox, py: oy, pz: oz });
   a.recoil = Math.min(a.recoil + 0.25, 2.5);
   a.kick = (a.kick || 0) + d.rec * mods.rec;
   if (d.burst) a.burstN++;
@@ -7461,7 +7474,8 @@ function stepBullets(dt) {
       bloodFx(hx, hy, hz, dx, dy, dz, ha.a);
       const dist = Math.hypot(hx - b.o.x, hz - b.o.z);
       const fall = b.fall ? clamp(1 - Math.hypot(hx - b.sx, hz - b.sz) / 45, 0.12, 1) : 1;
-      if (!b.vis) hurt(ha.a, b.dmg * fall * (ha.head ? b.head : 1) * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn);
+      const part = ha.head ? 'head' : hitPart(ha.a, hx, hy, hz), pm = ha.head ? b.head : (PART_MULT[b.cls] || PART_MULT.ar)[part];
+      HIT_PART = part; if (!b.vis) hurt(ha.a, b.dmg * fall * pm * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn); HIT_PART = null;
       BUL.splice(i, 1); continue;
     }
     if (ts < len) { const hx = b.x + dx * ts, hy = b.y + dy * ts, hz = b.z + dz * ts; puff(hx, hy, hz, RAY_BOX ? '#d8cfb8' : '#8a7458', 0.3, 0.5); if (RAY_BOX) bulletDecal(hx, hy, hz, RAY_BOX); else dirtFx(hx, hy, hz); BUL.splice(i, 1); continue; }
@@ -7479,7 +7493,7 @@ function hurt(a, dmg, src, head, wn) {
   // online: personagem de outro aparelho -> o dono aplica o dano
   if (G.net.on && a.remote && !G.net.applying) {
     if (!a.alive || dmg <= 0) return;
-    netSend('hit', { to: ownerOf(a), ix: actIx(a), dmg: +dmg.toFixed(1), src: actIx(src), head: !!head, wn });
+    netSend('hit', { to: ownerOf(a), ix: actIx(a), dmg: +dmg.toFixed(1), src: actIx(src), head: !!head, wn, pt: HIT_PART });
     if (src === G.player) hudHit(head, false, dmg);
     return;
   }
@@ -7489,7 +7503,7 @@ function hurtLocal(a, dmg, src, head, wn) {
   if (!a.alive || dmg <= 0 || a.mode === 'plane' || (G.god && a === G.player)) return;
   if (src && src !== a) { a.lastHitBy = src; a.lastHitT = G.matchT; if (a.bot) botAlert(a, src); }
   if (a.knocked) { a.khp -= dmg; if (src && src.alive) src.dmgDone += dmg; if (a.khp <= 0) kill(a, src || a.knockBy, wn); return; }
-  const arm = head ? a.helm : a.vest;
+  const part = head ? 'head' : HIT_PART || 'torso', arm = part === 'head' ? a.helm : part === 'torso' ? a.vest : null; /* braço e perna: sem proteção */
   if (arm && src) { const red = ARMOR_RED[arm.lv]; arm.dur -= dmg * (1 - red * 0.5); dmg *= 1 - red; if (arm.dur <= 0) { if (head) a.helm = null; else a.vest = null; rebuildBody(a); } }
   dmg = Math.min(dmg, a.hp);
   a.hp -= dmg; if (src && src !== a) src.dmgDone += dmg;
@@ -8761,6 +8775,10 @@ function renderHealList() {
 function hudHit(head, kill, dmg) {
   const el = $('hitm'); el.className = 'show' + (kill ? ' kill' : head ? ' head' : ''); clearTimeout(el._t); el._t = setTimeout(() => el.className = '', kill ? 500 : 160);
   sfx(kill ? 'killhit' : 'hit');
+  if (dmg > 0.5 && SET.dmgNum !== false) { /* número do dano subindo perto da mira (amarelo = cabeça) */
+    const n = document.createElement('div'); n.className = 'dmgnum' + (head ? ' hd' : kill ? ' kl' : ''); n.textContent = Math.round(dmg);
+    n.style.left = `calc(50% + ${18 + Math.random() * 22}px)`; n.style.top = `calc(50% - ${14 + Math.random() * 16}px)`; $('hud').appendChild(n); setTimeout(() => n.remove(), 700);
+  }
 }
 function hudHurt(src, dmg) {
   const el = $('hurt'); el.style.opacity = Math.min(0.7, 0.25 + dmg / 40); clearTimeout(el._t); el._t = setTimeout(() => el.style.opacity = 0, 250);
@@ -10853,7 +10871,7 @@ function netMsg(ev, d) {
       if (d.z && !N.host) Object.assign(ZONE, d.z);
     } else if (ev === 'hit') { // alguém acertou um personagem que é meu
       const a = G.actors[d.ix], src = G.actors[d.src];
-      if (a && !a.remote) hurtLocal(a, d.dmg, src, d.head, d.wn);
+      if (a && !a.remote) { HIT_PART = d.pt || null; hurtLocal(a, d.dmg, src, d.head, d.wn); HIT_PART = null; }
     } else if (ev === 'vhit') { const v = VEH[d.ix]; if (v && N.host) vehHurt(v, d.dmg, G.actors[d.src]); }
     else if (ev === 'it') { const it = G.items.find(x => x.id === d.id); if (it) { if (d.n <= 0) removeItem(it); else it.n = d.n; } }
     else if (ev === 'drop') { if (!G.items.some(x => x.id === d.id)) dropItem(d.k, d.n, d.x, d.y, d.z, d.w, d.id); }
@@ -12391,7 +12409,7 @@ function trainHud() {
   let el = $('trainHud'); if (!el) { el = document.createElement('div'); el.id = 'trainHud'; $('hud').appendChild(el); }
   el.style.display = TRAIN.on ? '' : 'none';
   const s = TRAIN.stats, l = s && s.last;
-  el.innerHTML = `<b>🎯 CAMPO DE TREINO</b><span>${l ? `último: <i>${l.dmg}</i> de dano · ${l.d} m · ${l.head ? '<em>CABEÇA</em>' : 'corpo'}` : 'atire nos alvos'}</span><span>acertos ${s ? s.hits : 0} · dano total ${s ? Math.round(s.dmg) : 0}</span>`;
+  el.innerHTML = `<b>🎯 CAMPO DE TREINO</b><span>${l ? `último: <i>${l.dmg}</i> de dano · ${l.d} m · ${l.head ? '<em>CABEÇA</em>' : PART_N[l.pt] || 'corpo'}` : 'atire nos alvos'}</span><span>acertos ${s ? s.hits : 0} · dano total ${s ? Math.round(s.dmg) : 0}</span>`;
 }
 // alvos não morrem: mostram o dano, caem por 1,5 s e voltam
 (function hookTrainHurt() {
@@ -12399,7 +12417,7 @@ function trainHud() {
   hurtLocal = function (a, dmg, src, head, wn) {
     if (!TRAIN.on || !a.dummy) return base(a, dmg, src, head, wn);
     if (!a.alive || dmg <= 0) return;
-    if (src === G.player) { hudHit(head, false, dmg); const d = Math.round(Math.hypot(a.x - src.x, a.z - src.z)); TRAIN.stats.hits++; TRAIN.stats.dmg += dmg; TRAIN.stats.last = { dmg: Math.round(dmg), d, head }; trainHud(); }
+    if (src === G.player) { hudHit(head, false, dmg); const d = Math.round(Math.hypot(a.x - src.x, a.z - src.z)); TRAIN.stats.hits++; TRAIN.stats.dmg += dmg; TRAIN.stats.last = { dmg: Math.round(dmg), d, head, pt: head ? 'head' : HIT_PART || 'torso' }; trainHud(); }
     a.hp -= dmg; if (a.hp <= 0) { a.hp = 100; if (a.model) { a.model.g.visible = false; setTimeout(() => { if (a.model) a.model.g.visible = true; }, 1500); } if (src === G.player) toast(`Abatido a ${Math.round(Math.hypot(a.x - src.x, a.z - src.z))} m`, 1.2); }
   };
 })();
@@ -12614,7 +12632,7 @@ loadHumans(() => {
 });
 $('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__G = { VFX, TRAIN, LSET, LOB, SND, shotSound: (...q) => shotSound(...q), stepSounds: q => stepSounds(q), PROPS, DET, GFX, vehGeo, vehMat, noDyn: () => { dynRes.t = 1e15; DYN = 1; applyRes(); }, NATR, NAT, frame, drawScene, showPreview, COS, COSL, AUTO, gfxStep, refreshGrass, refreshNature, G, IN, ZONE, BLD, BOX, TOWNS, ROADS, RIVER, setWeather, drawMapOn, MAPID, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, ON, PARTY, removeItem, pDrop, partyCreate, partyJoin, leaderStart, addFriendCode, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
+window.__G = { hitPart, hurtLocal, setHitPart: v => { HIT_PART = v; }, VFX, TRAIN, LSET, LOB, SND, shotSound: (...q) => shotSound(...q), stepSounds: q => stepSounds(q), PROPS, DET, GFX, vehGeo, vehMat, noDyn: () => { dynRes.t = 1e15; DYN = 1; applyRes(); }, NATR, NAT, frame, drawScene, showPreview, COS, COSL, AUTO, gfxStep, refreshGrass, refreshNature, G, IN, ZONE, BLD, BOX, TOWNS, ROADS, RIVER, setWeather, drawMapOn, MAPID, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, ON, PARTY, removeItem, pDrop, partyCreate, partyJoin, leaderStart, addFriendCode, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
 // instala como app / funciona sem internet
 if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js').then(r => { try { r.update(); } catch (e) { } }).catch(() => { }); let had = !!navigator.serviceWorker.controller; navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && G.phase !== 'match') location.reload(); had = true; }); } // versão nova chegou: recarrega sozinho no lobby
 

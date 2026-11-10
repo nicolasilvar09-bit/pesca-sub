@@ -10,6 +10,18 @@ function eyePos(a, o) {
   o.x = a.x + rx * side; o.z = a.z + rz * side; o.y = a.y + hip + Math.cos(th) * up; return o;
 }
 // formas de acerto: cabeça (esfera) e corpo (cápsula)
+// ---------- dano por parte do corpo (igual PUBG): cabeça, tronco, braços e pernas; colete só protege o tronco ----------
+// multiplicadores de braço/perna por tipo de arma (cabeça continua em CLS[..].head)
+const PART_MULT = { ar: { torso: 1, arm: 0.5, leg: 0.5 }, smg: { torso: 1.05, arm: 0.6, leg: 0.6 }, pistol: { torso: 1, arm: 0.6, leg: 0.6 }, dmr: { torso: 1, arm: 0.55, leg: 0.5 }, sr: { torso: 1.1, arm: 0.6, leg: 0.6 }, sg: { torso: 1, arm: 0.65, leg: 0.6 } };
+let HIT_PART = null;
+const PART_N = { head: 'CABEÇA', torso: 'TRONCO', arm: 'BRAÇO', leg: 'PERNA' };
+function hitPart(a, x, y, z) {
+  if (a.knocked || a.stance === 'prone') { const al = (x - a.x) * fwdX(a.yaw) + (z - a.z) * fwdZ(a.yaw); return al < 0.6 ? 'leg' : 'torso'; }
+  const cr = a.stance === 'crouch', rel = y - a.y, side = Math.abs((x - a.x) * Math.cos(a.yaw) - (z - a.z) * Math.sin(a.yaw));
+  if (rel < (cr ? 0.5 : 0.86)) return 'leg';
+  if (side > 0.19 && rel < (cr ? 1.12 : 1.42)) return 'arm';
+  return 'torso';
+}
 function hitShape(a, S) {
   const fx = fwdX(a.yaw), fz = fwdZ(a.yaw), rx = Math.cos(a.yaw), rz = -Math.sin(a.yaw);
   if (a.knocked || a.stance === 'prone') {
@@ -101,9 +113,9 @@ function fireShot(a, ox, oy, oz, dx, dy, dz) {
     for (let i = 0; i < d.pellets; i++) {
       const pa = Math.random() * Math.PI * 2, pr = Math.sqrt(Math.random()) * cone, pc = Math.cos(pa) * pr, ps = Math.sin(pa) * pr;
       let gx = fx + ux * pc + vx * ps, gy = fy + vy * ps, gz = fz + uz * pc + vz * ps; const gl = Math.hypot(gx, gy, gz);
-      BUL.push({ x: ox, y: oy, z: oz, vx: gx / gl * d.v, vy: (gy / gl + zero) * d.v, vz: gz / gl * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, wn: d.n, life: 0, px: ox, py: oy, pz: oz, fall: 1, sx: ox, sz: oz });
+      BUL.push({ x: ox, y: oy, z: oz, vx: gx / gl * d.v, vy: (gy / gl + zero) * d.v, vz: gz / gl * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, cls: d.cls, wn: d.n, life: 0, px: ox, py: oy, pz: oz, fall: 1, sx: ox, sz: oz });
     }
-  } else BUL.push({ x: ox, y: oy, z: oz, vx: fx * d.v, vy: (fy + zero) * d.v, vz: fz * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, wn: d.n, life: 0, px: ox, py: oy, pz: oz });
+  } else BUL.push({ x: ox, y: oy, z: oz, vx: fx * d.v, vy: (fy + zero) * d.v, vz: fz * d.v, o: a, team: a.team, dmg: d.dmg, head: CLS[d.cls].head, cls: d.cls, wn: d.n, life: 0, px: ox, py: oy, pz: oz });
   a.recoil = Math.min(a.recoil + 0.25, 2.5);
   a.kick = (a.kick || 0) + d.rec * mods.rec;
   if (d.burst) a.burstN++;
@@ -158,7 +170,8 @@ function stepBullets(dt) {
       bloodFx(hx, hy, hz, dx, dy, dz, ha.a);
       const dist = Math.hypot(hx - b.o.x, hz - b.o.z);
       const fall = b.fall ? clamp(1 - Math.hypot(hx - b.sx, hz - b.sz) / 45, 0.12, 1) : 1;
-      if (!b.vis) hurt(ha.a, b.dmg * fall * (ha.head ? b.head : 1) * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn);
+      const part = ha.head ? 'head' : hitPart(ha.a, hx, hy, hz), pm = ha.head ? b.head : (PART_MULT[b.cls] || PART_MULT.ar)[part];
+      HIT_PART = part; if (!b.vis) hurt(ha.a, b.dmg * fall * pm * (dist > 300 ? 0.9 : 1), b.o, ha.head, b.wn); HIT_PART = null;
       BUL.splice(i, 1); continue;
     }
     if (ts < len) { const hx = b.x + dx * ts, hy = b.y + dy * ts, hz = b.z + dz * ts; puff(hx, hy, hz, RAY_BOX ? '#d8cfb8' : '#8a7458', 0.3, 0.5); if (RAY_BOX) bulletDecal(hx, hy, hz, RAY_BOX); else dirtFx(hx, hy, hz); BUL.splice(i, 1); continue; }
@@ -176,7 +189,7 @@ function hurt(a, dmg, src, head, wn) {
   // online: personagem de outro aparelho -> o dono aplica o dano
   if (G.net.on && a.remote && !G.net.applying) {
     if (!a.alive || dmg <= 0) return;
-    netSend('hit', { to: ownerOf(a), ix: actIx(a), dmg: +dmg.toFixed(1), src: actIx(src), head: !!head, wn });
+    netSend('hit', { to: ownerOf(a), ix: actIx(a), dmg: +dmg.toFixed(1), src: actIx(src), head: !!head, wn, pt: HIT_PART });
     if (src === G.player) hudHit(head, false, dmg);
     return;
   }
@@ -186,7 +199,7 @@ function hurtLocal(a, dmg, src, head, wn) {
   if (!a.alive || dmg <= 0 || a.mode === 'plane' || (G.god && a === G.player)) return;
   if (src && src !== a) { a.lastHitBy = src; a.lastHitT = G.matchT; if (a.bot) botAlert(a, src); }
   if (a.knocked) { a.khp -= dmg; if (src && src.alive) src.dmgDone += dmg; if (a.khp <= 0) kill(a, src || a.knockBy, wn); return; }
-  const arm = head ? a.helm : a.vest;
+  const part = head ? 'head' : HIT_PART || 'torso', arm = part === 'head' ? a.helm : part === 'torso' ? a.vest : null; /* braço e perna: sem proteção */
   if (arm && src) { const red = ARMOR_RED[arm.lv]; arm.dur -= dmg * (1 - red * 0.5); dmg *= 1 - red; if (arm.dur <= 0) { if (head) a.helm = null; else a.vest = null; rebuildBody(a); } }
   dmg = Math.min(dmg, a.hp);
   a.hp -= dmg; if (src && src !== a) src.dmgDone += dmg;

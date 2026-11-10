@@ -68,7 +68,7 @@ function trainHud() {
   let el = $('trainHud'); if (!el) { el = document.createElement('div'); el.id = 'trainHud'; $('hud').appendChild(el); }
   el.style.display = TRAIN.on ? '' : 'none';
   const s = TRAIN.stats, l = s && s.last;
-  el.innerHTML = `<b>🎯 CAMPO DE TREINO</b><span>${l ? `último: <i>${l.dmg}</i> de dano · ${l.d} m · ${l.head ? '<em>CABEÇA</em>' : 'corpo'}` : 'atire nos alvos'}</span><span>acertos ${s ? s.hits : 0} · dano total ${s ? Math.round(s.dmg) : 0}</span>`;
+  el.innerHTML = `<b>🎯 CAMPO DE TREINO</b><span>${l ? `último: <i>${l.dmg}</i> de dano · ${l.d} m · ${l.head ? '<em>CABEÇA</em>' : PART_N[l.pt] || 'corpo'}` : 'atire nos alvos'}</span><span>acertos ${s ? s.hits : 0} · dano total ${s ? Math.round(s.dmg) : 0}</span>`;
 }
 // alvos não morrem: mostram o dano, caem por 1,5 s e voltam
 (function hookTrainHurt() {
@@ -76,7 +76,7 @@ function trainHud() {
   hurtLocal = function (a, dmg, src, head, wn) {
     if (!TRAIN.on || !a.dummy) return base(a, dmg, src, head, wn);
     if (!a.alive || dmg <= 0) return;
-    if (src === G.player) { hudHit(head, false, dmg); const d = Math.round(Math.hypot(a.x - src.x, a.z - src.z)); TRAIN.stats.hits++; TRAIN.stats.dmg += dmg; TRAIN.stats.last = { dmg: Math.round(dmg), d, head }; trainHud(); }
+    if (src === G.player) { hudHit(head, false, dmg); const d = Math.round(Math.hypot(a.x - src.x, a.z - src.z)); TRAIN.stats.hits++; TRAIN.stats.dmg += dmg; TRAIN.stats.last = { dmg: Math.round(dmg), d, head, pt: head ? 'head' : HIT_PART || 'torso' }; trainHud(); }
     a.hp -= dmg; if (a.hp <= 0) { a.hp = 100; if (a.model) { a.model.g.visible = false; setTimeout(() => { if (a.model) a.model.g.visible = true; }, 1500); } if (src === G.player) toast(`Abatido a ${Math.round(Math.hypot(a.x - src.x, a.z - src.z))} m`, 1.2); }
   };
 })();

@@ -284,3 +284,7 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Personagem novo em Personagem (estilo Fire Mummy): ataduras de linho envelhecido e chamuscadas (queimaduras com borda em brasa, mais nos ombros), ombros em chamas, chama saindo dos olhos, cabeça enfaixada, frestas dos olhos incandescentes, chaminhas entre as ataduras, brasas subindo em volta e vãos brilhando como brasa.
 - Configurações > "Efeitos das skins (fogo)" liga/desliga (desligado no gráfico Leve). Efeitos só nos 4 mais próximos até 60 m.
 - Só jogadores usam (bots não sorteiam). No campo de treino a Múmia fica sem capacete/colete/mochila.
+
+## Dano por parte do corpo (10/11)
+- Cabeça (multiplicador da classe), tronco 1x, braços 0,5–0,65x e pernas 0,5–0,6x conforme o tipo de arma. Colete protege só o tronco e capacete só a cabeça; braço e perna não têm proteção. Agachado e deitado contam as partes conforme a postura. Vale no online.
+- Número do dano sobe ao lado da mira (amarelo = cabeça, vermelho = abate). O placar do campo de treino mostra a parte atingida.

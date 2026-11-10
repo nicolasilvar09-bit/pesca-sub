@@ -346,7 +346,7 @@ function netMsg(ev, d) {
       if (d.z && !N.host) Object.assign(ZONE, d.z);
     } else if (ev === 'hit') { // alguém acertou um personagem que é meu
       const a = G.actors[d.ix], src = G.actors[d.src];
-      if (a && !a.remote) hurtLocal(a, d.dmg, src, d.head, d.wn);
+      if (a && !a.remote) { HIT_PART = d.pt || null; hurtLocal(a, d.dmg, src, d.head, d.wn); HIT_PART = null; }
     } else if (ev === 'vhit') { const v = VEH[d.ix]; if (v && N.host) vehHurt(v, d.dmg, G.actors[d.src]); }
     else if (ev === 'it') { const it = G.items.find(x => x.id === d.id); if (it) { if (d.n <= 0) removeItem(it); else it.n = d.n; } }
     else if (ev === 'drop') { if (!G.items.some(x => x.id === d.id)) dropItem(d.k, d.n, d.x, d.y, d.z, d.w, d.id); }

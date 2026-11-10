@@ -198,6 +198,10 @@ function renderHealList() {
 function hudHit(head, kill, dmg) {
   const el = $('hitm'); el.className = 'show' + (kill ? ' kill' : head ? ' head' : ''); clearTimeout(el._t); el._t = setTimeout(() => el.className = '', kill ? 500 : 160);
   sfx(kill ? 'killhit' : 'hit');
+  if (dmg > 0.5 && SET.dmgNum !== false) { /* número do dano subindo perto da mira (amarelo = cabeça) */
+    const n = document.createElement('div'); n.className = 'dmgnum' + (head ? ' hd' : kill ? ' kl' : ''); n.textContent = Math.round(dmg);
+    n.style.left = `calc(50% + ${18 + Math.random() * 22}px)`; n.style.top = `calc(50% - ${14 + Math.random() * 16}px)`; $('hud').appendChild(n); setTimeout(() => n.remove(), 700);
+  }
 }
 function hudHurt(src, dmg) {
   const el = $('hurt'); el.style.opacity = Math.min(0.7, 0.25 + dmg / 40); clearTimeout(el._t); el._t = setTimeout(() => el.style.opacity = 0, 250);
