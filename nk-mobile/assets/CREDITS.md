@@ -88,3 +88,6 @@ Alterações: orientação e escala normalizadas, malha simplificada, braços re
 
 ## Skin Múmia Flamejante (assets/chars/m_soldier1_mumia*)
 - Feita a partir do Sargento Silva (Microsoft Rocketbox, licença MIT): cópia sem os óculos, com a mochila das costas achatada e texturas de ataduras de linho pintadas por nós (corpo e cabeça) + máscaras de brilho. Efeitos de fogo por código.
+
+## Sons de recarga (assets/snd/rl_*.mp3)
+- "Gun Reload Sounds" por SpringySpringo — https://opengameart.org/content/gun-reload-sounds (CC0). Cortados em pedaços (pente sai, pente entra, ferrolho, ferrolho de pistola, bomba de escopeta), mono, MP3.

@@ -288,3 +288,8 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 ## Dano por parte do corpo (10/11)
 - Cabeça (multiplicador da classe), tronco 1x, braços 0,5–0,65x e pernas 0,5–0,6x conforme o tipo de arma. Colete protege só o tronco e capacete só a cabeça; braço e perna não têm proteção. Agachado e deitado contam as partes conforme a postura. Vale no online.
 - Número do dano sobe ao lado da mira (amarelo = cabeça, vermelho = abate). O placar do campo de treino mostra a parte atingida.
+
+## Recarga e troca de arma (10/11)
+- Recarga em 1ª pessoa com a mão esquerda de verdade: tira o pente, some para buscar outro, volta com o pente novo na mão, encaixa e puxa o ferrolho. Pistola mais rápida com o ferrolho no fim; S1897, S686, Kar98k e Mosin colocam cartucho por cartucho (bomba na S1897, ferrolho nos fuzis); M249 com caixa e tampa; DP-28 com o carregador de prato por cima.
+- Sons gravados (CC0) no ritmo da animação, por estilo de arma.
+- Troca de arma: a nova entra de baixo e sobe, com som de sacar.

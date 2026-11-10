@@ -242,9 +242,9 @@ function updateCamera(dt) {
   const scoped = p.ads && zoom >= 2;
   VM.visible = fpp && !!w && !scoped && p.healT <= 0;
   if (VM.visible) {
-    const key = gunKey(w); if (key !== vmKey) { vmKey = key; vmSwapT = 0.24; setGunVisual(vmGun, w.k); dressGun(vmGun, w); const pis = WEAP[w.k].cls === 'pistol'; fillVmArm(vmArmL, -1, foreOf(w.k), pis); fillVmArm(vmArmR, 1, 0, pis); }
+    const key = gunKey(w); if (key !== vmKey) { vmKey = key; vmSwapT = 0.42; if (typeof rlDrawSound === 'function') rlDrawSound(); setGunVisual(vmGun, w.k); dressGun(vmGun, w); const pis = WEAP[w.k].cls === 'pistol'; fillVmArm(vmArmL, -1, foreOf(w.k), pis); fillVmArm(vmArmR, 1, 0, pis); }
     vmSwapT = Math.max(0, vmSwapT - dt);
-    const swapK = vmSwapT > 0 ? Math.sin((vmSwapT / 0.24) * Math.PI) : 0;
+    const swapK = vmSwapT > 0 ? smooth(vmSwapT / 0.42) * 1.6 : 0; // arma nova entra de baixo e sobe até a posição
     const airK = p.onGround ? 0 : clamp(Math.abs(p.vy || 0) / 5.3, 0, 1);
     // Postura acompanha a posição do personagem sem alterar colisões ou controles.
     const stanceTarget = p.stance === 'prone' ? 1 : p.stance === 'crouch' ? 0.55 : 0;
@@ -288,8 +288,8 @@ function updateCamera(dt) {
     const breath = p.onGround && Math.hypot(p.vx, p.vz) < 0.25 ? Math.sin(G.t * 1.65) * 0.0025 : 0;
     const hx = 0.15 + v.swx * 0.35 + bobX + v.vmSide * 0.012 - v.vmRun * 0.05, hy = -0.12 + v.swy * 0.25 + bobY + breath - v.vmRun * 0.04 - swapK * 0.07 - stanceK * 0.025, hz = -0.3 + v.vmRun * 0.03 + swapK * 0.045 + stanceK * 0.018;
     const ax = v.swx * 0.05 + bobX * 0.3 + v.vmSide * 0.004, ay = -top + v.swy * 0.04 + bobY * 0.3 + breath * 0.5, az = -0.22;
-    VM.position.set(lerp(hx, ax, ak) - rk * 0.03 + recoilYaw * 0.006, lerp(hy, ay, ak) - rk * 0.01 + magJ * 0.012, lerp(hz, az, ak) + kick * 0.5 + G.vmK * 0.035 + recoilPitch * 0.009 + bolt * 0.01 + actionBack);
-    VM.rotation.set(-v.swy * 0.6 - v.vmRun * 0.35 * (1 - ak) - v.vmFwd * 0.018 + rk * 0.22 + G.vmK * 0.05 + recoilPitch * 0.025 + magJ * 0.06 + airK * 0.035 + swapK * 0.12 + actionK * (G.vmActionClass === 'sr' ? 0.045 : 0.018), v.swx * 0.9 + v.vmRun * 0.5 * (1 - ak) + v.vmSide * 0.025 + rk * 0.35 + recoilYaw * 0.018, v.swx * 0.5 + v.vmRun * 0.25 * (1 - ak) - v.vmSide * 0.035 + rk * 0.55 - bolt * 0.12 - swapK * 0.18 + recoilRoll * 0.018 - actionK * 0.035);
+    VM.position.set(lerp(hx, ax, ak) - rk * 0.1 + recoilYaw * 0.006, lerp(hy, ay, ak) + rk * 0.075 + magJ * 0.012, lerp(hz, az, ak) - rk * 0.05 + kick * 0.5 + G.vmK * 0.035 + recoilPitch * 0.009 + bolt * 0.01 + actionBack);
+    VM.rotation.set(-v.swy * 0.6 - v.vmRun * 0.35 * (1 - ak) - v.vmFwd * 0.018 + rk * 0.28 + G.vmK * 0.05 + recoilPitch * 0.025 + magJ * 0.06 + airK * 0.035 + swapK * 0.12 + actionK * (G.vmActionClass === 'sr' ? 0.045 : 0.018), v.swx * 0.9 + v.vmRun * 0.5 * (1 - ak) + v.vmSide * 0.025 + rk * 0.4 + recoilYaw * 0.018, v.swx * 0.5 + v.vmRun * 0.25 * (1 - ak) - v.vmSide * 0.035 + rk * 0.22 - bolt * 0.12 - swapK * 0.18 + recoilRoll * 0.018 - actionK * 0.035);
     // braços acompanham a arma: retraem na recarga e absorvem o recuo.
     vmArms.rotation.x = rk * 0.12 + G.vmK * 0.035 + v.vmRun * 0.035 + airK * 0.045 + swapK * 0.08 + stanceK * 0.055;
     vmArms.rotation.y = v.vmSide * 0.018 + magJ * 0.025 - swapK * 0.10;
