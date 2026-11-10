@@ -17,7 +17,8 @@ function rlInfo(k) {
   const real = REALGUN[k] && REALGUN[k].obj, key = k + (real ? 'r' : 'p');
   if (RL_INFO[key]) return RL_INFO[key];
   const st = rlStyle(k), pis = st === 'pistol', fore = foreOf(k);
-  const z0 = pis ? -0.01 : fore + 0.07, z1 = pis ? 0.12 : 0.0;
+  const bull = k === 'AUG' || k === 'GROZA'; /* bullpup: pente atrás do cabo */
+  const z0 = pis ? -0.01 : bull ? 0.03 : fore + 0.07, z1 = pis ? 0.12 : bull ? 0.22 : 0.0;
   let minY = 0, sz = 0, n = 0;
   const scan = (geo, mw) => { const p = geo.attributes && geo.attributes.position; if (!p) return;
     for (let i = 0; i < p.count; i++) { _rv.fromBufferAttribute(p, i); if (mw) _rv.applyMatrix4(mw); if (_rv.z < z0 || _rv.z > z1 || Math.abs(_rv.x) > 0.06) continue;

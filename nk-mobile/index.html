@@ -172,6 +172,7 @@ input,select{font:inherit;touch-action:auto;user-select:text;-webkit-user-select
 #menuP .box{background:#1d2450;border-radius:16px;padding:16px 20px;width:min(420px,90vw);display:flex;flex-direction:column;gap:10px}
 #menuP label{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
 #menuP input[type=range]{flex:1;max-width:200px}
+#sndRing{position:fixed;left:50%;top:50%;width:0;height:0;pointer-events:none;z-index:4}#sndRing .sv{position:absolute;left:-22px;top:-16px;width:44px;display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 0 3px rgba(0,0,0,.7));transition:opacity .15s}#sndRing .ic{margin-top:1px;line-height:0;background:rgba(10,14,24,.55);border-radius:50%;padding:3px}#sndRing .sv-shot .arc{filter:drop-shadow(0 0 4px #ff7a1a)}
 #trainHud{position:fixed;top:calc(62px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:6;background:rgba(15,20,40,.78);border:1px solid #ffd16666;border-radius:12px;padding:6px 14px;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:12px;pointer-events:none;color:#fff}#trainHud b{color:#ffd166;font-size:12px;letter-spacing:.5px}#trainHud i{font-style:normal;color:#ffd166;font-weight:800}#trainHud em{font-style:normal;color:#ff5252;font-weight:800}
 #menuP .sensbox{max-height:92vh;overflow-y:auto;gap:7px}#menuP .sens-ctl{display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end}#menuP .sens-ctl b{min-width:42px;text-align:right;color:#ffd166}.sens-tabs .btn{flex:1}.sens-hint{font-size:11px;opacity:.7}
 #menuP select{background:#0f1430;color:#fff;border-radius:8px;padding:4px 8px;border:1px solid #445}
@@ -5600,7 +5601,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '10/11 10:39'; // data da versão (preenchida pelo build.py)
+const BUILD = '10/11 13:17'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -6829,7 +6830,8 @@ function gunGeo(k) {
 const REALGUN = { AKM: { f: 'akm', fore: -0.3 }, M16A2: { f: 'm16a2', fore: -0.36 }, MOSIN: { f: 'mosin', fore: -0.42 }, M17: { f: 'p226', fore: 0.02 }, M625: { f: 'm625', fore: 0.02 },
   M416: { f: 'm416', fore: -0.3 }, UMP45: { f: 'ump45', fore: -0.16 }, KAR98K: { f: 'kar98k', fore: -0.4 }, S686: { f: 's686', fore: -0.34 }, S1897: { f: 's1897', fore: -0.36 }, M1911: { f: 'm1911', fore: 0.02 },
   G18C: { f: 'g18c', fore: 0.02 }, VECTOR: { f: 'vector', fore: -0.13 }, MP5K: { f: 'mp5k', fore: -0.1 }, UZI: { f: 'uzi', fore: -0.1 }, SKS: { f: 'sks', fore: -0.33 }, SLR: { f: 'slr', fore: -0.36 }, AWM: { f: 'awm', fore: -0.38, scoped: true },
-  'SCAR-L': { f: 'scarl', fore: -0.28 }, M24: { f: 'm24', fore: -0.38, scoped: true }, GROZA: { f: 'groza', fore: -0.16 }, BERYL: { f: 'beryl', fore: -0.3 }, M249: { f: 'm249', fore: -0.36 }, S12K: { f: 's12k', fore: -0.3 } };
+  'SCAR-L': { f: 'scarl', fore: -0.28 }, M24: { f: 'm24', fore: -0.38, scoped: true }, GROZA: { f: 'groza', fore: -0.16 }, BERYL: { f: 'beryl', fore: -0.3 }, M249: { f: 'm249', fore: -0.36 }, S12K: { f: 's12k', fore: -0.3 },
+  AUG: { f: 'aug', fore: -0.28 }, MK14: { f: 'mk14', fore: -0.38 } };
 const EMPTY_GEO = new T.BufferGeometry();
 function loadRealGuns(L, done, more) {
   /* as 5 primeiras seguram a abertura do jogo; as outras carregam depois, em segundo plano */
@@ -9213,6 +9215,8 @@ const VDEF = {
   seda: { n: 'Sedã', hp: 1100, max: 29, acc: 10, turn: 1.2, hl: 2.25, hw: 0.95, h: 1.5, seats: [[-0.4, -0.1, 0.45], [0.4, -0.1, 0.45], [-0.4, 0.8, 0.45], [0.4, 0.8, 0.45]], cols: ['#8c2f2a', '#d8d8d2', '#2f5a6a', '#3a3d42', '#9a8a5a'] },
   buggy: { n: 'Buggy', hp: 900, max: 28, acc: 11, turn: 1.45, hl: 1.6, hw: 0.95, h: 1.4, seats: [[-0.38, 0.1, 0.45], [0.38, 0.1, 0.45]], cols: ['#b0632a', '#5a6b3a', '#3a5a7a'] },
   lancha: { n: 'Lancha', boat: true, hp: 1000, max: 21, acc: 7, turn: 0.95, hl: 2.7, hw: 1.05, h: 1.5, seats: [[-0.4, 0.1, 0.75], [0.4, 0.1, 0.75], [-0.4, 1.1, 0.7], [0.4, 1.1, 0.7]], cols: ['#e8e8e8', '#d64545', '#2f6fa8', '#f2c14e'] },
+  pickup: { n: 'Caminhonete', hp: 1700, max: 26, acc: 8.5, turn: 1.05, hl: 2.55, hw: 1.0, h: 1.85, seats: [[-0.42, -0.4, 0.6], [0.42, -0.4, 0.6], [-0.45, 1.35, 0.98], [0.45, 1.35, 0.98]], cols: ['#e3e1da', '#2d3b52', '#7a2b22', '#3f4a33', '#5c5f63'] },
+  van: { n: 'Van', hp: 1600, max: 23, acc: 7, turn: 1.0, hl: 2.4, hw: 1.0, h: 2.3, seats: [[-0.42, -1.05, 0.7], [0.42, -1.05, 0.7], [-0.42, 0.2, 0.7], [0.42, 0.2, 0.7], [-0.42, 1.25, 0.7], [0.42, 1.25, 0.7]], cols: ['#e6e3d8', '#d9b23a', '#3c6a8a', '#8a3a2a'] },
   moto: { n: 'Moto', hp: 550, max: 33, acc: 12, turn: 1.9, hl: 1.0, hw: 0.35, h: 1.2, seats: [[0, 0.0, 0.85], [0, 0.5, 0.95]], cols: ['#8a2a22', '#2a2c30', '#4a5a6a', '#6a5a3a'] },
 };
 const VEH = [];
@@ -9294,6 +9298,59 @@ function carBody(p, k, col, L, W) {
     for (const s of [-1, 1]) p.push(vseg([s * W * 0.7, 1.95, -0.4], [s * W * 0.7, 1.95, L - 0.2], 0.04, '#222', 'plas')); /* bagageiro */
     p.push(bx(-0.36, 0.54, L + 0.0, 0.32, 0.16, 0.03, '#e8e8e0', { m: 'plas' }));
     p.push(bx(-W * 0.85, 0.45, -L + 0.3, W * 1.7, 0.1, L * 2 - 0.6, '#151515', { m: 'under' }));
+  } else if (k === 'pickup') {
+    /* caminhonete: capô comprido, cabine dupla curta e caçamba aberta atrás */
+    const cb = 0.5; /* traseira da cabine */
+    p.push({ g: loftGeo([
+      { z: -L, w: W * 0.86, y0: 0.5, y1: 0.95, n: 5 }, { z: -L + 0.12, w: W * 0.96, y0: 0.45, y1: 1.08, n: 6 }, { z: -L + 0.7, w: W, y0: 0.44, y1: 1.15, n: 7 },
+      { z: cb, w: W, y0: 0.44, y1: 1.18, n: 7 }]), c: col });
+    p.push({ g: loftGeo([
+      { z: -0.98, w: W * 0.95, wt: W * 0.9, y0: 1.12, y1: 1.16, n: 6 }, { z: -0.62, w: W * 0.95, wt: W * 0.86, y0: 1.12, y1: 1.78, n: 7 },
+      { z: cb - 0.04, w: W * 0.95, wt: W * 0.88, y0: 1.12, y1: 1.8, n: 7 }, { z: cb, w: W * 0.94, wt: W * 0.87, y0: 1.12, y1: 1.76, n: 6 }]), c: glass, m: 'glass' });
+    p.push({ g: loftGeo([{ z: -0.62, w: W * 0.87, y0: 1.76, y1: 1.85, n: 6 }, { z: cb - 0.02, w: W * 0.89, y0: 1.77, y1: 1.86, n: 6 }], 16), c: col });
+    /* caçamba: chassi embaixo, assoalho, laterais e tampa */
+    p.push({ g: loftGeo([{ z: cb, w: W * 0.98, y0: 0.44, y1: 0.86, n: 7 }, { z: L, w: W * 0.96, y0: 0.46, y1: 0.86, n: 7 }]), c: col });
+    p.push(bx(-W * 0.92, 0.86, cb + 0.04, W * 1.84, 0.04, L - cb - 0.1, '#2b2b2b', { m: 'plas' }));
+    for (const s of [-1, 1]) {
+      p.push(bx(s > 0 ? W * 0.9 : -W, 0.86, cb + 0.02, W * 0.1, 0.34, L - cb - 0.04, col));
+      p.push(bx(s > 0 ? W * 0.88 : -W * 1.0, 1.18, cb + 0.02, W * 0.12, 0.04, L - cb - 0.04, '#2a2a2a', { m: 'plas' })); /* frisos de borda */
+      p.push(vseg([s * W * 0.96, 1.15, -0.95], [s * W * 0.87, 1.8, -0.6], 0.05, col, 'paint', GEO.box), vseg([s * W * 0.96, 1.15, -0.2], [s * W * 0.9, 1.8, -0.2], 0.05, col, 'paint', GEO.box));
+      p.push(bx(s * (W + 0.003) - 0.005, 0.5, -0.92, 0.01, 0.65, 0.012, '#111', { m: 'plas' }), bx(s * (W + 0.003) - 0.005, 0.5, -0.2, 0.01, 0.65, 0.012, '#111', { m: 'plas' }));
+      p.push(bx(s * (W + 0.012) - 0.02, 0.98, -0.62, 0.04, 0.03, 0.16, '#b9bcbf', { m: 'chrome' }), bx(s * (W + 0.012) - 0.02, 0.98, 0.1, 0.04, 0.03, 0.16, '#b9bcbf', { m: 'chrome' }));
+      p.push(bx(s * (W + 0.05) - 0.06, 1.2, -0.95, 0.12, 0.15, 0.06, dark, { m: 'plas' }), vseg([s * W, 1.18, -0.93], [s * (W + 0.07), 1.22, -0.93], 0.03, dark, 'plas'));
+      p.push({ g: GEO.box, x: s * W * 0.62, y: 0.92, z: -L - 0.01, sx: 0.36, sy: 0.14, sz: 0.06, c: '#f3efe2', m: 'light' });
+      p.push({ g: GEO.box, x: s * W * 0.92, y: 0.98, z: L + 0.01, sx: 0.1, sy: 0.3, sz: 0.04, c: '#c0101a', m: 'tail' });
+      p.push(bx(s > 0 ? W - 0.02 : -W - 0.02, 0.5, -L + 0.25, 0.04, 0.05, L * 2 - 0.5, '#1a1a1a', { m: 'plas' })); /* estribo */
+    }
+    p.push(bx(-W * 0.9, 0.86, L - 0.06, W * 1.8, 0.36, 0.06, col)); /* tampa da caçamba */
+    p.push(bx(-W * 0.5, 0.62, -L - 0.03, W, 0.32, 0.05, '#151515', { m: 'plas' }), bx(-W * 0.48, 0.74, -L - 0.06, W * 0.96, 0.05, 0.03, '#b9bcbf', { m: 'chrome' }));
+    p.push(bx(-W * 0.98, 0.42, -L - 0.12, W * 1.96, 0.16, 0.14, '#b9bcbf', { m: 'chrome' }), bx(-W * 0.98, 0.42, L - 0.02, W * 1.96, 0.14, 0.14, '#1d1d1d', { m: 'plas' })); /* para-choques */
+    p.push(bx(-0.26, 0.6, L + 0.02, 0.52, 0.13, 0.03, '#e8e8e0', { m: 'plas' }));
+    for (const s of [-1, 1]) p.push(vseg([s * W * 0.85, 1.2, cb + 0.05], [s * W * 0.85, 1.75, cb + 0.05], 0.035, '#222', 'plas')); /* santo antônio */
+    p.push(vseg([-W * 0.85, 1.75, cb + 0.05], [W * 0.85, 1.75, cb + 0.05], 0.035, '#222', 'plas'));
+    p.push(bx(-W * 0.85, 0.38, -L + 0.3, W * 1.7, 0.1, L * 2 - 0.6, '#151515', { m: 'under' }));
+  } else if (k === 'van') {
+    /* van: caixa alta de uma ponta à outra, frente curta e reta, janelas em faixa e duas cores */
+    p.push({ g: loftGeo([
+      { z: -L, w: W * 0.9, y0: 0.45, y1: 1.15, n: 5 }, { z: -L + 0.1, w: W * 0.97, y0: 0.42, y1: 1.3, n: 6 }, { z: -L + 0.45, w: W, y0: 0.42, y1: 1.3, n: 7 },
+      { z: L - 0.1, w: W, y0: 0.42, y1: 1.3, n: 7 }, { z: L, w: W * 0.96, y0: 0.45, y1: 1.28, n: 6 }]), c: col });
+    p.push({ g: loftGeo([
+      { z: -L + 0.38, w: W * 0.98, wt: W * 0.93, y0: 1.28, y1: 1.32, n: 7 }, { z: -L + 0.62, w: W * 0.98, wt: W * 0.93, y0: 1.28, y1: 1.9, n: 8 },
+      { z: L - 0.08, w: W * 0.98, wt: W * 0.94, y0: 1.28, y1: 1.92, n: 8 }, { z: L, w: W * 0.95, wt: W * 0.92, y0: 1.28, y1: 1.88, n: 7 }]), c: glass, m: 'glass' });
+    p.push({ g: loftGeo([{ z: -L + 0.6, w: W * 0.94, y0: 1.88, y1: 2.18, n: 7 }, { z: L - 0.04, w: W * 0.95, y0: 1.9, y1: 2.2, n: 7 }], 18), c: '#ecebe6' });
+    for (const s of [-1, 1]) {
+      for (const z of [-L + 0.62, -0.75, 0.3, 1.3, L - 0.1]) p.push(bx(s > 0 ? W * 0.93 : -W * 0.99, 1.3, z - 0.05, W * 0.06, 0.6, 0.1, '#ecebe6')); /* colunas entre as janelas */
+      p.push(bx(s * (W + 0.003) - 0.005, 0.5, -0.78, 0.01, 1.35, 0.012, '#111', { m: 'plas' }), bx(s * (W + 0.003) - 0.005, 0.5, 0.25, 0.01, 1.35, 0.012, '#111', { m: 'plas' }));
+      p.push(bx(s > 0 ? W - 0.01 : -W - 0.01, 0.95, -L + 0.2, 0.02, 0.1, L * 2 - 0.4, '#ecebe6')); /* faixa */
+      p.push(bx(s * (W + 0.06) - 0.07, 1.5, -L + 0.5, 0.14, 0.22, 0.06, dark, { m: 'plas' }), vseg([s * W, 1.45, -L + 0.5], [s * (W + 0.08), 1.5, -L + 0.5], 0.03, dark, 'plas'));
+      p.push({ g: GEO.box, x: s * W * 0.62, y: 0.95, z: -L - 0.01, sx: 0.3, sy: 0.2, sz: 0.06, c: '#f3efe2', m: 'light' });
+      p.push({ g: GEO.box, x: s * W * 0.82, y: 1.0, z: L + 0.01, sx: 0.14, sy: 0.32, sz: 0.04, c: '#c0101a', m: 'tail' });
+    }
+    p.push(bx(-W * 0.5, 0.62, -L - 0.03, W, 0.22, 0.05, '#151515', { m: 'plas' }), bx(-0.12, 0.66, -L - 0.06, 0.24, 0.12, 0.03, '#b9bcbf', { m: 'chrome' }));
+    p.push(bx(-W * 0.98, 0.4, -L - 0.08, W * 1.96, 0.16, 0.12, '#1d1d1d', { m: 'plas' }), bx(-W * 0.98, 0.4, L - 0.04, W * 1.96, 0.16, 0.12, '#1d1d1d', { m: 'plas' }));
+    p.push(bx(-0.26, 0.62, L + 0.02, 0.52, 0.13, 0.03, '#e8e8e0', { m: 'plas' }));
+    for (const s of [-1, 1]) p.push(vseg([s * W * 0.7, 2.24, -L + 0.8], [s * W * 0.7, 2.24, L - 0.3], 0.03, '#222', 'plas')); /* bagageiro */
+    p.push(bx(-W * 0.85, 0.36, -L + 0.3, W * 1.7, 0.1, L * 2 - 0.6, '#151515', { m: 'under' }));
   } else {
     /* sedã: capô inclinado, para-brisa deitado, porta-malas curto */
     p.push({ g: loftGeo([
@@ -9354,7 +9411,7 @@ function vehGeo(k, col, noWheels) {
     for (const [s, z, r, w] of [[-1, -L + 0.45, 0.45, 0.35], [1, -L + 0.45, 0.45, 0.35], [-1, L - 0.4, 0.5, 0.42], [1, L - 0.4, 0.5, 0.42]]) vwheel(p, s * (W + 0.1), z, r, w, s, '#3d4044', 5);
   } else {
     carBody(p, k, col, L, W);
-    const jeep = k === 'jipe', r = jeep ? 0.45 : 0.35, tw = jeep ? 0.32 : 0.24, wx = jeep ? W - 0.08 : W - 0.1, fz = -L + (jeep ? 0.65 : 0.72), rz = L - (jeep ? 0.62 : 0.7);
+    const jeep = k === 'jipe' || k === 'pickup' || k === 'van', r = k === 'van' ? 0.4 : jeep ? 0.45 : 0.35, tw = jeep ? 0.32 : 0.24, wx = jeep ? W - 0.08 : W - 0.1, fz = -L + (jeep ? 0.65 : 0.72), rz = L - (jeep ? 0.62 : 0.7);
     for (const s of [-1, 1]) for (const z of [fz, rz]) {
       varch(p, s * (W - 0.02), z, r, r + (jeep ? 0.1 : 0.06), jeep ? '#232323' : '#111');
       vwheel(p, s * wx, z, r, tw, s, jeep ? '#4a4d50' : '#a9adb1', jeep ? 6 : 5);
@@ -9387,7 +9444,7 @@ const WRECK = new T.MeshLambertMaterial({ vertexColors: true, color: 0x333333 })
 function spawnVehicles() {
   for (const v of VEH) scene.remove(v.mesh);
   VEH.length = 0;
-  const kinds = ['jipe', 'jipe', 'seda', 'seda', 'seda', 'buggy', 'buggy', 'moto', 'moto', 'moto'];
+  const kinds = ['jipe', 'jipe', 'seda', 'seda', 'pickup', 'pickup', 'van', 'buggy', 'buggy', 'moto', 'moto', 'moto'];
   let tries = 0;
   while (VEH.length < 80 && tries++ < 2500) {
     const r = pick(ROADS), t = rr(0.08, 0.92), dx = r[2] - r[0], dz = r[3] - r[1], L = Math.hypot(dx, dz), side = Math.random() < 0.5 ? -1 : 1;
@@ -12394,7 +12451,7 @@ function startTraining() {
   const extra = [...Object.keys(ATT), 'FAK', 'MED', 'ENERGY', 'PAIN', 'BAND', 'FRAG', 'SMOKE', 'MOLO', 'PAN']; n = 0;
   for (const k of extra) { const row = Math.floor(n / 9), col = n % 9, [x, z] = at(5 + row * 1.3, -4 + col * 1.0); dropItem(k, k === 'BAND' ? 10 : 3, x, groundH(x, z) + 0.05, z); n++; }
   // carros para testar
-  [['seda', 9, 8], ['jipe', 13, 8], ['moto', 17, 6]].forEach(([k, s, f]) => { const [x, z] = at(s, f); addVehicle(k, x, z, S.yaw + Math.PI / 2); });
+  [['seda', 9, 8], ['jipe', 13, 8], ['pickup', 17, 8], ['van', 21, 8], ['moto', 25, 6]].forEach(([k, s, f]) => { const [x, z] = at(s, f); addVehicle(k, x, z, S.yaw + Math.PI / 2); });
   Object.assign(ZONE, { cx: S.x, cz: S.z, r: 1e5, nr: 1e5, ph: PHASES.length, st: 'end', dmg: 0 });
   PLANE.on = DROPP.on = false; PLANE.m.visible = DROPP.m.visible = false;
   G.view = { yaw: S.yaw, pitch: -0.05, fpp: SET.view === 'fpp', spect: null };
@@ -12495,7 +12552,7 @@ function vehFxStep(dt) {
     const d = Math.hypot(v.x - cx, v.z - cz);
     v.wrot = (v.wrot || 0) + v.sp * dt / 0.4;
     v.mesh.updateMatrix(); v.mesh.updateMatrixWorld();
-    const tint = v.dead ? 0.12 : v.k === 'jipe' || v.k === 'buggy' ? 0.5 : 1;
+    const tint = v.dead ? 0.12 : v.k === 'jipe' || v.k === 'buggy' || v.k === 'pickup' ? 0.5 : 1;
     for (const w of v.wheels) {
       const front = w.z < 0, left = w.s < 0;
       _vfe.set(left ? v.wrot : -v.wrot, (front ? -(v.str || 0) * 0.45 : 0) + (left ? Math.PI : 0), 0, 'YXZ');
@@ -12639,7 +12696,8 @@ function rlInfo(k) {
   const real = REALGUN[k] && REALGUN[k].obj, key = k + (real ? 'r' : 'p');
   if (RL_INFO[key]) return RL_INFO[key];
   const st = rlStyle(k), pis = st === 'pistol', fore = foreOf(k);
-  const z0 = pis ? -0.01 : fore + 0.07, z1 = pis ? 0.12 : 0.0;
+  const bull = k === 'AUG' || k === 'GROZA'; /* bullpup: pente atrás do cabo */
+  const z0 = pis ? -0.01 : bull ? 0.03 : fore + 0.07, z1 = pis ? 0.12 : bull ? 0.22 : 0.0;
   let minY = 0, sz = 0, n = 0;
   const scan = (geo, mw) => { const p = geo.attributes && geo.attributes.position; if (!p) return;
     for (let i = 0; i < p.count; i++) { _rv.fromBufferAttribute(p, i); if (mw) _rv.applyMatrix4(mw); if (_rv.z < z0 || _rv.z > z1 || Math.abs(_rv.x) > 0.06) continue;
@@ -12721,6 +12779,73 @@ function rlStep() {
 })();
 // som de sacar a arma ao trocar (curto, baixo)
 function rlDrawSound() { if (SND.buf.rl_slide) sndPlay('rl_slide', camera.position.x, camera.position.z, 0.35, { rate: 1.3, lp: 9000 }); }
+
+// ================= avisos de som na tela: marcas em volta da mira mostram de onde vêm tiros, passos e carros de inimigos =================
+// tiro inimigo (laranja) até 250 m (com silenciador só até 50 m), passos (branco) até 30 m (agachado 12 m, deitado nada), motor de carro (azul) até 120 m.
+// a marca fica mais forte quanto mais perto; aliados não aparecem. Configurações > "Avisos de som na tela" liga/desliga.
+if (SET.soundViz == null) SET.soundViz = true;
+const SVZ = { m: new Map(), el: null, acc: 0 };
+const SVZ_ICON = {
+  shot: '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1c2 2 3 4 3 7v6H5V8c0-3 1-5 3-7z" fill="#ff9a3c"/></svg>',
+  step: '<svg width="16" height="16" viewBox="0 0 16 16"><ellipse cx="5" cy="9" rx="2.3" ry="3.6" fill="#fff"/><ellipse cx="11" cy="6" rx="2.3" ry="3.6" fill="#fff"/></svg>',
+  car: '<svg width="18" height="16" viewBox="0 0 18 16"><path d="M2 10l2-5h10l2 5v3H2z" fill="#6cc4ff"/><circle cx="5" cy="13" r="2" fill="#6cc4ff"/><circle cx="13" cy="13" r="2" fill="#6cc4ff"/></svg>'
+};
+const SVZ_COL = { shot: '#ff9a3c', step: '#ffffff', car: '#6cc4ff' };
+function svzRoot() {
+  if (SVZ.el && SVZ.el.isConnected) return SVZ.el;
+  const h = $('hud'); if (!h) return null;
+  const el = document.createElement('div'); el.id = 'sndRing'; h.appendChild(el); return SVZ.el = el;
+}
+function svzEnemy(a) { const p = G.player; return a && p && a !== p && a.alive && a.team !== p.team; }
+// registra/renova uma marca (uma por inimigo e tipo; tiro ganha de passo)
+function svzPing(a, kind, strength, life) {
+  if (!SET.soundViz || G.phase !== 'match' || !G.player || !G.player.alive || G.watch) return;
+  const key = a.id + kind; let m = SVZ.m.get(key);
+  if (!m) { m = { a, kind, t: 0, s: 0, el: null }; SVZ.m.set(key, m); }
+  m.t = Math.max(m.t, life); m.s = Math.max(m.s * 0.6, strength); m.x = a.x; m.z = a.z;
+}
+function svzStep(dt) {
+  const root = svzRoot(); if (!root) return;
+  const on = SET.soundViz && G.phase === 'match' && G.player && G.player.alive && !G.watch;
+  root.style.display = on ? '' : 'none';
+  if (!on) { for (const m of SVZ.m.values()) if (m.el) m.el.remove(); SVZ.m.clear(); return; }
+  const p = G.player;
+  // passos e motores: varre os inimigos 4x por segundo
+  if ((SVZ.acc += dt) > 0.25) { SVZ.acc = 0;
+    for (const a of G.actors) {
+      if (!svzEnemy(a)) continue; const d = Math.hypot(a.x - p.x, a.z - p.z);
+      if (a.veh) { const v = a.veh; if (d < 120 && Math.hypot(v.vx || 0, v.vz || 0) + Math.abs(v.sp || 0) > 1) svzPing(a, 'car', 1 - d / 120, 0.6); continue; }
+      if (a.mode !== 'ground' || !a.onGround || a.stance === 'prone') continue;
+      const sp = Math.hypot(a.vx || 0, a.vz || 0), rng = a.stance === 'crouch' ? 12 : sp > 5.6 ? 36 : 30;
+      if (sp > 0.9 && d < rng) svzPing(a, 'step', 1 - d / rng, 0.55);
+    }
+  }
+  const yaw = G.view ? G.view.yaw : camera.rotation.y, fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  const R = Math.min(innerWidth, innerHeight) * 0.24;
+  for (const [k, m] of SVZ.m) {
+    m.t -= dt;
+    if (m.t <= 0 || !m.a.alive) { if (m.el) m.el.remove(); SVZ.m.delete(k); continue; }
+    if (m.kind !== 'shot') { m.x = m.a.x; m.z = m.a.z; } // tiro fica onde foi ouvido
+    const dx = m.x - p.x, dz = m.z - p.z, th = Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz);
+    if (!m.el) { m.el = document.createElement('div'); m.el.className = 'sv sv-' + m.kind; m.el.innerHTML = `<svg class="arc" width="44" height="14" viewBox="0 0 44 14"><path d="M3 12 Q22 -2 41 12" stroke="${SVZ_COL[m.kind]}" stroke-width="5" fill="none" stroke-linecap="round"/></svg><div class="ic">${SVZ_ICON[m.kind]}</div>`; root.appendChild(m.el); }
+    const r = R + (m.kind === 'shot' ? 0 : m.kind === 'car' ? 16 : 8);
+    m.el.style.transform = `translate(${Math.sin(th) * r}px,${-Math.cos(th) * r}px) rotate(${th}rad)`;
+    m.el.style.opacity = (0.35 + 0.65 * Math.min(1, m.s)) * Math.min(1, m.t / 0.35);
+  }
+}
+(function hookSvz() {
+  const sh = shotSound;
+  shotSound = function (a, d, quiet) {
+    const r = sh.apply(this, arguments);
+    if (svzEnemy(a)) { const dd = Math.hypot(a.x - G.player.x, a.z - G.player.z), rng = quiet ? 50 : 250; if (dd < rng) svzPing(a, 'shot', 1 - dd / rng * 0.8, 1.6); }
+    return r;
+  };
+  const gs = gfxStep; gfxStep = function (dt, ...q) { const o = gs.call(this, dt, ...q); svzStep(dt); return o; };
+  const om = openMenu; openMenu = function (...q) { const r = om.apply(this, q);
+    const box = document.querySelector('#menuP .box'), ref = $('sQ') && $('sQ').closest('label');
+    if (box && ref && !$('sSvz')) { const l = document.createElement('label'); l.innerHTML = 'Avisos de som na tela (tiros e passos) <input type="checkbox" id="sSvz">'; ref.after(l); $('sSvz').checked = !!SET.soundViz; $('sSvz').onchange = e => { SET.soundViz = e.target.checked; saveSet(); }; }
+    return r; };
+})();
 
 // ================= início =================
 G.mode = SET.mode || 'squad'; G.diff = SET.diff || 'mix';

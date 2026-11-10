@@ -53,7 +53,7 @@ function startTraining() {
   const extra = [...Object.keys(ATT), 'FAK', 'MED', 'ENERGY', 'PAIN', 'BAND', 'FRAG', 'SMOKE', 'MOLO', 'PAN']; n = 0;
   for (const k of extra) { const row = Math.floor(n / 9), col = n % 9, [x, z] = at(5 + row * 1.3, -4 + col * 1.0); dropItem(k, k === 'BAND' ? 10 : 3, x, groundH(x, z) + 0.05, z); n++; }
   // carros para testar
-  [['seda', 9, 8], ['jipe', 13, 8], ['moto', 17, 6]].forEach(([k, s, f]) => { const [x, z] = at(s, f); addVehicle(k, x, z, S.yaw + Math.PI / 2); });
+  [['seda', 9, 8], ['jipe', 13, 8], ['pickup', 17, 8], ['van', 21, 8], ['moto', 25, 6]].forEach(([k, s, f]) => { const [x, z] = at(s, f); addVehicle(k, x, z, S.yaw + Math.PI / 2); });
   Object.assign(ZONE, { cx: S.x, cz: S.z, r: 1e5, nr: 1e5, ph: PHASES.length, st: 'end', dmg: 0 });
   PLANE.on = DROPP.on = false; PLANE.m.visible = DROPP.m.visible = false;
   G.view = { yaw: S.yaw, pitch: -0.05, fpp: SET.view === 'fpp', spect: null };

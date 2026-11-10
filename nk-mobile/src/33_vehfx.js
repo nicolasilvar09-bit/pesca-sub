@@ -35,7 +35,7 @@ function vehFxStep(dt) {
     const d = Math.hypot(v.x - cx, v.z - cz);
     v.wrot = (v.wrot || 0) + v.sp * dt / 0.4;
     v.mesh.updateMatrix(); v.mesh.updateMatrixWorld();
-    const tint = v.dead ? 0.12 : v.k === 'jipe' || v.k === 'buggy' ? 0.5 : 1;
+    const tint = v.dead ? 0.12 : v.k === 'jipe' || v.k === 'buggy' || v.k === 'pickup' ? 0.5 : 1;
     for (const w of v.wheels) {
       const front = w.z < 0, left = w.s < 0;
       _vfe.set(left ? v.wrot : -v.wrot, (front ? -(v.str || 0) * 0.45 : 0) + (left ? Math.PI : 0), 0, 'YXZ');

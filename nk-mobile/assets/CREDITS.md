@@ -91,3 +91,8 @@ Alterações: orientação e escala normalizadas, malha simplificada, braços re
 
 ## Sons de recarga (assets/snd/rl_*.mp3)
 - "Gun Reload Sounds" por SpringySpringo — https://opengameart.org/content/gun-reload-sounds (CC0). Cortados em pedaços (pente sai, pente entra, ferrolho, ferrolho de pistola, bomba de escopeta), mono, MP3.
+
+## Mais armas de verdade (10/11) — Sketchfab, CC BY 4.0
+- AUG A3: "Steyr AUG A3" por mobzver3d — https://sketchfab.com/3d-models/steyr-aug-a3-62ca412c88a64c0287774496b7f351fc (com o pente; versão simplificada do projeto trusthemind/game)
+- Mk14 EBR: "Low-Poly Mk14 EBR" por TastyTony — https://skfb.ly/6vpVG (tirado do projeto Lakamfo/Zombies-Must-Die, só a arma, sem braços)
+Alterações: orientação e escala normalizadas, malha simplificada, peças soltas da animação removidas (Mk14).

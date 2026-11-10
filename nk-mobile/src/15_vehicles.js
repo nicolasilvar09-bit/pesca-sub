@@ -5,6 +5,8 @@ const VDEF = {
   seda: { n: 'Sedã', hp: 1100, max: 29, acc: 10, turn: 1.2, hl: 2.25, hw: 0.95, h: 1.5, seats: [[-0.4, -0.1, 0.45], [0.4, -0.1, 0.45], [-0.4, 0.8, 0.45], [0.4, 0.8, 0.45]], cols: ['#8c2f2a', '#d8d8d2', '#2f5a6a', '#3a3d42', '#9a8a5a'] },
   buggy: { n: 'Buggy', hp: 900, max: 28, acc: 11, turn: 1.45, hl: 1.6, hw: 0.95, h: 1.4, seats: [[-0.38, 0.1, 0.45], [0.38, 0.1, 0.45]], cols: ['#b0632a', '#5a6b3a', '#3a5a7a'] },
   lancha: { n: 'Lancha', boat: true, hp: 1000, max: 21, acc: 7, turn: 0.95, hl: 2.7, hw: 1.05, h: 1.5, seats: [[-0.4, 0.1, 0.75], [0.4, 0.1, 0.75], [-0.4, 1.1, 0.7], [0.4, 1.1, 0.7]], cols: ['#e8e8e8', '#d64545', '#2f6fa8', '#f2c14e'] },
+  pickup: { n: 'Caminhonete', hp: 1700, max: 26, acc: 8.5, turn: 1.05, hl: 2.55, hw: 1.0, h: 1.85, seats: [[-0.42, -0.4, 0.6], [0.42, -0.4, 0.6], [-0.45, 1.35, 0.98], [0.45, 1.35, 0.98]], cols: ['#e3e1da', '#2d3b52', '#7a2b22', '#3f4a33', '#5c5f63'] },
+  van: { n: 'Van', hp: 1600, max: 23, acc: 7, turn: 1.0, hl: 2.4, hw: 1.0, h: 2.3, seats: [[-0.42, -1.05, 0.7], [0.42, -1.05, 0.7], [-0.42, 0.2, 0.7], [0.42, 0.2, 0.7], [-0.42, 1.25, 0.7], [0.42, 1.25, 0.7]], cols: ['#e6e3d8', '#d9b23a', '#3c6a8a', '#8a3a2a'] },
   moto: { n: 'Moto', hp: 550, max: 33, acc: 12, turn: 1.9, hl: 1.0, hw: 0.35, h: 1.2, seats: [[0, 0.0, 0.85], [0, 0.5, 0.95]], cols: ['#8a2a22', '#2a2c30', '#4a5a6a', '#6a5a3a'] },
 };
 const VEH = [];
@@ -86,6 +88,59 @@ function carBody(p, k, col, L, W) {
     for (const s of [-1, 1]) p.push(vseg([s * W * 0.7, 1.95, -0.4], [s * W * 0.7, 1.95, L - 0.2], 0.04, '#222', 'plas')); /* bagageiro */
     p.push(bx(-0.36, 0.54, L + 0.0, 0.32, 0.16, 0.03, '#e8e8e0', { m: 'plas' }));
     p.push(bx(-W * 0.85, 0.45, -L + 0.3, W * 1.7, 0.1, L * 2 - 0.6, '#151515', { m: 'under' }));
+  } else if (k === 'pickup') {
+    /* caminhonete: capô comprido, cabine dupla curta e caçamba aberta atrás */
+    const cb = 0.5; /* traseira da cabine */
+    p.push({ g: loftGeo([
+      { z: -L, w: W * 0.86, y0: 0.5, y1: 0.95, n: 5 }, { z: -L + 0.12, w: W * 0.96, y0: 0.45, y1: 1.08, n: 6 }, { z: -L + 0.7, w: W, y0: 0.44, y1: 1.15, n: 7 },
+      { z: cb, w: W, y0: 0.44, y1: 1.18, n: 7 }]), c: col });
+    p.push({ g: loftGeo([
+      { z: -0.98, w: W * 0.95, wt: W * 0.9, y0: 1.12, y1: 1.16, n: 6 }, { z: -0.62, w: W * 0.95, wt: W * 0.86, y0: 1.12, y1: 1.78, n: 7 },
+      { z: cb - 0.04, w: W * 0.95, wt: W * 0.88, y0: 1.12, y1: 1.8, n: 7 }, { z: cb, w: W * 0.94, wt: W * 0.87, y0: 1.12, y1: 1.76, n: 6 }]), c: glass, m: 'glass' });
+    p.push({ g: loftGeo([{ z: -0.62, w: W * 0.87, y0: 1.76, y1: 1.85, n: 6 }, { z: cb - 0.02, w: W * 0.89, y0: 1.77, y1: 1.86, n: 6 }], 16), c: col });
+    /* caçamba: chassi embaixo, assoalho, laterais e tampa */
+    p.push({ g: loftGeo([{ z: cb, w: W * 0.98, y0: 0.44, y1: 0.86, n: 7 }, { z: L, w: W * 0.96, y0: 0.46, y1: 0.86, n: 7 }]), c: col });
+    p.push(bx(-W * 0.92, 0.86, cb + 0.04, W * 1.84, 0.04, L - cb - 0.1, '#2b2b2b', { m: 'plas' }));
+    for (const s of [-1, 1]) {
+      p.push(bx(s > 0 ? W * 0.9 : -W, 0.86, cb + 0.02, W * 0.1, 0.34, L - cb - 0.04, col));
+      p.push(bx(s > 0 ? W * 0.88 : -W * 1.0, 1.18, cb + 0.02, W * 0.12, 0.04, L - cb - 0.04, '#2a2a2a', { m: 'plas' })); /* frisos de borda */
+      p.push(vseg([s * W * 0.96, 1.15, -0.95], [s * W * 0.87, 1.8, -0.6], 0.05, col, 'paint', GEO.box), vseg([s * W * 0.96, 1.15, -0.2], [s * W * 0.9, 1.8, -0.2], 0.05, col, 'paint', GEO.box));
+      p.push(bx(s * (W + 0.003) - 0.005, 0.5, -0.92, 0.01, 0.65, 0.012, '#111', { m: 'plas' }), bx(s * (W + 0.003) - 0.005, 0.5, -0.2, 0.01, 0.65, 0.012, '#111', { m: 'plas' }));
+      p.push(bx(s * (W + 0.012) - 0.02, 0.98, -0.62, 0.04, 0.03, 0.16, '#b9bcbf', { m: 'chrome' }), bx(s * (W + 0.012) - 0.02, 0.98, 0.1, 0.04, 0.03, 0.16, '#b9bcbf', { m: 'chrome' }));
+      p.push(bx(s * (W + 0.05) - 0.06, 1.2, -0.95, 0.12, 0.15, 0.06, dark, { m: 'plas' }), vseg([s * W, 1.18, -0.93], [s * (W + 0.07), 1.22, -0.93], 0.03, dark, 'plas'));
+      p.push({ g: GEO.box, x: s * W * 0.62, y: 0.92, z: -L - 0.01, sx: 0.36, sy: 0.14, sz: 0.06, c: '#f3efe2', m: 'light' });
+      p.push({ g: GEO.box, x: s * W * 0.92, y: 0.98, z: L + 0.01, sx: 0.1, sy: 0.3, sz: 0.04, c: '#c0101a', m: 'tail' });
+      p.push(bx(s > 0 ? W - 0.02 : -W - 0.02, 0.5, -L + 0.25, 0.04, 0.05, L * 2 - 0.5, '#1a1a1a', { m: 'plas' })); /* estribo */
+    }
+    p.push(bx(-W * 0.9, 0.86, L - 0.06, W * 1.8, 0.36, 0.06, col)); /* tampa da caçamba */
+    p.push(bx(-W * 0.5, 0.62, -L - 0.03, W, 0.32, 0.05, '#151515', { m: 'plas' }), bx(-W * 0.48, 0.74, -L - 0.06, W * 0.96, 0.05, 0.03, '#b9bcbf', { m: 'chrome' }));
+    p.push(bx(-W * 0.98, 0.42, -L - 0.12, W * 1.96, 0.16, 0.14, '#b9bcbf', { m: 'chrome' }), bx(-W * 0.98, 0.42, L - 0.02, W * 1.96, 0.14, 0.14, '#1d1d1d', { m: 'plas' })); /* para-choques */
+    p.push(bx(-0.26, 0.6, L + 0.02, 0.52, 0.13, 0.03, '#e8e8e0', { m: 'plas' }));
+    for (const s of [-1, 1]) p.push(vseg([s * W * 0.85, 1.2, cb + 0.05], [s * W * 0.85, 1.75, cb + 0.05], 0.035, '#222', 'plas')); /* santo antônio */
+    p.push(vseg([-W * 0.85, 1.75, cb + 0.05], [W * 0.85, 1.75, cb + 0.05], 0.035, '#222', 'plas'));
+    p.push(bx(-W * 0.85, 0.38, -L + 0.3, W * 1.7, 0.1, L * 2 - 0.6, '#151515', { m: 'under' }));
+  } else if (k === 'van') {
+    /* van: caixa alta de uma ponta à outra, frente curta e reta, janelas em faixa e duas cores */
+    p.push({ g: loftGeo([
+      { z: -L, w: W * 0.9, y0: 0.45, y1: 1.15, n: 5 }, { z: -L + 0.1, w: W * 0.97, y0: 0.42, y1: 1.3, n: 6 }, { z: -L + 0.45, w: W, y0: 0.42, y1: 1.3, n: 7 },
+      { z: L - 0.1, w: W, y0: 0.42, y1: 1.3, n: 7 }, { z: L, w: W * 0.96, y0: 0.45, y1: 1.28, n: 6 }]), c: col });
+    p.push({ g: loftGeo([
+      { z: -L + 0.38, w: W * 0.98, wt: W * 0.93, y0: 1.28, y1: 1.32, n: 7 }, { z: -L + 0.62, w: W * 0.98, wt: W * 0.93, y0: 1.28, y1: 1.9, n: 8 },
+      { z: L - 0.08, w: W * 0.98, wt: W * 0.94, y0: 1.28, y1: 1.92, n: 8 }, { z: L, w: W * 0.95, wt: W * 0.92, y0: 1.28, y1: 1.88, n: 7 }]), c: glass, m: 'glass' });
+    p.push({ g: loftGeo([{ z: -L + 0.6, w: W * 0.94, y0: 1.88, y1: 2.18, n: 7 }, { z: L - 0.04, w: W * 0.95, y0: 1.9, y1: 2.2, n: 7 }], 18), c: '#ecebe6' });
+    for (const s of [-1, 1]) {
+      for (const z of [-L + 0.62, -0.75, 0.3, 1.3, L - 0.1]) p.push(bx(s > 0 ? W * 0.93 : -W * 0.99, 1.3, z - 0.05, W * 0.06, 0.6, 0.1, '#ecebe6')); /* colunas entre as janelas */
+      p.push(bx(s * (W + 0.003) - 0.005, 0.5, -0.78, 0.01, 1.35, 0.012, '#111', { m: 'plas' }), bx(s * (W + 0.003) - 0.005, 0.5, 0.25, 0.01, 1.35, 0.012, '#111', { m: 'plas' }));
+      p.push(bx(s > 0 ? W - 0.01 : -W - 0.01, 0.95, -L + 0.2, 0.02, 0.1, L * 2 - 0.4, '#ecebe6')); /* faixa */
+      p.push(bx(s * (W + 0.06) - 0.07, 1.5, -L + 0.5, 0.14, 0.22, 0.06, dark, { m: 'plas' }), vseg([s * W, 1.45, -L + 0.5], [s * (W + 0.08), 1.5, -L + 0.5], 0.03, dark, 'plas'));
+      p.push({ g: GEO.box, x: s * W * 0.62, y: 0.95, z: -L - 0.01, sx: 0.3, sy: 0.2, sz: 0.06, c: '#f3efe2', m: 'light' });
+      p.push({ g: GEO.box, x: s * W * 0.82, y: 1.0, z: L + 0.01, sx: 0.14, sy: 0.32, sz: 0.04, c: '#c0101a', m: 'tail' });
+    }
+    p.push(bx(-W * 0.5, 0.62, -L - 0.03, W, 0.22, 0.05, '#151515', { m: 'plas' }), bx(-0.12, 0.66, -L - 0.06, 0.24, 0.12, 0.03, '#b9bcbf', { m: 'chrome' }));
+    p.push(bx(-W * 0.98, 0.4, -L - 0.08, W * 1.96, 0.16, 0.12, '#1d1d1d', { m: 'plas' }), bx(-W * 0.98, 0.4, L - 0.04, W * 1.96, 0.16, 0.12, '#1d1d1d', { m: 'plas' }));
+    p.push(bx(-0.26, 0.62, L + 0.02, 0.52, 0.13, 0.03, '#e8e8e0', { m: 'plas' }));
+    for (const s of [-1, 1]) p.push(vseg([s * W * 0.7, 2.24, -L + 0.8], [s * W * 0.7, 2.24, L - 0.3], 0.03, '#222', 'plas')); /* bagageiro */
+    p.push(bx(-W * 0.85, 0.36, -L + 0.3, W * 1.7, 0.1, L * 2 - 0.6, '#151515', { m: 'under' }));
   } else {
     /* sedã: capô inclinado, para-brisa deitado, porta-malas curto */
     p.push({ g: loftGeo([
@@ -146,7 +201,7 @@ function vehGeo(k, col, noWheels) {
     for (const [s, z, r, w] of [[-1, -L + 0.45, 0.45, 0.35], [1, -L + 0.45, 0.45, 0.35], [-1, L - 0.4, 0.5, 0.42], [1, L - 0.4, 0.5, 0.42]]) vwheel(p, s * (W + 0.1), z, r, w, s, '#3d4044', 5);
   } else {
     carBody(p, k, col, L, W);
-    const jeep = k === 'jipe', r = jeep ? 0.45 : 0.35, tw = jeep ? 0.32 : 0.24, wx = jeep ? W - 0.08 : W - 0.1, fz = -L + (jeep ? 0.65 : 0.72), rz = L - (jeep ? 0.62 : 0.7);
+    const jeep = k === 'jipe' || k === 'pickup' || k === 'van', r = k === 'van' ? 0.4 : jeep ? 0.45 : 0.35, tw = jeep ? 0.32 : 0.24, wx = jeep ? W - 0.08 : W - 0.1, fz = -L + (jeep ? 0.65 : 0.72), rz = L - (jeep ? 0.62 : 0.7);
     for (const s of [-1, 1]) for (const z of [fz, rz]) {
       varch(p, s * (W - 0.02), z, r, r + (jeep ? 0.1 : 0.06), jeep ? '#232323' : '#111');
       vwheel(p, s * wx, z, r, tw, s, jeep ? '#4a4d50' : '#a9adb1', jeep ? 6 : 5);
@@ -179,7 +234,7 @@ const WRECK = new T.MeshLambertMaterial({ vertexColors: true, color: 0x333333 })
 function spawnVehicles() {
   for (const v of VEH) scene.remove(v.mesh);
   VEH.length = 0;
-  const kinds = ['jipe', 'jipe', 'seda', 'seda', 'seda', 'buggy', 'buggy', 'moto', 'moto', 'moto'];
+  const kinds = ['jipe', 'jipe', 'seda', 'seda', 'pickup', 'pickup', 'van', 'buggy', 'buggy', 'moto', 'moto', 'moto'];
   let tries = 0;
   while (VEH.length < 80 && tries++ < 2500) {
     const r = pick(ROADS), t = rr(0.08, 0.92), dx = r[2] - r[0], dz = r[3] - r[1], L = Math.hypot(dx, dz), side = Math.random() < 0.5 ? -1 : 1;

@@ -293,3 +293,8 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Recarga em 1ª pessoa com a mão esquerda de verdade: tira o pente, some para buscar outro, volta com o pente novo na mão, encaixa e puxa o ferrolho. Pistola mais rápida com o ferrolho no fim; S1897, S686, Kar98k e Mosin colocam cartucho por cartucho (bomba na S1897, ferrolho nos fuzis); M249 com caixa e tampa; DP-28 com o carregador de prato por cima.
 - Sons gravados (CC0) no ritmo da animação, por estilo de arma.
 - Troca de arma: a nova entra de baixo e sobe, com som de sacar.
+
+## Armas, avisos de som e veículos (10/11)
+- AUG A3 e Mk14 EBR agora com modelo 3D de verdade (CC BY, ver CREDITS). Mini 14 e DP-28 seguem com o modelo simples até achar um modelo livre.
+- Avisos de som na tela: marcas em volta da mira mostram de onde vêm tiros (laranja, até 250 m; com silenciador 50 m), passos (branco, até 30 m; agachado 12 m; deitado nada) e motores (azul, até 120 m) de inimigos. Aliados não aparecem. Configurações > "Avisos de som na tela" liga/desliga.
+- Veículos novos: Caminhonete (cabine dupla, caçamba com 2 lugares atrás) e Van (6 lugares). Aparecem nas estradas e no campo de treino.
