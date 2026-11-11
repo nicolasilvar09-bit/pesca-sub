@@ -5601,7 +5601,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '10/11 13:17'; // data da versão (preenchida pelo build.py)
+const BUILD = '11/11 16:01'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -8341,7 +8341,8 @@ function playerStep(dt) {
   // coice: sobe a mira; quando solta o gatilho, volta uma parte
   if (G.camKick) {
     const st = p.stance === 'prone' ? 0.55 : p.stance === 'crouch' ? 0.78 : 1, k = G.camKick * 0.0085 * st * (p.ads ? 1 : 1.25);
-    v.pitch += k; v.yaw += gauss() * k * 0.3; G.recAcc += k; G.camKick = 0;
+    const up = G.recUp || 1, yk = G.recYaw != null ? G.recYaw * k : gauss() * k * 0.3; /* padrão de recuo de cada arma (38_gunfeel) */
+    v.pitch += k * up; v.yaw += yk; G.recAcc += k * up; G.camKick = 0; G.recUp = 1; G.recYaw = null;
   } else if (!IN.fire && G.recAcc > 0) { const r = G.recAcc * Math.min(1, dt * 7); v.pitch -= r * 0.45; G.recAcc -= r; }
   v.pitch = clamp(v.pitch, -1.45, 1.45);
   p.yaw = v.yaw; p.pitch = v.pitch;
@@ -8530,7 +8531,7 @@ function updateCamera(dt) {
     const bb = Math.min(1, Math.hypot(p.vx, p.vz) / 5) * (p.onGround ? 1 : 0) * (p.ads ? 0.15 : 1), ph = v.bob || 0, land = landDip(p);
     const bobX = Math.cos(ph) * 0.012 * bb, bobY = -Math.abs(Math.sin(ph)) * 0.012 * bb + Math.sin(G.t * 1.6) * 0.002 - land * 0.025 - airK * 0.018;
     // mira: a arma desliza até o olho em ~0,2 s (não pula de posição)
-    v.adsK = (v.adsK || 0) + ((p.ads ? 1 : 0) - (v.adsK || 0)) * (1 - Math.exp(-dt * 16)); const ak = v.adsK;
+    v.adsK = (v.adsK || 0) + ((p.ads ? 1 : 0) - (v.adsK || 0)) * (1 - Math.exp(-dt * (typeof adsSpeed === 'function' ? adsSpeed(w) : 16))); /* arma pesada mira mais devagar */ const ak = v.adsK;
     const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y;
     // recarga em fases: inclina e abaixa, troca o pente, volta e puxa o ferrolho
     const rp2 = p.reloadT > 0 && p.relTot ? 1 - p.reloadT / p.relTot : 1;
@@ -12433,8 +12434,8 @@ function startTraining() {
   G.size = 1; G.training = TRAIN.on = true; G.god = true;
   // você
   const p = makeActor({ name: SET.name || 'Jogador', team: 1, bot: false, skill: 1, look: Object.assign({}, CHARS[SET.char] || CHARS[0]), uid: 'me', ix: 0 });
-  p.ai = null; p.mode = 'ground'; p.x = S.x; p.z = S.z; p.y = groundH(S.x, S.z) + 0.1; p.onGround = true; p.yaw = S.yaw; p.bagLv = 3; p.helm = { lv: 3, dur: 999 }; p.vest = { lv: 3, dur: 999 };
-  G.actors = [p]; buildModel(p); G.player = p;
+  p.ai = null; p.mode = 'ground'; p.x = S.x; p.z = S.z; p.y = groundH(S.x, S.z) + 0.1; p.onGround = true; p.yaw = S.yaw; p.bagLv = 3; p.helm = { lv: 3, dur: 999 }; p.vest = { lv: 3, dur: 999 }; p.cosMe = true; /* usa as skins do jogador */
+  G.actors = [p]; G.player = p; buildModel(p);
   // alvos (bonecos parados, cada um numa equipe; não atiram e não morrem: só mostram o dano)
   const placed = [];
   TRAIN_D.forEach((d, i) => {
@@ -12845,6 +12846,394 @@ function svzStep(dt) {
     const box = document.querySelector('#menuP .box'), ref = $('sQ') && $('sQ').closest('label');
     if (box && ref && !$('sSvz')) { const l = document.createElement('label'); l.innerHTML = 'Avisos de som na tela (tiros e passos) <input type="checkbox" id="sSvz">'; ref.after(l); $('sSvz').checked = !!SET.soundViz; $('sSvz').onchange = e => { SET.soundViz = e.target.checked; saveSet(); }; }
     return r; };
+})();
+
+// ================= armadura 3D das skins: placas de verdade vestidas no corpo (couraça, ombreiras em camadas, braçadeiras, caneleiras, penas e asas) =================
+// as placas são medidas no corpo de cada personagem (anéis em volta de cada osso, no raio do corpo + folga) e copiam os pesos dos ossos do
+// vértice do corpo mais perto: acompanham todas as animações, servem em homem e mulher e não precisam de arquivo novo.
+// uma malha só por personagem (ouro + borda acesa); some de longe (70 m) para não pesar no celular.
+const ARMOR = { geo: {}, mats: {} };
+const ARMOR_TH = { s_fenix: { gold: 0xa8661a, neon: 0xff3c00, rough: 0.24, feathers: true, wings: true, emblem: 'wings' } };
+function armorMats(th) {
+  if (ARMOR.mats[th]) return ARMOR.mats[th];
+  const c = ARMOR_TH[th], env = typeof ENV_TEX !== 'undefined' ? ENV_TEX : null;
+  return ARMOR.mats[th] = [
+    new T.MeshStandardMaterial({ color: c.gold, metalness: 1, roughness: c.rough, envMap: env, envMapIntensity: 1.6, side: T.DoubleSide }),
+    new T.MeshStandardMaterial({ color: c.neon, emissive: c.neon, emissiveIntensity: 3.2, roughness: 0.45, side: T.DoubleSide }),
+  ];
+}
+// ---- monta a geometria a partir do corpo (espaço da malha, pose de origem) ----
+function armorGeo(host, th) {
+  const g = host.geometry, P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight, sk = host.skeleton;
+  const cp = (at, i, k) => k === 0 ? at.getX(i) : k === 1 ? at.getY(i) : k === 2 ? at.getZ(i) : at.getW(i);
+  const bi = n => sk.bones.findIndex(b => b.name === n), V = (x, y, z) => new T.Vector3(x, y, z);
+  const joint = n => { const i = bi(n); if (i < 0) return null; return V().setFromMatrixPosition(new T.Matrix4().copy(sk.boneInverses[i]).invert()); }; /* já no espaço da malha (a matriz de ligação é a identidade) */
+  const wOf = (i, set) => { let s = 0; for (let k = 0; k < 4; k++) if (set.has(cp(SI, i, k))) s += cp(SW, i, k); return s; };
+  const pel = joint('Bip01_Pelvis'), hd = joint('Bip01_Head'), H = hd.distanceTo(pel);
+  const UP = hd.clone().sub(pel).normalize();
+  const RT = joint('Bip01_R_UpperArm').sub(joint('Bip01_L_UpperArm')); RT.addScaledVector(UP, -RT.dot(UP)).normalize();
+  let FW = UP.clone().cross(RT).normalize(); const nose = joint('Bip01_MNose'); if (nose && nose.clone().sub(hd).dot(FW) < 0) FW.negate();
+  const pos = [], idx = [], si = [], sw = [], grp = [[], []]; const C = ARMOR_TH[th];
+  const vp = new T.Vector3();
+  // vértices do corpo de uma região (para medir o raio e copiar pesos)
+  const region = names => { const set = new Set(names.map(bi).filter(i => i >= 0)), out = []; for (let i = 0; i < P.count; i++) if (wOf(i, set) > 0.35) out.push(i); return out; };
+  const nearest = (p, list) => { let best = list[0], bd = 1e18; for (const i of list) { const dx = P.getX(i) - p.x, dy = P.getY(i) - p.y, dz = P.getZ(i) - p.z, d = dx * dx + dy * dy + dz * dz; if (d < bd) { bd = d; best = i; } } return best; };
+  const addV = (p, wsrc, rigid) => { pos.push(p.x, p.y, p.z); if (rigid != null) { si.push(rigid, 0, 0, 0); sw.push(1, 0, 0, 0); } else { for (let k = 0; k < 4; k++) { si.push(cp(SI, wsrc, k)); sw.push(cp(SW, wsrc, k)); } } return pos.length / 3 - 1; };
+  const quad = (a, b, c, d, m) => grp[m].push(a, b, c, b, d, c);
+  /* casca medida: eixo a->b, anéis de t0 a t1, setores no arco (a0..a1 em volta de ref), raio = corpo + folga */
+  function shell(o) {
+    const a = joint(o.a), b = joint(o.b); if (!a || !b) return;
+    const L = a.distanceTo(b), d = b.clone().sub(a).normalize();
+    const ref = o.ref.clone().addScaledVector(d, -o.ref.dot(d)).normalize(), side = d.clone().cross(ref).normalize();
+    const reg = region(o.bones), NR = o.rings || 7, NS = o.sec || 20, full = o.arc >= 6.28, a0 = full ? 0 : -o.arc / 2, span = full ? Math.PI * 2 : o.arc;
+    const R = []; for (let k = 0; k < NR; k++) R.push(new Array(NS + 1).fill(0));
+    const band = (o.t1 - o.t0) / (NR - 1) * 0.8 + 0.04;
+    for (const i of reg) {
+      vp.fromBufferAttribute(P, i).sub(a); const t = vp.dot(d) / L; if (t < o.t0 - band || t > o.t1 + band) continue;
+      vp.addScaledVector(d, -t * L); const r = vp.length(); let ang = Math.atan2(vp.dot(side), vp.dot(ref));
+      const ks = []; for (let k = 0; k < NR; k++) { const tk = o.t0 + (o.t1 - o.t0) * k / (NR - 1); if (Math.abs(tk - t) < band) ks.push(k); }
+      for (let j = 0; j <= NS; j++) { const aj = a0 + span * j / NS; let da = Math.abs(((ang - aj) % 6.283 + 9.42) % 6.283 - 3.14); if (da < span / NS * 0.9 + 0.12) for (const k of ks) R[k][j] = Math.max(R[k][j], r); }
+    }
+    // preenche buracos e alisa
+    let mean = 0, n = 0; for (const row of R) for (const r of row) if (r > 0) { mean += r; n++; } mean = n ? mean / n : H * 0.08;
+    for (const row of R) for (let j = 0; j <= NS; j++) if (!row[j]) row[j] = mean;
+    for (let it = 0; it < (o.smooth || 3); it++) for (let k = 0; k < NR; k++) { const row = R[k], nw = row.slice(); for (let j = 0; j <= NS; j++) { const jl = full ? (j + NS - 1) % NS : Math.max(0, j - 1), jr = full ? (j + 1) % NS : Math.min(NS, j + 1), up = R[Math.max(0, k - 1)][j], dn = R[Math.min(NR - 1, k + 1)][j]; nw[j] = (row[j] * 2 + row[jl] + row[jr] + up + dn) / 6; } R[k] = nw; }
+    const outer = [], inner = [];
+    for (let k = 0; k < NR; k++) {
+      const tk = o.t0 + (o.t1 - o.t0) * k / (NR - 1), ok = [], ik = [];
+      for (let j = 0; j <= NS; j++) {
+        if (full && j === NS) { ok.push(ok[0]); ik.push(ik[0]); continue; }
+        const aj = a0 + span * j / NS, dir = ref.clone().multiplyScalar(Math.cos(aj)).addScaledVector(side, Math.sin(aj));
+        const shape = o.shape ? o.shape(tk, aj) : 1, ro = R[k][j] * shape + o.off * H * (o.offF ? o.offF(tk, aj) : 1);
+        const po = a.clone().addScaledVector(d, tk * L).addScaledVector(dir, ro), pi = a.clone().addScaledVector(d, tk * L).addScaledVector(dir, ro - o.th * H);
+        const ws = nearest(pi, reg); ok.push(addV(po, ws, o.rigid != null ? bi(o.rigid) : null)); ik.push(addV(pi, ws, o.rigid != null ? bi(o.rigid) : null));
+      }
+      outer.push(ok); inner.push(ik);
+    }
+    for (let k = 0; k < NR - 1; k++) for (let j = 0; j < NS; j++) {
+      const tk = o.t0 + (o.t1 - o.t0) * (k + 0.5) / (NR - 1), aj = a0 + span * (j + 0.5) / NS, m = o.neon && o.neon(tk, aj) ? 1 : 0;
+      quad(outer[k][j], outer[k][j + 1], outer[k + 1][j], outer[k + 1][j + 1], m); quad(inner[k][j + 1], inner[k][j], inner[k + 1][j + 1], inner[k + 1][j], 0);
+    }
+    for (let j = 0; j < NS; j++) { quad(outer[0][j + 1], outer[0][j], inner[0][j + 1], inner[0][j], 1); const e = NR - 1; quad(outer[e][j], outer[e][j + 1], inner[e][j], inner[e][j + 1], 1); }
+    if (!full) for (let k = 0; k < NR - 1; k++) { quad(outer[k][0], outer[k + 1][0], inner[k][0], inner[k + 1][0], 1); quad(outer[k + 1][NS], outer[k][NS], inner[k + 1][NS], inner[k][NS], 1); }
+    return { a, d, L, ref, side, R, o, NR, NS, a0, span, full, reg };
+  }
+  /* ponto na superfície de uma casca (t ao longo do osso, ang em volta) + altura extra */
+  function surf(S, t, ang, ex) {
+    const { o, NR, NS, a0, span, R, a, d, L, ref, side } = S, fk = Math.max(0, Math.min(NR - 1, (t - o.t0) / (o.t1 - o.t0) * (NR - 1)));
+    let fj = (ang - a0) / span * NS; if (S.full) fj = ((fj % NS) + NS) % NS; fj = Math.max(0, Math.min(NS, fj));
+    const k0 = Math.floor(fk), k1 = Math.min(NR - 1, k0 + 1), j0 = Math.floor(fj), j1 = Math.min(NS, j0 + 1), u = fk - k0, w = fj - j0;
+    const r = (R[k0][j0] * (1 - w) + R[k0][j1 % (S.full ? NS : NS + 1)] * w) * (1 - u) + (R[k1][j0] * (1 - w) + R[k1][j1 % (S.full ? NS : NS + 1)] * w) * u;
+    const dir = ref.clone().multiplyScalar(Math.cos(ang)).addScaledVector(side, Math.sin(ang));
+    return a.clone().addScaledVector(d, t * L).addScaledVector(dir, r * (o.shape ? o.shape(t, ang) : 1) + o.off * H * (o.offF ? o.offF(t, ang) : 1) + ex);
+  }
+  /* fita acesa em relevo seguindo um caminho [t, ang] na superfície */
+  function ribbon(S, path, wid, hgt) {
+    const pts = [], n = path.length; let prev = null;
+    for (let i = 0; i < n; i++) {
+      const [t, ang] = path[i], base = surf(S, t, ang, 0), top = surf(S, t, ang, hgt);
+      const nx = path[Math.min(n - 1, i + 1)], pv = path[Math.max(0, i - 1)], tg = surf(S, nx[0], nx[1], 0).sub(surf(S, pv[0], pv[1], 0)).normalize();
+      const nrm = top.clone().sub(base).normalize(), bi2 = tg.clone().cross(nrm).normalize().multiplyScalar(wid / 2), ws = nearest(base, S.reg);
+      pts.push([addV(base.clone().add(bi2), ws), addV(top.clone().add(bi2), ws), addV(top.clone().sub(bi2), ws), addV(base.clone().sub(bi2), ws)]);
+    }
+    for (let i = 0; i < n - 1; i++) { const A = pts[i], B = pts[i + 1]; quad(A[0], A[1], B[0], B[1], 1); quad(A[1], A[2], B[1], B[2], 1); quad(A[2], A[3], B[2], B[3], 1); }
+  }
+  /* lâmina (pena/asa): rígida num osso */
+  function blade(base, dir, wv, len, wid, bone, neonFrom) {
+    const b = bi(bone); if (b < 0) return; const nv = dir.clone().cross(wv).normalize(), n = 6, ring = [];
+    for (let j = 0; j <= n; j++) { const t = j / n, w = wid * Math.pow(Math.sin(Math.PI * Math.min(1, 0.1 + t * 0.95)), 0.8) * (1 - t * 0.3), c = base.clone().addScaledVector(dir, len * t).addScaledVector(nv, len * 0.1 * t * t);
+      ring.push([addV(c.clone().addScaledVector(wv, w), 0, b), addV(c.clone().addScaledVector(wv, -w), 0, b), addV(c.clone().addScaledVector(nv, wid * 0.22 * (1 - t)), 0, b), addV(c.clone().addScaledVector(nv, -wid * 0.12 * (1 - t)), 0, b)]); }
+    const tip = addV(base.clone().addScaledVector(dir, len * 1.1).addScaledVector(nv, len * 0.12), 0, b);
+    for (let j = 0; j < n; j++) { const A = ring[j], B = ring[j + 1], m = j / n >= neonFrom ? 1 : 0; quad(A[0], A[2], B[0], B[2], m); quad(A[2], A[1], B[2], B[1], m); quad(A[1], A[3], B[1], B[3], m); quad(A[3], A[0], B[3], B[0], m); }
+    const A = ring[n]; for (const [x, y] of [[0, 2], [2, 1], [1, 3], [3, 0]]) grp[1].push(A[x], A[y], tip);
+  }
+  // couraça: tronco inteiro, peito mais saliente, asas de fênix acesas no peito
+  const torso = shell({ a: 'Bip01_Spine', b: 'Bip01_Neck', bones: ['Bip01_Spine', 'Bip01_Spine1', 'Bip01_Spine2'], ref: FW, arc: 6.3, t0: 0.2, t1: 0.86, rings: 16, sec: 48, off: 0.024, th: 0.014,
+    offF: (t, a) => 1 + 0.9 * Math.max(0, Math.cos(a)) * Math.sin(Math.PI * Math.min(1, Math.max(0, (t - 0.25) / 0.7))),
+  });
+  if (C.emblem && torso) { // fênix no peito: corpo, duas asas abertas em leque e a cauda; frisos na barriga e nas costas
+    const hw = H * 0.012, hh = H * 0.006, seg = (t0, a0, t1, a1, n) => Array.from({ length: n || 10 }, (_, i) => { const u = i / ((n || 10) - 1); return [t0 + (t1 - t0) * u, a0 + (a1 - a0) * u]; });
+    ribbon(torso, seg(0.3, 0, 0.72, 0, 12), hw * 1.3, hh);
+    for (const sg of [-1, 1]) {
+      for (const [tt, aa] of [[0.86, 1.05], [0.8, 1.2], [0.72, 1.28]]) ribbon(torso, Array.from({ length: 12 }, (_, i) => { const u = i / 11; return [0.6 + (tt - 0.6) * Math.sin(u * 1.57), sg * aa * u]; }), hw, hh);
+      ribbon(torso, seg(0.3, 0, 0.22, sg * 0.35, 6), hw, hh);
+      ribbon(torso, seg(0.26, sg * 0.6, 0.26, sg * 1.5, 8), hw * 0.8, hh); ribbon(torso, seg(0.26, Math.PI - sg * 0.3, 0.26, Math.PI - sg * 1.5, 8), hw * 0.8, hh);
+    }
+    ribbon(torso, seg(0.3, Math.PI, 0.8, Math.PI, 10), hw, hh);
+  }
+  for (const s of ['L', 'R']) {
+    const sg = s === 'R' ? 1 : -1, out = RT.clone().multiplyScalar(sg);
+    // ombreira em 3 camadas (cada uma mais curta e mais afastada), em cima e por fora do ombro
+    for (const [t1, off, k] of [[0.5, 0.03, 0], [0.37, 0.048, 1], [0.24, 0.066, 2]])
+      shell({ a: `Bip01_${s}_UpperArm`, b: `Bip01_${s}_Forearm`, bones: [`Bip01_${s}_UpperArm`, `Bip01_${s}_Clavicle`], ref: UP.clone().add(out.clone().multiplyScalar(0.6)), arc: 3.9, t0: -0.16, t1, rings: 6, sec: 16, off, th: 0.011, rigid: `Bip01_${s}_UpperArm`,
+        shape: (t) => t < 0 ? 0.55 + 0.45 * (1 + t / 0.16) : 1, offF: (t) => 1 + Math.max(0, t) * 0.8 });
+    shell({ a: `Bip01_${s}_Forearm`, b: `Bip01_${s}_Hand`, bones: [`Bip01_${s}_Forearm`], ref: UP, arc: 6.3, t0: 0.3, t1: 0.88, rings: 5, sec: 16, off: 0.016, th: 0.01, offF: t => 1 + (1 - t) * 0.6,
+      neon: (t, a) => Math.abs(t - 0.6) < 0.06 });
+    shell({ a: `Bip01_${s}_Calf`, b: `Bip01_${s}_Foot`, bones: [`Bip01_${s}_Calf`], ref: FW, arc: 3.4, t0: -0.02, t1: 0.72, rings: 7, sec: 14, off: 0.012, th: 0.01,
+      shape: t => t < 0.06 ? 1.08 : 1, neon: (t, a) => Math.abs(a) < 0.12 && t > 0.15 });
+    // penas de fogo saindo da ombreira (presas no braço)
+    if (C.feathers) { const sh = joint(`Bip01_${s}_UpperArm`), el = joint(`Bip01_${s}_Forearm`), dArm = el.clone().sub(sh).normalize();
+      for (let k = 0; k < 3; k++) { const f = -0.5 + k * 0.5, dir = dArm.clone().multiplyScalar(0.45).add(out.clone().multiplyScalar(0.75)).addScaledVector(FW, -f * 0.5).addScaledVector(UP, 0.15).normalize();
+        blade(sh.clone().addScaledVector(UP, H * 0.07).addScaledVector(out, H * 0.06).addScaledVector(FW, f * H * 0.06), dir, FW.clone(), H * (0.34 - Math.abs(f) * 0.1), H * 0.04, `Bip01_${s}_UpperArm`, 0.55); } }
+  }
+  // asas nas costas (presas no tronco)
+  if (C.wings) { const sp = joint('Bip01_Spine2'), back = FW.clone().negate();
+    for (const sg of [-1, 1]) for (let k = 0; k < 5; k++) { const th2 = 0.3 + k * 0.32, dir = UP.clone().multiplyScalar(Math.cos(th2)).addScaledVector(RT, sg * Math.sin(th2)).addScaledVector(back, 0.3).normalize();
+      blade(sp.clone().addScaledVector(back, H * 0.2).addScaledVector(RT, sg * H * 0.06).addScaledVector(UP, H * 0.02), dir, back.clone().cross(dir).normalize(), H * (0.85 - Math.abs(k - 1.2) * 0.13), H * 0.13, 'Bip01_Spine2', 0.45); } }
+  const geo = new T.BufferGeometry();
+  geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('skinIndex', new T.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new T.Float32BufferAttribute(sw, 4));
+  geo.setIndex([...grp[0], ...grp[1]]); geo.addGroup(0, grp[0].length, 0); geo.addGroup(grp[0].length, grp[1].length, 1);
+  geo.computeVertexNormals(); return geo;
+}
+function armorHost(root) { let h = null; root.traverse(o => { if (o.isSkinnedMesh && !h && /_body/i.test((Array.isArray(o.material) ? o.material[0] : o.material).name)) h = o; }); return h; }
+// veste a armadura no personagem (ou tira, se o traje não tem)
+function armorWear(root, avk, th) {
+  const old = root.userData.armor; if (old && old.userData.th === th) return old;
+  if (old) { old.parent && old.parent.remove(old); root.userData.armor = null; }
+  if (!th || !ARMOR_TH[th]) return null;
+  const host = armorHost(root); if (!host) return null;
+  const key = th + '|' + avk; const geo = ARMOR.geo[key] || (ARMOR.geo[key] = armorGeo(host, th));
+  const mesh = new T.SkinnedMesh(geo, armorMats(th)); mesh.position.copy(host.position); mesh.quaternion.copy(host.quaternion); mesh.scale.copy(host.scale);
+  host.parent.add(mesh); mesh.bind(host.skeleton, host.bindMatrix); mesh.frustumCulled = false; mesh.castShadow = true; mesh.userData.th = th;
+  return root.userData.armor = mesh;
+}
+function armorTheme(a) { const e = cosOf(a), o = e.out && COS[e.out]; return o && ARMOR_TH[o.th] ? o.th : null; }
+(function hookArmor() {
+  const ug = updateHumanGear;
+  updateHumanGear = function (a) { const r = ug.apply(this, arguments); const m = a.model; if (m && m.human) { const th = armorTheme(a); if (th || m.root.userData.armor) m.armor = armorWear(m.root, m.av.k, th);
+      if (m.armor) { for (const mt of m.mats) if (/equipment/.test(mt.name.toLowerCase())) mt.visible = false; if (m.gear.vest) m.gear.vest.visible = false; } } /* colete fica por baixo da couraça */ return r; };
+  const gs = gfxStep; gfxStep = function (dt, ...q) { const o = gs.call(this, dt, ...q);
+    const cx = camera.position.x, cz = camera.position.z;
+    for (const a of (G.phase === 'match' ? G.actors : LOB.actors)) { const m = a.model; if (m && m.armor) m.armor.visible = m.g.visible !== false && Math.hypot(a.x - cx, a.z - cz) < 70; }
+    return o; };
+})();
+
+// ================= sensação das armas: padrão de recuo de cada arma, balanço da luneta, peso na mira e cápsulas que pulam no chão =================
+// recuo: cada arma tem um desenho fixo (sobe e puxa para um lado e para o outro sempre do mesmo jeito, como no PUBG/CS) — dá para aprender a
+// controlar puxando o dedo. Os primeiros tiros sobem menos; a rajada longa sobe mais. Empunhadura e compensador continuam reduzindo.
+const GF = { n: 0, lastT: -9, k: '', sway: [0, 0], swT: 0, sprintT: 0 };
+const GF_CLS = { ar: [0.36, 1.0], smg: [0.48, 0.9], pistol: [0.28, 1.0], dmr: [0.22, 1.05], sr: [0.05, 1], sg: [0.16, 1] }; // [lado, subida]
+function gfSeed(k) { let h = 7; for (const c of k) h = (h * 31 + c.charCodeAt(0)) % 9973; return h / 9973; }
+function recoilPattern(k, n) {
+  const d = WEAP[k], c = GF_CLS[d.cls] || GF_CLS.ar, s = gfSeed(k), lmg = d.lmg ? 0.75 : 1;
+  const up = (n < 1 ? 0.7 : n < 6 ? 0.8 + n * 0.07 : 1.12 - Math.min(0.12, (n - 6) * 0.01)) * c[1] * lmg;
+  const bias = (s - 0.5) * 0.5, wave = Math.sin(n * (0.42 + s * 0.3) + s * 6.28) * (n < 4 ? 0.4 : 1);
+  return [up, (bias + wave) * c[0] * (n < 2 ? 0.4 : 1) + (Math.random() - 0.5) * c[0] * 0.25];
+}
+// velocidade de mirar (maior = mais rápido): pistola e SMG levantam rápido, sniper e metralhadora devagar
+function adsSpeed(w) { if (!w) return 16; const d = WEAP[w.k]; return d.lmg ? 8 : { pistol: 20, smg: 18, ar: 15, sg: 14, dmr: 11, sr: 9 }[d.cls] || 15; }
+// cápsulas: sai uma por tiro pela janela de ejeção, quica no chão e some
+const CAS = { n: 32, i: 0, list: [] };
+(function casInit() {
+  const g = new T.CylinderGeometry(1, 1, 1, 6); g.rotateX(Math.PI / 2);
+  CAS.mesh = new T.InstancedMesh(g, new T.MeshStandardMaterial({ color: 0xc89b3c, metalness: 0.9, roughness: 0.3, envMap: typeof ENV_TEX !== 'undefined' ? ENV_TEX : null }), CAS.n);
+  CAS.mesh.instanceMatrix.setUsage(T.DynamicDrawUsage); CAS.mesh.frustumCulled = false; CAS.mesh.count = 0; scene.add(CAS.mesh);
+  for (let i = 0; i < CAS.n; i++) CAS.list.push({ t: 0 });
+})();
+const _cm = new T.Matrix4(), _cq = new T.Quaternion(), _ce = new T.Euler(), _cs = new T.Vector3(), _csp = new T.Vector3(), _cr = new T.Vector3();
+function casEject(a, d, delay) {
+  const c = CAS.list[CAS.i = (CAS.i + 1) % CAS.n], sg = d.cls === 'sg', big = d.cls === 'sr' || d.cls === 'dmr';
+  if (a === G.player && VM.visible) { vmGun.updateMatrixWorld(true); _csp.set(0.03, 0.03, -0.02); vmGun.localToWorld(_csp); }
+  else if (a.model && a.model.gun) { a.model.gun.updateMatrixWorld(true); _csp.set(0.03, 0.03, -0.05); a.model.gun.localToWorld(_csp); }
+  else return;
+  const yaw = a === G.player ? G.view.yaw : a.yaw; _cr.set(Math.cos(yaw), 0, -Math.sin(yaw)); // direita
+  const sp = 2.2 + Math.random() * 1.2;
+  Object.assign(c, { x: _csp.x, y: _csp.y, z: _csp.z, vx: _cr.x * sp - Math.sin(yaw) * -0.6 + (Math.random() - 0.5) * 0.5, vy: 1.6 + Math.random() * 1.1, vz: _cr.z * sp - Math.cos(yaw) * -0.6 + (Math.random() - 0.5) * 0.5,
+    rx: Math.random() * 6, ry: Math.random() * 6, wx: 15 + Math.random() * 20, wy: 8 + Math.random() * 10, t: 3.2, wait: delay || 0, floor: Math.max(groundH(_csp.x, _csp.z), a.y), bounce: 0,
+    s: sg ? [0.011, 0.011, 0.034] : big ? [0.0062, 0.0062, 0.032] : d.cls === 'pistol' || d.cls === 'smg' ? [0.0048, 0.0048, 0.012] : [0.0052, 0.0052, 0.024], red: sg });
+}
+function casStep(dt) {
+  let n = 0;
+  for (const c of CAS.list) {
+    if (c.t <= 0) continue;
+    if (c.wait > 0) { c.wait -= dt; continue; }
+    c.t -= dt; c.vy -= 9.8 * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.z += c.vz * dt; c.rx += c.wx * dt; c.ry += c.wy * dt;
+    if (c.y < c.floor + c.s[0]) { c.y = c.floor + c.s[0]; if (c.vy < -0.6 && c.bounce < 3) { c.vy *= -0.35; c.vx *= 0.5; c.vz *= 0.5; c.wx *= 0.5; c.bounce++; } else { c.vy = 0; c.vx *= 0.8; c.vz *= 0.8; c.wx *= 0.8; c.wy *= 0.8; c.rx = c.rx * 0.9; } }
+    _ce.set(c.rx, c.ry, 0); _cq.setFromEuler(_ce); _cs.set(...c.s); _csp.set(c.x, c.y, c.z); _cm.compose(_csp, _cq, _cs); CAS.mesh.setMatrixAt(n, _cm);
+    CAS.mesh.setColorAt(n, c.red ? _casRed : _casGold); n++;
+  }
+  CAS.mesh.count = n; CAS.mesh.instanceMatrix.needsUpdate = true; if (CAS.mesh.instanceColor) CAS.mesh.instanceColor.needsUpdate = true;
+}
+const _casRed = new T.Color(0xb02a20), _casGold = new T.Color(0xffffff);
+// balanço da mira com luneta (respiração); agachado e deitado firmam, andando balança mais
+function swayStep(dt) {
+  const p = G.player, v = G.view; if (!p || !v || G.phase !== 'match') return;
+  const w = curW(p), z = p.ads && w ? sightZoom(w) : 1;
+  let amp = !p.ads ? 0 : z >= 3.5 ? 0.0017 : z >= 1.8 ? 0.0011 : 0.00045;
+  amp *= p.stance === 'prone' ? 0.3 : p.stance === 'crouch' ? 0.6 : 1;
+  amp *= 1 + Math.min(1.5, Math.hypot(p.vx || 0, p.vz || 0) / 2.5) + (GF.sprintT > 0 ? 1.5 : 0);
+  if (w && WEAP[w.k].cls === 'sr') amp *= 1.15;
+  GF.swT += dt; const t = GF.swT, nx = Math.sin(t * 1.3) * amp + Math.sin(t * 2.9) * amp * 0.3, ny = Math.sin(t * 2.6) * amp * 0.6 + Math.cos(t * 0.9) * amp * 0.25;
+  v.yaw += nx - GF.sway[0]; v.pitch += ny - GF.sway[1]; GF.sway[0] = nx; GF.sway[1] = ny;
+  // depois de correr a mira leva um instante para firmar
+  if (Math.hypot(p.vx || 0, p.vz || 0) > 5.6) GF.sprintT = 0.5; else GF.sprintT = Math.max(0, GF.sprintT - dt);
+}
+(function hookGunfeel() {
+  const fs = fireShot;
+  fireShot = function (a, ...q) {
+    const ok = fs.call(this, a, ...q);
+    if (!ok && ok !== undefined) return ok;
+    const w = curW(a); if (!w) return ok; const d = wdef(w);
+    if (a === G.player) {
+      const now = G.t; if (now - GF.lastT > 60 / d.rpm + 0.25 || GF.k !== w.k) GF.n = 0; GF.lastT = now; GF.k = w.k;
+      const [up, yw] = recoilPattern(w.k, GF.n++); G.recUp = up; G.recYaw = yw;
+    }
+    if (a === G.player || Math.hypot(a.x - camera.position.x, a.z - camera.position.z) < 25) {
+      if (w.k !== 'S686' && w.k !== 'M625') casEject(a, d, d.bolt ? 0.45 : w.k === 'S1897' ? 0.3 : 0);
+    }
+    return ok;
+  };
+  const ps = playerStep; playerStep = function (dt, ...q) { swayStep(dt); return ps.call(this, dt, ...q); };
+  const gs = gfxStep; gfxStep = function (dt, ...q) { const o = gs.call(this, dt, ...q); casStep(Math.min(dt, 0.05)); return o; };
+})();
+
+// ================= ragdoll: quem morre cai de verdade (física), empurrado na direção do tiro =================
+// o corpo vira 16 pontos ligados por "varetas" (cabeça, pescoço, ombros, cotovelos, mãos, quadril, joelhos, pés) que caem com a gravidade,
+// batem no chão e escorregam; os ossos do personagem seguem os pontos. Só nos 4 mais perto (até 60 m); os outros usam a animação de queda.
+const RAG = { J: { pel: 'Bip01_Pelvis', neck: 'Bip01_Neck', head: 'Bip01_Head', lsh: 'Bip01_L_UpperArm', lel: 'Bip01_L_Forearm', lha: 'Bip01_L_Hand', rsh: 'Bip01_R_UpperArm', rel: 'Bip01_R_Forearm', rha: 'Bip01_R_Hand',
+  lhip: 'Bip01_L_Thigh', lkn: 'Bip01_L_Calf', lft: 'Bip01_L_Foot', rhip: 'Bip01_R_Thigh', rkn: 'Bip01_R_Calf', rft: 'Bip01_R_Foot' },
+  E: [['pel', 'neck'], ['neck', 'head'], ['head', 'htop'], ['neck', 'lsh'], ['neck', 'rsh'], ['lsh', 'lel'], ['lel', 'lha'], ['rsh', 'rel'], ['rel', 'rha'], ['pel', 'lhip'], ['pel', 'rhip'], ['lhip', 'lkn'], ['lkn', 'lft'], ['rhip', 'rkn'], ['rkn', 'rft'],
+    ['lsh', 'rsh'], ['lhip', 'rhip'], ['lsh', 'pel'], ['rsh', 'pel'], ['lhip', 'neck'], ['rhip', 'neck'], ['lsh', 'lhip'], ['rsh', 'rhip'], ['htop', 'lsh'], ['htop', 'rsh'], ['head', 'pel']],
+  // osso, ponto de origem, ponto para onde aponta
+  D: [['Bip01_L_UpperArm', 'lsh', 'lel'], ['Bip01_L_Forearm', 'lel', 'lha'], ['Bip01_R_UpperArm', 'rsh', 'rel'], ['Bip01_R_Forearm', 'rel', 'rha'],
+    ['Bip01_L_Thigh', 'lhip', 'lkn'], ['Bip01_L_Calf', 'lkn', 'lft'], ['Bip01_R_Thigh', 'rhip', 'rkn'], ['Bip01_R_Calf', 'rkn', 'rft'], ['Bip01_Neck', 'neck', 'head'], ['Bip01_Head', 'head', 'htop']] };
+const _rv1 = new T.Vector3(), _rv2 = new T.Vector3(), _rq1 = new T.Quaternion(), _rq2 = new T.Quaternion(), _rq3 = new T.Quaternion();
+function ragStart(c, a, src) {
+  const m = c.m; m.g.updateMatrixWorld(true);
+  const B = n => m.root.getObjectByName(n), P = {};
+  for (const k in RAG.J) { const b = B(RAG.J[k]); if (!b) return false; P[k] = b.getWorldPosition(new T.Vector3()); }
+  P.htop = P.head.clone().add(P.head.clone().sub(P.neck).normalize().multiplyScalar(0.2));
+  const pts = {}, dt = 1 / 60;
+  let ix = 0, iz = 0; if (src && src !== a) { ix = a.x - src.x; iz = a.z - src.z; const l = Math.hypot(ix, iz) || 1; ix /= l; iz /= l; }
+  const push = { head: 3.2, htop: 3.4, neck: 2.6, lsh: 2.2, rsh: 2.2, pel: 1.0 };
+  for (const k in P) { const p = P[k], f = push[k] || 0.5, vx = (a.vx || 0) * 0.8 + ix * f, vz = (a.vz || 0) * 0.8 + iz * f, vy = 0.4 + Math.random() * 0.3;
+    pts[k] = { x: p.x, y: p.y, z: p.z, px: p.x - vx * dt, py: p.y - vy * dt, pz: p.z - vz * dt }; }
+  const edges = RAG.E.map(([u, v]) => [pts[u], pts[v], P[u].distanceTo(P[v])]);
+  // direção de cada osso (no espaço do próprio osso) até o ponto filho
+  const drive = [];
+  const pel = B('Bip01_Pelvis'); pel.getWorldQuaternion(_rq1).invert();
+  const pAx = P.neck.clone().sub(P.pel).normalize().applyQuaternion(_rq1), pTw = P.rhip.clone().sub(P.lhip).normalize().applyQuaternion(_rq1);
+  for (const [bn, u, v] of RAG.D) { const b = B(bn); b.getWorldQuaternion(_rq2).invert(); drive.push({ b, u: pts[u], v: pts[v], ax: P[v].clone().sub(P[u]).normalize().applyQuaternion(_rq2) }); }
+  const inside = !!bldAt(a.x, a.z);
+  c.rag = { pts, edges, drive, pel, pAx, pTw, t: 0, floor: inside ? a.y : null }; c.anim = false; c.prone = true;
+  if (m.one && m.one.death) m.one.death.stop();
+  return true;
+}
+function ragFloor(r, x, z) { return r.floor != null ? r.floor : groundH(x, z); }
+function ragSim(r, dt) {
+  const g = 9.8 * dt * dt, P = Object.values(r.pts);
+  for (const p of P) { const vx = (p.x - p.px) * 0.995, vy = (p.y - p.py) * 0.995, vz = (p.z - p.pz) * 0.995; p.px = p.x; p.py = p.y; p.pz = p.z; p.x += vx; p.y += vy - g; p.z += vz; }
+  for (let it = 0; it < 8; it++) {
+    for (const [a, b, L] of r.edges) { const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, d = Math.hypot(dx, dy, dz) || 1e-6, k = (d - L) / d * 0.5; a.x += dx * k; a.y += dy * k; a.z += dz * k; b.x -= dx * k; b.y -= dy * k; b.z -= dz * k; }
+    for (const p of P) { const fl = ragFloor(r, p.x, p.z) + 0.07; if (p.y < fl) { p.y = fl; p.px = p.x - (p.x - p.px) * 0.6; p.pz = p.z - (p.z - p.pz) * 0.6; } }
+  }
+}
+function ragPose(r) {
+  const v3 = (p, o) => o.set(p.x, p.y, p.z);
+  // quadril: posição no ponto e virado para o pescoço, girado pelo eixo das coxas
+  const pel = r.pel, par = pel.parent; par.updateMatrixWorld(true);
+  pel.position.copy(par.worldToLocal(v3(r.pts.pel, _rv1)));
+  pel.updateMatrixWorld(true); pel.getWorldQuaternion(_rq1);
+  const want = v3(r.pts.neck, _rv1).sub(v3(r.pts.pel, _rv2)).normalize(), cur = r.pAx.clone().applyQuaternion(_rq1);
+  _rq2.setFromUnitVectors(cur, want); _rq1.premultiply(_rq2);
+  const tw = r.pTw.clone().applyQuaternion(_rq1), tWant = v3(r.pts.rhip, new T.Vector3()).sub(v3(r.pts.lhip, _rv2));
+  tw.addScaledVector(want, -tw.dot(want)).normalize(); tWant.addScaledVector(want, -tWant.dot(want)).normalize();
+  if (tw.lengthSq() > 0.5 && tWant.lengthSq() > 0.5) { _rq2.setFromUnitVectors(tw, tWant); _rq1.premultiply(_rq2); }
+  par.getWorldQuaternion(_rq3).invert(); pel.quaternion.copy(_rq3.multiply(_rq1)); pel.updateMatrixWorld(true);
+  // membros: cada osso aponta para o ponto filho
+  for (const d of r.drive) {
+    const b = d.b; b.parent.updateMatrixWorld(true); b.updateMatrixWorld(true); b.getWorldQuaternion(_rq1);
+    const cur2 = d.ax.clone().applyQuaternion(_rq1), want2 = v3(d.v, _rv1).sub(v3(d.u, _rv2)); if (want2.lengthSq() < 1e-8) continue;
+    _rq2.setFromUnitVectors(cur2, want2.normalize()); _rq1.premultiply(_rq2);
+    b.parent.getWorldQuaternion(_rq3).invert(); b.quaternion.copy(_rq3.multiply(_rq1)); b.updateMatrixWorld(true);
+  }
+}
+(function hookRagdoll() {
+  const tc = toCorpse;
+  toCorpse = function (a) {
+    const m = a.model, src = a.lastHitBy, veh = a.veh; tc.apply(this, arguments);
+    const c = G.corpses[G.corpses.length - 1]; if (!c || c.m !== m || veh || !m.human) return;
+    const near = Math.hypot(a.x - camera.position.x, a.z - camera.position.z) < 60, busy = G.corpses.filter(q => q.rag && q.rag.t < 3.5).length;
+    if (near && busy < 4) { try { ragStart(c, a, src); } catch (e) { c.rag = null; } }
+  };
+  const sc = stepCorpses;
+  stepCorpses = function (dt) {
+    for (const c of G.corpses) if (c.rag && c.rag.t < 3.5) { const r = c.rag; r.t += dt; const h = Math.min(dt, 1 / 30) / 2; ragSim(r, h); ragSim(r, h); if (c.m.g.visible) ragPose(r); }
+    return sc.apply(this, arguments);
+  };
+})();
+
+// ================= objetos que reagem: barris e caixas tombam com tiros e voam com granada/explosão =================
+// o objeto parado sai da lista fixa (e da colisão) e vira uma peça solta com física simples: cai, quica, rola e deita no chão.
+const PPH = { byBox: new Map(), dyn: [], max: 30, hp: new Map() };
+(function propIndex() {
+  const near = [];
+  for (const k of ['barrel', 'crate']) for (const e of PROPS.list[k]) {
+    const [x, y, z] = e; boxesNear(x - 0.5, z - 0.5, x + 0.5, z + 0.5, near);
+    const b = near.find(q => q.k === 'w' && x > q.x0 && x < q.x1 && z > q.z0 && z < q.z1 && q.x1 - q.x0 < 1.2 && q.z1 - q.z0 < 1.2 && y + 0.3 > q.y0 && y < q.y1);
+    if (!b) continue; if (!PPH.byBox.has(b)) PPH.byBox.set(b, []); PPH.byBox.get(b).push({ k, e });
+  }
+})();
+// solta todos os objetos de uma colisão (pilha de caixas cai junta) com um empurrão
+function propKnock(box, ix, iy, iz, power) {
+  const items = PPH.byBox.get(box); if (!items || !PROPS.ready) return;
+  PPH.byBox.delete(box); box.y1 = box.y0 - 50; box.y0 -= 60; /* tira a colisão */
+  for (const { k, e } of items) {
+    const list = PROPS.list[k], i = list.indexOf(e); if (i >= 0) list.splice(i, 1);
+    const im = PROPS.inst[k]; if (!im) continue;
+    const m = new T.Mesh(im.geometry, im.material); m.castShadow = m.receiveShadow = true;
+    const [x, y, z, s, rot] = e; m.scale.setScalar(s); m.position.set(x, y, z); m.rotation.set(0, rot, 0); scene.add(m);
+    const pw = power * (0.8 + Math.random() * 0.4), up = k === 'crate' && y > groundH(x, z) + 0.3 ? 0.5 : 0;
+    PPH.dyn.push({ m, k, vx: ix * pw, vy: iy * pw + up, vz: iz * pw, wx: (Math.random() - 0.5) * pw * 2 + iz * pw * 1.5, wz: (Math.random() - 0.5) * pw * 2 - ix * pw * 1.5, rest: 0, h: k === 'barrel' ? 0.45 : 0.31, t: 0 });
+    if (PPH.dyn.length > PPH.max) { const o = PPH.dyn.shift(); scene.remove(o.m); }
+  }
+  PROPS.cx = 1e9; /* refaz as instâncias sem ele */
+}
+function propStep(dt) {
+  for (const d of PPH.dyn) {
+    if (d.rest > 1.5) continue; d.t += dt;
+    const m = d.m; d.vy -= 9.8 * dt; m.position.x += d.vx * dt; m.position.y += d.vy * dt; m.position.z += d.vz * dt;
+    m.rotation.x += d.wx * dt; m.rotation.z += d.wz * dt;
+    const g = groundH(m.position.x, m.position.z), tilt = Math.min(1, Math.abs(Math.sin(m.rotation.x)) + Math.abs(Math.sin(m.rotation.z))), floor = g - (d.k === 'barrel' ? tilt * 0.2 : 0);
+    if (m.position.y < floor) {
+      m.position.y = floor;
+      if (d.vy < -1.2) { d.vy *= -0.3; d.vx *= 0.6; d.vz *= 0.6; d.wx *= 0.6; d.wz *= 0.6; }
+      else {
+        d.vy = 0; d.vx *= Math.pow(0.04, dt); d.vz *= Math.pow(0.04, dt); d.wx *= Math.pow(0.02, dt); d.wz *= Math.pow(0.02, dt);
+        // deita: barril de lado (90°), caixa numa face; vai acomodando até parar
+        const snap = a => Math.round(a / (Math.PI / 2)) * (Math.PI / 2), kk = Math.min(1, dt * 6);
+        m.rotation.x += (snap(m.rotation.x) - m.rotation.x) * kk; m.rotation.z += (snap(m.rotation.z) - m.rotation.z) * kk;
+        if (Math.hypot(d.vx, d.vz, d.wx, d.wz) < 0.15) d.rest += dt;
+      }
+    }
+    // barril deitado fica com o centro mais baixo
+    if (d.k === 'barrel') { const lying = Math.abs(Math.sin(m.rotation.x)) + Math.abs(Math.sin(m.rotation.z)) > 0.9; if (lying && m.position.y <= g + 0.01) m.position.y = g - 0.15; }
+  }
+}
+(function hookPropPhys() {
+  // tiro: barril tomba no 2º tiro, caixa no 3º; escopeta e sniper derrubam de uma vez
+  const bd = bulletDecal;
+  bulletDecal = function (hx, hy, hz, box) {
+    const r = bd.apply(this, arguments);
+    if (box && PPH.byBox.has(box)) {
+      const it = PPH.byBox.get(box), n = (PPH.hp.get(box) || 0) + 1; PPH.hp.set(box, n);
+      const b = BUL.find(q => Math.hypot(q.x - hx, q.z - hz) < 3) || null;
+      let ix = (box.x0 + box.x1) / 2 - camera.position.x, iz = (box.z0 + box.z1) / 2 - camera.position.z; const l = Math.hypot(ix, iz) || 1; ix /= l; iz /= l;
+      if (n >= (it[0].k === 'barrel' ? 2 : 3)) propKnock(box, ix, 0.3, iz, 2.2);
+    }
+    return r;
+  };
+  // granada: tudo num raio de 7 m voa para longe
+  const nb = nadeBoom;
+  nadeBoom = function (n) {
+    const r = nb.apply(this, arguments);
+    if (n.k === 'FRAG' || n.k === 'MOLO') { const R = n.k === 'FRAG' ? 7 : 3;
+      for (const box of [...PPH.byBox.keys()]) { const cx = (box.x0 + box.x1) / 2, cz = (box.z0 + box.z1) / 2, d = Math.hypot(cx - n.x, cz - n.z); if (d > R) continue;
+        const ix = (cx - n.x) / (d || 1), iz = (cz - n.z) / (d || 1); propKnock(box, ix, 0.65, iz, (n.k === 'FRAG' ? 5.5 : 2.5) * (1 - d / R) + 1.2); } }
+    return r;
+  };
+  const gs = gfxStep; gfxStep = function (dt, ...q) { const o = gs.call(this, dt, ...q); propStep(Math.min(dt, 0.05)); return o; };
 })();
 
 // ================= início =================

@@ -35,8 +35,8 @@ function startTraining() {
   G.size = 1; G.training = TRAIN.on = true; G.god = true;
   // você
   const p = makeActor({ name: SET.name || 'Jogador', team: 1, bot: false, skill: 1, look: Object.assign({}, CHARS[SET.char] || CHARS[0]), uid: 'me', ix: 0 });
-  p.ai = null; p.mode = 'ground'; p.x = S.x; p.z = S.z; p.y = groundH(S.x, S.z) + 0.1; p.onGround = true; p.yaw = S.yaw; p.bagLv = 3; p.helm = { lv: 3, dur: 999 }; p.vest = { lv: 3, dur: 999 };
-  G.actors = [p]; buildModel(p); G.player = p;
+  p.ai = null; p.mode = 'ground'; p.x = S.x; p.z = S.z; p.y = groundH(S.x, S.z) + 0.1; p.onGround = true; p.yaw = S.yaw; p.bagLv = 3; p.helm = { lv: 3, dur: 999 }; p.vest = { lv: 3, dur: 999 }; p.cosMe = true; /* usa as skins do jogador */
+  G.actors = [p]; G.player = p; buildModel(p);
   // alvos (bonecos parados, cada um numa equipe; não atiram e não morrem: só mostram o dano)
   const placed = [];
   TRAIN_D.forEach((d, i) => {

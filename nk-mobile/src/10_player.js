@@ -71,7 +71,8 @@ function playerStep(dt) {
   // coice: sobe a mira; quando solta o gatilho, volta uma parte
   if (G.camKick) {
     const st = p.stance === 'prone' ? 0.55 : p.stance === 'crouch' ? 0.78 : 1, k = G.camKick * 0.0085 * st * (p.ads ? 1 : 1.25);
-    v.pitch += k; v.yaw += gauss() * k * 0.3; G.recAcc += k; G.camKick = 0;
+    const up = G.recUp || 1, yk = G.recYaw != null ? G.recYaw * k : gauss() * k * 0.3; /* padrão de recuo de cada arma (38_gunfeel) */
+    v.pitch += k * up; v.yaw += yk; G.recAcc += k * up; G.camKick = 0; G.recUp = 1; G.recYaw = null;
   } else if (!IN.fire && G.recAcc > 0) { const r = G.recAcc * Math.min(1, dt * 7); v.pitch -= r * 0.45; G.recAcc -= r; }
   v.pitch = clamp(v.pitch, -1.45, 1.45);
   p.yaw = v.yaw; p.pitch = v.pitch;
@@ -260,7 +261,7 @@ function updateCamera(dt) {
     const bb = Math.min(1, Math.hypot(p.vx, p.vz) / 5) * (p.onGround ? 1 : 0) * (p.ads ? 0.15 : 1), ph = v.bob || 0, land = landDip(p);
     const bobX = Math.cos(ph) * 0.012 * bb, bobY = -Math.abs(Math.sin(ph)) * 0.012 * bb + Math.sin(G.t * 1.6) * 0.002 - land * 0.025 - airK * 0.018;
     // mira: a arma desliza até o olho em ~0,2 s (não pula de posição)
-    v.adsK = (v.adsK || 0) + ((p.ads ? 1 : 0) - (v.adsK || 0)) * (1 - Math.exp(-dt * 16)); const ak = v.adsK;
+    v.adsK = (v.adsK || 0) + ((p.ads ? 1 : 0) - (v.adsK || 0)) * (1 - Math.exp(-dt * (typeof adsSpeed === 'function' ? adsSpeed(w) : 16))); /* arma pesada mira mais devagar */ const ak = v.adsK;
     const top = (w.att.sight ? GUN_TOP[w.k] + 0.045 : GUN_TOP[w.k] || 0.06) * VM.scale.y;
     // recarga em fases: inclina e abaixa, troca o pente, volta e puxa o ferrolho
     const rp2 = p.reloadT > 0 && p.relTot ? 1 - p.reloadT / p.relTot : 1;

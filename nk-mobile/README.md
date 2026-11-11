@@ -298,3 +298,13 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - AUG A3 e Mk14 EBR agora com modelo 3D de verdade (CC BY, ver CREDITS). Mini 14 e DP-28 seguem com o modelo simples até achar um modelo livre.
 - Avisos de som na tela: marcas em volta da mira mostram de onde vêm tiros (laranja, até 250 m; com silenciador 50 m), passos (branco, até 30 m; agachado 12 m; deitado nada) e motores (azul, até 120 m) de inimigos. Aliados não aparecem. Configurações > "Avisos de som na tela" liga/desliga.
 - Veículos novos: Caminhonete (cabine dupla, caçamba com 2 lugares atrás) e Van (6 lugares). Aparecem nas estradas e no campo de treino.
+
+## Fênix 3D, sensação das armas e física (11/11)
+- Traje Fênix com armadura 3D de verdade (src/37_armor.js): couraça com fênix acesa em relevo, ombreiras em 3 camadas com penas de fogo, braçadeiras, caneleiras e leque de asas nas costas. As placas são medidas no corpo de cada personagem e acompanham os ossos (serve em todos, homem e mulher). Some a mais de 70 m. O colete fica por baixo da couraça.
+- Campo de treino agora usa as skins do jogador.
+- Recuo com padrão fixo por arma (sobe e puxa para os lados sempre igual, dá para aprender a controlar); primeiros tiros sobem menos.
+- Balanço da mira com luneta (respiração): agachado/deitado firma, andando/depois de correr balança mais.
+- Mira mais lenta em armas pesadas (sniper, metralhadora) e rápida em pistola/SMG.
+- Cápsulas de verdade saindo da arma, quicando e rolando no chão (cartucho vermelho na escopeta; no ferrolho saem ao puxar).
+- Ragdoll: quem morre perto cai com física, empurrado na direção do tiro (até 4 ao mesmo tempo, 60 m).
+- Barris e caixas: tombam com tiros (barril no 2º, caixa no 3º) e voam com granada; a pilha de caixas cai junta.
