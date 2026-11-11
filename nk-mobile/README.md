@@ -308,3 +308,4 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Cápsulas de verdade saindo da arma, quicando e rolando no chão (cartucho vermelho na escopeta; no ferrolho saem ao puxar).
 - Ragdoll: quem morre perto cai com física, empurrado na direção do tiro (até 4 ao mesmo tempo, 60 m).
 - Barris e caixas: tombam com tiros (barril no 2º, caixa no 3º) e voam com granada; a pilha de caixas cai junta.
+- Galpão realista de teste no campo de treino (src/41_warehouse.js): texturas de verdade (concreto, chapa, zinco), clarabóias com sol entrando de verdade (sombra) e feixes de luz com poeira, lâmpadas com cone de luz e poças de luz pintadas no chão, interior escuro (o céu não ilumina dentro), estrutura de aço, porta-paletes com caixas e barris. A vegetação de dentro some enquanto ele existe.

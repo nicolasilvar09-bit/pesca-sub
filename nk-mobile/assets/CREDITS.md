@@ -96,3 +96,6 @@ Alterações: orientação e escala normalizadas, malha simplificada, braços re
 - AUG A3: "Steyr AUG A3" por mobzver3d — https://sketchfab.com/3d-models/steyr-aug-a3-62ca412c88a64c0287774496b7f351fc (com o pente; versão simplificada do projeto trusthemind/game)
 - Mk14 EBR: "Low-Poly Mk14 EBR" por TastyTony — https://skfb.ly/6vpVG (tirado do projeto Lakamfo/Zombies-Must-Die, só a arma, sem braços)
 Alterações: orientação e escala normalizadas, malha simplificada, peças soltas da animação removidas (Mk14).
+
+## Galpão realista do campo de treino (assets/tex/wh_*.jpg) — Poly Haven, CC0
+- hangar_concrete_floor (chão), factory_wall (paredes), corrugated_iron (telhado), concrete_wall_006 (base), painted_metal_shutter — https://polyhaven.com (reduzidas para 512 px).
