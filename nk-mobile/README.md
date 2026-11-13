@@ -315,3 +315,7 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Capim refeito: o dobro de folhas, bem mais finas e escuras.
 - 1ª pessoa (src/43_fpp.js): red dot com tubo oco e lente, holográfica com moldura aberta e lente (antes eram blocos opacos), luvas táticas pretas com proteção e dedos, manga na cor da roupa/traje, luz do clarão do tiro.
 - Zona industrial (src/44_industrial.js): o galpão realista + pátio de containers no mapa principal (leste do Centro, mesma posição para todos), com loot de nível 2–3 dentro e entre os containers.
+
+## Casas e vegetação mais reais (13/11)
+- Casas e prédios (src/03_world.js, só visual, sem colisão nova): molduras e peitoris nas janelas, venezianas coloridas nas casas, batente, toldo/marquise e degrau nas portas, friso entre andares, beiral com testeira, cano de calha e chaminé nas casas; cornija, canos de chuva, ar-condicionado e caixa-d'água nos prédios.
+- Vegetação (src/45_veg.js): arbustos de folhas (placas cruzadas com textura) no lugar das bolhas, perto e longe; pinheiro distante em 3 saias e copa redonda irregular.

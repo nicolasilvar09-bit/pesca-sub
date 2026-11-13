@@ -348,6 +348,13 @@ function slabWithHole(x0, z0, x1, z1, y0, y1, hole, color) {
   addBox(x0, y0, z0, x1, y1, hz0, color, B); addBox(x0, y0, hz1, x1, y1, z1, color, B);
   addBox(x0, y0, hz0, hx0, y1, hz1, color, B); addBox(hx1, y0, hz0, x1, y1, hz1, color, B);
 }
+// acabamento por fora (só visual, sem colisão): peça encostada na face de fora de uma parede. s = lado, a..b ao longo da parede, d = quanto sai
+const bhash = (x, z, k) => { const v = Math.sin(x * 12.9898 + z * 78.233 + k * 37.719) * 43758.5453; return v - Math.floor(v); };
+function extBox(B, s, a, b, ylo, yhi, d, color, mat, back) {
+  const t = back || 0.02, o = { mat: mat == null ? 0 : mat, nocol: true };
+  if (s === 'n') addBox(a, ylo, B.z0 - d, b, yhi, B.z0 + t, color, o); else if (s === 's') addBox(a, ylo, B.z1 - t, b, yhi, B.z1 + d, color, o);
+  else if (s === 'w') addBox(B.x0 - d, ylo, a, B.x0 + t, yhi, b, color, o); else addBox(B.x1 - t, ylo, a, B.x1 + d, yhi, b, color, o);
+}
 function building(o) {
   const w = o.w, d = o.d, x0 = o.x - w / 2, x1 = o.x + w / 2, z0 = o.z - d / 2, z1 = o.z + d / 2;
   const wm = o.wallMat != null ? o.wallMat : (o.roof === 'gable' ? (WR() < 0.35 ? 1 : 0) : (WR() < 0.5 ? 3 : 1));
@@ -383,6 +390,23 @@ function building(o) {
     const wy1 = fy + fh;
     wallRun('x', z0, z0 + WT, x0, x1, fy, wy1, ops.n, col); wallRun('x', z1 - WT, z1, x0, x1, fy, wy1, ops.s, col);
     wallRun('z', x0, x0 + WT, z0 + WT, z1 - WT, fy, wy1, ops.w, col); wallRun('z', x1 - WT, x1, z0 + WT, z1 - WT, fy, wy1, ops.e, col);
+    { // molduras, peitoris e venezianas nas janelas; batente e toldo nas portas
+      const house = o.roof === 'gable', brick = wm === 1, fc = brick ? '#e4dccb' : house ? '#f1ece0' : '#d9d5cc', hv = bhash(x0, z0, 3), shc = ['#3f5a4a', '#5a3a2e', '#34495e', '#6b4a2f'][Math.floor(hv * 4)], shut = house && hv < 0.7 && fh < 4;
+      for (const sd of ['n', 's', 'e', 'w']) for (const op of ops[sd]) {
+        if (op.lo > fy + 0.5) { // janela
+          extBox(B, sd, op.a - 0.1, op.b + 0.1, op.lo - 0.09, op.lo, 0.13, fc, 3); extBox(B, sd, op.a - 0.08, op.b + 0.08, op.hi, op.hi + 0.11, 0.07, fc, 3);
+          extBox(B, sd, op.a - 0.07, op.a, op.lo, op.hi, 0.05, fc, 3); extBox(B, sd, op.b, op.b + 0.07, op.lo, op.hi, 0.05, fc, 3);
+          if (shut) { extBox(B, sd, op.a - 0.42, op.a - 0.08, op.lo - 0.02, op.hi + 0.02, 0.045, shc, 4); extBox(B, sd, op.b + 0.08, op.b + 0.42, op.lo - 0.02, op.hi + 0.02, 0.045, shc, 4); }
+          else if (!house && fh < 4 && bhash(op.a, fy, 5) < 0.22) extBox(B, sd, op.a + 0.1, op.b - 0.1, op.lo - 0.55, op.lo - 0.12, 0.42, '#c9ccce', 5, -0.04); // ar-condicionado embaixo de algumas janelas
+        } else { // porta
+          const dc = fh >= 4 ? '#3a3f45' : '#5b4634';
+          extBox(B, sd, op.a - 0.1, op.a, op.lo, op.hi + 0.1, 0.06, dc, 4); extBox(B, sd, op.b, op.b + 0.1, op.lo, op.hi + 0.1, 0.06, dc, 4); extBox(B, sd, op.a - 0.1, op.b + 0.1, op.hi, op.hi + 0.1, 0.06, dc, 4);
+          if (fh < 4) extBox(B, sd, op.a - 0.35, op.b + 0.35, op.hi + 0.22, op.hi + 0.3, 0.95, house ? shc : '#4a4f55', house ? 4 : 5); // toldo/marquise
+          extBox(B, sd, op.a - 0.25, op.b + 0.25, fy - 0.16, fy - 0.01, 0.9, '#a39c90', 3); // degrau
+        }
+      }
+      if (k > 0) for (const sd of ['n', 's', 'e', 'w']) { const hz = sd === 'n' || sd === 's'; extBox(B, sd, hz ? x0 - 0.04 : z0 - 0.04, hz ? x1 + 0.04 : z1 + 0.04, fy - 0.2, fy - 0.06, 0.05, fc, 3); } // friso entre os andares
+    }
     // piso do andar de cima (com buraco da escada)
     if (k > 0) {
       const hole = (k - 1) % 2 === 0 ? [xs - 0.1, SA, xs + L + 0.1, SB] : [xs - 0.1, SB, xs + L + 0.1, SC];
@@ -454,6 +478,15 @@ function building(o) {
   if (o.roof === 'gable') {
     addBox(x0, top - 0.2, z0, x1, top, z1, '#efe6d8', { bot: true }); // forro da casa (visto de dentro)
     addGable(x0, z0, x1, z1, top, Math.min(w, d) * 0.32, o.roofCol || wpk(ROOF));
+    { // beiral com tábua de testeira, calha e chaminé
+      const along = w >= d, gh = Math.min(w, d) * 0.32, fc2 = '#e9e3d6';
+      if (along) { addBox(x0 - 0.42, top - 0.14, z0 - 0.44, x1 + 0.42, top + 0.02, z0 - 0.36, fc2, { nocol: true, mat: 4 }); addBox(x0 - 0.42, top - 0.14, z1 + 0.36, x1 + 0.42, top + 0.02, z1 + 0.44, fc2, { nocol: true, mat: 4 }); }
+      else { addBox(x0 - 0.44, top - 0.14, z0 - 0.42, x0 - 0.36, top + 0.02, z1 + 0.42, fc2, { nocol: true, mat: 4 }); addBox(x1 + 0.36, top - 0.14, z0 - 0.42, x1 + 0.44, top + 0.02, z1 + 0.42, fc2, { nocol: true, mat: 4 }); }
+      addBox(x0 - 0.02, top - 0.14, z0 - 0.02, x1 + 0.02, top, z1 + 0.02, fc2, { nocol: true, mat: 4 }); // forro do beiral
+      const dp = along ? [x0 - 0.1, z0 - 0.3] : [x0 - 0.3, z0 - 0.1]; addBox(dp[0], y0, dp[1], dp[0] + 0.09, top - 0.1, dp[1] + 0.09, '#8d9296', { nocol: true, mat: 5 }); // cano da calha
+      if (bhash(x0, z1, 9) < 0.75) { const t = 0.25 + bhash(x1, z0, 4) * 0.5, cx2 = along ? x0 + w * t : (x0 + x1) / 2 + w * 0.18, cz2 = along ? (z0 + z1) / 2 + d * 0.18 : z0 + d * t;
+        addBox(cx2 - 0.32, top + gh * 0.35, cz2 - 0.32, cx2 + 0.32, top + gh + 0.55, cz2 + 0.32, '#8a5140', { nocol: true, mat: 1 }); addBox(cx2 - 0.38, top + gh + 0.55, cz2 - 0.38, cx2 + 0.38, top + gh + 0.63, cz2 + 0.38, '#5b5651', { nocol: true, mat: 3 }); }
+    }
   } else {
     const k = floors; const hole = o.roofAccess ? ((k - 1) % 2 === 0 ? [xs - 0.1, SA, xs + L + 0.1, SB] : [xs - 0.1, SB, xs + L + 0.1, SC]) : null;
     slabWithHole(x0, z0, x1, z1, top - 0.22, top, hole, o.roofCol || '#e9e4da');
@@ -461,6 +494,14 @@ function building(o) {
     addBox(x0, top, z0, x1, top + ph, z0 + 0.2, pc); addBox(x0, top, z1 - 0.2, x1, top + ph, z1, pc);
     addBox(x0, top, z0 + 0.2, x0 + 0.2, top + ph, z1 - 0.2, pc); addBox(x1 - 0.2, top, z0 + 0.2, x1, top + ph, z1 - 0.2, pc);
     if (o.roofAccess) for (let i = 0; i < 2; i++) B.spots.push([wr(x0 + 1, x1 - 1), top + 0.02, wr(SC + 0.5, z1 - 1)]);
+    { // cornija, canos de chuva e equipamentos no telhado (ar-condicionado, caixa-d'água)
+      for (const sd of ['n', 's', 'e', 'w']) { const hz = sd === 'n' || sd === 's'; extBox(B, sd, hz ? x0 - 0.1 : z0 - 0.1, hz ? x1 + 0.1 : z1 + 0.1, top - 0.08, top + 0.06, 0.1, '#d8d3c8', 3); }
+      addBox(x0 - 0.12, y0, z0 + 0.3, x0 - 0.02, top, z0 + 0.4, '#7f8589', { nocol: true, mat: 5 }); addBox(x1 + 0.02, y0, z1 - 0.4, x1 + 0.12, top, z1 - 0.3, '#7f8589', { nocol: true, mat: 5 });
+      if (fh < 4 && w > 7 && d > 7) { const n2 = 1 + Math.floor(bhash(x0, z0, 12) * 3);
+        for (let i = 0; i < n2; i++) { const ax = x0 + 1.2 + bhash(x0, i, 13) * (w - 3.6), az = z1 - 1.9 - bhash(z0, i, 14) * Math.max(0, d - 7.5); addBox(ax, top, az, ax + 1.1, top + 0.75, az + 0.8, '#b9bdc0', { mat: 5 }); addBox(ax + 0.1, top + 0.75, az + 0.1, ax + 1.0, top + 0.8, az + 0.7, '#4c5053', { nocol: true, mat: 5 }); }
+        if (floors >= 2 && bhash(x1, z1, 15) < 0.6) { const tx2 = x1 - 2.2, tz2 = z1 - 2.4; for (const [qx, qz] of [[0, 0], [1.3, 0], [0, 1.3], [1.3, 1.3]]) addBox(tx2 + qx, top, tz2 + qz, tx2 + qx + 0.1, top + 0.9, tz2 + qz + 0.1, '#6a6f73', { nocol: true, mat: 5 }); addBox(tx2 - 0.1, top + 0.9, tz2 - 0.1, tx2 + 1.5, top + 2.1, tz2 + 1.5, '#3f6f9a', { mat: 5 }); }
+      }
+    }
   }
   // faixa colorida no topo das paredes (acabamento)
   if (o.trim && o.roof !== 'gable') addBox(x0 - 0.05, top - 0.5, z0 - 0.05, x1 + 0.05, top - 0.22, z1 + 0.05, o.trim, { nocol: true });
