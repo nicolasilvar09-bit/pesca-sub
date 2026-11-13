@@ -31,11 +31,13 @@ function vegApply() {
     VEG.matFar = noFlip(new T.MeshLambertMaterial({ map: tf, alphaTest: 0.5, side: T.DoubleSide, emissive: 0x141a0c, emissiveMap: tf }));
     VEG.matNear = noFlip(new T.MeshLambertMaterial({ map: tn, alphaTest: 0.5, side: T.DoubleSide, emissive: 0x222222, emissiveMap: tn }));
     // longe: pinheiro em 3 saias (silhueta de pinheiro) e copa redonda com relevo
-    const pts = [[0.001, 0.5], [0.4, 0.17], [0.22, 0.17], [0.68, -0.14], [0.38, -0.14], [1, -0.5], [0.001, -0.5]].map(([r, y]) => new T.Vector2(r, y));
-    const pine = new T.LatheGeometry(pts, 9); pine.computeVertexNormals(); NAT.crown.geometry = pine;
-    const ico = new T.IcosahedronGeometry(1, 2), P = ico.attributes.position, v = new T.Vector3();
-    for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i); const k = 1 + 0.16 * Math.sin(v.x * 5.1 + v.y * 3.3) * Math.cos(v.z * 4.7 + v.y * 2.1) + 0.08 * Math.sin(v.y * 9 + v.x * 7); v.multiplyScalar(k); P.setXYZ(i, v.x, v.y * 0.92, v.z); }
+    // leves: são 13 mil árvores desenhadas o tempo todo (pinheiro 48 triângulos, copa redonda 20) e sem sombra (a sombra só alcança 60 m, onde já estão as árvores de verdade)
+    const pts = [[0.001, 0.5], [0.56, 0.0], [0.3, 0.0], [1, -0.5], [0.001, -0.5]].map(([r, y]) => new T.Vector2(r, y));
+    const pine = new T.LatheGeometry(pts, 6); pine.computeVertexNormals(); NAT.crown.geometry = pine;
+    const ico = new T.IcosahedronGeometry(1, 0), P = ico.attributes.position, v = new T.Vector3();
+    for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i); const k = 1 + 0.16 * Math.sin(v.x * 5.1 + v.y * 3.3) * Math.cos(v.z * 4.7 + v.y * 2.1); v.multiplyScalar(k); P.setXYZ(i, v.x, v.y * 0.92, v.z); }
     ico.computeVertexNormals(); NAT.crown2.geometry = ico;
+    for (const n of ['trunk', 'crown', 'crown2']) NAT[n].castShadow = false;
     { const gf = VEG.geo.clone(); gf.translate(0, 0.35, 0); NAT.bush.geometry = gf; } NAT.bush.material = VEG.matFar; NAT.bush.castShadow = false;
   }
   // perto: os arbustos de modelo (bolhas) viram arbustos de folhas do mesmo tamanho

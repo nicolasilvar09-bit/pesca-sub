@@ -73,10 +73,18 @@ function setupNature(done) {
   // pedras: troca todas de uma vez (são leves)
   const rk = NAT.rk || [], groups = {};
   rk.forEach((r, i) => { const k = NATR.boulder && (i * 13 + 5) % 10 < 4 ? 'BOULDER' : ROCKS[(i * 7 + 3) % ROCKS.length]; (groups[k] = groups[k] || []).push(r); }); // ~40% viram a pedra escaneada
+  // pedras divididas por região (500 m): o jogo só desenha as regiões que estão na frente da câmera
   for (const k in groups) {
-    const bo = k === 'BOULDER'; if (!bo && !NATR.types[k]) continue; const m = new T.InstancedMesh(bo ? NATR.boulder.geo : NATR.types[k], bo ? NATR.boulder.mat : new T.MeshLambertMaterial({ vertexColors: true }), groups[k].length);
-    groups[k].forEach(([x, h, z, s], i) => { _nd.position.set(x, h - (bo ? 0.35 : 0.25) * s, z); _nd.rotation.set(0, (x * 3.1 + z) % 6.28, 0); if (bo) _nd.scale.set(2.2 * s, 2.0 * s, 2.2 * s); else _nd.scale.set(2.6 * s, 2.1 * s, 2.4 * s); _nd.updateMatrix(); m.setMatrixAt(i, _nd.matrix); });
-    m.castShadow = m.receiveShadow = true; scene.add(m);
+    const bo = k === 'BOULDER'; if (!bo && !NATR.types[k]) continue;
+    const src = bo ? NATR.boulder.geo : NATR.types[k], mat = bo ? NATR.boulder.mat : new T.MeshLambertMaterial({ vertexColors: true }), cells = {}, CS = 500;
+    for (const r of groups[k]) { const ck = Math.floor(r[0] / CS) + '|' + Math.floor(r[2] / CS); (cells[ck] = cells[ck] || []).push(r); }
+    for (const ck in cells) {
+      const [ci, cj] = ck.split('|').map(Number), cx = (ci + 0.5) * CS, cz = (cj + 0.5) * CS, list = cells[ck]; let ymin = 1e9, ymax = -1e9; for (const r of list) { ymin = Math.min(ymin, r[1]); ymax = Math.max(ymax, r[1]); }
+      const cy = (ymin + ymax) / 2, g = new T.BufferGeometry(); g.attributes = src.attributes; g.index = src.index; g.groups = src.groups; g.boundingSphere = new T.Sphere(new T.Vector3(), Math.hypot(CS * 0.72, (ymax - ymin) / 2) + 12);
+      const m = new T.InstancedMesh(g, mat, list.length); m.position.set(cx, cy, cz);
+      list.forEach(([x, h, z, s], i) => { _nd.position.set(x - cx, h - (bo ? 0.35 : 0.25) * s - cy, z - cz); _nd.rotation.set(0, (x * 3.1 + z) % 6.28, 0); if (bo) _nd.scale.set(2.2 * s, 2.0 * s, 2.2 * s); else _nd.scale.set(2.6 * s, 2.1 * s, 2.4 * s); _nd.updateMatrix(); m.setMatrixAt(i, _nd.matrix); });
+      m.castShadow = false; m.receiveShadow = true; m.frustumCulled = true; scene.add(m);
+    }
   }
   if (Object.keys(groups).length && NATR.types[ROCKS[0]]) NAT.rock.visible = false;
   NATR.ready = true; NATR.cx = 1e9; if (done) done();

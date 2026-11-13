@@ -168,7 +168,7 @@ const _wm = new T.Matrix4(), _wv = new T.Vector3(), _wz = new T.Matrix4().makeSc
 function whClearInst() {
   if (!WH.area) return; const [cx, cz, hx, hz] = WH.area;
   scene.traverse(o => { if (!o.isInstancedMesh || o.parent === WH.g || o === CAS.mesh) return;
-    for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, _wm); _wv.setFromMatrixPosition(_wm); if (_wm.elements[0] !== 0 && Math.abs(_wv.x - cx) < hx && Math.abs(_wv.z - cz) < hz) { WH.hid.push([o, i, _wm.clone()]); o.setMatrixAt(i, _wz); o.instanceMatrix.needsUpdate = true; } } });
+    for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, _wm); _wv.setFromMatrixPosition(_wm).add(o.position); if (_wm.elements[0] !== 0 && Math.abs(_wv.x - cx) < hx && Math.abs(_wv.z - cz) < hz) { WH.hid.push([o, i, _wm.clone()]); o.setMatrixAt(i, _wz); o.instanceMatrix.needsUpdate = true; } } });
 }
 function whClear(cx, cz, hx, hz) {
   WH.hid = []; WH.area = [cx, cz, hx, hz]; whClearInst();

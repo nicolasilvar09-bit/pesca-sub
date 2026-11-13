@@ -55,16 +55,6 @@ function vmSleeveColor() {
     vmSleeveColor();
     return r;
   };
-  // clarão do tiro: uma luz que acende no cano por um instante (ilumina arma, mãos, parede e chão perto)
-  const FL = new T.PointLight(0xffc27a, 0, 14, 2); scene.add(FL); let flT = 0;
-  const mf = muzzleFlash;
-  muzzleFlash = function (a, quiet) {
-    const r = mf.apply(this, arguments);
-    if (!quiet && (a === G.player || Math.hypot(a.x - camera.position.x, a.z - camera.position.z) < 30)) {
-      const yaw = a === G.player ? G.view.yaw : a.yaw; FL.position.set(a.x - Math.sin(yaw) * 0.9, a.y + (a.stance === 'prone' ? 0.4 : a.stance === 'crouch' ? 1.0 : 1.45), a.z - Math.cos(yaw) * 0.9); flT = 0.06;
-    }
-    return r;
-  };
-  const gs = gfxStep; gfxStep = function (dt, ...q) { const o = gs.call(this, dt, ...q); flT = Math.max(0, flT - dt); FL.intensity = flT > 0 ? 2.6 * (flT / 0.06) : 0; return o; };
+  // (a luz do clarão do tiro saiu: uma luz a mais pesa em todos os materiais do jogo, o tempo todo)
   fillVmArm(vmArmL, -1, -0.32, false); fillVmArm(vmArmR, 1, 0, false); vmSleeveColor();
 })();

@@ -319,3 +319,11 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 ## Casas e vegetação mais reais (13/11)
 - Casas e prédios (src/03_world.js, só visual, sem colisão nova): molduras e peitoris nas janelas, venezianas coloridas nas casas, batente, toldo/marquise e degrau nas portas, friso entre andares, beiral com testeira, cano de calha e chaminé nas casas; cornija, canos de chuva, ar-condicionado e caixa-d'água nos prédios.
 - Vegetação (src/45_veg.js): arbustos de folhas (placas cruzadas com textura) no lugar das bolhas, perto e longe; pinheiro distante em 3 saias e copa redonda irregular.
+
+## Rodada de desempenho (13/11)
+- Medição (Alto, com sombra): 12 milhões de triângulos por quadro → 3,2 a 3,9 milhões.
+- Árvores distantes (13 mil, desenhadas sempre): copas simplificadas (pinheiro 48 triângulos, redonda 20) e sem sombra (a sombra só alcança 60 m, onde já estão as árvores de verdade).
+- Pedras: sem sombra e divididas em regiões de 500 m (só as da frente da câmera são desenhadas).
+- Nuvens: ruído pré-calculado em textura (antes 15 contas de ruído por pixel do céu).
+- Luz do clarão do tiro removida (uma luz a mais pesava em todos os materiais).
+- O visual de cinema desliga sozinho quando o ajuste automático de desempenho entra em ação e volta quando há folga.
