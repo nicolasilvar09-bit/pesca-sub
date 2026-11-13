@@ -26,7 +26,7 @@ function underSetup() {
   const mat = natMat();
   for (const k of BUSHES) { if (!NATR.types[k]) continue; const m = new T.InstancedMesh(NATR.types[k], mat, 1100); m.count = 0; m.castShadow = false; m.receiveShadow = true; m.frustumCulled = false; scene.add(m); UNDER.inst[k] = m; }
   // capim alto em moitas (folhas finas que balançam): dá a leitura de mato denso de perto
-  UNDER.tall = new T.InstancedMesh(tuftGeo(12, 0.7, 1.5, '#34421f', '#9a9a56'), windMat(), 2600); UNDER.tall.count = 0; UNDER.tall.frustumCulled = false; UNDER.tall.receiveShadow = true; scene.add(UNDER.tall);
+  UNDER.tall = new T.InstancedMesh(tuftGeo(12, 0.7, 1.4, '#2c3a1b', '#868a4a'), windMat(), 2600); UNDER.tall.count = 0; UNDER.tall.frustumCulled = false; UNDER.tall.receiveShadow = true; scene.add(UNDER.tall);
   return UNDER.ready = Object.keys(UNDER.inst).length > 0;
 }
 function refreshUnder(cx, cz) {

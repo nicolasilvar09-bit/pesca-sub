@@ -5601,7 +5601,7 @@ THREE.Sky = Sky;
 setTimeout(function(){
 // ================= núcleo: utilidades, estado global e configurações =================
 const T = THREE;
-const BUILD = '11/11 16:32'; // data da versão (preenchida pelo build.py)
+const BUILD = '13/11 09:45'; // data da versão (preenchida pelo build.py)
 // cores no espaço certo (sRGB -> linear) para usar curva de cor de cinema (ACES), estilo PUBG
 T.ColorManagement.legacyMode = false;
 // mapa escolhido no lobby (fica salvo; trocar de mapa recarrega a página, porque o mundo é montado uma vez só)
@@ -9706,7 +9706,7 @@ float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 *
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y); }`;
 // textura procedural pela posição no mundo (não precisa de imagem nem de UV)
 // texturas de detalhe de foto (ambientCG, CC0): chão = grama/terra/rocha, paredes = 6 materiais em 2 imagens
-const DET = { tTer: { value: null }, tWA: { value: null }, tWB: { value: null }, tAsph: { value: null }, uDet: { value: 1 } };
+const DET = { tTer: { value: null }, tWA: { value: null }, tWB: { value: null }, tAsph: { value: null }, uDet: { value: 1 }, uBump: { value: 0 } };
 (function loadDetail() {
   const blank = new T.DataTexture(new Uint8Array([128, 128, 128, 255]), 1, 1); blank.needsUpdate = true; DET.tTer.value = DET.tWA.value = DET.tWB.value = DET.tAsph.value = blank;
   const L = new T.TextureLoader(), an = Math.min(8, renderer.capabilities.getMaxAnisotropy());
@@ -9714,7 +9714,7 @@ const DET = { tTer: { value: null }, tWA: { value: null }, tWB: { value: null },
 })();
 function patchNoise(mat, kind) {
   mat.onBeforeCompile = sh => {
-    sh.uniforms.tTer = DET.tTer; sh.uniforms.tWA = DET.tWA; sh.uniforms.tWB = DET.tWB; sh.uniforms.uDet = DET.uDet;
+    sh.uniforms.tTer = DET.tTer; sh.uniforms.tWA = DET.tWA; sh.uniforms.tWB = DET.tWB; sh.uniforms.uDet = DET.uDet; sh.uniforms.uBump = DET.uBump;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; attribute float mt;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal); vMt = mt;');
     const terr = `
@@ -9729,6 +9729,7 @@ function patchNoise(mat, kind) {
         float det = mix(mix(dd.g, dd.r, grs), dd.b, grey * 0.85);
         float fd = clamp(1.0 - length(vWP - cameraPosition) / 320.0, 0.3, 1.0); // de longe, menos detalhe (evita chiado)
         diffuseColor.rgb *= mix(1.0, max(0.2, 1.0 + (det - 0.5) * 2.7), uDet * fd);
+        whH = det * fd;
       }`;
     const wall = `
       float w1 = vn(vWP.xz * 1.3 + vWP.y * 1.1);
@@ -9747,9 +9748,13 @@ function patchNoise(mat, kind) {
       else { /* chapa ondulada */
         d = texture2D(tWB, uv * 0.5).b * (0.86 + 0.14 * sin(uv.x * 52.0) * clamp(1.0 - (fw - 0.008) * 40.0, 0.0, 1.0));
       }
-      diffuseColor.rgb *= mix(1.0, d * 2.0, fd);`;
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; uniform sampler2D tTer; uniform sampler2D tWA; uniform sampler2D tWB; uniform float uDet;\n' + GLSL_NOISE)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + (kind === 'terrain' ? terr : wall));
+      diffuseColor.rgb *= mix(1.0, d * 2.0, fd); whH = d * fd;`;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; uniform sampler2D tTer; uniform sampler2D tWA; uniform sampler2D tWB; uniform float uDet; uniform float uBump; float whH = 0.5;\n' + GLSL_NOISE)
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + (kind === 'terrain' ? terr : wall))
+      /* relevo: a textura de detalhe também entorta a luz (parede, telha e chão deixam de parecer lisos) */
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      if (uBump > 0.0) { float hb = whH * uBump * ${kind === 'terrain' ? '0.035' : '0.03'}; vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition); vec3 r1 = cross(sy, normal), r2 = cross(normal, sx); float fdt = dot(sx, r1);
+        vec3 gr = sign(fdt) * (dFdx(hb) * r1 + dFdy(hb) * r2); normal = normalize(abs(fdt) * normal - gr); }`);
   };
   mat.customProgramCacheKey = () => 'noise-' + kind;
   mat.needsUpdate = true;
@@ -9914,9 +9919,10 @@ const GMASK = new Uint8Array(GN * GN); // 0 sem grama, 1 grama, 2 grama perto da
 })();
 function tuftGeo(blades, hMin, hMax, base, tip, head) {
   const pos = [], col = [], nor = [], cb = new T.Color(base), ct = new T.Color(tip);
+  blades *= 2; /* o dobro de folhas, bem mais finas: capim de verdade em vez de espetos */
   for (let k = 0; k < blades; k++) {
-    const a = Math.random() * Math.PI * 2, r = Math.random() * 0.18, x = Math.cos(a) * r, z = Math.sin(a) * r, h = hMin + Math.random() * (hMax - hMin), w = 0.045, ra = Math.random() * Math.PI;
-    const ox = Math.cos(ra) * w, oz = Math.sin(ra) * w, lean = (Math.random() - 0.5) * 0.25;
+    const a = Math.random() * Math.PI * 2, r = Math.random() * 0.24, x = Math.cos(a) * r, z = Math.sin(a) * r, h = hMin * 0.7 + Math.random() * (hMax - hMin * 0.7), w = 0.014 + Math.random() * 0.012, ra = Math.random() * Math.PI;
+    const ox = Math.cos(ra) * w, oz = Math.sin(ra) * w, lean = (Math.random() - 0.5) * 0.5 * h, sh = 0.75 + Math.random() * 0.25; cb.set(base).multiplyScalar(sh); ct.set(tip).multiplyScalar(sh);
     // os dois lados da folha (com a normal para cima, não fica preta por trás)
     pos.push(x - ox, 0, z - oz, x + ox, 0, z + oz, x + lean, h, z + lean * 0.5, x + ox, 0, z + oz, x - ox, 0, z - oz, x + lean, h, z + lean * 0.5);
     for (let s2 = 0; s2 < 2; s2++) { col.push(cb.r, cb.g, cb.b, cb.r, cb.g, cb.b, ct.r, ct.g, ct.b); for (let i = 0; i < 3; i++) nor.push(0, 1, 0); }
@@ -9943,7 +9949,7 @@ function windMat() {
   return m;
 }
 const GRASS_N = MAPID === 'bal' ? 9500 : 6500, FLOWER_N = MAPID === 'bal' ? 900 : 700; // Balneário: mato mais alto e mais denso
-const grassM = new T.InstancedMesh((MAPID === 'bal' ? tuftGeo(7, 0.34, 0.78, '#2f5a1e', '#86a845') : tuftGeo(6, 0.28, 0.55, '#4a5626', '#a59d55')), windMat(), GRASS_N);
+const grassM = new T.InstancedMesh((MAPID === 'bal' ? tuftGeo(7, 0.34, 0.78, '#2f5a1e', '#86a845') : tuftGeo(6, 0.28, 0.55, '#3c4a22', '#8c8f4c')), windMat(), GRASS_N);
 const flowerM = new T.InstancedMesh(tuftGeo(2, 0.3, 0.42, '#3f5a24', '#7d9a44', true), windMat(), FLOWER_N);
 grassM.frustumCulled = flowerM.frustumCulled = false; grassM.count = flowerM.count = 0; scene.add(grassM, flowerM);
 const FLOWER_C = ['#e8d66a', '#e9e4d8', '#c9a8d8', '#d8c05a', '#f0f0e8', '#b9c870'].map(c => new T.Color(c));
@@ -10965,10 +10971,12 @@ function postInit() {
   if (PP) return PP;
   const rt = new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType, samples: 4, depthBuffer: true, stencilBuffer: true }); // com stencil a profundidade é de 24 bits (16 bits dá faixas no chão visto de longe)
   const mat = new T.ShaderMaterial({
-    uniforms: { tD: { value: rt.texture }, uPx: { value: new T.Vector2(1, 1) }, uSharp: { value: 0.2 }, uVig: { value: 0.42 }, uGrade: { value: 1 } },
+    uniforms: { tD: { value: rt.texture }, uPx: { value: new T.Vector2(1, 1) }, uSharp: { value: 0.2 }, uVig: { value: 0.42 }, uGrade: { value: 1 }, tB: { value: null }, uBloom: { value: 0 }, uCine: { value: 0 }, uT: { value: 0 } },
     depthTest: false, depthWrite: false,
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
     fragmentShader: `uniform sampler2D tD; uniform vec2 uPx; uniform float uSharp; uniform float uVig; uniform float uGrade; varying vec2 vUv;
+uniform sampler2D tB; uniform float uBloom; uniform float uCine; uniform float uT;
+float ppH(vec2 p){ p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
 vec3 ppSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 void main(){
   // nitidez adaptativa (estilo AMD CAS): realça bordas sem estourar, mais forte quanto menor a resolução interna
@@ -10985,15 +10993,38 @@ void main(){
   vec3 g = mix(vec3(l), c, 1.0 + 0.06 * (1.0 - smoothstep(0.15, 0.6, sat))); // vibração: realça cor apagada sem estourar a forte
   g *= mix(vec3(0.97, 0.995, 1.035), vec3(1.025, 1.005, 0.985), smoothstep(0.05, 0.5, l) * (1.0 - smoothstep(0.6, 0.9, l)));
   c = mix(c, g, uGrade);
+  // visual de cinema: brilho que vaza das partes claras (bloom), cor menos "desenho" (menos saturada, sombra fria, luz quente)
+  if (uBloom > 0.0) { vec3 bl = texture2D(tB, vUv).rgb; c = c + bl * uBloom * (1.0 - c * 0.5); }
+  if (uCine > 0.0) {
+    float l2 = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    vec3 k = mix(vec3(l2), c, 0.88);
+    float grn = clamp((c.g - max(c.r * 0.92, c.b)) * 3.5, 0.0, 1.0); k = mix(k, vec3(l2) * vec3(0.93, 1.0, 0.8), grn * 0.35); // verde-limão do mato vira verde de verdade
+    float blu = clamp((c.b - max(c.r, c.g)) * 6.0, 0.0, 1.0); /* céu e água ficam azuis */
+    k *= mix(vec3(0.92, 0.99, 1.07), mix(vec3(1.05, 1.0, 0.94), vec3(1.0), blu), smoothstep(0.02, 0.55, l2));
+    c = mix(c, k, uCine);
+  }
   c = ppSRGB(clamp(c, 0.0, 1.0));
   c = mix(c, c * c * (3.0 - 2.0 * c), 0.2 * uGrade); // contraste em S (nítido, estilo cinema)
-  vec2 q = vUv - 0.5; c *= 1.0 - dot(q, q) * uVig;
+  if (uCine > 0.0) { c = mix(c, c * c * (3.0 - 2.0 * c), 0.28 * uCine); c += (ppH(vUv * 913.0 + uT) - 0.5) * 0.035 * uCine * (1.0 - 0.5 * dot(c, vec3(0.333))); }
+  vec2 q = vUv - 0.5; c *= 1.0 - dot(q, q) * (uVig + 0.35 * uCine);
   gl_FragColor = vec4(c, 1.0);
 }`,
   });
   const quad = new T.Mesh(new T.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
   const sc = new T.Scene(); sc.add(quad);
-  PP = window.__PP = { rt, mat, sc, cam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1), on: false, lt: 0, cool: 0, v: new T.Vector2() };
+  // bloom: partes claras reduzidas a 1/4 e borradas (2 voltas), somadas no passe final
+  const bo = { type: T.HalfFloatType, depthBuffer: false, stencilBuffer: false, minFilter: T.LinearFilter, magFilter: T.LinearFilter };
+  const bA = new T.WebGLRenderTarget(4, 4, bo), bB = new T.WebGLRenderTarget(4, 4, bo);
+  const vsh = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+  const mBright = new T.ShaderMaterial({ uniforms: { tD: { value: rt.texture }, uPx: { value: new T.Vector2() } }, depthTest: false, depthWrite: false, vertexShader: vsh,
+    fragmentShader: `uniform sampler2D tD; uniform vec2 uPx; varying vec2 vUv;
+void main(){ vec3 c = (texture2D(tD, vUv + uPx * vec2(-1.0, -1.0)).rgb + texture2D(tD, vUv + uPx * vec2(1.0, -1.0)).rgb + texture2D(tD, vUv + uPx * vec2(-1.0, 1.0)).rgb + texture2D(tD, vUv + uPx * vec2(1.0, 1.0)).rgb) * 0.25;
+  float l = max(c.r, max(c.g, c.b)), k = smoothstep(0.86, 1.0, l); gl_FragColor = vec4(c * k * k, 1.0); }` });
+  const mBlur = new T.ShaderMaterial({ uniforms: { tD: { value: null }, uDir: { value: new T.Vector2() } }, depthTest: false, depthWrite: false, vertexShader: vsh,
+    fragmentShader: `uniform sampler2D tD; uniform vec2 uDir; varying vec2 vUv;
+void main(){ vec3 c = texture2D(tD, vUv).rgb * 0.227; c += (texture2D(tD, vUv + uDir * 1.385).rgb + texture2D(tD, vUv - uDir * 1.385).rgb) * 0.316; c += (texture2D(tD, vUv + uDir * 3.231).rgb + texture2D(tD, vUv - uDir * 3.231).rgb) * 0.07; gl_FragColor = vec4(c, 1.0); }` });
+  mat.uniforms.tB.value = bA.texture;
+  PP = window.__PP = { rt, mat, sc, cam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1), bA, bB, mBright, mBlur, quad, on: false, lt: 0, cool: 0, v: new T.Vector2() };
   return PP;
 }
 // a tela final fica na resolução de verdade do celular; a cena é desenhada menor (rapidez) e ampliada aqui com nitidez
@@ -11003,6 +11034,7 @@ function postResize() {
   if (!PP) return;
   renderer.getDrawingBufferSize(PP.v); const s = PP.on ? postScale() : 1, w = Math.max(4, Math.round(PP.v.x * s)), hh = Math.max(4, Math.round(PP.v.y * s));
   PP.rt.setSize(w, hh); PP.mat.uniforms.uPx.value.set(1 / w, 1 / hh);
+  const bw = Math.max(2, w >> 2), bh = Math.max(2, hh >> 2); PP.bA.setSize(bw, bh); PP.bB.setSize(bw, bh); PP.bw = bw; PP.bh = bh; PP.mBright.uniforms.uPx.value.set(1 / w, 1 / hh);
   PP.mat.uniforms.uSharp.value = Math.min(1, 0.35 + (1 - s) * 1.3);
 }
 function postWanted() { const q = QUAL[SET.quality] || QUAL[1]; return !!q.post && !window.__noPost && AUTO.lv < 2 && postSupported(); }
@@ -11013,6 +11045,13 @@ function drawScene() {
   if (PP && PP.on !== want) { PP.on = want; if (GFX.water) GFX.water.uniforms.uLin.value = want ? 1 : 0; applyFogColor(); applyRes(); } // névoa: mesma cor final na tela com ou sem o passe
   if (PP && PP.on) {
     renderer.setRenderTarget(PP.rt); renderer.render(scene, camera);
+    const cine = typeof CINE !== 'undefined' && CINE.on ? 1 : 0, u = PP.mat.uniforms; u.uCine.value = cine; u.uBloom.value = cine ? CINE.bloom : 0; u.uT.value = (performance.now() * 0.001) % 10;
+    if (cine) { const q = PP.quad;
+      q.material = PP.mBright; renderer.setRenderTarget(PP.bA); renderer.render(PP.sc, PP.cam);
+      q.material = PP.mBlur; const bu = PP.mBlur.uniforms;
+      for (const sp of [1, 2.2]) { bu.tD.value = PP.bA.texture; bu.uDir.value.set(sp / PP.bw, 0); renderer.setRenderTarget(PP.bB); renderer.render(PP.sc, PP.cam);
+        bu.tD.value = PP.bB.texture; bu.uDir.value.set(0, sp / PP.bh); renderer.setRenderTarget(PP.bA); renderer.render(PP.sc, PP.cam); }
+      q.material = PP.mat; }
     renderer.setRenderTarget(null); renderer.render(PP.sc, PP.cam);
   } else renderer.render(scene, camera);
 }
@@ -12067,7 +12106,7 @@ function underSetup() {
   const mat = natMat();
   for (const k of BUSHES) { if (!NATR.types[k]) continue; const m = new T.InstancedMesh(NATR.types[k], mat, 1100); m.count = 0; m.castShadow = false; m.receiveShadow = true; m.frustumCulled = false; scene.add(m); UNDER.inst[k] = m; }
   // capim alto em moitas (folhas finas que balançam): dá a leitura de mato denso de perto
-  UNDER.tall = new T.InstancedMesh(tuftGeo(12, 0.7, 1.5, '#34421f', '#9a9a56'), windMat(), 2600); UNDER.tall.count = 0; UNDER.tall.frustumCulled = false; UNDER.tall.receiveShadow = true; scene.add(UNDER.tall);
+  UNDER.tall = new T.InstancedMesh(tuftGeo(12, 0.7, 1.4, '#2c3a1b', '#868a4a'), windMat(), 2600); UNDER.tall.count = 0; UNDER.tall.frustumCulled = false; UNDER.tall.receiveShadow = true; scene.add(UNDER.tall);
   return UNDER.ready = Object.keys(UNDER.inst).length > 0;
 }
 function refreshUnder(cx, cz) {
@@ -13344,7 +13383,7 @@ function buildWarehouse(cx, cz) {
   }
   grp.add(Object.assign(new T.Mesh(whMerge(roof), std('roof', 3, { side: T.DoubleSide, metalness: 0.5 })), { castShadow: true, receiveShadow: true }));
   // estrutura de aço: pilares em I, tesouras do telhado e terças
-  const steel = [], stm = whInterior(new T.MeshStandardMaterial({ color: 0x3e4f5e, roughness: 0.55, metalness: 0.6, envMap: env, envMapIntensity: 0.5 }), 0.3);
+  const steel = [], stm = whInterior(new T.MeshStandardMaterial({ color: 0x3e4f5e, roughness: 0.55, metalness: 0.6, envMap: env, envMapIntensity: 0.5 }), 0.5);
   for (let z = -hd + 3; z <= hd - 3; z += 6) for (const sg of [-1, 1]) {
     const x = sg * (half - 0.45); steel.push(whBox(x - 0.18, 0, z - 0.12, x + 0.18, H, z + 0.12, 2)); col(x - 0.2, 0, z - 0.14, x + 0.2, H, z + 0.14);
     // tesoura: viga inclinada de cada lado + tirante
@@ -13353,7 +13392,7 @@ function buildWarehouse(cx, cz) {
   for (let z = -hd + 3; z <= hd - 3; z += 6) steel.push(whBox(-half + 0.5, H - 0.1, z - 0.05, half - 0.5, H + 0.05, z + 0.05, 2));
   grp.add(Object.assign(new T.Mesh(whMerge(steel), stm), { castShadow: true }));
   // porta-paletes (colunas azuis, vigas laranja) com caixas e barris
-  const rk = [], beams = [], ub = whInterior(new T.MeshStandardMaterial({ color: 0x1f4f9a, roughness: 0.5, metalness: 0.5 }), 0.3), ob = whInterior(new T.MeshStandardMaterial({ color: 0xe0661c, roughness: 0.45, metalness: 0.4 }), 0.3);
+  const rk = [], beams = [], ub = whInterior(new T.MeshStandardMaterial({ color: 0x1f4f9a, roughness: 0.5, metalness: 0.5 }), 0.5), ob = whInterior(new T.MeshStandardMaterial({ color: 0xe0661c, roughness: 0.45, metalness: 0.4 }), 0.5);
   const crates = [], barrels = [], cartons = [];
   for (const [x0, z0, x1, z1] of racks) {
     col(x0, 0, z0, x1, 4.2, z1);
@@ -13364,12 +13403,12 @@ function buildWarehouse(cx, cz) {
   }
   grp.add(new T.Mesh(whMerge(rk), ub)); grp.add(new T.Mesh(whMerge(beams), ob));
   const cart = []; for (const [x, y, z, r] of cartons) { const h = 0.5 + r * 0.5; cart.push(whBox(x - 0.45, y, z - 0.5, x + 0.45, y + h, z + 0.5, 1.2)); if (r > 0.7) cart.push(whBox(x - 0.35, y + h, z - 0.4, x + 0.35, y + h + 0.4, z + 0.4, 1.2)); }
-  { const cm = whInterior(new T.MeshStandardMaterial({ color: 0xa8865a, roughness: 0.9 }), 0.3); const m = new T.Mesh(whMerge(cart), cm); m.castShadow = m.receiveShadow = true; grp.add(m); }
-  if (PROPS.inst.crate) { const im = new T.InstancedMesh(PROPS.inst.crate.geometry, whInterior(PROPS.inst.crate.material.clone(), 0.3), crates.length + 12); let n = 0; const o = new T.Object3D();
+  { const cm = whInterior(new T.MeshStandardMaterial({ color: 0xa8865a, roughness: 0.9 }), 0.5); const m = new T.Mesh(whMerge(cart), cm); m.castShadow = m.receiveShadow = true; grp.add(m); }
+  if (PROPS.inst.crate) { const im = new T.InstancedMesh(PROPS.inst.crate.geometry, whInterior(PROPS.inst.crate.material.clone(), 0.5), crates.length + 12); let n = 0; const o = new T.Object3D();
     for (const [x, y, z, r] of crates) { o.position.set(x, y, z); o.rotation.set(0, r, 0); o.scale.setScalar(1); o.updateMatrix(); im.setMatrixAt(n++, o.matrix); }
     for (let i = 0; i < 12; i++) { const x = -half + 2 + (i % 3) * 1.0, z = hd - 6 + Math.floor(i / 3) * 0.95; o.position.set(x, i % 5 === 0 ? 0.62 : 0, z); o.rotation.set(0, i * 0.7, 0); o.updateMatrix(); im.setMatrixAt(n++, o.matrix); }
     im.count = n; im.castShadow = im.receiveShadow = true; grp.add(im); }
-  if (PROPS.inst.barrel) { const im = new T.InstancedMesh(PROPS.inst.barrel.geometry, whInterior(PROPS.inst.barrel.material.clone(), 0.3), barrels.length + 6); let n = 0; const o = new T.Object3D();
+  if (PROPS.inst.barrel) { const im = new T.InstancedMesh(PROPS.inst.barrel.geometry, whInterior(PROPS.inst.barrel.material.clone(), 0.5), barrels.length + 6); let n = 0; const o = new T.Object3D();
     for (const [x, y, z, r] of barrels) { o.position.set(x, y, z); o.rotation.set(0, r, 0); o.updateMatrix(); im.setMatrixAt(n++, o.matrix); }
     for (let i = 0; i < 6; i++) { o.position.set(half - 2 - (i % 2) * 0.7, 0, -hd + 4 + Math.floor(i / 2) * 0.7); o.rotation.set(0, i, 0); o.updateMatrix(); im.setMatrixAt(n++, o.matrix); }
     im.count = n; im.castShadow = im.receiveShadow = true; grp.add(im); col(half - 3, 0, -hd + 3.6, half - 1.6, 0.9, -hd + 5.8); }
@@ -13459,6 +13498,179 @@ function removeWarehouse() {
     return o; };
 })();
 
+// ================= visual de cinema: céu com nuvens de verdade, luz com mais contraste, bloom, cor realista, grão e relevo nas superfícies =================
+// liga/desliga em Configurações > "Visual realista (cinema)". Vem ligado no Médio e no Alto. O passe de cor e o bloom ficam em 22_post.js.
+if (SET.cine == null) SET.cine = true;
+const CINE = { on: false, bloom: 0.5, t: 0 };
+// camada de nuvens: um disco grande acima da câmera com nuvens de ruído (macias, iluminadas pelo sol, somem no horizonte)
+const CLOUDS = (() => {
+  const g = new T.CircleGeometry(2250, 48); g.rotateX(Math.PI / 2);
+  const m = new T.ShaderMaterial({ transparent: true, depthWrite: false, fog: false, side: T.DoubleSide,
+    uniforms: { uT: { value: 0 }, uSun: { value: SUN_DIR }, uCov: { value: 0.5 }, uLit: { value: new T.Color(0xffffff) }, uDark: { value: new T.Color(0x8a97a8) }, uOff: { value: new T.Vector2() } },
+    vertexShader: 'varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `varying vec3 vP; uniform float uT; uniform vec3 uSun; uniform float uCov; uniform vec3 uLit; uniform vec3 uDark; uniform vec2 uOff;
+${GLSL_NOISE}
+float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * vn(p); p = p * 2.03 + 17.3; a *= 0.5; } return s; }
+void main(){
+  vec2 p = (vP.xz + uOff) * 0.0035 + vec2(uT * 0.006, uT * 0.002);
+  float n = fbm(p) / 0.97, n2 = fbm(p * 3.1 + 5.0) / 0.97;
+  float thr = mix(0.66, 0.26, uCov), d = smoothstep(thr, thr + 0.2, n * 0.8 + n2 * 0.2);
+  // luz: lado do sol claro, miolo e base mais escuros
+  float sh = fbm(p + uSun.xz * 0.06);
+  float lit = clamp(0.55 + (n - sh) * 2.2, 0.0, 1.0);
+  vec3 c = mix(uDark, uLit, lit * (1.0 - d * 0.35));
+  float r = length(vP.xz) / 2250.0, fade = 1.0 - smoothstep(0.35, 0.98, r);
+  gl_FragColor = vec4(c, d * fade * 0.92);
+}` });
+  const mesh = new T.Mesh(g, m); mesh.renderOrder = -8; mesh.frustumCulled = false; mesh.visible = false; mesh.position.y = 400; SKY.add(mesh); return mesh; /* segue a câmera junto com o céu (partida e lobby) */
+})();
+const CINE_WX = { dia: [0.3, 0xffffff, 0xa9b6c6], tarde: [0.52, 0xffd9b0, 0x8a6f78], nublado: [0.86, 0xd9dee4, 0x7c858f], chuva: [0.95, 0xb4bcc4, 0x5c646c], noite: [0.5, 0x4a5878, 0x141a28] };
+function cineApply() {
+  const want = !!SET.cine && SET.quality > 0;
+  CINE.on = want;
+  DET.uBump.value = want ? 1 : 0;
+  CLOUDS.visible = want; if (NAT.clouds) NAT.clouds.visible = !want;
+  const w = CINE_WX[typeof WX !== 'undefined' ? WX.k : 'dia'] || CINE_WX.dia, u = CLOUDS.material.uniforms; u.uCov.value = w[0]; u.uLit.value.set(w[1]); u.uDark.value.set(w[2]);
+  if (typeof PP !== 'undefined' && PP && PP.on) { u.uLit.value.convertSRGBToLinear(); u.uDark.value.convertSRGBToLinear(); }
+}
+(function hookCinema() {
+  // luz: no visual de cinema o sol pesa mais e o céu "enche" menos as sombras (mais contraste, como em foto)
+  const sw = setWeather;
+  setWeather = function (k) { const r = sw.apply(this, arguments);
+    if (SET.cine && SET.quality > 0) { const w = WEATHER[WX.k]; sun.intensity = w.si * 1.12; HEMI.intensity = w.hi * (w.night ? 1 : 0.78);
+      if (typeof SKY2 !== 'undefined' && SKY2 && WX.k === 'dia') { const u = SKY2.material.uniforms; u.turbidity.value = 2.2; u.rayleigh.value = 1.9; } } /* céu mais azul e limpo */
+    cineApply(); return r; };
+  const aq = applyQuality; applyQuality = function () { const r = aq.apply(this, arguments); cineApply(); return r; };
+  const gs = gfxStep; gfxStep = function (dt, ...q) { const o = gs.call(this, dt, ...q);
+    if (CINE.on) { CINE.t += dt; const u = CLOUDS.material.uniforms; u.uT.value = CINE.t; u.uOff.value.set(camera.position.x, camera.position.z); }
+    return o; };
+  const om = openMenu; openMenu = function (...q) { const r = om.apply(this, q);
+    const box = document.querySelector('#menuP .box'), ref = $('sQ') && $('sQ').closest('label');
+    if (box && ref && !$('sCine')) { const l = document.createElement('label'); l.innerHTML = 'Visual realista (cinema) <input type="checkbox" id="sCine">'; ref.after(l); $('sCine').checked = !!SET.cine; $('sCine').onchange = e => { SET.cine = e.target.checked; saveSet(); setWeather(WX.k); }; }
+    return r; };
+  cineApply();
+})();
+
+// ================= 1ª pessoa mais real: red dot e holográfica com tubo e lente de vidro, luvas táticas, manga da cor da roupa, clarão do tiro iluminando =================
+// --- miras: corpo novo (tubo oco / moldura) no lugar do bloco opaco; a lente é uma peça à parte, transparente ---
+(function sightGeo() {
+  const tube = new T.CylinderGeometry(1, 1, 1, 18, 1, true), inner = tube.clone(); inner.scale(-1, 1, 1); inner.computeVertexNormals(); // parede de dentro (aparece ao mirar)
+  const ring = new T.TorusGeometry(1, 0.13, 6, 18);
+  const T2 = (g, y, z, r, len) => ({ g, x: 0, y, z, rx: Math.PI / 2, sx: r, sy: len, sz: r, c: GC_.bk });
+  const R = (y, z, r) => ({ g: ring, x: 0, y, z, sx: r, sy: r, sz: r, c: '#1c1d20' });
+  const cy = 0.045, r = 0.021;
+  ATTGEO.RED = mergeParts([T2(tube, cy, 0, r, 0.062), T2(inner, cy, 0, r * 0.9, 0.062), R(cy, -0.031, r), R(cy, 0.031, r),
+    Bc(0, 0.012, 0, 0.024, 0.024, 0.046, GC_.bk), Bc(0, 0.002, 0, 0.03, 0.006, 0.05, '#1c1d20'), /* base e trilho */
+    Cz(0.027, cy, 0.004, 0.008, 0.012, '#1c1d20'), { g: GEO.cyl, x: 0, y: cy + r + 0.006, z: 0.004, sx: 0.016, sy: 0.012, sz: 0.016, c: '#1c1d20' }, /* botões de ajuste */
+    Bc(0.014, 0.004, -0.012, 0.006, 0.012, 0.012, GC_.st)]);
+  // holográfica: caixa baixa + moldura em arco aberta (sem vidro opaco)
+  const hy = 0.045;
+  ATTGEO.HOLO = mergeParts([Bc(0, 0.01, 0.006, 0.036, 0.018, 0.09, GC_.bk), Bc(0, 0.001, 0.006, 0.03, 0.005, 0.07, '#1c1d20'),
+    Bc(0.0185, hy - 0.004, -0.022, 0.004, 0.046, 0.034, GC_.bk), Bc(-0.0185, hy - 0.004, -0.022, 0.004, 0.046, 0.034, GC_.bk), Bc(0, hy + 0.021, -0.022, 0.041, 0.004, 0.034, GC_.bk),
+    Bc(0, 0.02, 0.03, 0.03, 0.012, 0.03, '#1c1d20'), Cz(0.022, 0.012, 0.03, 0.006, 0.01, GC_.st)]);
+})();
+const SIGHT_LENS = {
+  RED: new T.Mesh(new T.CircleGeometry(0.019, 20), new T.MeshBasicMaterial({ color: 0x7fc8ff, transparent: true, opacity: 0.1, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending })),
+  HOLO: new T.Mesh(new T.PlaneGeometry(0.034, 0.042), new T.MeshBasicMaterial({ color: 0x8fd8ff, transparent: true, opacity: 0.1, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending })),
+};
+// --- luvas e mangas ---
+vmGloveMat.color.set(0x1d1e21); vmGloveMat.roughness = 0.62; vmGloveMat.emissive.set(0x050506);
+vmSeamMat.color.set(0x2a2c2f); vmSeamMat.emissive.set(0x060607);
+const vmKnuckMat = new T.MeshStandardMaterial({ color: 0x3a3d42, roughness: 0.4, metalness: 0.3, envMap: typeof ENV_TEX !== 'undefined' ? ENV_TEX : null, envMapIntensity: 0.5 });
+function vmSleeveColor() {
+  const p = G.player; let c = 0x4a5238; /* verde-oliva escuro por padrão */
+  try { const e = SET.equip || {}, o = e.out && COS[e.out]; if (o && TH[o.th] && TH[o.th].c) c = new T.Color(TH[o.th].c[0]).getHex(); else if (p && p.look && p.look.shirt) { const k = new T.Color(p.look.shirt), l = (k.r + k.g + k.b) / 3; c = k.lerp(new T.Color(l, l, l), 0.55).multiplyScalar(0.42).getHex(); } } catch (e) { }
+  vmSleeveMat.color.set(c); vmSleeveMat.emissive.set(c).multiplyScalar(0.12); vmSleeveMat.roughness = 0.92;
+}
+(function hookFpp() {
+  // mãos: punho da luva, dorso com proteção e 4 dedos + polegar mais grossos
+  const fa = fillVmArm;
+  fillVmArm = function (g, side, fore, pistol) {
+    fa.apply(this, arguments);
+    const { elbow, wrist } = vmArmPose(side, fore, pistol), s = side;
+    const d = new T.Vector3(wrist[0] - elbow[0], wrist[1] - elbow[1], wrist[2] - elbow[2]).normalize(), W = new T.Vector3(...wrist);
+    const cuffA = W.clone().addScaledVector(d, -0.05), cuffB = W.clone().addScaledVector(d, 0.012);
+    vmArmSegment(g, cuffA.toArray(), cuffB.toArray(), 0.056, 0.054, vmGloveMat); /* punho da luva por cima da manga */
+    vmArmSegment(g, W.clone().addScaledVector(d, -0.058).toArray(), cuffA.toArray(), 0.058, 0.058, vmSeamMat); /* elástico */
+    const palm = [wrist[0] - s * 0.008, wrist[1] - 0.012, wrist[2] - 0.055];
+    vmArmJoint(g, [palm[0], palm[1] + 0.03, palm[2] - 0.004], 0.03, vmKnuckMat, [1.25, 0.32, 1.1]); /* proteção dos nós dos dedos */
+    for (let i = 0; i < 4; i++) vmArmSegment(g, [palm[0] + (i - 1.5) * 0.02, palm[1] - 0.004, palm[2] - 0.03], [palm[0] + (i - 1.5) * 0.022 - s * 0.012, palm[1] - 0.03, palm[2] - 0.072], 0.0125, 0.0105, vmGloveMat);
+    vmArmSegment(g, [palm[0] + s * 0.036, palm[1] + 0.004, palm[2] + 0.01], [palm[0] + s * 0.03, palm[1] + 0.028, palm[2] - 0.04], 0.0135, 0.011, vmGloveMat); /* polegar */
+  };
+  // lente da mira e cor da manga a cada troca de arma/acessório
+  const dg = dressGun;
+  dressGun = function (mesh, w) {
+    const r = dg.apply(this, arguments);
+    if (mesh !== vmGun) return r;
+    for (const k in SIGHT_LENS) if (SIGHT_LENS[k].parent) SIGHT_LENS[k].parent.remove(SIGHT_LENS[k]);
+    const ak = w && w.att.sight, L = ak && SIGHT_LENS[ak];
+    if (L && !(REALGUN[w.k] && REALGUN[w.k].scoped && REALGUN[w.k].obj)) { L.position.set(0, GUN_TOP[w.k] + 0.045, (WEAP[w.k].cls === 'pistol' ? -0.02 : -0.06) - (ak === 'HOLO' ? 0.03 : 0.028)); L.renderOrder = 5; mesh.add(L); }
+    vmSleeveColor();
+    return r;
+  };
+  // clarão do tiro: uma luz que acende no cano por um instante (ilumina arma, mãos, parede e chão perto)
+  const FL = new T.PointLight(0xffc27a, 0, 14, 2); scene.add(FL); let flT = 0;
+  const mf = muzzleFlash;
+  muzzleFlash = function (a, quiet) {
+    const r = mf.apply(this, arguments);
+    if (!quiet && (a === G.player || Math.hypot(a.x - camera.position.x, a.z - camera.position.z) < 30)) {
+      const yaw = a === G.player ? G.view.yaw : a.yaw; FL.position.set(a.x - Math.sin(yaw) * 0.9, a.y + (a.stance === 'prone' ? 0.4 : a.stance === 'crouch' ? 1.0 : 1.45), a.z - Math.cos(yaw) * 0.9); flT = 0.06;
+    }
+    return r;
+  };
+  const gs = gfxStep; gfxStep = function (dt, ...q) { const o = gs.call(this, dt, ...q); flT = Math.max(0, flT - dt); FL.intensity = flT > 0 ? 2.6 * (flT / 0.06) : 0; return o; };
+  fillVmArm(vmArmL, -1, -0.32, false); fillVmArm(vmArmR, 1, 0, false); vmSleeveColor();
+})();
+
+// ================= zona industrial no mapa de verdade: o galpão realista + pátio de containers, sempre no mesmo lugar para todos =================
+// o lugar é escolhido uma vez pelo próprio relevo do mapa (igual em todos os aparelhos): plano, sem casas, perto de uma estrada.
+const IND = { site: null, spots: [] };
+(function indSite() {
+  const near = []; let best = null, bd = 1e9;
+  for (let x = -HALF * 0.7; x <= HALF * 0.7; x += 40) for (let z = -HALF * 0.7; z <= HALF * 0.7; z += 40) {
+    let lo = 1e9, hi = -1e9; for (let u = -30; u <= 30; u += 6) for (let v = -34; v <= 34; v += 6) { const h = groundH(x + u, z + v); lo = Math.min(lo, h); hi = Math.max(hi, h); }
+    const rd = roadDist(x, z); if (lo < 2.5 || hi - lo > 2.6 || bldAt(x, z, 42) || rd < 34 || rd > 110) continue;
+    boxesNear(x - 30, z - 34, x + 30, z + 34, near); if (near.some(b => b.k !== 'tree' && b.k !== 'rock')) continue;
+    const d = Math.hypot(x, z) + (hi - lo) * 60; if (d < bd) { bd = d; best = [x, z]; } // o mais perto do centro do mapa
+  }
+  IND.site = best;
+})();
+// containers: caixas de chapa pintada com textura (3 cores), empilhados em fileiras dos dois lados do galpão
+function indYard(cx, cz, fy) {
+  const mats = [0xa8402e, 0x2f5f8f, 0xb98a3a].map(c => whInterior(new T.MeshStandardMaterial(Object.assign({ color: c, metalness: 0.35, envMap: typeof ENV_TEX !== 'undefined' ? ENV_TEX : null, envMapIntensity: 0.4 }, whTex('shutter', 2.6))), 1));
+  const geo = [[], [], []], doors = [];
+  const put = (x, z, len, alongX, lvl, k) => {
+    const hx = alongX ? len / 2 : 1.22, hz = alongX ? 1.22 : len / 2, y0 = Math.max(groundH(cx + x - hx, cz + z - hz), groundH(cx + x + hx, cz + z + hz), groundH(cx + x, cz + z)) - fy + lvl * 2.6;
+    geo[k].push(whBox(x - hx, y0 - (lvl ? 0 : 1.5), z - hz, x + hx, y0 + 2.59, z + hz, 2.6));
+    WH.cols.push(addCollider(cx + x - hx, fy + y0 - 1, cz + z - hz, cx + x + hx, fy + y0 + 2.6, cz + z + hz, 'w'));
+    // moldura e travas da porta numa ponta
+    const e = alongX ? [x + hx + 0.02, z] : [x, z + hz + 0.02]; for (const s of [-0.5, 0.5]) doors.push(alongX ? whBox(e[0] - 0.03, y0 + 0.2, e[1] + s - 0.03, e[0] + 0.03, y0 + 2.4, e[1] + s + 0.03, 1) : whBox(e[0] + s - 0.03, y0 + 0.2, e[1] - 0.03, e[0] + s + 0.03, y0 + 2.4, e[1] + 0.03, 1));
+    if (!lvl) IND.spots.push([cx + x + (alongX ? 0 : 2.4), fy + y0 + 0.05, cz + z + (alongX ? 2.4 : 0)]);
+  };
+  let n = 0; const rnd = (a, b) => phh(cx + a * 3.1, cz + b * 1.7, 71 + n++);
+  for (const sx of [-1, 1]) for (let r = 0; r < 2; r++) for (let i = 0; i < 4; i++) {
+    const x = sx * (19 + r * 6.2), z = -22 + i * 13.2, len = rnd(i, r) < 0.4 ? 6.06 : 12.2, k = Math.floor(rnd(r, i) * 3);
+    put(x, z, len, false, 0, k); if (rnd(i, sx) < 0.45) put(x, z + (len < 7 ? 0 : (rnd(1, i) - 0.5) * 3), 6.06, false, 1, Math.floor(rnd(sx, r) * 3));
+  }
+  for (let i = 0; i < 3; i++) put(-8 + i * 8.5, 30 + (i % 2) * 3.2, 6.06, true, 0, i); // fileira na frente do portão
+  geo.forEach((l, k) => { if (l.length) { const m = new T.Mesh(whMerge(l), mats[k]); m.castShadow = m.receiveShadow = true; WH.g.add(m); } });
+  if (doors.length) WH.g.add(new T.Mesh(whMerge(doors), new T.MeshStandardMaterial({ color: 0x2a2c30, metalness: 0.6, roughness: 0.5 })));
+}
+(function hookIndustrial() {
+  if (!IND.site) return;
+  // monta junto com o loot da partida (dentro da parte "com semente": o loot extra sai igual em todos os aparelhos)
+  const sl = spawnLoot;
+  spawnLoot = function (...q) {
+    const r = sl.apply(this, q);
+    try { IND.spots = []; const [x, z] = IND.site; buildWarehouse(x, z); whClear(x, z, 34, 38); indYard(x, z, WH.fy);
+      for (let i = -1; i <= 1; i++) for (const sx of [-6, 0, 6]) IND.spots.push([x + sx, WH.fy + 0.05, z + i * 9]);
+      for (const s of IND.spots) { if (Math.random() > 0.75) continue; rollLoot(Math.random() < 0.5 ? 3 : 2).forEach((e, i) => dropItem(e.k, e.n, s[0] + i * 0.4, s[1], s[2] + rr(-0.4, 0.4))); }
+    } catch (e) { console.warn('zona industrial', e); }
+    return r;
+  };
+  const tl = toLobby; toLobby = function (...q) { removeWarehouse(); return tl.apply(this, q); };
+})();
+
 // ================= início =================
 G.mode = SET.mode || 'squad'; G.diff = SET.diff || 'mix';
 applyQuality();
@@ -13471,7 +13683,7 @@ loadHumans(() => {
 });
 $('loading').classList.add('hidden');
 requestAnimationFrame(frame);
-window.__G = { WHinfo: () => ({ cx: WH.cx, cz: WH.cz, fy: WH.fy, ok: !!WH.g }), VM, vmArmL, vmArms, RL, rlInfo, hitPart, hurtLocal, setHitPart: v => { HIT_PART = v; }, VFX, TRAIN, LSET, LOB, SND, shotSound: (...q) => shotSound(...q), stepSounds: q => stepSounds(q), PROPS, DET, GFX, vehGeo, vehMat, noDyn: () => { dynRes.t = 1e15; DYN = 1; applyRes(); }, NATR, NAT, frame, drawScene, showPreview, COS, COSL, AUTO, gfxStep, refreshGrass, refreshNature, G, IN, ZONE, BLD, BOX, TOWNS, ROADS, RIVER, setWeather, drawMapOn, MAPID, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, ON, PARTY, removeItem, pDrop, partyCreate, partyJoin, leaderStart, addFriendCode, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
+window.__G = { IND, CLOUDS, CINE, DET, WHinfo: () => ({ cx: WH.cx, cz: WH.cz, fy: WH.fy, ok: !!WH.g }), VM, vmArmL, vmArms, RL, rlInfo, hitPart, hurtLocal, setHitPart: v => { HIT_PART = v; }, VFX, TRAIN, LSET, LOB, SND, shotSound: (...q) => shotSound(...q), stepSounds: q => stepSounds(q), PROPS, DET, GFX, vehGeo, vehMat, noDyn: () => { dynRes.t = 1e15; DYN = 1; applyRes(); }, NATR, NAT, frame, drawScene, showPreview, COS, COSL, AUTO, gfxStep, refreshGrass, refreshNature, G, IN, ZONE, BLD, BOX, TOWNS, ROADS, RIVER, setWeather, drawMapOn, MAPID, PLANE, play, toLobby, startMatch, giveItem, mkWeapon, jumpOut, openChute, land, startHeal, switchWeapon, renderBag, openBag, toggleMap, closePanels, updateHud, updateCamera, drawActors, groundH, spawnLoot, callAirdrop, renderer, scene, camera, hurt, kill, gunGeo, dressGun, MAT, VEH, HUM, ON, PARTY, removeItem, pDrop, partyCreate, partyJoin, leaderStart, addFriendCode, tryVault, vaultPlan, NADES, SMOKES, FIRES, throwNade, pThrow, losClear, aimAndFire, fireShot, enterVeh, leaveVeh, addVehicle, stepVehicles };
 // instala como app / funciona sem internet
 if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js').then(r => { try { r.update(); } catch (e) { } }).catch(() => { }); let had = !!navigator.serviceWorker.controller; navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && G.phase !== 'match') location.reload(); had = true; }); } // versão nova chegou: recarrega sozinho no lobby
 

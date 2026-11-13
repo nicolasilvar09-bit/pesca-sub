@@ -10,10 +10,12 @@ function postInit() {
   if (PP) return PP;
   const rt = new T.WebGLRenderTarget(4, 4, { type: T.HalfFloatType, samples: 4, depthBuffer: true, stencilBuffer: true }); // com stencil a profundidade é de 24 bits (16 bits dá faixas no chão visto de longe)
   const mat = new T.ShaderMaterial({
-    uniforms: { tD: { value: rt.texture }, uPx: { value: new T.Vector2(1, 1) }, uSharp: { value: 0.2 }, uVig: { value: 0.42 }, uGrade: { value: 1 } },
+    uniforms: { tD: { value: rt.texture }, uPx: { value: new T.Vector2(1, 1) }, uSharp: { value: 0.2 }, uVig: { value: 0.42 }, uGrade: { value: 1 }, tB: { value: null }, uBloom: { value: 0 }, uCine: { value: 0 }, uT: { value: 0 } },
     depthTest: false, depthWrite: false,
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
     fragmentShader: `uniform sampler2D tD; uniform vec2 uPx; uniform float uSharp; uniform float uVig; uniform float uGrade; varying vec2 vUv;
+uniform sampler2D tB; uniform float uBloom; uniform float uCine; uniform float uT;
+float ppH(vec2 p){ p = fract(p * vec2(443.897, 441.423)); p += dot(p, p.yx + 19.19); return fract((p.x + p.y) * p.x); }
 vec3 ppSRGB(vec3 c){ return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
 void main(){
   // nitidez adaptativa (estilo AMD CAS): realça bordas sem estourar, mais forte quanto menor a resolução interna
@@ -30,15 +32,38 @@ void main(){
   vec3 g = mix(vec3(l), c, 1.0 + 0.06 * (1.0 - smoothstep(0.15, 0.6, sat))); // vibração: realça cor apagada sem estourar a forte
   g *= mix(vec3(0.97, 0.995, 1.035), vec3(1.025, 1.005, 0.985), smoothstep(0.05, 0.5, l) * (1.0 - smoothstep(0.6, 0.9, l)));
   c = mix(c, g, uGrade);
+  // visual de cinema: brilho que vaza das partes claras (bloom), cor menos "desenho" (menos saturada, sombra fria, luz quente)
+  if (uBloom > 0.0) { vec3 bl = texture2D(tB, vUv).rgb; c = c + bl * uBloom * (1.0 - c * 0.5); }
+  if (uCine > 0.0) {
+    float l2 = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    vec3 k = mix(vec3(l2), c, 0.88);
+    float grn = clamp((c.g - max(c.r * 0.92, c.b)) * 3.5, 0.0, 1.0); k = mix(k, vec3(l2) * vec3(0.93, 1.0, 0.8), grn * 0.35); // verde-limão do mato vira verde de verdade
+    float blu = clamp((c.b - max(c.r, c.g)) * 6.0, 0.0, 1.0); /* céu e água ficam azuis */
+    k *= mix(vec3(0.92, 0.99, 1.07), mix(vec3(1.05, 1.0, 0.94), vec3(1.0), blu), smoothstep(0.02, 0.55, l2));
+    c = mix(c, k, uCine);
+  }
   c = ppSRGB(clamp(c, 0.0, 1.0));
   c = mix(c, c * c * (3.0 - 2.0 * c), 0.2 * uGrade); // contraste em S (nítido, estilo cinema)
-  vec2 q = vUv - 0.5; c *= 1.0 - dot(q, q) * uVig;
+  if (uCine > 0.0) { c = mix(c, c * c * (3.0 - 2.0 * c), 0.28 * uCine); c += (ppH(vUv * 913.0 + uT) - 0.5) * 0.035 * uCine * (1.0 - 0.5 * dot(c, vec3(0.333))); }
+  vec2 q = vUv - 0.5; c *= 1.0 - dot(q, q) * (uVig + 0.35 * uCine);
   gl_FragColor = vec4(c, 1.0);
 }`,
   });
   const quad = new T.Mesh(new T.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
   const sc = new T.Scene(); sc.add(quad);
-  PP = window.__PP = { rt, mat, sc, cam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1), on: false, lt: 0, cool: 0, v: new T.Vector2() };
+  // bloom: partes claras reduzidas a 1/4 e borradas (2 voltas), somadas no passe final
+  const bo = { type: T.HalfFloatType, depthBuffer: false, stencilBuffer: false, minFilter: T.LinearFilter, magFilter: T.LinearFilter };
+  const bA = new T.WebGLRenderTarget(4, 4, bo), bB = new T.WebGLRenderTarget(4, 4, bo);
+  const vsh = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+  const mBright = new T.ShaderMaterial({ uniforms: { tD: { value: rt.texture }, uPx: { value: new T.Vector2() } }, depthTest: false, depthWrite: false, vertexShader: vsh,
+    fragmentShader: `uniform sampler2D tD; uniform vec2 uPx; varying vec2 vUv;
+void main(){ vec3 c = (texture2D(tD, vUv + uPx * vec2(-1.0, -1.0)).rgb + texture2D(tD, vUv + uPx * vec2(1.0, -1.0)).rgb + texture2D(tD, vUv + uPx * vec2(-1.0, 1.0)).rgb + texture2D(tD, vUv + uPx * vec2(1.0, 1.0)).rgb) * 0.25;
+  float l = max(c.r, max(c.g, c.b)), k = smoothstep(0.86, 1.0, l); gl_FragColor = vec4(c * k * k, 1.0); }` });
+  const mBlur = new T.ShaderMaterial({ uniforms: { tD: { value: null }, uDir: { value: new T.Vector2() } }, depthTest: false, depthWrite: false, vertexShader: vsh,
+    fragmentShader: `uniform sampler2D tD; uniform vec2 uDir; varying vec2 vUv;
+void main(){ vec3 c = texture2D(tD, vUv).rgb * 0.227; c += (texture2D(tD, vUv + uDir * 1.385).rgb + texture2D(tD, vUv - uDir * 1.385).rgb) * 0.316; c += (texture2D(tD, vUv + uDir * 3.231).rgb + texture2D(tD, vUv - uDir * 3.231).rgb) * 0.07; gl_FragColor = vec4(c, 1.0); }` });
+  mat.uniforms.tB.value = bA.texture;
+  PP = window.__PP = { rt, mat, sc, cam: new T.OrthographicCamera(-1, 1, 1, -1, 0, 1), bA, bB, mBright, mBlur, quad, on: false, lt: 0, cool: 0, v: new T.Vector2() };
   return PP;
 }
 // a tela final fica na resolução de verdade do celular; a cena é desenhada menor (rapidez) e ampliada aqui com nitidez
@@ -48,6 +73,7 @@ function postResize() {
   if (!PP) return;
   renderer.getDrawingBufferSize(PP.v); const s = PP.on ? postScale() : 1, w = Math.max(4, Math.round(PP.v.x * s)), hh = Math.max(4, Math.round(PP.v.y * s));
   PP.rt.setSize(w, hh); PP.mat.uniforms.uPx.value.set(1 / w, 1 / hh);
+  const bw = Math.max(2, w >> 2), bh = Math.max(2, hh >> 2); PP.bA.setSize(bw, bh); PP.bB.setSize(bw, bh); PP.bw = bw; PP.bh = bh; PP.mBright.uniforms.uPx.value.set(1 / w, 1 / hh);
   PP.mat.uniforms.uSharp.value = Math.min(1, 0.35 + (1 - s) * 1.3);
 }
 function postWanted() { const q = QUAL[SET.quality] || QUAL[1]; return !!q.post && !window.__noPost && AUTO.lv < 2 && postSupported(); }
@@ -58,6 +84,13 @@ function drawScene() {
   if (PP && PP.on !== want) { PP.on = want; if (GFX.water) GFX.water.uniforms.uLin.value = want ? 1 : 0; applyFogColor(); applyRes(); } // névoa: mesma cor final na tela com ou sem o passe
   if (PP && PP.on) {
     renderer.setRenderTarget(PP.rt); renderer.render(scene, camera);
+    const cine = typeof CINE !== 'undefined' && CINE.on ? 1 : 0, u = PP.mat.uniforms; u.uCine.value = cine; u.uBloom.value = cine ? CINE.bloom : 0; u.uT.value = (performance.now() * 0.001) % 10;
+    if (cine) { const q = PP.quad;
+      q.material = PP.mBright; renderer.setRenderTarget(PP.bA); renderer.render(PP.sc, PP.cam);
+      q.material = PP.mBlur; const bu = PP.mBlur.uniforms;
+      for (const sp of [1, 2.2]) { bu.tD.value = PP.bA.texture; bu.uDir.value.set(sp / PP.bw, 0); renderer.setRenderTarget(PP.bB); renderer.render(PP.sc, PP.cam);
+        bu.tD.value = PP.bB.texture; bu.uDir.value.set(0, sp / PP.bh); renderer.setRenderTarget(PP.bA); renderer.render(PP.sc, PP.cam); }
+      q.material = PP.mat; }
     renderer.setRenderTarget(null); renderer.render(PP.sc, PP.cam);
   } else renderer.render(scene, camera);
 }

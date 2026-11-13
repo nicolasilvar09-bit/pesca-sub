@@ -106,7 +106,7 @@ function buildWarehouse(cx, cz) {
   }
   grp.add(Object.assign(new T.Mesh(whMerge(roof), std('roof', 3, { side: T.DoubleSide, metalness: 0.5 })), { castShadow: true, receiveShadow: true }));
   // estrutura de aço: pilares em I, tesouras do telhado e terças
-  const steel = [], stm = whInterior(new T.MeshStandardMaterial({ color: 0x3e4f5e, roughness: 0.55, metalness: 0.6, envMap: env, envMapIntensity: 0.5 }), 0.3);
+  const steel = [], stm = whInterior(new T.MeshStandardMaterial({ color: 0x3e4f5e, roughness: 0.55, metalness: 0.6, envMap: env, envMapIntensity: 0.5 }), 0.5);
   for (let z = -hd + 3; z <= hd - 3; z += 6) for (const sg of [-1, 1]) {
     const x = sg * (half - 0.45); steel.push(whBox(x - 0.18, 0, z - 0.12, x + 0.18, H, z + 0.12, 2)); col(x - 0.2, 0, z - 0.14, x + 0.2, H, z + 0.14);
     // tesoura: viga inclinada de cada lado + tirante
@@ -115,7 +115,7 @@ function buildWarehouse(cx, cz) {
   for (let z = -hd + 3; z <= hd - 3; z += 6) steel.push(whBox(-half + 0.5, H - 0.1, z - 0.05, half - 0.5, H + 0.05, z + 0.05, 2));
   grp.add(Object.assign(new T.Mesh(whMerge(steel), stm), { castShadow: true }));
   // porta-paletes (colunas azuis, vigas laranja) com caixas e barris
-  const rk = [], beams = [], ub = whInterior(new T.MeshStandardMaterial({ color: 0x1f4f9a, roughness: 0.5, metalness: 0.5 }), 0.3), ob = whInterior(new T.MeshStandardMaterial({ color: 0xe0661c, roughness: 0.45, metalness: 0.4 }), 0.3);
+  const rk = [], beams = [], ub = whInterior(new T.MeshStandardMaterial({ color: 0x1f4f9a, roughness: 0.5, metalness: 0.5 }), 0.5), ob = whInterior(new T.MeshStandardMaterial({ color: 0xe0661c, roughness: 0.45, metalness: 0.4 }), 0.5);
   const crates = [], barrels = [], cartons = [];
   for (const [x0, z0, x1, z1] of racks) {
     col(x0, 0, z0, x1, 4.2, z1);
@@ -126,12 +126,12 @@ function buildWarehouse(cx, cz) {
   }
   grp.add(new T.Mesh(whMerge(rk), ub)); grp.add(new T.Mesh(whMerge(beams), ob));
   const cart = []; for (const [x, y, z, r] of cartons) { const h = 0.5 + r * 0.5; cart.push(whBox(x - 0.45, y, z - 0.5, x + 0.45, y + h, z + 0.5, 1.2)); if (r > 0.7) cart.push(whBox(x - 0.35, y + h, z - 0.4, x + 0.35, y + h + 0.4, z + 0.4, 1.2)); }
-  { const cm = whInterior(new T.MeshStandardMaterial({ color: 0xa8865a, roughness: 0.9 }), 0.3); const m = new T.Mesh(whMerge(cart), cm); m.castShadow = m.receiveShadow = true; grp.add(m); }
-  if (PROPS.inst.crate) { const im = new T.InstancedMesh(PROPS.inst.crate.geometry, whInterior(PROPS.inst.crate.material.clone(), 0.3), crates.length + 12); let n = 0; const o = new T.Object3D();
+  { const cm = whInterior(new T.MeshStandardMaterial({ color: 0xa8865a, roughness: 0.9 }), 0.5); const m = new T.Mesh(whMerge(cart), cm); m.castShadow = m.receiveShadow = true; grp.add(m); }
+  if (PROPS.inst.crate) { const im = new T.InstancedMesh(PROPS.inst.crate.geometry, whInterior(PROPS.inst.crate.material.clone(), 0.5), crates.length + 12); let n = 0; const o = new T.Object3D();
     for (const [x, y, z, r] of crates) { o.position.set(x, y, z); o.rotation.set(0, r, 0); o.scale.setScalar(1); o.updateMatrix(); im.setMatrixAt(n++, o.matrix); }
     for (let i = 0; i < 12; i++) { const x = -half + 2 + (i % 3) * 1.0, z = hd - 6 + Math.floor(i / 3) * 0.95; o.position.set(x, i % 5 === 0 ? 0.62 : 0, z); o.rotation.set(0, i * 0.7, 0); o.updateMatrix(); im.setMatrixAt(n++, o.matrix); }
     im.count = n; im.castShadow = im.receiveShadow = true; grp.add(im); }
-  if (PROPS.inst.barrel) { const im = new T.InstancedMesh(PROPS.inst.barrel.geometry, whInterior(PROPS.inst.barrel.material.clone(), 0.3), barrels.length + 6); let n = 0; const o = new T.Object3D();
+  if (PROPS.inst.barrel) { const im = new T.InstancedMesh(PROPS.inst.barrel.geometry, whInterior(PROPS.inst.barrel.material.clone(), 0.5), barrels.length + 6); let n = 0; const o = new T.Object3D();
     for (const [x, y, z, r] of barrels) { o.position.set(x, y, z); o.rotation.set(0, r, 0); o.updateMatrix(); im.setMatrixAt(n++, o.matrix); }
     for (let i = 0; i < 6; i++) { o.position.set(half - 2 - (i % 2) * 0.7, 0, -hd + 4 + Math.floor(i / 2) * 0.7); o.rotation.set(0, i, 0); o.updateMatrix(); im.setMatrixAt(n++, o.matrix); }
     im.count = n; im.castShadow = im.receiveShadow = true; grp.add(im); col(half - 3, 0, -hd + 3.6, half - 1.6, 0.9, -hd + 5.8); }

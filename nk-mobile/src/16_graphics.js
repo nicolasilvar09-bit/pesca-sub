@@ -7,7 +7,7 @@ float vn(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 *
   return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y); }`;
 // textura procedural pela posição no mundo (não precisa de imagem nem de UV)
 // texturas de detalhe de foto (ambientCG, CC0): chão = grama/terra/rocha, paredes = 6 materiais em 2 imagens
-const DET = { tTer: { value: null }, tWA: { value: null }, tWB: { value: null }, tAsph: { value: null }, uDet: { value: 1 } };
+const DET = { tTer: { value: null }, tWA: { value: null }, tWB: { value: null }, tAsph: { value: null }, uDet: { value: 1 }, uBump: { value: 0 } };
 (function loadDetail() {
   const blank = new T.DataTexture(new Uint8Array([128, 128, 128, 255]), 1, 1); blank.needsUpdate = true; DET.tTer.value = DET.tWA.value = DET.tWB.value = DET.tAsph.value = blank;
   const L = new T.TextureLoader(), an = Math.min(8, renderer.capabilities.getMaxAnisotropy());
@@ -15,7 +15,7 @@ const DET = { tTer: { value: null }, tWA: { value: null }, tWB: { value: null },
 })();
 function patchNoise(mat, kind) {
   mat.onBeforeCompile = sh => {
-    sh.uniforms.tTer = DET.tTer; sh.uniforms.tWA = DET.tWA; sh.uniforms.tWB = DET.tWB; sh.uniforms.uDet = DET.uDet;
+    sh.uniforms.tTer = DET.tTer; sh.uniforms.tWA = DET.tWA; sh.uniforms.tWB = DET.tWB; sh.uniforms.uDet = DET.uDet; sh.uniforms.uBump = DET.uBump;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; attribute float mt;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWN = normalize(mat3(modelMatrix) * objectNormal); vMt = mt;');
     const terr = `
@@ -30,6 +30,7 @@ function patchNoise(mat, kind) {
         float det = mix(mix(dd.g, dd.r, grs), dd.b, grey * 0.85);
         float fd = clamp(1.0 - length(vWP - cameraPosition) / 320.0, 0.3, 1.0); // de longe, menos detalhe (evita chiado)
         diffuseColor.rgb *= mix(1.0, max(0.2, 1.0 + (det - 0.5) * 2.7), uDet * fd);
+        whH = det * fd;
       }`;
     const wall = `
       float w1 = vn(vWP.xz * 1.3 + vWP.y * 1.1);
@@ -48,9 +49,13 @@ function patchNoise(mat, kind) {
       else { /* chapa ondulada */
         d = texture2D(tWB, uv * 0.5).b * (0.86 + 0.14 * sin(uv.x * 52.0) * clamp(1.0 - (fw - 0.008) * 40.0, 0.0, 1.0));
       }
-      diffuseColor.rgb *= mix(1.0, d * 2.0, fd);`;
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; uniform sampler2D tTer; uniform sampler2D tWA; uniform sampler2D tWB; uniform float uDet;\n' + GLSL_NOISE)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + (kind === 'terrain' ? terr : wall));
+      diffuseColor.rgb *= mix(1.0, d * 2.0, fd); whH = d * fd;`;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec3 vWN; varying float vMt; uniform sampler2D tTer; uniform sampler2D tWA; uniform sampler2D tWB; uniform float uDet; uniform float uBump; float whH = 0.5;\n' + GLSL_NOISE)
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + (kind === 'terrain' ? terr : wall))
+      /* relevo: a textura de detalhe também entorta a luz (parede, telha e chão deixam de parecer lisos) */
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      if (uBump > 0.0) { float hb = whH * uBump * ${kind === 'terrain' ? '0.035' : '0.03'}; vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition); vec3 r1 = cross(sy, normal), r2 = cross(normal, sx); float fdt = dot(sx, r1);
+        vec3 gr = sign(fdt) * (dFdx(hb) * r1 + dFdy(hb) * r2); normal = normalize(abs(fdt) * normal - gr); }`);
   };
   mat.customProgramCacheKey = () => 'noise-' + kind;
   mat.needsUpdate = true;
@@ -215,9 +220,10 @@ const GMASK = new Uint8Array(GN * GN); // 0 sem grama, 1 grama, 2 grama perto da
 })();
 function tuftGeo(blades, hMin, hMax, base, tip, head) {
   const pos = [], col = [], nor = [], cb = new T.Color(base), ct = new T.Color(tip);
+  blades *= 2; /* o dobro de folhas, bem mais finas: capim de verdade em vez de espetos */
   for (let k = 0; k < blades; k++) {
-    const a = Math.random() * Math.PI * 2, r = Math.random() * 0.18, x = Math.cos(a) * r, z = Math.sin(a) * r, h = hMin + Math.random() * (hMax - hMin), w = 0.045, ra = Math.random() * Math.PI;
-    const ox = Math.cos(ra) * w, oz = Math.sin(ra) * w, lean = (Math.random() - 0.5) * 0.25;
+    const a = Math.random() * Math.PI * 2, r = Math.random() * 0.24, x = Math.cos(a) * r, z = Math.sin(a) * r, h = hMin * 0.7 + Math.random() * (hMax - hMin * 0.7), w = 0.014 + Math.random() * 0.012, ra = Math.random() * Math.PI;
+    const ox = Math.cos(ra) * w, oz = Math.sin(ra) * w, lean = (Math.random() - 0.5) * 0.5 * h, sh = 0.75 + Math.random() * 0.25; cb.set(base).multiplyScalar(sh); ct.set(tip).multiplyScalar(sh);
     // os dois lados da folha (com a normal para cima, não fica preta por trás)
     pos.push(x - ox, 0, z - oz, x + ox, 0, z + oz, x + lean, h, z + lean * 0.5, x + ox, 0, z + oz, x - ox, 0, z - oz, x + lean, h, z + lean * 0.5);
     for (let s2 = 0; s2 < 2; s2++) { col.push(cb.r, cb.g, cb.b, cb.r, cb.g, cb.b, ct.r, ct.g, ct.b); for (let i = 0; i < 3; i++) nor.push(0, 1, 0); }
@@ -244,7 +250,7 @@ function windMat() {
   return m;
 }
 const GRASS_N = MAPID === 'bal' ? 9500 : 6500, FLOWER_N = MAPID === 'bal' ? 900 : 700; // Balneário: mato mais alto e mais denso
-const grassM = new T.InstancedMesh((MAPID === 'bal' ? tuftGeo(7, 0.34, 0.78, '#2f5a1e', '#86a845') : tuftGeo(6, 0.28, 0.55, '#4a5626', '#a59d55')), windMat(), GRASS_N);
+const grassM = new T.InstancedMesh((MAPID === 'bal' ? tuftGeo(7, 0.34, 0.78, '#2f5a1e', '#86a845') : tuftGeo(6, 0.28, 0.55, '#3c4a22', '#8c8f4c')), windMat(), GRASS_N);
 const flowerM = new T.InstancedMesh(tuftGeo(2, 0.3, 0.42, '#3f5a24', '#7d9a44', true), windMat(), FLOWER_N);
 grassM.frustumCulled = flowerM.frustumCulled = false; grassM.count = flowerM.count = 0; scene.add(grassM, flowerM);
 const FLOWER_C = ['#e8d66a', '#e9e4d8', '#c9a8d8', '#d8c05a', '#f0f0e8', '#b9c870'].map(c => new T.Color(c));

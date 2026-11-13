@@ -309,3 +309,9 @@ Tudo original do NK Mobile. As caixas usam **fichas 🪙 ganhas jogando** (sem d
 - Ragdoll: quem morre perto cai com física, empurrado na direção do tiro (até 4 ao mesmo tempo, 60 m).
 - Barris e caixas: tombam com tiros (barril no 2º, caixa no 3º) e voam com granada; a pilha de caixas cai junta.
 - Galpão realista de teste no campo de treino (src/41_warehouse.js): texturas de verdade (concreto, chapa, zinco), clarabóias com sol entrando de verdade (sombra) e feixes de luz com poeira, lâmpadas com cone de luz e poças de luz pintadas no chão, interior escuro (o céu não ilumina dentro), estrutura de aço, porta-paletes com caixas e barris. A vegetação de dentro some enquanto ele existe.
+
+## Visual de cinema, 1ª pessoa e zona industrial (13/11)
+- Visual realista (src/42_cinema.js + 22_post.js): bloom, cor menos saturada (sombra fria, luz quente, verde menos limão), contraste, grão de filme, vinheta; céu mais azul com camada de nuvens macias (substitui as bolinhas); sol mais forte e sombra mais escura; relevo (bump) nas paredes, telhados e chão. Configurações > "Visual realista (cinema)" (desligado no gráfico Leve).
+- Capim refeito: o dobro de folhas, bem mais finas e escuras.
+- 1ª pessoa (src/43_fpp.js): red dot com tubo oco e lente, holográfica com moldura aberta e lente (antes eram blocos opacos), luvas táticas pretas com proteção e dedos, manga na cor da roupa/traje, luz do clarão do tiro.
+- Zona industrial (src/44_industrial.js): o galpão realista + pátio de containers no mapa principal (leste do Centro, mesma posição para todos), com loot de nível 2–3 dentro e entre os containers.
